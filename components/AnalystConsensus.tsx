@@ -1,12 +1,14 @@
 "use client";
 
 import type { StockData } from "@/types/StockData";
+import { currencyPrefix } from "@/lib/currencyPrefix";
 
 interface Props {
   stockData: StockData;
 }
 
 export function AnalystConsensus({ stockData: d }: Props) {
+  const pfx = currencyPrefix(d.currency);
   const total =
     d.analystStrongBuy + d.analystBuy + d.analystHold + d.analystSell + d.analystStrongSell;
 
@@ -42,7 +44,7 @@ export function AnalystConsensus({ stockData: d }: Props) {
           <div className="flex-1 min-w-[140px]">
             <div className="text-xs text-[#707070] mb-1">Precio Objetivo Medio</div>
             <div className="font-mono font-bold text-[#03065E] text-xl">
-              ${d.targetMeanPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {pfx}{d.targetMeanPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             {upsideStr && (
               <div className={`text-sm font-mono font-medium mt-0.5 ${(upside ?? 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
@@ -51,7 +53,7 @@ export function AnalystConsensus({ stockData: d }: Props) {
             )}
             {d.targetLowPrice != null && d.targetHighPrice != null && (
               <div className="text-xs text-[#707070] mt-1">
-                Rango: ${d.targetLowPrice.toFixed(2)} – ${d.targetHighPrice.toFixed(2)}
+                Rango: {pfx}{d.targetLowPrice.toFixed(2)} – {pfx}{d.targetHighPrice.toFixed(2)}
               </div>
             )}
           </div>
@@ -60,7 +62,7 @@ export function AnalystConsensus({ stockData: d }: Props) {
         {total > 0 && (
           <div className="flex-[2] min-w-[200px]">
             <div className="text-xs text-[#707070] mb-2">
-              {d.numberOfAnalystOpinions ?? total} analistas · {bullish} alcistas · {d.analystHold} neutros · {bearish} bajistas
+              {total} analistas · {bullish} alcistas · {d.analystHold} neutros · {bearish} bajistas
             </div>
             <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
               {bars.map((b) =>

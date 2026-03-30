@@ -14,6 +14,11 @@ function autoScale(values: number[]): { unit: string; divisor: number } {
 export async function fetchSegmentData(
   ticker: string
 ): Promise<SegmentSankeyData | null> {
+  // SEC EDGAR only covers US-listed companies — skip for non-US market tickers
+  // (e.g., GGAL.BA, YPF.BA for BYMA; BRK.A/.B are single-letter and still attempted)
+  const suffix = ticker.split(".").pop() ?? "";
+  if (ticker.includes(".") && suffix.length >= 2) return null;
+
   try {
     const data = await fetchEdgarAll(ticker);
     if (!data) return null;

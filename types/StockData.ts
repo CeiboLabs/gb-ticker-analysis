@@ -37,6 +37,9 @@ export interface StockData {
   industry: string | null;
   description: string | null;
 
+  // Currency (ISO code, e.g. "USD", "ARS")
+  currency: string | null;
+
   // Price
   currentPrice: number | null;
   priceChangePercent: number | null;
@@ -97,7 +100,6 @@ export interface StockData {
   targetMeanPrice: number | null;
   targetHighPrice: number | null;
   targetLowPrice: number | null;
-  numberOfAnalystOpinions: number | null;
   analystStrongBuy: number;
   analystBuy: number;
   analystHold: number;
@@ -109,4 +111,7 @@ export interface StockData {
 
   // Insider transactions
   insiderTransactions: InsiderTransaction[];
+
+  // Historical prices (1 year, daily closes) for the price chart
+  historicalPrices: { time: string; value: number }[] | null;
 }

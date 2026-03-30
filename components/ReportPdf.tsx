@@ -154,6 +154,7 @@ function fmtPct(n: number | null | undefined): string {
 interface ReportDocProps {
   report: StructuredReport;
   stockData: StockData;
+  sankeyImageUrl?: string;
 }
 
 const VERDICT_COLORS = {
@@ -162,7 +163,7 @@ const VERDICT_COLORS = {
   AVOID: { bg: "#fef2f2", border: "#ef4444", badge: "#991b1b", sub: "#dc2626", text: "#7f1d1d" },
 } as const;
 
-function ReportDocument({ report, stockData: d }: ReportDocProps) {
+function ReportDocument({ report, stockData: d, sankeyImageUrl }: ReportDocProps) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -253,10 +254,22 @@ function ReportDocument({ report, stockData: d }: ReportDocProps) {
         </View>
 
         {/* Sections */}
-        {sections.map(([title, content]) => (
+        {sections.map(([title, content], idx) => (
           <View key={title}>
             <Text style={styles.sectionTitle}>{title}</Text>
             <Text style={styles.sectionText}>{strip(content)}</Text>
+            {idx === 1 && sankeyImageUrl && report.segmentData && (
+              <View style={{ marginTop: 6 }}>
+                <Text style={{ fontSize: 7, color: "#9ca3af", marginBottom: 3 }}>
+                  {report.segmentData.period +
+                    (report.segmentData.segmentPeriod && report.segmentData.segmentPeriod !== report.segmentData.period
+                      ? " · Segmentos: " + report.segmentData.segmentPeriod
+                      : "") +
+                    " · en " + report.segmentData.currency + ", " + report.segmentData.unit}
+                </Text>
+                <Image src={sankeyImageUrl} style={{ width: "100%", borderRadius: 4 }} />
+              </View>
+            )}
           </View>
         ))}
 
@@ -275,13 +288,14 @@ function ReportDocument({ report, stockData: d }: ReportDocProps) {
 interface DownloadProps {
   report: StructuredReport;
   stockData: StockData;
+  sankeyImageUrl?: string;
 }
 
-export function ReportPdfDownload({ report, stockData }: DownloadProps) {
+export function ReportPdfDownload({ report, stockData, sankeyImageUrl }: DownloadProps) {
   const today = new Date().toISOString().split("T")[0];
   return (
     <PDFDownloadLink
-      document={<ReportDocument report={report} stockData={stockData} />}
+      document={<ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} />}
       fileName={`${stockData.ticker}-analysis-${today}.pdf`}
       className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer"
     >

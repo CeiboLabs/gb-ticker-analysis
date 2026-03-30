@@ -23,8 +23,9 @@ const ReportPdfDownload = dynamic(
 interface Props {
   report: StructuredReport;
   stockData: StockData;
+  sankeyImageUrl?: string;
 }
 
-export function PdfExportButton({ report, stockData }: Props) {
-  return <ReportPdfDownload report={report} stockData={stockData} />;
+export function PdfExportButton({ report, stockData, sankeyImageUrl }: Props) {
+  return <ReportPdfDownload report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} />;
 }

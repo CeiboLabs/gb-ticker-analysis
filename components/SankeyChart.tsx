@@ -1,5 +1,6 @@
 "use client";
 
+import { type RefObject } from "react";
 import { sankey as d3Sankey, sankeyCenter } from "d3-sankey";
 import type { SegmentSankeyData } from "@/types/Report";
 
@@ -68,7 +69,7 @@ interface SLink {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function SankeyChart({ data }: { data: SegmentSankeyData }) {
+export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?: RefObject<SVGSVGElement | null> }) {
   const {
     segments, totalRevenue, grossProfit,
     operatingProfit, operatingExpenses, netProfit,
@@ -310,8 +311,6 @@ export function SankeyChart({ data }: { data: SegmentSankeyData }) {
   }
 
   // ── Pre-compute last-column label positions (greedy anti-overlap) ──────────
-  // Labels are centered on cy, but thin nodes have blocks taller than the node
-  // itself, so consecutive labels can collide. Push each one down until clear.
   const lastColLabelY = new Map<string, number>();
   {
     const sorted = (graph.nodes as SNode[])
@@ -329,6 +328,29 @@ export function SankeyChart({ data }: { data: SegmentSankeyData }) {
     }
   }
 
+  // ── Pre-compute segment (left-column) label positions ────────────────────
+  // Same greedy top-to-bottom push. For thin nodes collapse to a single line
+  // ("Name · $value") so labels never overlap.
+  interface SegState { topY: number; singleLine: boolean; showSub: boolean; }
+  const segLabelState = new Map<string, SegState>();
+  {
+    const sorted = (graph.nodes as SNode[])
+      .filter(n => segNodeIds.has(n.id))
+      .sort((a, b) => (a.y0 ?? 0) - (b.y0 ?? 0));
+    let prevBottom = -Infinity;
+    for (const sn of sorted) {
+      const lh       = Math.max(1, (sn.y1 ?? 0) - (sn.y0 ?? 0));
+      const lcy      = (sn.y0 ?? 0) + lh / 2;
+      const singleLine = lh < 1.5 * LINE_H;
+      const showSub    = !singleLine && lh >= 2.5 * LINE_H && !!sn.subLabel;
+      const nl         = singleLine ? 1 : 1 + (sn.displayValue ? 1 : 0) + (showSub ? 1 : 0);
+      let ty = lcy - (nl * LINE_H) / 2;
+      if (ty < prevBottom + 4) ty = prevBottom + 4;
+      segLabelState.set(sn.id, { topY: ty, singleLine, showSub });
+      prevBottom = ty + nl * LINE_H;
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full rounded-xl border border-[#03065E]/10 bg-white py-3 px-1">
@@ -340,7 +362,7 @@ export function SankeyChart({ data }: { data: SegmentSankeyData }) {
         <span className="ml-2 font-normal text-[#707070]">in {data.currency}, {unit}</span>
       </div>
 
-      <svg viewBox={`0 0 ${VW} ${VH}`} className="w-full" style={{ display: "block" }}>
+      <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} className="w-full" style={{ display: "block" }}>
 
         {/* ── Ribbon flows ── */}
         {graph.links.map((link, i) => {
@@ -404,10 +426,24 @@ export function SankeyChart({ data }: { data: SegmentSankeyData }) {
 
                 } else if (isSegment) {
                   // ── LEFT of node ──
-                  const lx     = x0 - 10;
-                  const nLines = 1 + (n.displayValue ? 1 : 0) + (n.subLabel ? 1 : 0);
-                  const topY   = cy - nLines * LINE_H / 2;
-                  return labelBlock(n, lx, topY, "end", 18, 15, 13, "#111", "#444");
+                  const lx    = x0 - 10;
+                  const state = segLabelState.get(n.id);
+                  const topY  = state?.topY ?? (cy - LINE_H / 2);
+
+                  if (state?.singleLine) {
+                    // Collapse to one line; match weights of the multi-line case
+                    // (name → 800, value → 600) using tspan
+                    return [
+                      <text key="sl" x={lx} y={topY + LINE_H / 2}
+                        fontSize={14} textAnchor="end" dominantBaseline="middle">
+                        <tspan fontWeight="800" fill="#111">{n.name}</tspan>
+                        {n.displayValue && (
+                          <tspan fontWeight="600" fill="#444">{"  " + n.displayValue}</tspan>
+                        )}
+                      </text>,
+                    ];
+                  }
+                  return labelBlock(n, lx, topY, "end", 18, 15, 13, "#111", "#444", state?.showSub ?? true);
 
                 } else {
                   // ── RIGHT of node (last column only) ──

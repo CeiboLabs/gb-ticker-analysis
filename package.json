@@ -13,6 +13,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@types/d3-sankey": "^0.12.5",
     "d3-sankey": "^0.12.3",
+    "lightweight-charts": "^5.1.0",
     "next": "16.2.1",
     "openai": "^6.33.0",
     "react": "19.2.4",

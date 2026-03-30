@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { StockData } from "@/types/StockData";
+import { currencyPrefix } from "@/lib/currencyPrefix";
 
 interface Props {
   stockData: StockData;
@@ -18,8 +19,8 @@ export function ReportHeader({ stockData }: Props) {
 
   const logoSources = stockData.domain
     ? [
-        `https://logo.clearbit.com/${stockData.domain}`,
-        `https://www.google.com/s2/favicons?domain=${stockData.domain}&sz=64`,
+        `https://logo.clearbit.com/${stockData.domain}?size=128`,
+        `https://www.google.com/s2/favicons?domain=${stockData.domain}&sz=128`,
       ]
     : [];
 
@@ -39,6 +40,7 @@ export function ReportHeader({ stockData }: Props) {
           alt={stockData.companyName}
           width={48}
           height={48}
+          style={{ imageRendering: "auto" }}
           className="rounded-xl object-contain bg-white p-1 shadow-sm border border-[#03065E]/10"
           onError={() => setFallback((f) => f + 1)}
         />
@@ -65,7 +67,7 @@ export function ReportHeader({ stockData }: Props) {
       {stockData.currentPrice != null && (
         <div className="text-right shrink-0">
           <div className="text-2xl font-mono font-bold text-[#03065E]">
-            ${stockData.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {currencyPrefix(stockData.currency)}{stockData.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           {changePct && (
             <div className={`text-sm font-mono font-medium ${priceColor(stockData.priceChangePercent)}`}>

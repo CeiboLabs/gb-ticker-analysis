@@ -27,7 +27,11 @@ function fmtDate(d: Date | null | undefined): string | null {
 type AnyRecord = Record<string, any>;
 
 export async function fetchStockData(ticker: string): Promise<StockData> {
-  const result = await yahooFinance.quoteSummary(
+  const oneYearAgo = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
+  const today = new Date();
+
+  const [result, historicalRaw] = await Promise.all([
+    yahooFinance.quoteSummary(
     ticker,
     {
       modules: [
@@ -46,7 +50,11 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
       ],
     },
     { validateResult: false },
-  ) as AnyRecord;
+  ) as AnyRecord,
+    yahooFinance
+      .historical(ticker, { period1: oneYearAgo, period2: today, interval: "1wk" })
+      .catch(() => null),
+  ]);
 
   const price   = result.price        as AnyRecord | undefined;
   const detail  = result.summaryDetail as AnyRecord | undefined;
@@ -110,6 +118,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   return {
     ticker: ticker.toUpperCase(),
     companyName: price?.longName ?? price?.shortName ?? ticker.toUpperCase(),
+    currency: (price?.currency as string | undefined) ?? null,
     domain: extractDomain(profile?.website ?? null),
     sector: profile?.sector ?? null,
     industry: profile?.industry ?? null,
@@ -164,7 +173,6 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     targetMeanPrice: fin?.targetMeanPrice ?? null,
     targetHighPrice: fin?.targetHighPrice ?? null,
     targetLowPrice: fin?.targetLowPrice ?? null,
-    numberOfAnalystOpinions: fin?.numberOfAnalystOpinions ?? null,
     analystStrongBuy: recTrend?.strongBuy ?? 0,
     analystBuy: recTrend?.buy ?? 0,
     analystHold: recTrend?.hold ?? 0,
@@ -173,5 +181,14 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
 
     analystActions,
     insiderTransactions,
+
+    historicalPrices: historicalRaw
+      ? historicalRaw
+          .filter((d) => d.adjClose != null)
+          .map((d) => ({
+            time: d.date.toISOString().split("T")[0],
+            value: d.adjClose as number,
+          }))
+      : null,
   };
 }

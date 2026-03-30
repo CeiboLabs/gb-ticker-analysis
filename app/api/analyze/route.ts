@@ -5,6 +5,7 @@ import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 import { cacheGet, cacheSet, cacheClear } from "@/lib/cache";
+import { checkRateLimit } from "@/lib/rateLimiter";
 import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
@@ -84,6 +85,19 @@ function serializeField(value: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  // 0. Rate limiting
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    return new Response("Demasiadas solicitudes. Intente nuevamente más tarde.", {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
+  }
+
   // 1. Parse + validate
   let body: unknown;
   try {

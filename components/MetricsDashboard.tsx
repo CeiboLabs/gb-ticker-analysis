@@ -1,6 +1,7 @@
 "use client";
 
 import type { StockData } from "@/types/StockData";
+import { currencyPrefix } from "@/lib/currencyPrefix";
 
 interface Props {
   stockData: StockData;
@@ -15,17 +16,17 @@ function fmtPct(n: number | null | undefined): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-function fmtLarge(n: number | null | undefined): string {
+function fmtLarge(n: number | null | undefined, pfx: string): string {
   if (n == null) return "—";
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-  return `$${n.toLocaleString("en-US")}`;
+  if (n >= 1e12) return `${pfx}${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9) return `${pfx}${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${pfx}${(n / 1e6).toFixed(2)}M`;
+  return `${pfx}${n.toLocaleString("en-US")}`;
 }
 
-function fmtPrice(n: number | null | undefined): string {
+function fmtPrice(n: number | null | undefined, pfx: string): string {
   if (n == null) return "—";
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${pfx}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 interface MetricItem {
@@ -43,19 +44,20 @@ function Metric({ label, value }: MetricItem) {
 }
 
 export function MetricsDashboard({ stockData: d }: Props) {
+  const pfx = currencyPrefix(d.currency);
   const metrics: MetricItem[] = [
-    { label: "Cap. Bursátil", value: fmtLarge(d.marketCap) },
+    { label: "Cap. Bursátil", value: fmtLarge(d.marketCap, pfx) },
     { label: "P/E Trailing", value: d.trailingPE != null ? `${fmt(d.trailingPE)}x` : "—" },
     { label: "P/E Forward", value: d.forwardPE != null ? `${fmt(d.forwardPE)}x` : "—" },
-    { label: "EPS (TTM)", value: d.trailingEps != null ? `$${fmt(d.trailingEps)}` : "—" },
-    { label: "Ingresos (TTM)", value: fmtLarge(d.totalRevenue) },
+    { label: "EPS (TTM)", value: d.trailingEps != null ? `${pfx}${fmt(d.trailingEps)}` : "—" },
+    { label: "Ingresos (TTM)", value: fmtLarge(d.totalRevenue, pfx) },
     { label: "Crec. Ingresos", value: fmtPct(d.revenueGrowth) },
     { label: "Margen Bruto", value: fmtPct(d.grossMargins) },
     { label: "Margen Neto", value: fmtPct(d.profitMargins) },
-    { label: "Flujo Caja Libre", value: fmtLarge(d.freeCashflow) },
+    { label: "Flujo Caja Libre", value: fmtLarge(d.freeCashflow, pfx) },
     { label: "ROE", value: fmtPct(d.returnOnEquity) },
-    { label: "Máx. 52 sem.", value: fmtPrice(d.fiftyTwoWeekHigh) },
-    { label: "Mín. 52 sem.", value: fmtPrice(d.fiftyTwoWeekLow) },
+    { label: "Máx. 52 sem.", value: fmtPrice(d.fiftyTwoWeekHigh, pfx) },
+    { label: "Mín. 52 sem.", value: fmtPrice(d.fiftyTwoWeekLow, pfx) },
   ];
 
   return (
