@@ -54,7 +54,7 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function analyze(tickerInput: string, refresh = false) {
+  async function analyze(tickerInput: string, refresh = false, isRetry = false) {
     const t = tickerInput.trim().toUpperCase();
     if (!t) return;
 
@@ -123,6 +123,9 @@ export default function Home() {
       }
 
       if (!receivedDone) {
+        // The server likely completed and cached the result before the stream was cut.
+        // Retry once — the cache hit will resolve instantly.
+        if (!isRetry) return analyze(tickerInput, false, true);
         throw new Error("La respuesta fue interrumpida. Intentá de nuevo.");
       }
     } catch (err) {
