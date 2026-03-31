@@ -117,12 +117,12 @@ export async function POST(req: NextRequest) {
 
   // 2. Cache check
   if (!refresh) {
-    const cached = cacheGet(ticker);
+    const cached = await cacheGet(ticker);
     if (cached) {
       return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
     }
   } else {
-    cacheClear(ticker);
+    await cacheClear(ticker);
   }
 
   // 3. Fetch financial data
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        cacheSet(ticker, report, stockData);
+        await cacheSet(ticker, report, stockData);
 
         // Send final payload: full structured report + stockData for UI components
         controller.enqueue(

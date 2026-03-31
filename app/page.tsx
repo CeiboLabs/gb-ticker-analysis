@@ -54,13 +54,6 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleCancel() {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    setStatus("idle");
-    setIsRefreshing(false);
-  }
-
   async function analyze(tickerInput: string, refresh = false) {
     const t = tickerInput.trim().toUpperCase();
     if (!t) return;
@@ -166,6 +159,7 @@ export default function Home() {
               className="hidden sm:block h-7 w-auto shrink-0 mr-2 cursor-pointer"
               style={{ filter: "brightness(0) invert(1)" }}
               onClick={() => {
+                if (status === "loading") return;
                 if (inputRef.current) inputRef.current.value = "";
                 setCanSubmit(false);
                 setTicker("");
@@ -187,24 +181,16 @@ export default function Home() {
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
-              className="ticker-input flex-1 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-white placeholder-white/40 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/40 focus:border-transparent uppercase"
+              disabled={status === "loading"}
+              className="ticker-input flex-1 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-white placeholder-white/40 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/40 focus:border-transparent uppercase disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            {status === "loading" ? (
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-3 py-2.5 sm:px-5 bg-white/20 text-white hover:bg-white/30 font-semibold rounded-xl text-sm transition-colors"
-              >
-                Cancelar
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="px-3 py-2.5 sm:px-5 bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold rounded-xl text-sm transition-colors"
-              >
-                Analizar
-              </button>
-            )}
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="px-3 py-2.5 sm:px-5 bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Analizar
+            </button>
           </form>
         </div>
       </header>

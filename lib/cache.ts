@@ -7,14 +7,22 @@ interface CacheEntry {
   createdAt: number;
 }
 
-// In-memory cache (per Worker isolate). Persists across requests within the same
-// isolate instance. On Cloudflare Workers this is the only viable layer without KV.
-const memCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 function cacheKey(ticker: string): string {
   const date = new Date().toISOString().split("T")[0];
   return `${ticker.toUpperCase()}-${date}`;
 }
+
+// Internal URL used as cache key for the Cache API (doesn't need to be a real URL)
+function cacheUrl(key: string): string {
+  return `https://ticker-cache.internal/${key}`;
+}
+
+// In-memory fallback for local dev (globalThis survives HMR reloads)
+const g = globalThis as Record<string, unknown>;
+if (!g.__tickerCache) g.__tickerCache = new Map<string, CacheEntry>();
+const memCache = g.__tickerCache as Map<string, CacheEntry>;
 
 function isValidEntry(entry: unknown): entry is CacheEntry {
   if (!entry || typeof entry !== "object") return false;
@@ -30,18 +38,56 @@ function isValidEntry(entry: unknown): entry is CacheEntry {
   );
 }
 
-export function cacheGet(ticker: string): CacheEntry | null {
+export async function cacheGet(ticker: string): Promise<CacheEntry | null> {
   const key = cacheKey(ticker);
+
+  // Cloudflare Cache API — shared across isolates in the same datacenter
+  if (typeof caches !== "undefined") {
+    try {
+      const res = await caches.default.match(new Request(cacheUrl(key)));
+      if (res) {
+        const entry = await res.json() as unknown;
+        if (isValidEntry(entry)) return entry;
+      }
+    } catch { /* fall through */ }
+  }
+
+  // In-memory fallback (local dev)
   const hit = memCache.get(key);
-  if (hit) return isValidEntry(hit) ? hit : null;
-  return null;
+  return hit && isValidEntry(hit) ? hit : null;
 }
 
-export function cacheSet(ticker: string, report: StructuredReport, stockData: StockData): void {
+export async function cacheSet(ticker: string, report: StructuredReport, stockData: StockData): Promise<void> {
   const key = cacheKey(ticker);
-  memCache.set(key, { report, stockData, createdAt: Date.now() });
+  const entry: CacheEntry = { report, stockData, createdAt: Date.now() };
+
+  // Cloudflare Cache API
+  if (typeof caches !== "undefined") {
+    try {
+      await caches.default.put(
+        new Request(cacheUrl(key)),
+        new Response(JSON.stringify(entry), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": `public, max-age=${CACHE_TTL}`,
+          },
+        })
+      );
+    } catch { /* fall through */ }
+  }
+
+  // Always write to memory too (instant for local dev)
+  memCache.set(key, entry);
 }
 
-export function cacheClear(ticker: string): void {
-  memCache.delete(cacheKey(ticker));
+export async function cacheClear(ticker: string): Promise<void> {
+  const key = cacheKey(ticker);
+
+  if (typeof caches !== "undefined") {
+    try {
+      await caches.default.delete(new Request(cacheUrl(key)));
+    } catch { /* ignore */ }
+  }
+
+  memCache.delete(key);
 }

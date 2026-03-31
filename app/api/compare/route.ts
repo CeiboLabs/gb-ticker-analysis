@@ -61,13 +61,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const results: CompareTickerResult[] = successes.map(({ ticker, stockData }) => {
-    const entry = cacheGet(ticker);
-    const verdict = entry
-      ? { rating: entry.report.verdict.rating, conviction: entry.report.verdict.conviction }
-      : null;
-    return { ticker, stockData, verdict };
-  });
+  const results: CompareTickerResult[] = await Promise.all(
+    successes.map(async ({ ticker, stockData }) => {
+      const entry = await cacheGet(ticker);
+      const verdict = entry
+        ? { rating: entry.report.verdict.rating, conviction: entry.report.verdict.conviction }
+        : null;
+      return { ticker, stockData, verdict };
+    })
+  );
 
   return NextResponse.json({ results });
 }
