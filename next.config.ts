@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Silence the "webpack config but no turbopack config" warning.
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      "@deno/shim-deno": "./lib/deno-shim-edge/index.js",
+    },
+  },
 };
 
 export default nextConfig;
