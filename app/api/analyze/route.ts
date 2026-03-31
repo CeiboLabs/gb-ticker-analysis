@@ -13,7 +13,6 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // Build a minimal SegmentSankeyData from Yahoo Finance TTM margins
-// Used when FMP is unavailable or returns no data for a ticker
 function buildFallbackSegmentData(sd: StockData): SegmentSankeyData | null {
   const rev = sd.totalRevenue;
   if (!rev || rev <= 0) return null;
@@ -126,7 +125,7 @@ export async function POST(req: NextRequest) {
     cacheClear(ticker);
   }
 
-  // 3. Fetch financial data (Yahoo Finance + FMP in parallel)
+  // 3. Fetch financial data
   let stockData;
   let segmentData;
   try {
@@ -216,7 +215,7 @@ export async function POST(req: NextRequest) {
             }
           }
           report = raw as unknown as StructuredReport;
-          // Prefer FMP segment data; fall back to Yahoo Finance TTM margins
+          // Use EDGAR segment data; fall back to Yahoo Finance TTM margins
           report.segmentData = segmentData ?? buildFallbackSegmentData(stockData);
         } catch {
           controller.enqueue(

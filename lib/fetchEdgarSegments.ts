@@ -2,6 +2,7 @@
  * Fetches quarterly product-segment revenue directly from SEC EDGAR XBRL 10-Q filings.
  * Free, official data. Works for any US company that files 10-Q with the SEC.
  */
+import type { RevenueQuarter } from "@/types/StockData";
 
 const SEC      = "https://www.sec.gov";
 const DATA_SEC = "https://data.sec.gov";
@@ -367,7 +368,6 @@ export async function fetchEdgarSegments(
 
 // ── EDGAR Income Statement ────────────────────────────────────────────────────
 // Extracts a full quarterly income statement from EDGAR XBRL.
-// Used as fallback when FMP doesn't cover the ticker.
 
 const IS_CONCEPTS: Record<string, string[]> = {
   revenue:         ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet"],
@@ -520,6 +520,89 @@ export async function fetchEdgarIncomeStatement(
 export interface EdgarAllData {
   incomeStatement: EdgarIncomeStatement;
   segmentResult:   EdgarSegmentResult | null;
+}
+
+// ── Quarterly revenue history from EDGAR companyconcept ───────────────────────
+// Uses the per-concept API (much smaller than companyfacts) to get 3+ years of
+// quarterly revenue without rate limits or API keys.
+
+export async function fetchEdgarQuarterlyRevenue(
+  ticker: string,
+  period1: Date,
+): Promise<RevenueQuarter[] | null> {
+  // EDGAR only covers US-listed companies
+  const suffix = ticker.split(".").pop() ?? "";
+  if (ticker.includes(".") && suffix.length >= 2) return null;
+
+  try {
+    const cik = await resolveCIK(ticker);
+    if (!cik) return null;
+
+    const cikPadded = cik.padStart(10, "0");
+
+    for (const concept of REV_CONCEPTS) {
+      const url = `${DATA_SEC}/api/xbrl/companyconcept/CIK${cikPadded}/us-gaap/${concept}.json`;
+      const r = await secFetch(url, 3600);
+      if (!r.ok) continue;
+
+      const data = await r.json() as {
+        units?: { USD?: Array<{ start?: string; end: string; val: number; filed?: string }> };
+      };
+
+      const facts = data.units?.USD;
+      if (!Array.isArray(facts)) continue;
+
+      // Collect quarterly (~90 days) and annual (~365 days) facts separately
+      const quarterly = new Map<string, { val: number; filed: string; start: string }>();
+      const annual    = new Map<string, { val: number; start: string; filed: string }>();
+
+      for (const f of facts) {
+        if (!f.start || !f.end || f.val <= 0) continue;
+        const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
+        if (days >= 75 && days <= 110) {
+          const prev = quarterly.get(f.end);
+          if (!prev || (f.filed ?? "") > prev.filed) {
+            quarterly.set(f.end, { val: f.val, filed: f.filed ?? "", start: f.start });
+          }
+        } else if (days >= 340 && days <= 380) {
+          const prev = annual.get(f.end);
+          if (!prev || (f.filed ?? "") > prev.filed) {
+            annual.set(f.end, { val: f.val, start: f.start, filed: f.filed ?? "" });
+          }
+        }
+      }
+
+      if (quarterly.size === 0) continue;
+
+      // Derive missing Q4 = annual − (Q1 + Q2 + Q3) for each fiscal year
+      for (const [annualEnd, ann] of annual) {
+        if (quarterly.has(annualEnd)) continue; // Q4 already present
+        const annStartMs = Date.parse(ann.start);
+        const annEndMs   = Date.parse(annualEnd);
+        let qtdSum = 0, qtdCount = 0;
+        for (const [qEnd, q] of quarterly) {
+          const qStartMs = Date.parse(q.start);
+          const qEndMs   = Date.parse(qEnd);
+          if (qStartMs >= annStartMs && qEndMs < annEndMs) { qtdSum += q.val; qtdCount++; }
+        }
+        if (qtdCount === 3) {
+          const q4Val = ann.val - qtdSum;
+          if (q4Val > 0) quarterly.set(annualEnd, { val: q4Val, filed: "", start: "" });
+        }
+      }
+
+      const result = [...quarterly.entries()]
+        .filter(([time]) => new Date(time) >= period1)
+        .map(([time, { val }]) => ({ time, value: val }))
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      if (result.length > 0) return result;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null> {
