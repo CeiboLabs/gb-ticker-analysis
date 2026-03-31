@@ -24,8 +24,9 @@ interface Props {
   report: StructuredReport;
   stockData: StockData;
   sankeyImageUrl?: string;
+  priceChartImageUrl?: string;
 }
 
-export function PdfExportButton({ report, stockData, sankeyImageUrl }: Props) {
-  return <ReportPdfDownload report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} />;
+export function PdfExportButton({ report, stockData, sankeyImageUrl, priceChartImageUrl }: Props) {
+  return <ReportPdfDownload report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />;
 }

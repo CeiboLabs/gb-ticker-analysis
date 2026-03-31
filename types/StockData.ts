@@ -1,3 +1,8 @@
+export interface RevenueQuarter {
+  time: string; // YYYY-MM-DD (quarter end date)
+  value: number; // totalRevenue in raw units
+}
+
 export interface EarningsQuarter {
   quarter: string;
   epsActual: number | null;
@@ -26,6 +31,13 @@ export interface InsiderTransaction {
   relation: string;
   transactionText: string;
   value: number | null;
+}
+
+export interface NewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: string; // "YYYY-MM-DD"
 }
 
 export interface StockData {
@@ -112,6 +124,12 @@ export interface StockData {
   // Insider transactions
   insiderTransactions: InsiderTransaction[];
 
-  // Historical prices (1 year, daily closes) for the price chart
+  // Historical prices (3 years, weekly closes) for the price chart
   historicalPrices: { time: string; value: number }[] | null;
+
+  // Quarterly revenue (last 3 years) for chart overlay
+  quarterlyRevenue: RevenueQuarter[] | null;
+
+  // Recent news headlines (from Yahoo Finance search)
+  recentNews?: NewsItem[];
 }

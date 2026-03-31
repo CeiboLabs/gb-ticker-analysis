@@ -3,6 +3,7 @@
 import { ReportHeader } from "@/components/ReportHeader";
 import { MetricsDashboard } from "@/components/MetricsDashboard";
 import { AnalystConsensus } from "@/components/AnalystConsensus";
+import { PriceChart } from "@/components/PriceChart";
 import type { StockData } from "@/types/StockData";
 
 interface Props {
@@ -50,6 +51,8 @@ export function LoadingState({ ticker, stockData }: Props) {
 
         <ReportHeader stockData={stockData} />
         <MetricsDashboard stockData={stockData} />
+        <PriceChart historicalPrices={stockData.historicalPrices} ticker={stockData.ticker} quarterlyRevenue={stockData.quarterlyRevenue} />
+        <div className="mt-6" />
         <AnalystConsensus stockData={stockData} />
 
         {/* Verdict skeleton */}

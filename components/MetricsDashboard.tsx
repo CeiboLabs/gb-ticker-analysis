@@ -45,6 +45,7 @@ function Metric({ label, value }: MetricItem) {
 
 export function MetricsDashboard({ stockData: d }: Props) {
   const pfx = currencyPrefix(d.currency);
+
   const metrics: MetricItem[] = [
     { label: "Cap. Bursátil", value: fmtLarge(d.marketCap, pfx) },
     { label: "P/E Trailing", value: d.trailingPE != null ? `${fmt(d.trailingPE)}x` : "—" },
@@ -55,9 +56,9 @@ export function MetricsDashboard({ stockData: d }: Props) {
     { label: "Margen Bruto", value: fmtPct(d.grossMargins) },
     { label: "Margen Neto", value: fmtPct(d.profitMargins) },
     { label: "Flujo Caja Libre", value: fmtLarge(d.freeCashflow, pfx) },
-    { label: "ROE", value: fmtPct(d.returnOnEquity) },
     { label: "Máx. 52 sem.", value: fmtPrice(d.fiftyTwoWeekHigh, pfx) },
     { label: "Mín. 52 sem.", value: fmtPrice(d.fiftyTwoWeekLow, pfx) },
+    { label: "Beta", value: d.beta != null ? fmt(d.beta) : "—" },
   ];
 
   return (

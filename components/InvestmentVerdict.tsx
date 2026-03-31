@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
 import type { Verdict, VerdictRating, VerdictConviction } from "@/types/Report";
 
 interface Props {
@@ -52,7 +53,9 @@ export function InvestmentVerdict({ verdict }: Props) {
           Convicción {convictionLabel[verdict.conviction] ?? verdict.conviction}
         </span>
       </div>
-      <p className={`text-sm leading-relaxed ${cfg.text}`}>{verdict.rationale}</p>
+      <div className={`text-sm leading-relaxed prose prose-sm max-w-none prose-strong:text-current prose-p:my-0 ${cfg.text}`}>
+        <ReactMarkdown>{verdict.rationale}</ReactMarkdown>
+      </div>
     </div>
   );
 }

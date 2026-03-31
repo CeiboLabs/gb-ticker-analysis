@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { LoadingState } from "@/components/LoadingState";
 import { ReportView } from "@/components/ReportView";
 import type { StructuredReport } from "@/types/Report";
@@ -22,6 +23,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const activeTicker = useRef<string>("");
+
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("ticker");
+    if (t) {
+      const upper = t.toUpperCase();
+      setTicker(upper);
+      analyze(upper);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function analyze(tickerInput: string, refresh = false) {
     const t = tickerInput.trim().toUpperCase();
@@ -114,8 +125,16 @@ export default function Home() {
             <img
               src="/logo-bengochea.svg"
               alt="Gastón Bengochea"
-              className="hidden sm:block h-7 w-auto shrink-0 mr-2"
+              className="hidden sm:block h-7 w-auto shrink-0 mr-2 cursor-pointer"
               style={{ filter: "brightness(0) invert(1)" }}
+              onClick={() => {
+                setTicker("");
+                setStatus("idle");
+                setResult(null);
+                setPartialStockData(null);
+                setError(null);
+                activeTicker.current = "";
+              }}
             />
             <div className="hidden sm:block w-px h-5 bg-white/20 mr-1" />
             <input
@@ -149,6 +168,12 @@ export default function Home() {
             <p className="text-xs tracking-[0.3em] uppercase text-[#03065E]/40">
               Corredor de Bolsa · Análisis Institucional
             </p>
+            <Link
+              href="/compare"
+              className="inline-block mt-6 text-xs text-[#03065E]/40 hover:text-[#03065E]/70 transition-colors tracking-widest uppercase font-semibold"
+            >
+              Comparar acciones →
+            </Link>
           </div>
         )}
 

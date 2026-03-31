@@ -2,14 +2,9 @@ import fs from "fs";
 import path from "path";
 import type { StockData } from "@/types/StockData";
 
-let cachedTemplate: string | null = null;
-
 function getTemplate(): string {
-  if (!cachedTemplate) {
-    const templatePath = path.join(process.cwd(), "prompts", "analysis.txt");
-    cachedTemplate = fs.readFileSync(templatePath, "utf-8");
-  }
-  return cachedTemplate;
+  const templatePath = path.join(process.cwd(), "prompts", "analysis.txt");
+  return fs.readFileSync(templatePath, "utf-8");
 }
 
 // ── Scalar formatters ────────────────────────────────────────────────────────
@@ -160,7 +155,10 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   TARGET_PRICE_MEAN:   (d) => fmtCurrency(d.targetMeanPrice),
   TARGET_PRICE_HIGH:   (d) => fmtCurrency(d.targetHighPrice),
   TARGET_PRICE_LOW:    (d) => fmtCurrency(d.targetLowPrice),
-  ANALYST_COUNT:       (d) => d.numberOfAnalystOpinions?.toString() ?? "N/A",
+  ANALYST_COUNT:       (d) => {
+    const total = d.analystStrongBuy + d.analystBuy + d.analystHold + d.analystSell + d.analystStrongSell;
+    return total > 0 ? total.toString() : "N/A";
+  },
   ANALYST_STRONG_BUY:  (d) => d.analystStrongBuy.toString(),
   ANALYST_BUY:         (d) => d.analystBuy.toString(),
   ANALYST_HOLD:        (d) => d.analystHold.toString(),

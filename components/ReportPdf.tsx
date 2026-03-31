@@ -33,10 +33,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    width: 90,
-    height: 60,
+    width: 138,
+    height: 24,
     objectFit: "contain",
   },
+
   ticker: {
     fontSize: 22,
     fontFamily: "Helvetica-Bold",
@@ -84,6 +85,18 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 9,
     fontFamily: "Helvetica-Bold",
+  },
+  chartContainer: {
+    marginBottom: 16,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  chartLabel: {
+    fontSize: 7,
+    color: "#9ca3af",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   verdictBox: {
     borderRadius: 6,
@@ -155,6 +168,7 @@ interface ReportDocProps {
   report: StructuredReport;
   stockData: StockData;
   sankeyImageUrl?: string;
+  priceChartImageUrl?: string;
 }
 
 const VERDICT_COLORS = {
@@ -163,7 +177,7 @@ const VERDICT_COLORS = {
   AVOID: { bg: "#fef2f2", border: "#ef4444", badge: "#991b1b", sub: "#dc2626", text: "#7f1d1d" },
 } as const;
 
-function ReportDocument({ report, stockData: d, sankeyImageUrl }: ReportDocProps) {
+function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageUrl }: ReportDocProps) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -202,14 +216,43 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl }: ReportDocProps
     ["Escenario Bajista — $" + report.bearCase.priceTarget, report.bearCase.narrative],
   ];
 
-  // Strip markdown for PDF text
-  function strip(value: unknown): string {
+  // Clean markdown but preserve **bold** markers for rendering
+  function cleanMd(value: unknown): string {
     const md = typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
     return md
-      .replace(/#{1,6}\s/g, "")
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/\*(.*?)\*/g, "$1")
-      .replace(/`(.*?)`/g, "$1");
+      .replace(/#{1,6}\s+(.*)/g, "$1")
+      .replace(/`(.*?)`/g, "$1")
+      .replace(/^- /gm, "• ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  // Parse text into bold/normal segments
+  function parseBold(text: string): Array<{ t: string; bold: boolean }> {
+    const parts: Array<{ t: string; bold: boolean }> = [];
+    const re = /\*\*(.*?)\*\*/g;
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      if (m.index! > last) parts.push({ t: text.slice(last, m.index), bold: false });
+      parts.push({ t: m[1], bold: true });
+      last = m.index! + m[0].length;
+    }
+    if (last < text.length) parts.push({ t: text.slice(last), bold: false });
+    return parts;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function PdfText({ content, style }: { content: unknown; style: any }) {
+    const parts = parseBold(cleanMd(content));
+    return (
+      <Text style={style}>
+        {parts.map((p, i) =>
+          p.bold
+            ? <Text key={i} style={{ fontFamily: "Helvetica-Bold" }}>{p.t}</Text>
+            : p.t
+        )}
+      </Text>
+    );
   }
 
   return (
@@ -229,7 +272,7 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl }: ReportDocProps
               <Text style={styles.price}>{fmtPrice(d.currentPrice)}</Text>
             </View>
           </View>
-          <Image style={styles.logo} src="/logoBengochea.jpg" />
+          <Image style={styles.logo} src="/logo-bengochea.png" />
         </View>
 
         {/* Metrics grid */}
@@ -242,6 +285,22 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl }: ReportDocProps
           ))}
         </View>
 
+        {/* Price chart */}
+        {priceChartImageUrl && (
+          <View style={styles.chartContainer}>
+            <Text style={styles.chartLabel}>Precio — Últimos 3 años</Text>
+            <Image src={priceChartImageUrl} style={{ width: "100%", borderRadius: 4 }} />
+            {d.quarterlyRevenue && d.quarterlyRevenue.length > 0 && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                <View style={{ width: 8, height: 8, backgroundColor: "rgba(99,179,237,0.6)", borderRadius: 1 }} />
+                <Text style={{ fontSize: 7, color: "#9ca3af" }}>Revenue trimestral</Text>
+                <View style={{ width: 16, height: 2, backgroundColor: "#ffffff", marginLeft: 6, opacity: 0.7 }} />
+                <Text style={{ fontSize: 7, color: "#9ca3af" }}>Precio</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Verdict */}
         <View style={[styles.verdictBox, { backgroundColor: vc.bg, borderLeftColor: vc.border }]}>
           <Text style={[styles.verdictBadge, { color: vc.badge }]}>
@@ -250,14 +309,14 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl }: ReportDocProps
           <Text style={[styles.verdictConviction, { color: vc.sub }]}>
             CONVICCIÓN {report.verdict.conviction === "HIGH" ? "ALTA" : report.verdict.conviction === "MEDIUM" ? "MEDIA" : "BAJA"}
           </Text>
-          <Text style={[styles.verdictRationale, { color: vc.text }]}>{strip(report.verdict.rationale)}</Text>
+          <PdfText content={report.verdict.rationale} style={[styles.verdictRationale, { color: vc.text }]} />
         </View>
 
         {/* Sections */}
         {sections.map(([title, content], idx) => (
           <View key={title}>
             <Text style={styles.sectionTitle}>{title}</Text>
-            <Text style={styles.sectionText}>{strip(content)}</Text>
+            <PdfText content={content} style={styles.sectionText} />
             {idx === 1 && sankeyImageUrl && report.segmentData && (
               <View style={{ marginTop: 6 }}>
                 <Text style={{ fontSize: 7, color: "#9ca3af", marginBottom: 3 }}>
@@ -289,13 +348,14 @@ interface DownloadProps {
   report: StructuredReport;
   stockData: StockData;
   sankeyImageUrl?: string;
+  priceChartImageUrl?: string;
 }
 
-export function ReportPdfDownload({ report, stockData, sankeyImageUrl }: DownloadProps) {
+export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChartImageUrl }: DownloadProps) {
   const today = new Date().toISOString().split("T")[0];
   return (
     <PDFDownloadLink
-      document={<ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} />}
+      document={<ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />}
       fileName={`${stockData.ticker}-analysis-${today}.pdf`}
       className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer"
     >
