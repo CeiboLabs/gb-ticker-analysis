@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["yahoo-finance2"],
+  // Silence the "webpack config but no turbopack config" warning.
+  turbopack: {},
 };
 
 export default nextConfig;

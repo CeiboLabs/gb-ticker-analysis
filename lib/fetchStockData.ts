@@ -9,7 +9,19 @@ import type {
   RevenueQuarter,
 } from "@/types/StockData";
 
-const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+const yahooFinance = new YahooFinance({
+  suppressNotices: ["yahooSurvey", "ripHistorical"],
+  logger: {
+    ...console,
+    // Suppress the "Unsupported runtime" warning that fires in Next.js Edge
+    // runtime simulation because process.versions.node isn't polyfilled there.
+    // The API works fine regardless.
+    warn(...args: unknown[]) {
+      if (typeof args[0] === "string" && args[0].includes("Unsupported runtime")) return;
+      console.warn(...args);
+    },
+  },
+});
 
 function extractDomain(website: string | null | undefined): string | null {
   if (!website) return null;
@@ -65,25 +77,25 @@ async function fetchQuarterlyRevenue(ticker: string, period1: Date): Promise<Rev
     } catch { /* fall through */ }
   }
 
-  // ── FMP fallback (free tier: max 5 quarters) ───────────────────────────────
+  // ── FMP fallback (single request — take whatever the tier allows) ────────────
   if (fmpKey) {
-    for (const limit of [12, 5]) {
-      try {
-        const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(ticker)}&period=quarter&limit=${limit}&apikey=${fmpKey}`;
-        const res  = await fetch(url);
-        if (!res.ok) continue;
+    try {
+      const url = `https://financialmodelingprep.com/stable/income-statement?symbol=${encodeURIComponent(ticker)}&period=quarter&limit=20&apikey=${fmpKey}`;
+      const res  = await fetch(url);
+      if (res.ok) {
         const text = await res.text();
         let data: unknown;
-        try { data = JSON.parse(text); } catch { continue; }
-        if (!Array.isArray(data) || data.length === 0) continue;
-        const rows = data as Array<{ date: string; revenue: number }>;
-        const result = rows
-          .filter((q) => q.date && q.revenue != null && new Date(q.date) >= period1)
-          .map((q) => ({ time: q.date, value: q.revenue }))
-          .sort((a, b) => a.time.localeCompare(b.time));
-        if (result.length > 0) return result;
-      } catch { continue; }
-    }
+        try { data = JSON.parse(text); } catch { /* ignore */ }
+        if (Array.isArray(data) && data.length > 0) {
+          const rows = data as Array<{ date: string; revenue: number }>;
+          const result = rows
+            .filter((q) => q.date && q.revenue != null && new Date(q.date) >= period1)
+            .map((q) => ({ time: q.date, value: q.revenue }))
+            .sort((a, b) => a.time.localeCompare(b.time));
+          if (result.length > 0) return result;
+        }
+      }
+    } catch { /* ignore */ }
   }
 
   return null;
@@ -117,7 +129,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     yahooFinance
       .historical(ticker, { period1: oneYearAgo, period2: today, interval: "1wk" })
       .catch(() => null),
-    yahooFinance.search(ticker).catch(() => null),
+    yahooFinance.search(ticker, { newsCount: 7, quotesCount: 1 }).catch(() => null),
     fetchQuarterlyRevenue(ticker, oneYearAgo),
   ]);
 
@@ -259,5 +271,19 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
       : null,
 
     quarterlyRevenue: revenueRaw ?? null,
+    recentNews: (() => {
+      const rawNews = (searchResult as AnyRecord | null)?.news as AnyRecord[] | undefined;
+      return rawNews
+        ?.slice(0, 7)
+        .map((n) => ({
+          title:       String(n.title ?? ""),
+          publisher:   String(n.publisher ?? ""),
+          link:        String(n.link ?? ""),
+          publishedAt: n.providerPublishTime instanceof Date
+            ? n.providerPublishTime.toISOString().split("T")[0]
+            : String(n.providerPublishTime ?? ""),
+        }))
+        .filter((n) => n.title.length > 0) ?? undefined;
+    })(),
   };
 }

@@ -9,8 +9,8 @@ import { checkRateLimit } from "@/lib/rateLimiter";
 import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
 // Build a minimal SegmentSankeyData from Yahoo Finance TTM margins
 // Used when FMP is unavailable or returns no data for a ticker
@@ -152,6 +152,7 @@ export async function POST(req: NextRequest) {
       revenueStreams: "", profitabilityAnalysis: "", balanceSheetHealth: "",
       freeCashFlow: "", competitiveAdvantages: "", managementQuality: "",
       valuationSnapshot: "", recentEarnings: "", riskFactors: "",
+      catalysts: "", industryContext: "",
       verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real." },
       bullCase: { narrative: "", priceTarget: "—" },
       bearCase: { narrative: "", priceTarget: "—" },
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Build prompt
-  const { systemPrompt, userPrompt } = buildPrompt(stockData);
+  const { systemPrompt, userPrompt } = buildPrompt(stockData, segmentData);
 
   // 5. Call GPT-4o with streaming
   let fullText = "";
@@ -179,9 +180,10 @@ export async function POST(req: NextRequest) {
         );
 
         const completion = await getOpenAIClient().chat.completions.create({
-          model: "gpt-4o",
+          model: "gpt-4o-2024-11-20",
           response_format: { type: "json_object" },
           stream: true,
+          max_tokens: 3500,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -205,6 +207,7 @@ export async function POST(req: NextRequest) {
             "businessModel", "revenueStreams", "profitabilityAnalysis",
             "balanceSheetHealth", "freeCashFlow", "competitiveAdvantages",
             "managementQuality", "valuationSnapshot", "recentEarnings", "riskFactors",
+            "catalysts", "industryContext",
           ];
           // segmentData is a structured object — leave it as-is
           for (const field of stringFields) {

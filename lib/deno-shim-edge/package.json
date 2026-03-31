@@ -1,0 +1,6 @@
+{
+  "name": "deno-shim-edge-stub",
+  "version": "0.0.0",
+  "description": "Minimal stub for @deno/shim-deno on Edge/serverless runtimes",
+  "main": "index.js"
+}

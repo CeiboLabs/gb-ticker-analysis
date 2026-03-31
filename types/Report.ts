@@ -57,6 +57,8 @@ export interface StructuredReport {
   valuationSnapshot: string;
   recentEarnings: string;
   riskFactors: string;
+  catalysts: string;
+  industryContext: string;
   bullCase: BullBearCase;
   bearCase: BullBearCase;
   verdict: Verdict;

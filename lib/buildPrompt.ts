@@ -1,10 +1,9 @@
-import fs from "fs";
-import path from "path";
+import { ANALYSIS_TEMPLATE } from "@/prompts/analysis";
 import type { StockData } from "@/types/StockData";
+import type { SegmentSankeyData } from "@/types/Report";
 
 function getTemplate(): string {
-  const templatePath = path.join(process.cwd(), "prompts", "analysis.txt");
-  return fs.readFileSync(templatePath, "utf-8");
+  return ANALYSIS_TEMPLATE;
 }
 
 // ── Scalar formatters ────────────────────────────────────────────────────────
@@ -80,6 +79,79 @@ function fmtInsiderTransactions(d: StockData): string {
   }).join("\n");
 }
 
+function fmtQuarterlyRevenueTrend(d: StockData): string {
+  const data = d.quarterlyRevenue;
+  if (!data || data.length === 0) return "N/A";
+  const sorted = [...data].sort((a, b) => a.time.localeCompare(b.time));
+  const recent = sorted.slice(-10);
+  return recent.map((q, i) => {
+    const prev = recent[i - 4];
+    const yoy = prev && prev.value > 0
+      ? `${(((q.value - prev.value) / prev.value) * 100).toFixed(1)}%`
+      : "N/A";
+    const dt = new Date(q.time);
+    const qNum = Math.ceil((dt.getMonth() + 1) / 3);
+    return `  Q${qNum} ${dt.getFullYear()}: ${fmtLargeNum(q.value)} (YoY: ${yoy})`;
+  }).join("\n");
+}
+
+function fmtRecentNews(d: StockData): string {
+  const news = d.recentNews;
+  if (!news || news.length === 0) return "N/A — no hay noticias recientes disponibles.";
+  return news.slice(0, 7).map((n) =>
+    `  [${n.publishedAt}] ${n.title} (${n.publisher})`
+  ).join("\n");
+}
+
+function fmtSegmentData(sd: SegmentSankeyData | null | undefined): string {
+  if (!sd) return "N/A — datos de segmentos SEC no disponibles para este ticker.";
+
+  const u = sd.unit;
+  const cur = sd.currency ?? "USD";
+  const v = (n: number | undefined) => n != null ? `${n}${u} ${cur}` : "N/A";
+  const pct = (n: number | undefined) => n != null ? ` (margen: ${n}%)` : "";
+
+  const lines: string[] = [];
+  const period = sd.segmentPeriod && sd.segmentPeriod !== sd.period
+    ? `${sd.period} (segmentos: ${sd.segmentPeriod})`
+    : sd.period;
+  lines.push(`Período: ${period}`);
+
+  if (sd.segments.length > 0) {
+    lines.push("");
+    lines.push("Segmentos de ingresos:");
+    for (const s of sd.segments) {
+      const yoy = s.yoy ? ` (YoY: ${s.yoy})` : "";
+      lines.push(`  ${s.name}: ${v(s.value)}${yoy}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("Estado de resultados (SEC EDGAR):");
+  const revYoy = sd.totalRevenueYoy ? ` (YoY: ${sd.totalRevenueYoy})` : "";
+  lines.push(`  Ingresos totales:     ${v(sd.totalRevenue)}${revYoy}`);
+  lines.push(`  Costo de ingresos:    ${v(sd.costOfRevenue)}`);
+  lines.push(`  Utilidad bruta:       ${v(sd.grossProfit)}${pct(sd.grossMarginPct)}`);
+  lines.push(`  Gastos operativos:    ${v(sd.operatingExpenses)}`);
+
+  if (sd.opexBreakdown) {
+    const ob = sd.opexBreakdown;
+    if (ob.rd != null)             lines.push(`    I+D:                ${v(ob.rd)}`);
+    if (ob.salesMarketing != null) lines.push(`    Ventas y marketing: ${v(ob.salesMarketing)}`);
+    if (ob.generalAdmin != null)   lines.push(`    G&A:                ${v(ob.generalAdmin)}`);
+    if (ob.other != null)          lines.push(`    Otros:              ${v(ob.other)}`);
+  }
+
+  lines.push(`  Utilidad operativa:   ${v(sd.operatingProfit)}${pct(sd.operatingMarginPct)}`);
+  if (sd.nonOperatingIncome != null) {
+    lines.push(`  Ingreso no operativo: ${v(sd.nonOperatingIncome)}`);
+  }
+  if (sd.tax != null) lines.push(`  Impuestos:            ${v(sd.tax)}`);
+  lines.push(`  Utilidad neta:        ${v(sd.netProfit)}${pct(sd.netMarginPct)}`);
+
+  return lines.join("\n");
+}
+
 // ── Placeholder map ──────────────────────────────────────────────────────────
 
 type Formatter = (d: StockData) => string;
@@ -89,7 +161,10 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   COMPANY_NAME:  (d) => d.companyName,
   SECTOR:        (d) => d.sector ?? "N/A",
   INDUSTRY:      (d) => d.industry ?? "N/A",
-  DESCRIPTION:   (d) => d.description ?? "No description available.",
+  DESCRIPTION:   (d) => {
+    const desc = d.description ?? "No description available.";
+    return desc.length > 600 ? desc.slice(0, 597) + "..." : desc;
+  },
   TODAY_DATE:    () => new Date().toISOString().split("T")[0],
 
   // Price
@@ -144,6 +219,8 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   EPS_SURPRISE_PCT:  (d) => fmtPctRaw(d.earningsHistory.at(-1)?.surprisePct),
 
   // Block placeholders
+  QUARTERLY_REVENUE_TREND: fmtQuarterlyRevenueTrend,
+  RECENT_NEWS:             fmtRecentNews,
   EARNINGS_HISTORY:      fmtEarningsHistory,
   FORWARD_ESTIMATES:     fmtForwardEstimates,
   NEXT_EARNINGS_DATE:    (d) => d.nextEarningsDate ?? "N/A",
@@ -173,13 +250,15 @@ export interface PromptPayload {
   userPrompt: string;
 }
 
-export function buildPrompt(data: StockData): PromptPayload {
+export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | null): PromptPayload {
   const template = getTemplate();
 
-  const systemPrompt = template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
-    const fn = PLACEHOLDER_MAP[key];
-    return fn ? fn(data) : match;
-  });
+  const systemPrompt = template
+    .replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
+      const fn = PLACEHOLDER_MAP[key];
+      return fn ? fn(data) : match;
+    })
+    .replace("{{SEGMENT_DATA}}", fmtSegmentData(segmentData));
 
   return {
     systemPrompt,

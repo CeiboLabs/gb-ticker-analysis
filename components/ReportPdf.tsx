@@ -136,8 +136,7 @@ const styles = StyleSheet.create({
     bottom: 24,
     left: 40,
     right: 40,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "column",
     fontSize: 7,
     color: "#9ca3af",
     borderTopWidth: 1,
@@ -202,16 +201,18 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
   const vc = VERDICT_COLORS[report.verdict.rating as keyof typeof VERDICT_COLORS] ?? VERDICT_COLORS.HOLD;
 
   const sections: [string, string][] = [
-    ["Modelo de Negocio", report.businessModel],
-    ["Fuentes de Ingresos", report.revenueStreams],
-    ["Análisis de Rentabilidad", report.profitabilityAnalysis],
-    ["Salud del Balance", report.balanceSheetHealth],
-    ["Flujo de Caja Libre", report.freeCashFlow],
-    ["Ventajas Competitivas", report.competitiveAdvantages],
-    ["Calidad de la Gestión", report.managementQuality],
-    ["Valoración", report.valuationSnapshot],
-    ["Resultados Recientes y Estimaciones", report.recentEarnings],
-    ["Factores de Riesgo", report.riskFactors],
+    ["Contexto de Industria",                report.industryContext],
+    ["Modelo de Negocio",                    report.businessModel],
+    ["Ventajas Competitivas",               report.competitiveAdvantages],
+    ["Fuentes de Ingresos",                  report.revenueStreams],
+    ["Análisis de Rentabilidad",             report.profitabilityAnalysis],
+    ["Salud del Balance",                    report.balanceSheetHealth],
+    ["Flujo de Caja Libre",                  report.freeCashFlow],
+    ["Calidad de la Gestión",               report.managementQuality],
+    ["Valoración",                           report.valuationSnapshot],
+    ["Resultados Recientes y Estimaciones",  report.recentEarnings],
+    ["Catalizadores",                        report.catalysts],
+    ["Factores de Riesgo",                   report.riskFactors],
     ["Escenario Alcista — $" + report.bullCase.priceTarget, report.bullCase.narrative],
     ["Escenario Bajista — $" + report.bearCase.priceTarget, report.bearCase.narrative],
   ];
@@ -334,10 +335,10 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
 
         {/* Footer */}
         <View style={styles.footer} fixed>
-          <Text>
+          <Text style={{ marginBottom: 2 }}>
             {d.ticker} · Reporte de Investigación · {today}
           </Text>
-          <Text>Solo con fines informativos. No constituye asesoramiento financiero.</Text>
+          <Text>© {new Date().getFullYear()} Gastón Bengochea · Potenciado por OpenAI · Solo informativo, no constituye asesoramiento de inversión · Yahoo Finance · SEC EDGAR</Text>
         </View>
       </Page>
     </Document>

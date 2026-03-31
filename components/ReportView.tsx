@@ -23,16 +23,18 @@ interface Props {
 }
 
 const SECTIONS: { key: keyof Omit<StructuredReport, "verdict" | "bullCase" | "bearCase">; title: string }[] = [
-  { key: "businessModel", title: "Modelo de Negocio" },
-  { key: "revenueStreams", title: "Fuentes de Ingresos" },
-  { key: "profitabilityAnalysis", title: "Análisis de Rentabilidad" },
-  { key: "balanceSheetHealth", title: "Salud del Balance" },
-  { key: "freeCashFlow", title: "Flujo de Caja Libre" },
+  { key: "industryContext",      title: "Contexto de Industria" },
+  { key: "businessModel",        title: "Modelo de Negocio" },
   { key: "competitiveAdvantages", title: "Ventajas Competitivas" },
-  { key: "managementQuality", title: "Calidad de la Gestión" },
-  { key: "valuationSnapshot", title: "Valoración" },
-  { key: "recentEarnings", title: "Resultados Recientes y Estimaciones" },
-  { key: "riskFactors", title: "Factores de Riesgo" },
+  { key: "revenueStreams",       title: "Fuentes de Ingresos" },
+  { key: "profitabilityAnalysis", title: "Análisis de Rentabilidad" },
+  { key: "balanceSheetHealth",   title: "Salud del Balance" },
+  { key: "freeCashFlow",         title: "Flujo de Caja Libre" },
+  { key: "managementQuality",    title: "Calidad de la Gestión" },
+  { key: "valuationSnapshot",    title: "Valoración" },
+  { key: "recentEarnings",       title: "Resultados Recientes y Estimaciones" },
+  { key: "catalysts",            title: "Catalizadores" },
+  { key: "riskFactors",          title: "Factores de Riesgo" },
 ];
 
 export function ReportView({ report, stockData, cached, onRefresh, isRefreshing }: Props) {
@@ -243,7 +245,7 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
   return (
     <div className="space-y-0">
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-6">
         <div className="text-xs text-[#707070]">
           {cached ? "En caché · " : ""}
           {today}
@@ -319,7 +321,7 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
 
       {/* Disclaimer */}
       <p className="text-xs text-[#707070]/60 mt-8 pt-4 border-t border-[#03065E]/10">
-        Solo con fines informativos. No constituye asesoramiento financiero. Datos obtenidos de Yahoo Finance.
+        © {new Date().getFullYear()} Gastón Bengochea · Potenciado por OpenAI · Solo informativo, no constituye asesoramiento de inversión · Yahoo Finance · SEC EDGAR
       </p>
     </div>
   );

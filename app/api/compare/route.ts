@@ -6,8 +6,8 @@ import { checkRateLimit } from "@/lib/rateLimiter";
 import type { StockData } from "@/types/StockData";
 import type { VerdictRating, VerdictConviction } from "@/types/Report";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
 
 interface CompareTickerResult {
   ticker: string;
@@ -41,23 +41,32 @@ export async function POST(req: NextRequest) {
 
   const { tickers } = parsed.data;
 
-  let stockDataResults: StockData[];
-  try {
-    stockDataResults = await Promise.all(tickers.map(fetchStockData));
-  } catch (err) {
-    const message = err instanceof Error ? err.message.toLowerCase() : "";
-    if (message.includes("not found") || message.includes("no fundamentals") || message.includes("no data")) {
-      return NextResponse.json({ error: "Uno o más tickers no encontrados." }, { status: 404 });
+  const settled = await Promise.allSettled(tickers.map(fetchStockData));
+
+  const successes: Array<{ ticker: string; stockData: StockData }> = [];
+  const failures: string[] = [];
+  settled.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      successes.push({ ticker: tickers[i], stockData: result.value });
+    } else {
+      failures.push(tickers[i]);
     }
-    return NextResponse.json({ error: "Error al obtener datos de mercado." }, { status: 502 });
+  });
+
+  if (successes.length < 2) {
+    const failedList = failures.length > 0 ? ` Tickers no encontrados: ${failures.join(", ")}.` : "";
+    return NextResponse.json(
+      { error: `Se necesitan al menos 2 tickers válidos.${failedList}` },
+      { status: 404 }
+    );
   }
 
-  const results: CompareTickerResult[] = tickers.map((ticker, i) => {
+  const results: CompareTickerResult[] = successes.map(({ ticker, stockData }) => {
     const entry = cacheGet(ticker);
     const verdict = entry
       ? { rating: entry.report.verdict.rating, conviction: entry.report.verdict.conviction }
       : null;
-    return { ticker, stockData: stockDataResults[i], verdict };
+    return { ticker, stockData, verdict };
   });
 
   return NextResponse.json({ results });

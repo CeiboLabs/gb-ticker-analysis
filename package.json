@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "pages:deploy": "npm run pages:build && wrangler pages deploy",
+    "pages:preview": "npm run pages:build && wrangler pages dev"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
@@ -21,6 +24,9 @@
     "react-markdown": "^10.1.0",
     "yahoo-finance2": "^3.14.0",
     "zod": "^4.3.6"
+  },
+  "overrides": {
+    "@deno/shim-deno": "file:./lib/deno-shim-edge"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

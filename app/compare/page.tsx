@@ -58,7 +58,7 @@ export default function ComparePage() {
       {/* Sticky header */}
       <header className="sticky top-0 z-10 bg-[#03065E] shadow-md">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 items-center">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-2 sm:items-center">
             {/* Back link + logo */}
             <Link
               href="/"
@@ -66,10 +66,10 @@ export default function ComparePage() {
             >
               ← Volver
             </Link>
-            <div className="w-px h-5 bg-white/20 mr-1" />
+            <div className="hidden sm:block w-px h-5 bg-white/20 mr-1" />
 
             {/* Ticker inputs */}
-            <div className="flex gap-2 flex-1 flex-wrap">
+            <div className="flex gap-2 w-full sm:flex-1 flex-wrap">
               {tickers.map((t, i) => (
                 <div key={i} className="flex items-center gap-1">
                   <input
@@ -81,7 +81,7 @@ export default function ComparePage() {
                     autoComplete="off"
                     autoCapitalize="characters"
                     spellCheck={false}
-                    className="w-28 bg-white/15 border border-white/25 rounded-xl px-3 py-2 text-white placeholder-white/40 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/40 focus:border-transparent"
+                    className="flex-1 min-w-[96px] max-w-[140px] bg-white/15 border border-white/25 rounded-xl px-3 py-2 text-white placeholder-white/40 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/40 focus:border-transparent"
                   />
                   {tickers.length > 2 && (
                     <button
@@ -109,7 +109,7 @@ export default function ComparePage() {
             <button
               type="submit"
               disabled={status === "loading"}
-              className="px-5 py-2 bg-white text-[#03065E] hover:bg-[#E8ECFF] disabled:opacity-50 disabled:cursor-not-allowed font-semibold rounded-xl text-sm transition-colors"
+              className="w-full sm:w-auto px-5 py-2 bg-white text-[#03065E] hover:bg-[#E8ECFF] disabled:opacity-50 disabled:cursor-not-allowed font-semibold rounded-xl text-sm transition-colors"
             >
               {status === "loading" ? "Comparando…" : "Comparar"}
             </button>
