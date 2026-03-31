@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Bengochea — Análisis de Acciones",
   description: "Investigación institucional de renta variable por Gastón Bengochea, Corredor de Bolsa.",
+  robots: {
+    index: false,
+    follow: false,
+  },
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
