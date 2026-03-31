@@ -6,7 +6,6 @@ import type {
   ForwardEstimate,
   AnalystAction,
   InsiderTransaction,
-  RevenueQuarter,
 } from "@/types/StockData";
 
 const yahooFinance = new YahooFinance({
