@@ -8,6 +8,7 @@ interface CacheEntry {
 }
 
 const CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
+const CACHE_NAME = "ticker-analysis";
 
 function cacheKey(ticker: string): string {
   const date = new Date().toISOString().split("T")[0];
@@ -44,7 +45,8 @@ export async function cacheGet(ticker: string): Promise<CacheEntry | null> {
   // Cloudflare Cache API — shared across isolates in the same datacenter
   if (typeof caches !== "undefined") {
     try {
-      const res = await caches.default.match(new Request(cacheUrl(key)));
+      const store = await caches.open(CACHE_NAME);
+      const res = await store.match(new Request(cacheUrl(key)));
       if (res) {
         const entry = await res.json() as unknown;
         if (isValidEntry(entry)) return entry;
@@ -64,7 +66,8 @@ export async function cacheSet(ticker: string, report: StructuredReport, stockDa
   // Cloudflare Cache API
   if (typeof caches !== "undefined") {
     try {
-      await caches.default.put(
+      const store = await caches.open(CACHE_NAME);
+      await store.put(
         new Request(cacheUrl(key)),
         new Response(JSON.stringify(entry), {
           headers: {
@@ -85,7 +88,8 @@ export async function cacheClear(ticker: string): Promise<void> {
 
   if (typeof caches !== "undefined") {
     try {
-      await caches.default.delete(new Request(cacheUrl(key)));
+      const store = await caches.open(CACHE_NAME);
+      await store.delete(new Request(cacheUrl(key)));
     } catch { /* ignore */ }
   }
 
