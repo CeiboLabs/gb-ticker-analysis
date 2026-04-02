@@ -39,6 +39,12 @@ export function Footer({ onSearch }: Props) {
         <p className="text-xs text-[#03065E]/20 mt-2 max-w-md mx-auto">
           Este reporte es informativo y no constituye asesoramiento financiero. Consultá a tu asesor antes de tomar decisiones de inversión.
         </p>
+        <p className="text-[10px] text-[#03065E]/15 mt-6">
+          Desarrollado por{" "}
+          <a href="https://ceibolabs.dev" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#03065E]/30 transition-colors">
+            ceibolabs
+          </a>
+        </p>
       </div>
     </footer>
   );

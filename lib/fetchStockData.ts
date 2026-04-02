@@ -45,7 +45,6 @@ type AnyRecord = Record<string, any>;
 export async function fetchStockData(ticker: string): Promise<StockData> {
   const oneYearAgo = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
   const today = new Date();
-
   const fiveYearsAgo = new Date(Date.now() - 6 * 365 * 24 * 60 * 60 * 1000);
 
   const [result, historicalRaw, searchResult, edgarRevenue, cashFlowRaw] = await Promise.all([
@@ -151,7 +150,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   }));
 
   // ── Annual cash flow history (CAPEX trend) ─────────────────────────────────
-  const annualCashFlow: CashFlowYear[] | null = cashFlowRaw
+  let annualCashFlow: CashFlowYear[] | null = cashFlowRaw
     ? (cashFlowRaw as AnyRecord[])
         .filter((r) => r.capitalExpenditure != null || r.operatingCashFlow != null)
         .map((r) => ({
@@ -163,6 +162,19 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         .sort((a, b) => a.year.localeCompare(b.year))
         .slice(-5)
     : null;
+
+  // Fallback: build a single-year entry from financialData when fundamentalsTimeSeries fails
+  if ((!annualCashFlow || annualCashFlow.length === 0) && (fin?.operatingCashflow != null || fin?.freeCashflow != null)) {
+    const ocf = (fin?.operatingCashflow as number | null) ?? null;
+    const fcf = (fin?.freeCashflow as number | null) ?? null;
+    const capex = ocf != null && fcf != null ? fcf - ocf : null;
+    annualCashFlow = [{
+      year: "TTM",
+      capitalExpenditure: capex,
+      operatingCashFlow: ocf,
+      freeCashFlow: fcf,
+    }];
+  }
 
   // ── Beta (can live in stats or detail) ─────────────────────────────────────
   const betaVal = stats?.beta ?? detail?.beta ?? null;

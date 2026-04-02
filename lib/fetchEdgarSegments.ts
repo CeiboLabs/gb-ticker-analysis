@@ -27,8 +27,22 @@ export interface EdgarSegmentResult {
   segmentPeriod: string;
 }
 
-async function secFetch(url: string, revalidate = 3600): Promise<Response> {
-  return fetch(url, { headers: H, next: { revalidate } } as RequestInit);
+// In-memory cache for SEC responses (Next.js data cache has a 2MB limit,
+// XBRL filings regularly exceed that).
+const memCache = new Map<string, { body: string; status: number; ts: number }>();
+
+async function secFetch(url: string, ttl = 3600): Promise<Response> {
+  const cached = memCache.get(url);
+  if (cached && Date.now() - cached.ts < ttl * 1000) {
+    return new Response(cached.body, { status: cached.status });
+  }
+  const r = await fetch(url, { headers: H });
+  if (r.ok) {
+    const body = await r.text();
+    memCache.set(url, { body, status: r.status, ts: Date.now() });
+    return new Response(body, { status: r.status });
+  }
+  return r;
 }
 
 async function resolveCIK(ticker: string): Promise<string | null> {
@@ -85,7 +99,7 @@ async function xbrlDocUrl(cik: string, accession: string): Promise<string | null
 
 async function loadLabels(xbrlUrl: string): Promise<Record<string, string>> {
   const labUrl = xbrlUrl.replace(/_htm\.xml$/, "_lab.xml");
-  const r = await fetch(labUrl, { headers: H });
+  const r = await secFetch(labUrl);
   if (!r.ok) return {};
   const xml = await r.text();
   const out: Record<string, string> = {};
@@ -354,7 +368,7 @@ export async function fetchEdgarSegments(
     if (!docUrl) return null;
 
     const [xbrlRes, labelsData] = await Promise.all([
-      fetch(docUrl, { headers: H }),
+      secFetch(docUrl),
       loadLabels(docUrl),
     ]);
     if (!xbrlRes.ok) return null;
@@ -506,7 +520,7 @@ export async function fetchEdgarIncomeStatement(
     const docUrl = await xbrlDocUrl(cik, filing.accession);
     if (!docUrl) return null;
 
-    const xbrlRes = await fetch(docUrl, { headers: H });
+    const xbrlRes = await secFetch(docUrl);
     if (!xbrlRes.ok) return null;
 
     return extractISFromXbrl(await xbrlRes.text(), filing.isAnnual);
@@ -618,7 +632,7 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
 
     // Fetch XBRL and labels in parallel — single download
     const [xbrlRes, labelsData] = await Promise.all([
-      fetch(docUrl, { headers: H }),
+      secFetch(docUrl),
       loadLabels(docUrl),
     ]);
     if (!xbrlRes.ok) return null;
@@ -639,7 +653,7 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
       annualIS = extractISFromXbrl(xml, true);
       const priorDocUrl = await xbrlDocUrl(cik, filing.priorQuarterlyAccession);
       if (annualIS && priorDocUrl) {
-        const priorRes = await fetch(priorDocUrl, { headers: H });
+        const priorRes = await secFetch(priorDocUrl);
         if (priorRes.ok) {
           const priorXml = await priorRes.text();
           priorXmlForSegments = priorXml; // keep for segment derivation below

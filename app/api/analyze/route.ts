@@ -185,7 +185,8 @@ export async function POST(req: NextRequest) {
           model: "gpt-4o-2024-11-20",
           response_format: { type: "json_object" },
           stream: true,
-          max_tokens: 3500,
+          temperature: 0,
+          max_tokens: 4500,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -207,9 +208,9 @@ export async function POST(req: NextRequest) {
           // Ensure all narrative fields are strings — GPT-4o occasionally returns nested objects
           const stringFields: (keyof StructuredReport)[] = [
             "businessModel", "revenueStreams", "profitabilityAnalysis",
-            "balanceSheetHealth", "freeCashFlow", "competitiveAdvantages",
-            "managementQuality", "valuationSnapshot", "recentEarnings", "riskFactors",
-            "catalysts", "industryContext",
+            "balanceSheetHealth", "freeCashFlow", "capitalExpenditure",
+            "competitiveAdvantages", "managementQuality", "valuationSnapshot",
+            "recentEarnings", "riskFactors", "catalysts", "industryContext",
           ];
           // segmentData is a structured object — leave it as-is
           for (const field of stringFields) {
