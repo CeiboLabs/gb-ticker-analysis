@@ -47,6 +47,19 @@ export interface NewsItem {
   publishedAt: string; // "YYYY-MM-DD"
 }
 
+export interface PeerMultiple {
+  symbol: string;
+  name: string;
+  trailingPE: number | null;
+  forwardPE: number | null;
+}
+
+export interface PeerComparison {
+  peers: PeerMultiple[];
+  avgTrailingPE: number | null;
+  avgForwardPE: number | null;
+}
+
 export interface StockData {
   // Identity
   ticker: string;
@@ -74,6 +87,8 @@ export interface StockData {
   priceToSales: number | null;
   enterpriseToEbitda: number | null;
   beta: number | null;
+  capeRatio: number | null;
+  capeYears: number | null; // how many years of EPS data were used
 
   // Financials (TTM)
   totalRevenue: number | null;
@@ -142,4 +157,7 @@ export interface StockData {
 
   // Recent news headlines (from Yahoo Finance search)
   recentNews?: NewsItem[];
+
+  // Peer comparison (P/E multiples of similar companies)
+  peerComparison?: PeerComparison | null;
 }

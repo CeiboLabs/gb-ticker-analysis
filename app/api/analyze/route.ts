@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AnalyzeRequestSchema } from "@/lib/validators";
-import { fetchStockData } from "@/lib/fetchStockData";
+import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
@@ -133,6 +133,8 @@ export async function POST(req: NextRequest) {
       fetchStockData(ticker),
       fetchSegmentData(ticker),
     ]);
+    // Peer comparison needs the industry from stockData, so it runs after
+    stockData.peerComparison = await fetchPeerComparison(ticker, stockData.industry);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("no está listado")) {

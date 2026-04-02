@@ -186,8 +186,8 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
 
   const metrics = [
     ["Market Cap", fmtLarge(d.marketCap)],
-    ["Trailing P/E", d.trailingPE != null ? `${d.trailingPE.toFixed(1)}x` : "—"],
-    ["Forward P/E", d.forwardPE != null ? `${d.forwardPE.toFixed(1)}x` : "—"],
+    ["Forward P/E", d.forwardPE != null ? `${d.forwardPE.toFixed(1)}x${d.peerComparison?.avgForwardPE != null ? ` (Peers: ${d.peerComparison.avgForwardPE.toFixed(1)}x)` : ""}` : "—"],
+    ["CAPE (Shiller P/E)", d.capeRatio != null ? `${d.capeRatio.toFixed(1)}x${d.capeYears != null ? ` (${d.capeYears}yr)` : ""}` : "—"],
     ["EPS (TTM)", d.trailingEps != null ? `$${d.trailingEps.toFixed(2)}` : "—"],
     ["Revenue (TTM)", fmtLarge(d.totalRevenue)],
     ["Rev. Growth", fmtPct(d.revenueGrowth)],

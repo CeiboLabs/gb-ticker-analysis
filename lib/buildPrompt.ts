@@ -95,6 +95,22 @@ function fmtQuarterlyRevenueTrend(d: StockData): string {
   }).join("\n");
 }
 
+function fmtPeerComparison(d: StockData): string {
+  const pc = d.peerComparison;
+  if (!pc || pc.peers.length === 0) return "N/A — datos de peers no disponibles.";
+
+  const lines: string[] = [];
+  for (const p of pc.peers) {
+    const tpe = p.trailingPE != null ? `${p.trailingPE.toFixed(2)}x` : "N/A";
+    const fpe = p.forwardPE != null ? `${p.forwardPE.toFixed(2)}x` : "N/A";
+    lines.push(`  ${p.symbol} (${p.name}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
+  }
+  const avgT = pc.avgTrailingPE != null ? `${pc.avgTrailingPE.toFixed(2)}x` : "N/A";
+  const avgF = pc.avgForwardPE != null ? `${pc.avgForwardPE.toFixed(2)}x` : "N/A";
+  lines.push(`  --- Promedio peers: P/E Trailing ${avgT} | P/E Forward ${avgF}`);
+  return lines.join("\n");
+}
+
 function fmtRecentNews(d: StockData): string {
   const news = d.recentNews;
   if (!news || news.length === 0) return "N/A — no hay noticias recientes disponibles.";
@@ -195,6 +211,7 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   PRICE_TO_SALES:   (d) => fmt(d.priceToSales),
   EV_TO_EBITDA:     (d) => fmt(d.enterpriseToEbitda),
   BETA:             (d) => fmt(d.beta),
+  CAPE_RATIO:       (d) => d.capeRatio != null ? `${d.capeRatio.toFixed(1)}x (${d.capeYears ?? "?"}yr avg EPS)` : "N/A",
 
   // Financials
   TOTAL_REVENUE:       (d) => fmtLargeNum(d.totalRevenue),
@@ -255,6 +272,11 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   ANALYST_HOLD:        (d) => d.analystHold.toString(),
   ANALYST_SELL:        (d) => d.analystSell.toString(),
   ANALYST_STRONG_SELL: (d) => d.analystStrongSell.toString(),
+
+  // Peer comparison
+  PEER_PE_COMPARISON:    fmtPeerComparison,
+  PEER_AVG_TRAILING_PE:  (d) => fmt(d.peerComparison?.avgTrailingPE),
+  PEER_AVG_FORWARD_PE:   (d) => fmt(d.peerComparison?.avgForwardPE),
 };
 
 // ── Public API ───────────────────────────────────────────────────────────────

@@ -7,6 +7,8 @@ import type {
   ForwardEstimate,
   AnalystAction,
   InsiderTransaction,
+  PeerComparison,
+  PeerMultiple,
 } from "@/types/StockData";
 
 export const yahooFinance = new YahooFinance({
@@ -45,9 +47,9 @@ type AnyRecord = Record<string, any>;
 export async function fetchStockData(ticker: string): Promise<StockData> {
   const oneYearAgo = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
   const today = new Date();
-  const fiveYearsAgo = new Date(Date.now() - 6 * 365 * 24 * 60 * 60 * 1000);
+  const tenYearsAgo = new Date(Date.now() - 11 * 365 * 24 * 60 * 60 * 1000);
 
-  const [result, historicalRaw, searchResult, edgarRevenue, cashFlowRaw] = await Promise.all([
+  const [result, historicalRaw, searchResult, edgarRevenue, fundamentalsRaw] = await Promise.all([
     yahooFinance.quoteSummary(
     ticker,
     {
@@ -76,7 +78,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     yahooFinance
       .fundamentalsTimeSeries(
         ticker,
-        { period1: fiveYearsAgo, type: "annual", module: "cash-flow" },
+        { period1: tenYearsAgo, type: "annual", module: "all" },
         { validateResult: false },
       )
       .catch(() => null) as Promise<AnyRecord[] | null>,
@@ -150,8 +152,9 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   }));
 
   // ── Annual cash flow history (CAPEX trend) ─────────────────────────────────
-  let annualCashFlow: CashFlowYear[] | null = cashFlowRaw
-    ? (cashFlowRaw as AnyRecord[])
+  // ── Annual cash flow history (CAPEX trend) — from combined fundamentals ────
+  let annualCashFlow: CashFlowYear[] | null = fundamentalsRaw
+    ? (fundamentalsRaw as AnyRecord[])
         .filter((r) => r.capitalExpenditure != null || r.operatingCashFlow != null)
         .map((r) => ({
           year: r.date instanceof Date ? r.date.getFullYear().toString() : String(r.date).slice(0, 4),
@@ -179,6 +182,24 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   // ── Beta (can live in stats or detail) ─────────────────────────────────────
   const betaVal = stats?.beta ?? detail?.beta ?? null;
 
+  // ── CAPE ratio (Shiller P/E) — price / 10-year avg diluted EPS ────────────
+  let capeRatio: number | null = null;
+  let capeYears: number | null = null;
+  const currentPriceVal = (price?.regularMarketPrice as number | undefined) ?? null;
+  if (fundamentalsRaw && currentPriceVal != null) {
+    const epsValues = (fundamentalsRaw as AnyRecord[])
+      .map((r) => (r.dilutedEPS as number | undefined) ?? (r.basicEPS as number | undefined) ?? null)
+      .filter((v): v is number => v != null);
+    const recent = epsValues.slice(-10);
+    if (recent.length >= 3) {
+      const avgEps = recent.reduce((a, b) => a + b, 0) / recent.length;
+      if (avgEps > 0) {
+        capeRatio = currentPriceVal / avgEps;
+        capeYears = recent.length;
+      }
+    }
+  }
+
   return {
     ticker: ticker.toUpperCase(),
     companyName: price?.longName ?? price?.shortName ?? ticker.toUpperCase(),
@@ -201,6 +222,8 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     priceToSales: stats?.priceToSalesTrailing12Months ?? null,
     enterpriseToEbitda: stats?.enterpriseToEbitda ?? null,
     beta: betaVal,
+    capeRatio,
+    capeYears,
 
     totalRevenue: fin?.totalRevenue ?? null,
     revenueGrowth: fin?.revenueGrowth ?? null,
@@ -272,4 +295,104 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         .filter((n) => n.title.length > 0) ?? undefined;
     })(),
   };
+}
+
+// ── Peer P/E comparison (industry screener) ──────────────────────────────────
+
+async function getYahooCrumb(): Promise<{ crumb: string; cookie: string } | null> {
+  try {
+    const initRes = await fetch("https://fc.yahoo.com", { redirect: "manual" });
+    const setCookies = initRes.headers.getSetCookie?.() ?? [];
+    const cookie = setCookies.map((c) => c.split(";")[0]).join("; ");
+    const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+      headers: { Cookie: cookie, "User-Agent": "Mozilla/5.0" },
+    });
+    const crumb = await crumbRes.text();
+    if (!crumb || crumb.includes("<")) return null;
+    return { crumb, cookie };
+  } catch {
+    return null;
+  }
+}
+
+async function screenByIndustry(
+  industry: string,
+  auth: { crumb: string; cookie: string },
+): Promise<AnyRecord[]> {
+  const body = {
+    offset: 0,
+    size: 15,
+    sortField: "intradaymarketcap",
+    sortType: "DESC",
+    quoteType: "EQUITY",
+    query: {
+      operator: "AND",
+      operands: [
+        { operator: "eq", operands: ["region", "us"] },
+        { operator: "eq", operands: ["industry", industry] },
+      ],
+    },
+    userId: "",
+    userIdType: "guid",
+  };
+
+  const url = `https://query2.finance.yahoo.com/v1/finance/screener?crumb=${encodeURIComponent(auth.crumb)}&formatted=false&lang=en-US&region=US`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: auth.cookie,
+      "User-Agent": "Mozilla/5.0",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json()) as AnyRecord;
+  return (data.finance?.result?.[0]?.quotes as AnyRecord[]) ?? [];
+}
+
+export async function fetchPeerComparison(
+  ticker: string,
+  industry: string | null,
+): Promise<PeerComparison | null> {
+  if (!industry) return null;
+
+  try {
+    const auth = await getYahooCrumb();
+    if (!auth) return null;
+
+    const quotes = await screenByIndustry(industry, auth);
+
+    // Deduplicate by company name (e.g. SONY/SNEJF) — keep the one with more data
+    const seen = new Map<string, AnyRecord>();
+    for (const q of quotes) {
+      const name = ((q.longName ?? q.shortName ?? "") as string).replace(/,?\s*(Inc\.?|Corp\.?|Ltd\.?|Co\.?|plc|SA|AG|NV|SE)$/i, "").trim();
+      const sym = q.symbol as string;
+      if (sym.toUpperCase() === ticker.toUpperCase()) continue;
+      const existing = seen.get(name);
+      if (!existing || (q.forwardPE != null && existing.forwardPE == null)) {
+        seen.set(name, q);
+      }
+    }
+
+    const peers: PeerMultiple[] = [...seen.values()].slice(0, 5).map((q) => ({
+      symbol: q.symbol as string,
+      name: (q.longName ?? q.shortName ?? q.symbol) as string,
+      trailingPE: (q.trailingPE as number | undefined) ?? null,
+      forwardPE: (q.forwardPE as number | undefined) ?? null,
+    }));
+
+    if (peers.length === 0) return null;
+
+    const trailingPEs = peers.map((p) => p.trailingPE).filter((v): v is number => v != null);
+    const forwardPEs = peers.map((p) => p.forwardPE).filter((v): v is number => v != null);
+
+    return {
+      peers,
+      avgTrailingPE: trailingPEs.length > 0 ? trailingPEs.reduce((a, b) => a + b, 0) / trailingPEs.length : null,
+      avgForwardPE: forwardPEs.length > 0 ? forwardPEs.reduce((a, b) => a + b, 0) / forwardPEs.length : null,
+    };
+  } catch {
+    return null;
+  }
 }
