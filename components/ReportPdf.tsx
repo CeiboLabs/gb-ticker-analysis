@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState, useCallback } from "react";
 import {
   Document,
   Page,
@@ -8,7 +8,7 @@ import {
   View,
   Image,
   StyleSheet,
-  PDFDownloadLink,
+  pdf,
 } from "@react-pdf/renderer";
 import type { StructuredReport } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
@@ -395,14 +395,33 @@ interface DownloadProps {
 }
 
 export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChartImageUrl }: DownloadProps) {
-  const today = new Date().toISOString().split("T")[0];
+  const [generating, setGenerating] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const blob = await pdf(
+        <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
+      ).toBlob();
+      const today = new Date().toISOString().split("T")[0];
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${stockData.ticker}-analysis-${today}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setGenerating(false);
+    }
+  }, [report, stockData, sankeyImageUrl, priceChartImageUrl]);
+
   return (
-    <PDFDownloadLink
-      document={<ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />}
-      fileName={`${stockData.ticker}-analysis-${today}.pdf`}
-      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer"
+    <button
+      onClick={handleDownload}
+      disabled={generating}
+      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50"
     >
-      {({ loading }) => (loading ? "Generando PDF…" : "Exportar PDF")}
-    </PDFDownloadLink>
+      {generating ? "Generando PDF…" : "Exportar PDF"}
+    </button>
   );
 }
