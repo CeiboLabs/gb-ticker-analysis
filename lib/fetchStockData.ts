@@ -96,7 +96,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   const holders = result.majorHoldersBreakdown as AnyRecord | undefined;
 
   // Verify US exchange — uses data already fetched, no extra API call
-  const US_EXCHANGES = new Set(["NMS", "NAS", "NGM", "NCM", "NYS", "NYQ", "ASE", "PCX", "BTS"]);
+  const US_EXCHANGES = new Set(["NMS", "NAS", "NGM", "NCM", "NYS", "NYQ", "ASE"]);
   const exchange = price?.exchange as string | undefined;
   if (!exchange || !US_EXCHANGES.has(exchange)) {
     throw new Error(`"${ticker}" no está listado en una bolsa de EE.UU.`);
@@ -299,7 +299,9 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
 
 // ── Peer P/E comparison (industry screener) ──────────────────────────────────
 
-async function getYahooCrumb(): Promise<{ crumb: string; cookie: string } | null> {
+let cachedAuth: { crumb: string; cookie: string; expiresAt: number } | null = null;
+
+async function fetchYahooCrumb(): Promise<{ crumb: string; cookie: string } | null> {
   try {
     const initRes = await fetch("https://fc.yahoo.com", { redirect: "manual" });
     const setCookies = initRes.headers.getSetCookie?.() ?? [];
@@ -313,6 +315,21 @@ async function getYahooCrumb(): Promise<{ crumb: string; cookie: string } | null
   } catch {
     return null;
   }
+}
+
+async function getYahooCrumb(): Promise<{ crumb: string; cookie: string } | null> {
+  if (cachedAuth && Date.now() < cachedAuth.expiresAt) {
+    return { crumb: cachedAuth.crumb, cookie: cachedAuth.cookie };
+  }
+  const auth = await fetchYahooCrumb();
+  if (auth) {
+    cachedAuth = { ...auth, expiresAt: Date.now() + 5 * 60 * 1000 }; // 5 min TTL
+  }
+  return auth;
+}
+
+function invalidateCrumb() {
+  cachedAuth = null;
 }
 
 async function screenByIndustry(
@@ -347,17 +364,22 @@ async function screenByIndustry(
     body: JSON.stringify(body),
   });
 
+  if (res.status === 401) {
+    invalidateCrumb();
+    return [];
+  }
+
   const data = (await res.json()) as AnyRecord;
   return (data.finance?.result?.[0]?.quotes as AnyRecord[]) ?? [];
 }
 
-export async function fetchPeerComparison(
-  ticker: string,
-  industry: string | null,
-): Promise<PeerComparison | null> {
-  if (!industry) return null;
-
+export async function fetchPeerComparison(ticker: string): Promise<PeerComparison | null> {
   try {
+    // Quick quote to get industry — runs in parallel with fetchStockData in the route
+    const quote = await yahooFinance.quote(ticker) as AnyRecord;
+    const industry = (quote.industry as string | undefined) ?? null;
+    if (!industry) return null;
+
     const auth = await getYahooCrumb();
     if (!auth) return null;
 

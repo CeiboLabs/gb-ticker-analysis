@@ -129,12 +129,13 @@ export async function POST(req: NextRequest) {
   let stockData;
   let segmentData;
   try {
-    [stockData, segmentData] = await Promise.all([
+    let peerComparison;
+    [stockData, segmentData, peerComparison] = await Promise.all([
       fetchStockData(ticker),
       fetchSegmentData(ticker),
+      fetchPeerComparison(ticker),
     ]);
-    // Peer comparison needs the industry from stockData, so it runs after
-    stockData.peerComparison = await fetchPeerComparison(ticker, stockData.industry);
+    stockData.peerComparison = peerComparison;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("no está listado")) {

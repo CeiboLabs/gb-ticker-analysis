@@ -3,7 +3,7 @@ import { yahooFinance } from "@/lib/fetchStockData";
 
 export const runtime = "edge";
 
-// Yahoo Finance exchange codes for US markets
+// Yahoo Finance exchange codes for US equity markets
 const US_EXCHANGES = new Set([
   "NMS", // NASDAQ Global Select Market
   "NAS", // NASDAQ
@@ -12,8 +12,6 @@ const US_EXCHANGES = new Set([
   "NYS", // NYSE
   "NYQ", // NYSE
   "ASE", // NYSE American (AMEX)
-  "PCX", // NYSE Arca
-  "BTS", // BATS / Cboe BZX
 ]);
 
 export async function GET(req: NextRequest) {
@@ -35,7 +33,7 @@ export async function GET(req: NextRequest) {
           "isYahooFinance" in item &&
           item.isYahooFinance &&
           "quoteType" in item &&
-          (item.quoteType === "EQUITY" || item.quoteType === "ETF") &&
+          item.quoteType === "EQUITY" &&
           US_EXCHANGES.has(item.exchange)
       )
       .slice(0, 6)
