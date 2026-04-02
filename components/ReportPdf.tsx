@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   Document,
   Page,
@@ -208,6 +209,7 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
     ["Análisis de Rentabilidad",             report.profitabilityAnalysis],
     ["Salud del Balance",                    report.balanceSheetHealth],
     ["Flujo de Caja Libre",                  report.freeCashFlow],
+    ["Inversión de Capital (CAPEX)",         report.capitalExpenditure],
     ["Calidad de la Gestión",               report.managementQuality],
     ["Valoración",                           report.valuationSnapshot],
     ["Resultados Recientes y Estimaciones",  report.recentEarnings],
@@ -293,9 +295,9 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
             <Image src={priceChartImageUrl} style={{ width: "100%", borderRadius: 4 }} />
             {d.quarterlyRevenue && d.quarterlyRevenue.length > 0 && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
-                <View style={{ width: 8, height: 8, backgroundColor: "rgba(99,179,237,0.6)", borderRadius: 1 }} />
+                <View style={{ width: 10, height: 10, backgroundColor: "rgba(99,179,237,0.6)", borderRadius: 1, borderWidth: 0.5, borderColor: "#6b7280" }} />
                 <Text style={{ fontSize: 7, color: "#9ca3af" }}>Revenue trimestral</Text>
-                <View style={{ width: 16, height: 2, backgroundColor: "#ffffff", marginLeft: 6, opacity: 0.7 }} />
+                <View style={{ width: 10, height: 10, backgroundColor: "#ffffff", borderWidth: 0.5, borderColor: "#111827", borderRadius: 1, marginLeft: 6 }} />
                 <Text style={{ fontSize: 7, color: "#9ca3af" }}>Precio</Text>
               </View>
             )}
@@ -313,11 +315,36 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
           <PdfText content={report.verdict.rationale} style={[styles.verdictRationale, { color: vc.text }]} />
         </View>
 
-        {/* Sections */}
+        {/* Sections — flattened so titles are direct Page children (minPresenceAhead needs prior siblings) */}
         {sections.map(([title, content], idx) => (
-          <View key={title}>
-            <Text style={styles.sectionTitle}>{title}</Text>
+          <Fragment key={title}>
+            <Text style={styles.sectionTitle} minPresenceAhead={120}>{title}</Text>
             <PdfText content={content} style={styles.sectionText} />
+            {idx === 7 && d.annualCashFlow && d.annualCashFlow.length > 0 && (
+              <View style={{ marginTop: 6, borderWidth: 0.5, borderColor: "#e5e7eb", borderRadius: 3 }}>
+                <View style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb", backgroundColor: "#f9fafb" }}>
+                  <Text style={{ width: 50, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280", padding: 4, textTransform: "uppercase" }}> </Text>
+                  {d.annualCashFlow.map((y) => (
+                    <Text key={y.year} style={{ flex: 1, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#03065E", padding: 4, textAlign: "right" }}>FY{y.year}</Text>
+                  ))}
+                </View>
+                {(["CAPEX", "OCF", "FCF"] as const).map((label, ri) => (
+                  <View key={label} style={{ flexDirection: "row", borderBottomWidth: ri < 2 ? 0.5 : 0, borderBottomColor: "#f3f4f6" }}>
+                    <Text style={{ width: 50, fontSize: 7, color: "#6b7280", padding: 4 }}>{label}</Text>
+                    {d.annualCashFlow!.map((y) => {
+                      const v = label === "CAPEX" ? (y.capitalExpenditure != null ? Math.abs(y.capitalExpenditure) : null)
+                              : label === "OCF" ? y.operatingCashFlow
+                              : y.freeCashFlow;
+                      return (
+                        <Text key={y.year} style={{ flex: 1, fontSize: 7, color: label === "CAPEX" ? "#03065E" : "#374151", fontFamily: label === "CAPEX" ? "Helvetica-Bold" : "Helvetica", padding: 4, textAlign: "right" }}>
+                          {v != null ? fmtLarge(v) : "—"}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            )}
             {idx === 1 && sankeyImageUrl && report.segmentData && (
               <View style={{ marginTop: 6 }}>
                 <Text style={{ fontSize: 7, color: "#9ca3af", marginBottom: 3 }}>
@@ -330,15 +357,30 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
                 <Image src={sankeyImageUrl} style={{ width: "100%", borderRadius: 4 }} />
               </View>
             )}
-          </View>
+          </Fragment>
         ))}
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={{ marginBottom: 2 }}>
-            {d.ticker} · Reporte de Investigación · {today}
+        {/* Disclosure — flows after last section on final page */}
+        <View style={{ marginTop: 20, borderTopWidth: 0.5, borderTopColor: "#e5e7eb", paddingTop: 8, gap: 4 }}>
+          <Text style={{ fontSize: 6.5, color: "#9ca3af", lineHeight: 1.6 }}>
+            Esta herramienta analiza únicamente acciones listadas en bolsas de valores de Estados Unidos. Este reporte ha sido generado mediante inteligencia artificial (OpenAI GPT-4o) con fines exclusivamente informativos y educativos. El contenido aquí presentado no constituye asesoramiento financiero, de inversión, legal o fiscal, ni debe interpretarse como una recomendación de compra, venta o mantenimiento de ningún valor o instrumento financiero.
           </Text>
-          <Text>© {new Date().getFullYear()} Gastón Bengochea · Potenciado por OpenAI · Solo informativo, no constituye asesoramiento de inversión · Yahoo Finance · SEC EDGAR</Text>
+          <Text style={{ fontSize: 6.5, color: "#9ca3af", lineHeight: 1.6 }}>
+            La información contenida en este documento proviene de fuentes consideradas confiables (Yahoo Finance, SEC EDGAR), pero no se garantiza su exactitud, integridad o vigencia. Las proyecciones, estimaciones y opiniones expresadas reflejan el criterio del autor a la fecha de publicación y están sujetas a cambios sin previo aviso. Los modelos de lenguaje pueden producir información inexacta o desactualizada. El contenido generado no ha sido verificado por un analista humano.
+          </Text>
+          <Text style={{ fontSize: 6.5, color: "#9ca3af", lineHeight: 1.6 }}>
+            Gastón Bengochea es un corredor de bolsa regulado por el Banco Central del Uruguay (BCU) conforme a la Ley N° 18.627 de Mercado de Valores. No obstante, esta herramienta de análisis automatizado no constituye un servicio de asesoramiento de inversión regulado. El contenido generado no ha sido revisado ni aprobado por el BCU y su distribución no implica respaldo regulatorio alguno.
+          </Text>
+          <Text style={{ fontSize: 6.5, color: "#9ca3af", lineHeight: 1.6 }}>
+            Cada inversor debe realizar su propio análisis independiente y consultar con un asesor de inversión habilitado antes de tomar cualquier decisión. El autor no asume responsabilidad alguna por pérdidas o daños derivados del uso de esta información.
+          </Text>
+        </View>
+
+        {/* Footer — all pages */}
+        <View style={styles.footer} fixed>
+          <Text>
+            {d.ticker} · Reporte de Investigación · {today} · © {new Date().getFullYear()} Gastón Bengochea
+          </Text>
         </View>
       </Page>
     </Document>

@@ -103,6 +103,19 @@ function fmtRecentNews(d: StockData): string {
   ).join("\n");
 }
 
+function fmtAnnualCashFlow(d: StockData): string {
+  const cf = d.annualCashFlow;
+  if (!cf || cf.length === 0) return "N/A — historial de cash flow no disponible.";
+  return cf.map((y) => {
+    const capex = y.capitalExpenditure != null ? fmtLargeNum(Math.abs(y.capitalExpenditure)) : "N/A";
+    const capexPctRev = y.capitalExpenditure != null && d.totalRevenue
+      ? `${((Math.abs(y.capitalExpenditure) / d.totalRevenue) * 100).toFixed(1)}%`
+      : null;
+    const capexLabel = capexPctRev ? `${capex} (${capexPctRev} de rev.)` : capex;
+    return `  FY${y.year}: CAPEX ${capexLabel} | OCF ${fmtLargeNum(y.operatingCashFlow)} | FCF ${fmtLargeNum(y.freeCashFlow)}`;
+  }).join("\n");
+}
+
 function fmtSegmentData(sd: SegmentSankeyData | null | undefined): string {
   if (!sd) return "N/A — datos de segmentos SEC no disponibles para este ticker.";
 
@@ -203,6 +216,7 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   OPERATING_CASHFLOW:  (d) => fmtLargeNum(d.operatingCashflow),
   SHORT_PERCENT_FLOAT: (d) => fmtPct(d.shortPercentOfFloat),
   SHARES_OUTSTANDING:  (d) => fmtLargeNum(d.sharesOutstanding),
+  ANNUAL_CASHFLOW_HISTORY: fmtAnnualCashFlow,
 
   // Ownership
   INSIDER_OWNERSHIP:       (d) => fmtPct(d.heldPercentInsiders),

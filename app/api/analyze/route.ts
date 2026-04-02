@@ -135,6 +135,9 @@ export async function POST(req: NextRequest) {
     ]);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    if (message.includes("no está listado")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("no data")) {
       return NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 });
     }
@@ -149,7 +152,7 @@ export async function POST(req: NextRequest) {
     const stub: StructuredReport = {
       businessModel: "Mock mode activo — análisis de OpenAI deshabilitado.",
       revenueStreams: "", profitabilityAnalysis: "", balanceSheetHealth: "",
-      freeCashFlow: "", competitiveAdvantages: "", managementQuality: "",
+      freeCashFlow: "", capitalExpenditure: "", competitiveAdvantages: "", managementQuality: "",
       valuationSnapshot: "", recentEarnings: "", riskFactors: "",
       catalysts: "", industryContext: "",
       verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real." },

@@ -17,13 +17,14 @@ const C_NP   = "#2ECC71";
 const C_TAX  = "#C03030";
 const C_INV  = "#8A6CC8";
 
-const VW       = 1800;
+const VW       = 1000;
 const FLOW_OP  = 0.72;
-const NODE_W   = 28;
-const PAD      = 8;
+const NODE_W   = 18;
+const PAD      = 6;
 const MAX_SEGS = 7;
-const SEG_LEFT = 420;
-const TOP_PAD  = 160; // vertical room above nodes for above-node labels
+const SEG_LEFT = 200;
+const TOP_PAD  = 90; // vertical room above nodes for above-node labels
+const MAX_NAME = 18; // truncate segment names for compact layout
 
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -119,9 +120,10 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       if (v <= 0) return;
       const id = `seg-${i}`;
       segNodeIds.add(id);
+      const truncName = seg.name.length > MAX_NAME ? seg.name.slice(0, MAX_NAME - 1) + "…" : seg.name;
       addNode({
         id,
-        name: seg.name,
+        name: truncName,
         displayValue: fmt(v, unit),
         subLabel: seg.yoy || undefined,
         color: SEG_COLORS[i % SEG_COLORS.length],
@@ -154,7 +156,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     if (op > 0) {
       addNode({
         id: "op",
-        name: "Operating Income",
+        name: "Op. Income",
         displayValue: fmt(op, unit),
         subLabel: operatingMarginPct ? `${operatingMarginPct}% margin` : undefined,
         color: C_OP,
@@ -173,7 +175,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   } else if (op > 0) {
     addNode({
       id: "op",
-      name: "Operating Income",
+      name: "Op. Income",
       displayValue: fmt(op, unit),
       subLabel: operatingMarginPct ? `${operatingMarginPct}% margin` : undefined,
       color: C_OP,
@@ -228,14 +230,14 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   if (nodes.length < 3 || links.length < 2) return null;
 
   // ── Run d3-sankey layout ───────────────────────────────────────────────────
-  const VH = Math.max(1000, displaySegs.length * 100 + 500);
+  const VH = Math.max(550, displaySegs.length * 70 + 250);
   const layout = d3Sankey<SNode, SLink>()
     .nodeId((n) => n.id)
     .nodeAlign(sankeyCenter)
     .nodeWidth(NODE_W)
     .nodePadding(PAD)
-    // Leave 120 SVG units at the bottom so BELOW-node labels have room.
-    .extent([[SEG_LEFT, TOP_PAD], [VW - 320, VH - 120]]);
+    // Leave 70 SVG units at the bottom so BELOW-node labels have room.
+    .extent([[SEG_LEFT, TOP_PAD], [VW - 180, VH - 70]]);
 
   const graph = layout({ nodes: nodes.map(n => ({ ...n })), links: links.map(l => ({ ...l })) });
 
@@ -258,8 +260,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   }
 
   // ── Render helpers ─────────────────────────────────────────────────────────
-  const LINE_H = 28;
-  const LABEL_GAP = 14; // gap between label block bottom and node top
+  const LINE_H = 20;
+  const LABEL_GAP = 8; // gap between label block bottom and node top
 
   function labelBlock(
     n: SNode,
@@ -311,19 +313,23 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   }
 
   // ── Pre-compute last-column label positions (greedy anti-overlap) ──────────
-  const lastColLabelY = new Map<string, number>();
+  // Same collapse-to-single-line logic as segments when nodes are thin.
+  interface LastColState { topY: number; singleLine: boolean; showSub: boolean; }
+  const lastColLabelState = new Map<string, LastColState>();
   {
     const sorted = (graph.nodes as SNode[])
       .filter(n => Math.round(n.x0 ?? 0) === lastColX)
       .sort((a, b) => (a.y0 ?? 0) - (b.y0 ?? 0));
     let prevBottom = -Infinity;
     for (const ln of sorted) {
-      const lh  = Math.max(1, (ln.y1 ?? 0) - (ln.y0 ?? 0));
-      const lcy = (ln.y0 ?? 0) + lh / 2;
-      const nl  = 1 + (ln.displayValue ? 1 : 0) + (ln.subLabel ? 1 : 0);
+      const lh       = Math.max(1, (ln.y1 ?? 0) - (ln.y0 ?? 0));
+      const lcy      = (ln.y0 ?? 0) + lh / 2;
+      const singleLine = lh < 1.5 * LINE_H;
+      const showSub    = !singleLine && lh >= 2.5 * LINE_H && !!ln.subLabel;
+      const nl         = singleLine ? 1 : 1 + (ln.displayValue ? 1 : 0) + (showSub ? 1 : 0);
       let ty = lcy - (nl * LINE_H) / 2;
-      if (ty < prevBottom + 8) ty = prevBottom + 8;
-      lastColLabelY.set(ln.id, ty);
+      if (ty < prevBottom + 4) ty = prevBottom + 4;
+      lastColLabelState.set(ln.id, { topY: ty, singleLine, showSub });
       prevBottom = ty + nl * LINE_H;
     }
   }
@@ -362,7 +368,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         <span className="ml-2 font-normal text-[#707070]">in {data.currency}, {unit}</span>
       </div>
 
-      <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} className="w-full" style={{ display: "block" }}>
+      <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} className="w-full sm:max-h-[800px]" style={{ display: "block" }}>
 
         {/* ── Ribbon flows ── */}
         {graph.links.map((link, i) => {
@@ -415,14 +421,14 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
                   const cx      = x0 + NODE_W / 2;
                   // Always at least medium (18px) — label lives above the node,
                   // not inside it, so height doesn't constrain readability.
-                  const nameSz  = h >= 250 ? 23 : 18;
-                  const valSz   = h >= 250 ? 20 : 15;
-                  const showSub = h >= 80;
+                  const nameSz  = h >= 200 ? 16 : 13;
+                  const valSz   = h >= 200 ? 14 : 11;
+                  const showSub = h >= 60;
                   const nLines  = 1 + (n.displayValue ? 1 : 0) + (n.subLabel && showSub ? 1 : 0);
                   const topY    = isTop
                     ? y0 - LABEL_GAP - nLines * LINE_H   // above the node
                     : y0 + h + LABEL_GAP;                  // below the node
-                  return labelBlock(n, cx, topY, "middle", nameSz, valSz, 14, n.color, n.color, showSub);
+                  return labelBlock(n, cx, topY, "middle", nameSz, valSz, 10, n.color, n.color, showSub);
 
                 } else if (isSegment) {
                   // ── LEFT of node ──
@@ -435,7 +441,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
                     // (name → 800, value → 600) using tspan
                     return [
                       <text key="sl" x={lx} y={topY + LINE_H / 2}
-                        fontSize={14} textAnchor="end" dominantBaseline="middle">
+                        fontSize={10} textAnchor="end" dominantBaseline="middle">
                         <tspan fontWeight="800" fill="#111">{n.name}</tspan>
                         {n.displayValue && (
                           <tspan fontWeight="600" fill="#444">{"  " + n.displayValue}</tspan>
@@ -443,15 +449,27 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
                       </text>,
                     ];
                   }
-                  return labelBlock(n, lx, topY, "end", 18, 15, 13, "#111", "#444", state?.showSub ?? true);
+                  return labelBlock(n, lx, topY, "end", 13, 11, 9, "#111", "#444", state?.showSub ?? true);
 
                 } else {
                   // ── RIGHT of node (last column only) ──
                   // Use pre-computed topY that guarantees no vertical overlap.
-                  const lx   = x1 + 10;
-                  const topY = lastColLabelY.get(n.id)
-                    ?? cy - (1 + (n.displayValue ? 1 : 0) + (n.subLabel ? 1 : 0)) * LINE_H / 2;
-                  return labelBlock(n, lx, topY, "start", 18, 15, 13, "#111", "#444");
+                  const lx    = x1 + 10;
+                  const state = lastColLabelState.get(n.id);
+                  const topY  = state?.topY ?? (cy - LINE_H / 2);
+
+                  if (state?.singleLine) {
+                    return [
+                      <text key="sl" x={lx} y={topY + LINE_H / 2}
+                        fontSize={10} textAnchor="start" dominantBaseline="middle">
+                        <tspan fontWeight="800" fill="#111">{n.name}</tspan>
+                        {n.displayValue && (
+                          <tspan fontWeight="600" fill="#444">{"  " + n.displayValue}</tspan>
+                        )}
+                      </text>,
+                    ];
+                  }
+                  return labelBlock(n, lx, topY, "start", 13, 11, 9, "#111", "#444", state?.showSub ?? true);
                 }
               })()}
             </g>

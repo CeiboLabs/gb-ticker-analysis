@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Bengochea — Análisis de Acciones",
-  description: "Investigación institucional de renta variable por Gastón Bengochea, Corredor de Bolsa.",
+  description: "Investigación profesional de renta variable por Gastón Bengochea, Corredor de Bolsa.",
   robots: {
     index: false,
     follow: false,
@@ -38,6 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      data-scroll-behavior="smooth"
       className={`${montserrat.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

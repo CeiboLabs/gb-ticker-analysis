@@ -2,13 +2,14 @@ import YahooFinance from "yahoo-finance2";
 import { fetchEdgarQuarterlyRevenue } from "@/lib/fetchEdgarSegments";
 import type {
   StockData,
+  CashFlowYear,
   EarningsQuarter,
   ForwardEstimate,
   AnalystAction,
   InsiderTransaction,
 } from "@/types/StockData";
 
-const yahooFinance = new YahooFinance({
+export const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
   logger: {
     ...console,
@@ -45,7 +46,9 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   const oneYearAgo = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
   const today = new Date();
 
-  const [result, historicalRaw, searchResult, edgarRevenue] = await Promise.all([
+  const fiveYearsAgo = new Date(Date.now() - 6 * 365 * 24 * 60 * 60 * 1000);
+
+  const [result, historicalRaw, searchResult, edgarRevenue, cashFlowRaw] = await Promise.all([
     yahooFinance.quoteSummary(
     ticker,
     {
@@ -71,6 +74,13 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
       .catch(() => null),
     yahooFinance.search(ticker, { newsCount: 7, quotesCount: 1 }).catch(() => null),
     fetchEdgarQuarterlyRevenue(ticker, oneYearAgo),
+    yahooFinance
+      .fundamentalsTimeSeries(
+        ticker,
+        { period1: fiveYearsAgo, type: "annual", module: "cash-flow" },
+        { validateResult: false },
+      )
+      .catch(() => null) as Promise<AnyRecord[] | null>,
   ]);
 
   const revenueRaw = edgarRevenue;
@@ -83,6 +93,13 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   const cal     = result.calendarEvents as AnyRecord | undefined;
   const trend   = result.recommendationTrend as AnyRecord | undefined;
   const holders = result.majorHoldersBreakdown as AnyRecord | undefined;
+
+  // Verify US exchange — uses data already fetched, no extra API call
+  const US_EXCHANGES = new Set(["NMS", "NAS", "NGM", "NCM", "NYS", "NYQ", "ASE", "PCX", "BTS"]);
+  const exchange = price?.exchange as string | undefined;
+  if (!exchange || !US_EXCHANGES.has(exchange)) {
+    throw new Error(`"${ticker}" no está listado en una bolsa de EE.UU.`);
+  }
 
   const domain = extractDomain(profile?.website ?? null);
 
@@ -132,6 +149,20 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     transactionText: t.transactionText ?? "—",
     value: t.value ?? null,
   }));
+
+  // ── Annual cash flow history (CAPEX trend) ─────────────────────────────────
+  const annualCashFlow: CashFlowYear[] | null = cashFlowRaw
+    ? (cashFlowRaw as AnyRecord[])
+        .filter((r) => r.capitalExpenditure != null || r.operatingCashFlow != null)
+        .map((r) => ({
+          year: r.date instanceof Date ? r.date.getFullYear().toString() : String(r.date).slice(0, 4),
+          capitalExpenditure: r.capitalExpenditure ?? null,
+          operatingCashFlow: r.operatingCashFlow ?? null,
+          freeCashFlow: r.freeCashFlow ?? null,
+        }))
+        .sort((a, b) => a.year.localeCompare(b.year))
+        .slice(-5)
+    : null;
 
   // ── Beta (can live in stats or detail) ─────────────────────────────────────
   const betaVal = stats?.beta ?? detail?.beta ?? null;
@@ -212,6 +243,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
           }))
       : null,
 
+    annualCashFlow,
     quarterlyRevenue: revenueRaw ?? null,
     recentNews: (() => {
       const rawNews = (searchResult as AnyRecord | null)?.news as AnyRecord[] | undefined;

@@ -33,6 +33,13 @@ export interface InsiderTransaction {
   value: number | null;
 }
 
+export interface CashFlowYear {
+  year: string; // "YYYY" (fiscal year end)
+  capitalExpenditure: number | null;
+  operatingCashFlow: number | null;
+  freeCashFlow: number | null;
+}
+
 export interface NewsItem {
   title: string;
   publisher: string;
@@ -129,6 +136,9 @@ export interface StockData {
 
   // Quarterly revenue (last 3 years) for chart overlay
   quarterlyRevenue: RevenueQuarter[] | null;
+
+  // Annual cash flow history (last 5 fiscal years) for CAPEX trend analysis
+  annualCashFlow: CashFlowYear[] | null;
 
   // Recent news headlines (from Yahoo Finance search)
   recentNews?: NewsItem[];

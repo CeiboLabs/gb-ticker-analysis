@@ -30,12 +30,20 @@ const SECTIONS: { key: keyof Omit<StructuredReport, "verdict" | "bullCase" | "be
   { key: "profitabilityAnalysis", title: "Análisis de Rentabilidad" },
   { key: "balanceSheetHealth",   title: "Salud del Balance" },
   { key: "freeCashFlow",         title: "Flujo de Caja Libre" },
+  { key: "capitalExpenditure",   title: "Inversión de Capital (CAPEX)" },
   { key: "managementQuality",    title: "Calidad de la Gestión" },
   { key: "valuationSnapshot",    title: "Valoración" },
   { key: "recentEarnings",       title: "Resultados Recientes y Estimaciones" },
   { key: "catalysts",            title: "Catalizadores" },
   { key: "riskFactors",          title: "Factores de Riesgo" },
 ];
+
+function fmtCompact(n: number): string {
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(1)}T`;
+  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6)  return `$${(n / 1e6).toFixed(0)}M`;
+  return `$${n.toLocaleString("en-US")}`;
+}
 
 export function ReportView({ report, stockData, cached, onRefresh, isRefreshing }: Props) {
   const pfx = currencyPrefix(stockData.currency);
@@ -258,7 +266,7 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
           >
             {isRefreshing ? "Actualizando…" : "Actualizar Análisis"}
           </button>
-          <PdfExportButton report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
+          {report.verdict && <PdfExportButton report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />}
         </div>
       </div>
 
@@ -272,21 +280,60 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
       <div className="mt-6" />
       <AnalystConsensus stockData={stockData} />
 
-      <div className="border-t border-[#03065E]/10 pt-6 mb-6">
-        <InvestmentVerdict verdict={report.verdict} />
-      </div>
+      {report.verdict && (
+        <div className="border-t border-[#03065E]/10 pt-6 mb-6">
+          <InvestmentVerdict verdict={report.verdict} />
+        </div>
+      )}
 
       <div className="space-y-6 divide-y divide-[#03065E]/10">
         {SECTIONS.map(({ key, title }) => (
           <div key={key} className="pt-6 first:pt-0">
             <ReportSection title={title} content={report[key] as string} />
+            {key === "capitalExpenditure" && stockData.annualCashFlow && stockData.annualCashFlow.length > 0 && (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#03065E]/20">
+                      <th className="text-left py-2 pr-4 font-semibold text-[#03065E]/50 uppercase tracking-widest">Año Fiscal</th>
+                      {stockData.annualCashFlow.map((y) => (
+                        <th key={y.year} className="text-right py-2 px-3 font-semibold text-[#03065E]/70">FY{y.year}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-[#03065E]/5">
+                      <td className="py-2 pr-4 text-[#2A2A2A]/60">CAPEX</td>
+                      {stockData.annualCashFlow.map((y) => (
+                        <td key={y.year} className="text-right py-2 px-3 font-medium text-[#03065E]">
+                          {y.capitalExpenditure != null ? fmtCompact(Math.abs(y.capitalExpenditure)) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="border-b border-[#03065E]/5">
+                      <td className="py-2 pr-4 text-[#2A2A2A]/60">OCF</td>
+                      {stockData.annualCashFlow.map((y) => (
+                        <td key={y.year} className="text-right py-2 px-3 text-[#2A2A2A]">
+                          {y.operatingCashFlow != null ? fmtCompact(y.operatingCashFlow) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-2 pr-4 text-[#2A2A2A]/60">FCF</td>
+                      {stockData.annualCashFlow.map((y) => (
+                        <td key={y.year} className="text-right py-2 px-3 text-[#2A2A2A]">
+                          {y.freeCashFlow != null ? fmtCompact(y.freeCashFlow) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
             {key === "revenueStreams" && report.segmentData && (
               // Break out of the max-w-3xl page container so the chart
               // uses the full viewport width with a small side gutter.
-              <div
-                className="mt-6"
-                style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", paddingInline: "1.5rem" }}
-              >
+              <div className="mt-6 w-screen relative left-1/2 -translate-x-1/2 max-w-4xl px-6">
                 <SankeyChart data={report.segmentData} svgRef={svgRef} />
               </div>
             )}
@@ -319,10 +366,15 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
         )}
       </div>
 
-      {/* Disclaimer */}
-      <p className="text-xs text-[#707070]/60 mt-8 pt-4 border-t border-[#03065E]/10">
-        © {new Date().getFullYear()} Gastón Bengochea · Potenciado por OpenAI · Solo informativo, no constituye asesoramiento de inversión · Yahoo Finance · SEC EDGAR
-      </p>
+      {/* Disclosure */}
+      <div className="text-[10px] leading-relaxed text-[#707070]/70 mt-8 pt-4 border-t border-[#03065E]/10 space-y-2">
+        <p>Esta herramienta analiza únicamente acciones listadas en bolsas de valores de Estados Unidos. Este reporte ha sido generado mediante inteligencia artificial (OpenAI GPT-4o) con fines exclusivamente informativos y educativos. El contenido aquí presentado no constituye asesoramiento financiero, de inversión, legal o fiscal, ni debe interpretarse como una recomendación de compra, venta o mantenimiento de ningún valor o instrumento financiero.</p>
+        <p>La información contenida en este documento proviene de fuentes consideradas confiables (Yahoo Finance, SEC EDGAR), pero no se garantiza su exactitud, integridad o vigencia. Las proyecciones, estimaciones y opiniones expresadas reflejan el criterio del autor a la fecha de publicación y están sujetas a cambios sin previo aviso.</p>
+        <p>Los modelos de lenguaje pueden producir información inexacta o desactualizada. El contenido generado no ha sido verificado por un analista humano.</p>
+        <p>Gastón Bengochea es un corredor de bolsa regulado por el Banco Central del Uruguay (BCU) conforme a la Ley N° 18.627 de Mercado de Valores. No obstante, esta herramienta de análisis automatizado no constituye un servicio de asesoramiento de inversión regulado. El contenido generado no ha sido revisado ni aprobado por el BCU y su distribución no implica respaldo regulatorio alguno.</p>
+        <p>Cada inversor debe realizar su propio análisis independiente y consultar con un asesor de inversión habilitado antes de tomar cualquier decisión. El autor no asume responsabilidad alguna por pérdidas o daños derivados del uso de esta información.</p>
+        <p className="mt-1">© {new Date().getFullYear()} Gastón Bengochea</p>
+      </div>
     </div>
   );
 }

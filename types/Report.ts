@@ -52,6 +52,7 @@ export interface StructuredReport {
   profitabilityAnalysis: string;
   balanceSheetHealth: string;
   freeCashFlow: string;
+  capitalExpenditure: string;
   competitiveAdvantages: string;
   managementQuality: string;
   valuationSnapshot: string;
