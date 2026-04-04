@@ -128,23 +128,11 @@ export default function AnalyzePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8F9FF] text-[#03065E]">
-      {/* Sticky header */}
-      <header className="sticky top-0 z-10 bg-[#03065E] shadow-md">
+    <main className="min-h-screen bg-[#F8F9FF] text-[#03065E] pt-20">
+      {/* Search bar */}
+      <header className="sticky top-16 sm:top-20 z-10 bg-[#03065E] shadow-md">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex gap-2 items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo-bengochea.svg"
-              alt="Gastón Bengochea"
-              className="hidden sm:block h-7 w-auto shrink-0 mr-2 cursor-pointer"
-              style={{ filter: "brightness(0) invert(1)" }}
-              onClick={() => {
-                if (status === "loading") return;
-                window.location.href = "/";
-              }}
-            />
-            <div className="hidden sm:block w-px h-5 bg-white/20 mr-1" />
             <TickerSearch
               variant="header"
               onSubmit={handleSearch}

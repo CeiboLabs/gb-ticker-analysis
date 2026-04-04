@@ -14,12 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bengochea — Análisis de Acciones",
-  description: "Investigación profesional de renta variable por Gastón Bengochea, Corredor de Bolsa.",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  title: "Gastón Bengochea | Corredor de Bolsa",
+  description: "Tu puerta local al mercado financiero internacional. Corredor de Bolsa miembro de la Bolsa de Valores de Montevideo desde 1967.",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
