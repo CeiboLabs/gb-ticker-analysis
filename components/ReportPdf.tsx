@@ -304,6 +304,75 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
           </View>
         )}
 
+        {/* Analyst Consensus */}
+        {(() => {
+          const total =
+            d.analystStrongBuy + d.analystBuy + d.analystHold + d.analystSell + d.analystStrongSell;
+          if (total === 0 && d.targetMeanPrice == null) return null;
+          const bullish = d.analystStrongBuy + d.analystBuy;
+          const bearish = d.analystSell + d.analystStrongSell;
+          const upside =
+            d.targetMeanPrice != null && d.currentPrice != null
+              ? ((d.targetMeanPrice - d.currentPrice) / d.currentPrice) * 100
+              : null;
+          const bars = [
+            { label: "Compra Fuerte", count: d.analystStrongBuy, color: "#10b981" },
+            { label: "Compra", count: d.analystBuy, color: "#34d399" },
+            { label: "Mantener", count: d.analystHold, color: "#facc15" },
+            { label: "Vender", count: d.analystSell, color: "#f87171" },
+            { label: "Venta Fuerte", count: d.analystStrongSell, color: "#dc2626" },
+          ];
+          return (
+            <View style={{ marginBottom: 16, borderWidth: 0.5, borderColor: "#e5e7eb", borderRadius: 4, padding: 10 }}>
+              <Text style={{ fontSize: 7, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
+                Consenso de Analistas
+              </Text>
+              <View style={{ flexDirection: "row", gap: 16 }}>
+                {d.targetMeanPrice != null && (
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 7, color: "#6b7280", marginBottom: 2 }}>Precio Objetivo Medio</Text>
+                    <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", color: "#03065E" }}>
+                      {fmtPrice(d.targetMeanPrice)}
+                    </Text>
+                    {upside != null && (
+                      <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: upside >= 0 ? "#16a34a" : "#dc2626", marginTop: 1 }}>
+                        {upside >= 0 ? "+" : ""}{upside.toFixed(1)}% potencial
+                      </Text>
+                    )}
+                    {d.targetLowPrice != null && d.targetHighPrice != null && (
+                      <Text style={{ fontSize: 7, color: "#6b7280", marginTop: 2 }}>
+                        Rango: {fmtPrice(d.targetLowPrice)} – {fmtPrice(d.targetHighPrice)}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {total > 0 && (
+                  <View style={{ flex: 2 }}>
+                    <Text style={{ fontSize: 7, color: "#6b7280", marginBottom: 4 }}>
+                      {total} analistas · {bullish} alcistas · {d.analystHold} neutros · {bearish} bajistas
+                    </Text>
+                    <View style={{ flexDirection: "row", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                      {bars.map((b) =>
+                        b.count > 0 ? (
+                          <View key={b.label} style={{ backgroundColor: b.color, width: `${(b.count / total) * 100}%` }} />
+                        ) : null
+                      )}
+                    </View>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                      {bars.map((b) => (
+                        <View key={b.label} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                          <View style={{ width: 5, height: 5, backgroundColor: b.color, borderRadius: 1 }} />
+                          <Text style={{ fontSize: 7, color: "#6b7280" }}>{b.label}: {b.count}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })()}
+
         {/* Verdict */}
         <View style={[styles.verdictBox, { backgroundColor: vc.bg, borderLeftColor: vc.border }]}>
           <Text style={[styles.verdictBadge, { color: vc.badge }]}>
@@ -423,11 +492,12 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
     const filename = `${stockData.ticker}-analysis-${today}.pdf`;
     const file = new File([pdfBlob], filename, { type: "application/pdf" });
 
-    // Try share unconditionally if the API exists. canShare() is unreliable
-    // on iOS Safari — it returns false for perfectly valid PDF Files created
-    // from a Blob, even though share() itself would succeed. If share rejects
-    // (not supported / error), we fall back to download.
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    // Mobile/tablet: share sheet. Desktop: direct download.
+    // matchMedia("pointer: coarse") is true on touch-primary devices.
+    const isTouchDevice =
+      typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+    if (isTouchDevice && typeof navigator.share === "function") {
       navigator.share({ files: [file], title: `${stockData.ticker} — Análisis` }).catch((err) => {
         if ((err as DOMException)?.name === "AbortError") return;
         downloadFallback(pdfBlob, filename);
