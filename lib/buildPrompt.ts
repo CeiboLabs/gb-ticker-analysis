@@ -1,10 +1,6 @@
-import { ANALYSIS_TEMPLATE } from "@/prompts/analysis";
+import { ANALYSIS_SYSTEM_PROMPT, ANALYSIS_DATA_TEMPLATE } from "@/prompts/analysis";
 import type { StockData } from "@/types/StockData";
 import type { SegmentSankeyData } from "@/types/Report";
-
-function getTemplate(): string {
-  return ANALYSIS_TEMPLATE;
-}
 
 // ── Scalar formatters ────────────────────────────────────────────────────────
 
@@ -287,9 +283,9 @@ export interface PromptPayload {
 }
 
 export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | null): PromptPayload {
-  const template = getTemplate();
-
-  const systemPrompt = template
+  // Only the data template gets interpolated. The system prompt is a fixed string,
+  // which lets OpenAI cache it across requests (~50% off on cached input tokens).
+  const userPrompt = ANALYSIS_DATA_TEMPLATE
     .replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
       const fn = PLACEHOLDER_MAP[key];
       return fn ? fn(data) : match;
@@ -297,7 +293,7 @@ export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | n
     .replace("{{SEGMENT_DATA}}", fmtSegmentData(segmentData));
 
   return {
-    systemPrompt,
-    userPrompt: "Genera el reporte institucional completo ahora.",
+    systemPrompt: ANALYSIS_SYSTEM_PROMPT,
+    userPrompt,
   };
 }

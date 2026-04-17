@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useCallback } from "react";
+import { Fragment, useState, useCallback, useEffect } from "react";
 import {
   Document,
   Page,
@@ -395,33 +395,67 @@ interface DownloadProps {
 }
 
 export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChartImageUrl }: DownloadProps) {
-  const [generating, setGenerating] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 
-  const handleDownload = useCallback(async () => {
-    setGenerating(true);
-    try {
-      const blob = await pdf(
-        <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
-      ).toBlob();
-      const today = new Date().toISOString().split("T")[0];
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${stockData.ticker}-analysis-${today}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setGenerating(false);
-    }
+  // Pre-generate the PDF as soon as the report is ready. iOS Safari requires
+  // navigator.share() to run inside the user-activation window (~5s after
+  // click); if we generate on click, react-pdf's async work eats that window
+  // and share() throws NotAllowedError. Pre-generating keeps the click
+  // handler synchronous so user activation is preserved.
+  useEffect(() => {
+    let cancelled = false;
+    setPdfBlob(null);
+    pdf(
+      <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
+    )
+      .toBlob()
+      .then((blob) => {
+        if (!cancelled) setPdfBlob(blob);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [report, stockData, sankeyImageUrl, priceChartImageUrl]);
+
+  const handleClick = useCallback(() => {
+    if (!pdfBlob) return;
+    const today = new Date().toISOString().split("T")[0];
+    const filename = `${stockData.ticker}-analysis-${today}.pdf`;
+    const file = new File([pdfBlob], filename, { type: "application/pdf" });
+
+    // Try share unconditionally if the API exists. canShare() is unreliable
+    // on iOS Safari — it returns false for perfectly valid PDF Files created
+    // from a Blob, even though share() itself would succeed. If share rejects
+    // (not supported / error), we fall back to download.
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      navigator.share({ files: [file], title: `${stockData.ticker} — Análisis` }).catch((err) => {
+        if ((err as DOMException)?.name === "AbortError") return;
+        downloadFallback(pdfBlob, filename);
+      });
+      return;
+    }
+
+    downloadFallback(pdfBlob, filename);
+  }, [pdfBlob, stockData.ticker]);
+
+  const ready = pdfBlob !== null;
 
   return (
     <button
-      onClick={handleDownload}
-      disabled={generating}
+      onClick={handleClick}
+      disabled={!ready}
       className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50"
     >
-      {generating ? "Generando PDF…" : "Exportar PDF"}
+      {ready ? "Exportar PDF" : "Preparando PDF…"}
     </button>
   );
+}
+
+function downloadFallback(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
