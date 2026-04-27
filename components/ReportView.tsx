@@ -276,7 +276,6 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
       <MetricsDashboard stockData={stockData} />
       <PriceChart
         historicalPrices={stockData.historicalPrices}
-        ticker={stockData.ticker}
         quarterlyRevenue={stockData.quarterlyRevenue}
       />
       <div className="mt-6" />

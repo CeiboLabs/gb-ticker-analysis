@@ -51,7 +51,7 @@ export function LoadingState({ ticker, stockData }: Props) {
 
         <ReportHeader stockData={stockData} />
         <MetricsDashboard stockData={stockData} />
-        <PriceChart historicalPrices={stockData.historicalPrices} ticker={stockData.ticker} quarterlyRevenue={stockData.quarterlyRevenue} />
+        <PriceChart historicalPrices={stockData.historicalPrices} quarterlyRevenue={stockData.quarterlyRevenue} />
         <div className="mt-6" />
         <AnalystConsensus stockData={stockData} />
 

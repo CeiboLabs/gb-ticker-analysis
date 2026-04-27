@@ -298,7 +298,6 @@ export function ReportDemo() {
           >
             <PriceChart
               historicalPrices={DATA.historicalPrices}
-              ticker={DATA.ticker}
               quarterlyRevenue={DATA.quarterlyRevenue}
             />
           </div>
