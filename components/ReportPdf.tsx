@@ -516,7 +516,17 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
       disabled={!ready}
       className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50"
     >
-      {ready ? "Exportar PDF" : "Preparando PDF…"}
+      {ready ? (
+        <>
+          <span className="sm:hidden">PDF</span>
+          <span className="hidden sm:inline">Exportar PDF</span>
+        </>
+      ) : (
+        <>
+          <span className="sm:hidden">PDF…</span>
+          <span className="hidden sm:inline">Preparando PDF…</span>
+        </>
+      )}
     </button>
   );
 }

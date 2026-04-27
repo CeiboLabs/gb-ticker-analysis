@@ -8,17 +8,17 @@ interface Props {
 
 export function Footer({ onSearch }: Props) {
   return (
-    <footer className="bg-[#F8F9FF] border-t-2 border-[#C9A84C]/30 pt-16 pb-10 px-6">
+    <footer className="bg-[#F8F9FF] border-t-2 border-[#C9A84C]/30 pt-14 sm:pt-16 pb-10 px-5 sm:px-6">
       <div className="max-w-3xl mx-auto text-center">
         {/* CTA */}
-        <p className="text-2xl sm:text-3xl font-bold text-[#03065E] mb-3">
+        <p className="text-xl sm:text-3xl font-bold text-[#03065E] mb-3">
           Comenzá tu Análisis
         </p>
-        <p className="text-sm text-[#03065E]/45 mb-8">
+        <p className="text-sm text-[#03065E]/45 mb-7 sm:mb-8">
           Buscá cualquier empresa listada en EE.UU. y recibí un reporte profesional en segundos.
         </p>
 
-        <div className="max-w-md mx-auto mb-16">
+        <div className="max-w-md mx-auto mb-12 sm:mb-16">
           <TickerSearch variant="footer" onSubmit={onSearch} />
         </div>
 

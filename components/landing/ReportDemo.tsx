@@ -203,15 +203,15 @@ export function ReportDemo() {
   const analysisTyped = useTypewriter(MOCK_ANALYSIS, 12, phase >= 6);
 
   return (
-    <section className="bg-[#F8F9FF] py-20 sm:py-28 px-6 overflow-hidden">
+    <section className="bg-[#F8F9FF] py-16 sm:py-28 px-5 sm:px-6 overflow-hidden">
       <div className="max-w-3xl mx-auto">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[#03065E]/40 text-center mb-3">
+        <h2 className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.3em] text-[#03065E]/40 text-center mb-3">
           Preview
         </h2>
-        <p className="text-2xl sm:text-3xl font-bold text-[#03065E] text-center mb-4">
+        <p className="text-xl sm:text-3xl font-bold text-[#03065E] text-center mb-3 sm:mb-4">
           Así Se Ve un Reporte
         </p>
-        <p className="text-sm text-[#03065E]/50 text-center mb-14 max-w-md mx-auto">
+        <p className="text-sm text-[#03065E]/50 text-center mb-10 sm:mb-14 max-w-md mx-auto">
           Cada análisis se genera en tiempo real con datos financieros actualizados.
         </p>
 
@@ -222,36 +222,36 @@ export function ReportDemo() {
         >
           {/* ── Header ── */}
           <div
-            className="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-[#03065E]/6"
+            className="px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-[#03065E]/6"
             style={{
               opacity: phase >= 1 ? 1 : 0,
               transform: phase >= 1 ? "translateY(0)" : "translateY(12px)",
               transition: "all 0.6s ease-out",
             }}
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/demo-aapl.png"
                 alt={DATA.companyName}
-                className="w-12 h-12 rounded-xl object-contain bg-white p-1 shadow-sm border border-[#03065E]/10 shrink-0"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-contain bg-white p-1 shadow-sm border border-[#03065E]/10 shrink-0"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl font-bold text-[#03065E] truncate sm:text-2xl">
+                  <span className="text-base sm:text-2xl font-bold text-[#03065E] truncate">
                     {DATA.companyName}
                   </span>
-                  <span className="text-sm font-mono text-white bg-[#03065E] px-2 py-0.5 rounded shrink-0">
+                  <span className="text-[11px] sm:text-sm font-mono text-white bg-[#03065E] px-1.5 sm:px-2 py-0.5 rounded shrink-0">
                     {DATA.ticker}
                   </span>
                 </div>
-                <p className="text-sm text-[#707070] mt-0.5">{DATA.sector} · {DATA.industry}</p>
+                <p className="text-xs sm:text-sm text-[#707070] mt-0.5 truncate">{DATA.sector} · {DATA.industry}</p>
               </div>
-              <div className="text-left shrink-0 sm:text-right sm:ml-auto">
-                <div className="text-2xl font-mono font-bold text-[#03065E]">
+              <div className="text-right shrink-0 sm:ml-auto">
+                <div className="text-lg sm:text-2xl font-mono font-bold text-[#03065E]">
                   ${price.toFixed(2)}
                 </div>
-                <div className="text-sm font-mono font-medium text-emerald-600 mt-0.5">
+                <div className="text-xs sm:text-sm font-mono font-medium text-emerald-600 mt-0.5">
                   +{change.toFixed(2)}%
                 </div>
               </div>
@@ -260,7 +260,7 @@ export function ReportDemo() {
 
           {/* ── Metrics grid ── */}
           <div
-            className="px-5 sm:px-6 py-4 border-b border-[#03065E]/6"
+            className="px-4 sm:px-6 py-4 border-b border-[#03065E]/6"
             style={{
               opacity: phase >= 2 ? 1 : 0,
               transform: phase >= 2 ? "translateY(0)" : "translateY(12px)",
@@ -290,7 +290,7 @@ export function ReportDemo() {
 
           {/* ── Price chart (real) ── */}
           <div
-            className="px-5 sm:px-6 py-4 border-b border-[#03065E]/6"
+            className="px-4 sm:px-6 py-4 border-b border-[#03065E]/6"
             style={{
               opacity: phase >= 3 ? 1 : 0,
               transition: "opacity 0.6s ease-out",
@@ -304,7 +304,7 @@ export function ReportDemo() {
 
           {/* ── Analyst consensus ── */}
           <div
-            className="px-5 sm:px-6 py-4 border-b border-[#03065E]/6"
+            className="px-4 sm:px-6 py-4 border-b border-[#03065E]/6"
             style={{
               opacity: phase >= 4 ? 1 : 0,
               transform: phase >= 4 ? "translateY(0)" : "translateY(12px)",
@@ -315,14 +315,14 @@ export function ReportDemo() {
               Consenso de Analistas
             </div>
             <div className="flex gap-4 sm:gap-6 flex-wrap">
-              <div className="flex-1 min-w-[120px]">
+              <div className="flex-1 min-w-[110px]">
                 <div className="text-xs text-[#707070] mb-1">Precio Objetivo</div>
-                <div className="font-mono font-bold text-[#03065E] text-xl">${DATA.targetMeanPrice}</div>
+                <div className="font-mono font-bold text-[#03065E] text-lg sm:text-xl">${DATA.targetMeanPrice}</div>
                 <div className="text-sm font-mono font-medium text-emerald-600 mt-0.5">
                   +{UPSIDE}% upside
                 </div>
               </div>
-              <div className="flex-[2] min-w-[160px] sm:min-w-[200px]">
+              <div className="flex-[2] basis-full sm:basis-auto sm:min-w-[200px]">
                 <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
                   {CONSENSUS.map((c) => (
                     <div
@@ -349,7 +349,7 @@ export function ReportDemo() {
 
           {/* ── Investment Verdict ── */}
           <div
-            className="px-5 sm:px-6 py-4 border-b border-[#03065E]/6"
+            className="px-4 sm:px-6 py-4 border-b border-[#03065E]/6"
             style={{
               opacity: phase >= 5 ? 1 : 0,
               transform: phase >= 5 ? "scale(0.97)" : "scale(0.95)",
@@ -373,7 +373,7 @@ export function ReportDemo() {
 
           {/* ── Analysis text (typewriter) ── */}
           <div
-            className="px-5 sm:px-6 py-5"
+            className="px-4 sm:px-6 py-5"
             style={{
               opacity: phase >= 6 ? 1 : 0,
               transition: "opacity 0.5s ease-out",

@@ -131,7 +131,7 @@ export default function AnalyzePage() {
     <main className="min-h-screen bg-[#F8F9FF] text-[#03065E]">
       {/* Sticky header */}
       <header className="sticky top-0 z-10 bg-[#03065E] shadow-md">
-        <div className="max-w-3xl mx-auto px-4 py-4">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex gap-2 items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -155,13 +155,13 @@ export default function AnalyzePage() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8">
         {status === "idle" && (
           <div className="text-center py-12 sm:py-24 select-none">
-            <div className="text-4xl font-bold text-[#03065E]/10 mb-3 tracking-widest uppercase">
+            <div className="text-3xl sm:text-4xl font-bold text-[#03065E]/10 mb-3 tracking-widest uppercase">
               Bengochea
             </div>
-            <p className="text-xs tracking-[0.3em] uppercase text-[#03065E]/40">
+            <p className="text-[10px] sm:text-xs tracking-[0.3em] uppercase text-[#03065E]/40">
               Corredor de Bolsa · Análisis Institucional
             </p>
           </div>

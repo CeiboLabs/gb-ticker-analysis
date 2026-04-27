@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/landing/HeroSection";
+import { PopularTickers } from "@/components/landing/PopularTickers";
 import { ReportDemo } from "@/components/landing/ReportDemo";
 import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -27,6 +28,7 @@ export default function LandingPage() {
   return (
     <main>
       <HeroSection onSearch={handleSearch} />
+      <PopularTickers onSelect={handleSearch} />
       <ReportDemo />
       <ScrollReveal>
         <FeatureGrid />

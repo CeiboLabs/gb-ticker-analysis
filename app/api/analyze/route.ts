@@ -5,6 +5,7 @@ import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 import { cacheGet, cacheSet, cacheClear } from "@/lib/cache";
+import { recordTickerView } from "@/lib/tickerStats";
 import { checkRateLimit } from "@/lib/rateLimiter";
 import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
   if (!refresh) {
     const cached = await cacheGet(ticker);
     if (cached) {
+      void recordTickerView(ticker).catch(() => {});
       return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
     }
   } else {
@@ -164,6 +166,7 @@ export async function POST(req: NextRequest) {
       segmentData: segmentData ?? buildFallbackSegmentData(stockData),
     };
     cacheSet(ticker, stub, stockData);
+    void recordTickerView(ticker).catch(() => {});
     return NextResponse.json({ report: stub, stockData, cached: false });
   }
 
@@ -233,6 +236,7 @@ export async function POST(req: NextRequest) {
         }
 
         await cacheSet(ticker, report, stockData);
+        void recordTickerView(ticker).catch(() => {});
 
         // Send final payload: full structured report + stockData for UI components
         controller.enqueue(

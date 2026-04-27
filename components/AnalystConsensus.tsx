@@ -35,13 +35,13 @@ export function AnalystConsensus({ stockData: d }: Props) {
 
   return (
     <div className="bg-white border border-[#03065E]/10 rounded-xl p-4 mb-6 shadow-sm">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-[#03065E]/50 mb-4">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-[#03065E]/50 mb-3 sm:mb-4">
         Consenso de Analistas
       </h2>
 
-      <div className="flex gap-6 flex-wrap">
+      <div className="flex gap-4 sm:gap-6 flex-wrap">
         {d.targetMeanPrice != null && (
-          <div className="flex-1 min-w-[140px]">
+          <div className="flex-1 min-w-[120px]">
             <div className="text-xs text-[#707070] mb-1">Precio Objetivo Medio</div>
             <div className="font-mono font-bold text-[#03065E] text-xl">
               {pfx}{d.targetMeanPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -60,7 +60,7 @@ export function AnalystConsensus({ stockData: d }: Props) {
         )}
 
         {total > 0 && (
-          <div className="flex-[2] min-w-[200px]">
+          <div className="flex-[2] basis-full sm:basis-auto sm:min-w-[200px]">
             <div className="text-xs text-[#707070] mb-2">
               {total} analistas · {bullish} alcistas · {d.analystHold} neutros · {bearish} bajistas
             </div>

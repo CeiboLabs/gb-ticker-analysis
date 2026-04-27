@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RevenueQuarter } from "@/types/StockData";
 import { QuarterBarSeries } from "@/components/QuarterBarSeries";
+import { PinnedMarkersPrimitive } from "@/components/PinnedMarkersPrimitive";
 
 interface PricePoint {
   time: string;
@@ -20,6 +21,43 @@ interface Props {
 }
 
 const MARKER_COLORS = ["#5EEAD4", "#FDBA74"] as const;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LineSeriesApi = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PriceLineApi = any;
+
+function syncPinnedVisuals(
+  points: PinnedMarker[],
+  series: LineSeriesApi,
+  primitive: PinnedMarkersPrimitive,
+  dashedStyle: number,
+  existingPriceLines: PriceLineApi[],
+): PriceLineApi[] {
+  for (const pl of existingPriceLines) series.removePriceLine(pl);
+
+  primitive.setMarkers(
+    points.map((p, i) => ({
+      time: p.time as unknown as import("lightweight-charts").Time,
+      price: p.price,
+      color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
+    })),
+  );
+
+  return points.map((p, i) => {
+    const color = MARKER_COLORS[i] ?? MARKER_COLORS[0];
+    return series.createPriceLine({
+      price: p.price,
+      color,
+      lineWidth: 1,
+      lineStyle: dashedStyle,
+      axisLabelVisible: true,
+      axisLabelColor: color,
+      axisLabelTextColor: "#0B1B5C",
+      title: "",
+    });
+  });
+}
 
 function fmtRevenue(value: number): string {
   if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
@@ -47,8 +85,9 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
   const [pinned, setPinned] = useState<PinnedMarker[]>([]);
   const pinnedRef = useRef<PinnedMarker[]>([]);
   pinnedRef.current = pinned;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markersApiRef = useRef<any>(null);
+  const primitiveRef = useRef<PinnedMarkersPrimitive | null>(null);
+  const lineSeriesRef = useRef<LineSeriesApi>(null);
+  const priceLinesRef = useRef<PriceLineApi[]>([]);
 
   useEffect(() => {
     if (!containerRef.current || !historicalPrices || historicalPrices.length === 0) return;
@@ -57,7 +96,7 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
     let chartInstance: { remove: () => void } | null = null;
     let observerInstance: ResizeObserver | null = null;
 
-    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, createSeriesMarkers }) => {
+    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle }) => {
       if (destroyed || !containerRef.current) return;
 
       const container = containerRef.current;
@@ -126,23 +165,22 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
       });
 
       lineSeries.setData(historicalPrices);
+      lineSeriesRef.current = lineSeries;
 
       chart.timeScale().fitContent();
 
-      const markersApi = createSeriesMarkers(lineSeries, []);
-      markersApiRef.current = markersApi;
-      // Apply any markers that were pinned before the chart finished loading
-      if (pinnedRef.current.length > 0) {
-        markersApi.setMarkers(
-          pinnedRef.current.map((m, i) => ({
-            time: m.time,
-            position: "inBar" as const,
-            shape: "circle" as const,
-            color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
-            size: 3,
-          })),
-        );
-      }
+      const primitive = new PinnedMarkersPrimitive();
+      lineSeries.attachPrimitive(primitive);
+      primitiveRef.current = primitive;
+
+      // Sync any markers that were pinned before the chart finished loading
+      priceLinesRef.current = syncPinnedVisuals(
+        pinnedRef.current,
+        lineSeries,
+        primitive,
+        LineStyle.Dashed,
+        priceLinesRef.current,
+      );
 
       chart.subscribeClick((param) => {
         if (!param.point) return;
@@ -177,22 +215,32 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
       destroyed = true;
       observerInstance?.disconnect();
       chartInstance?.remove();
-      markersApiRef.current = null;
+      primitiveRef.current = null;
+      lineSeriesRef.current = null;
+      priceLinesRef.current = [];
     };
   }, [historicalPrices, quarterlyRevenue]);
 
   useEffect(() => {
-    const api = markersApiRef.current;
-    if (!api) return;
-    api.setMarkers(
-      pinned.map((m, i) => ({
-        time: m.time,
-        position: "inBar" as const,
-        shape: "circle" as const,
-        color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
-        size: 3,
-      })),
-    );
+    const series = lineSeriesRef.current;
+    const primitive = primitiveRef.current;
+    if (!series || !primitive) return;
+
+    let cancelled = false;
+    import("lightweight-charts").then(({ LineStyle }) => {
+      if (cancelled) return;
+      priceLinesRef.current = syncPinnedVisuals(
+        pinned,
+        series,
+        primitive,
+        LineStyle.Dashed,
+        priceLinesRef.current,
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [pinned]);
 
   // Reset pinned markers when the dataset changes (e.g., switching tickers)
@@ -212,13 +260,13 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
 
   return (
     <div className="mt-4 rounded-xl overflow-hidden border border-[#03065E]/30">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 bg-[#0B1B5C]">
-        <span className="text-xs font-semibold uppercase tracking-widest text-white/50">
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 pt-3 pb-2 bg-[#0B1B5C]">
+        <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-white/50">
           Últimos 3 años
         </span>
         {quarterlyRevenue && quarterlyRevenue.length > 0 && (
-          <span className="text-xs text-white/30 flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-[rgba(99,179,237,0.5)]" />
+          <span className="text-[11px] sm:text-xs text-white/30 flex items-center gap-1.5 shrink-0">
+            <span className="inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm bg-[rgba(99,179,237,0.5)]" />
             Revenue trimestral
           </span>
         )}
@@ -230,54 +278,47 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
             Tocá el gráfico para marcar y comparar hasta 2 puntos.
           </p>
         ) : (
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-x-5 gap-y-2 flex-wrap min-w-0">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-x-2.5 sm:gap-x-3 gap-y-1 flex-wrap min-w-0">
               {pinned.map((p, i) => (
-                <div key={`${p.time}-${i}`} className="flex items-center gap-2 min-w-0">
+                <div key={`${p.time}-${i}`} className="flex items-center gap-1.5 min-w-0">
                   <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{
-                      backgroundColor: MARKER_COLORS[i],
-                      boxShadow: `0 0 0 3px ${MARKER_COLORS[i]}1f`,
-                    }}
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: MARKER_COLORS[i] }}
                   />
-                  <div className="flex flex-col leading-tight min-w-0">
-                    <span className="text-[14px] font-semibold text-white tabular-nums">
-                      {fmtPrice(p.price)}
-                    </span>
-                    <span className="text-[10px] text-white/40 tracking-wide mt-0.5">
-                      {fmtDate(p.time)}
-                    </span>
-                  </div>
+                  <span className="text-[11px] text-white/70 tabular-nums tracking-wide">
+                    {fmtDate(p.time)}
+                  </span>
+                  {i < pinned.length - 1 && (
+                    <span className="text-white/25 text-[11px] ml-1.5">→</span>
+                  )}
                 </div>
               ))}
               {diff && (
-                <div className="flex items-center gap-2 pl-3 sm:border-l sm:border-white/[0.08]">
-                  <div className="flex flex-col leading-tight">
-                    <span
-                      className={`text-[14px] font-semibold tabular-nums ${
-                        diff.abs >= 0 ? "text-emerald-300" : "text-rose-300"
-                      }`}
-                    >
-                      {diff.pct >= 0 ? "+" : ""}
-                      {diff.pct.toFixed(1)}%
-                    </span>
-                    <span
-                      className={`text-[10px] tabular-nums mt-0.5 ${
-                        diff.abs >= 0 ? "text-emerald-300/60" : "text-rose-300/60"
-                      }`}
-                    >
-                      {diff.abs >= 0 ? "+" : ""}
-                      {fmtPrice(diff.abs)}
-                    </span>
-                  </div>
+                <div className="flex items-baseline gap-2 pl-2.5 sm:pl-3 sm:ml-1 border-l border-white/[0.08]">
+                  <span
+                    className={`text-[13px] font-semibold tabular-nums ${
+                      diff.abs >= 0 ? "text-emerald-300" : "text-rose-300"
+                    }`}
+                  >
+                    {diff.pct >= 0 ? "+" : ""}
+                    {diff.pct.toFixed(1)}%
+                  </span>
+                  <span
+                    className={`text-[10px] tabular-nums ${
+                      diff.abs >= 0 ? "text-emerald-300/50" : "text-rose-300/50"
+                    }`}
+                  >
+                    {diff.abs >= 0 ? "+" : ""}
+                    {fmtPrice(diff.abs)}
+                  </span>
                 </div>
               )}
             </div>
             <button
               type="button"
               onClick={() => setPinned([])}
-              className="text-[10px] uppercase tracking-[0.15em] text-white/35 hover:text-white/80 transition-colors shrink-0 mt-1"
+              className="text-[10px] uppercase tracking-[0.15em] text-white/35 hover:text-white/80 transition-colors shrink-0"
             >
               Limpiar
             </button>

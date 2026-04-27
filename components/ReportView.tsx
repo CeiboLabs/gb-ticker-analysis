@@ -266,7 +266,14 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
             disabled={isRefreshing}
             className="text-xs px-3 py-1.5 rounded-lg border border-[#03065E]/20 text-[#03065E] hover:bg-[#03065E] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isRefreshing ? "Actualizando…" : "Actualizar Análisis"}
+            {isRefreshing ? (
+              "Actualizando…"
+            ) : (
+              <>
+                <span className="sm:hidden">Actualizar</span>
+                <span className="hidden sm:inline">Actualizar Análisis</span>
+              </>
+            )}
           </button>
           {report.verdict && <PdfExportButton report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />}
         </div>
