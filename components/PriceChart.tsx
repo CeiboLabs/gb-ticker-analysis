@@ -19,7 +19,7 @@ interface Props {
   quarterlyRevenue?: RevenueQuarter[] | null;
 }
 
-const MARKER_COLORS = ["#FACC15", "#F87171"] as const;
+const MARKER_COLORS = ["#5EEAD4", "#FDBA74"] as const;
 
 function fmtRevenue(value: number): string {
   if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
@@ -35,7 +35,10 @@ function fmtPrice(value: number): string {
 function fmtDate(time: string): string {
   const d = new Date(time);
   if (isNaN(d.getTime())) return time;
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+  const day = d.getDate();
+  const month = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day} ${month} '${year}`;
 }
 
 
@@ -136,7 +139,7 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
             position: "inBar" as const,
             shape: "circle" as const,
             color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
-            size: 2,
+            size: 3,
           })),
         );
       }
@@ -187,7 +190,7 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
         position: "inBar" as const,
         shape: "circle" as const,
         color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
-        size: 2,
+        size: 3,
       })),
     );
   }, [pinned]);
@@ -221,42 +224,64 @@ export function PriceChart({ historicalPrices, quarterlyRevenue }: Props) {
         )}
       </div>
       <div ref={containerRef} style={{ background: "#0B1B5C" }} />
-      <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#0B1B5C] border-t border-white/5">
+      <div className="px-4 py-3 bg-[#0B1B5C] border-t border-white/[0.06]">
         {pinned.length === 0 ? (
-          <span className="text-[11px] text-white/40">
-            Tocá el gráfico para marcar hasta 2 puntos
-          </span>
+          <p className="text-[11px] text-white/35 tracking-wide">
+            Tocá el gráfico para marcar y comparar hasta 2 puntos.
+          </p>
         ) : (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/70">
-            {pinned.map((p, i) => (
-              <span key={`${p.time}-${i}`} className="flex items-center gap-1.5">
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: MARKER_COLORS[i] }}
-                />
-                <span className="text-white/50">{fmtDate(p.time)}</span>
-                <span className="font-semibold text-white/90">{fmtPrice(p.price)}</span>
-              </span>
-            ))}
-            {diff && (
-              <span
-                className={`font-semibold ${diff.abs >= 0 ? "text-emerald-400" : "text-red-400"}`}
-              >
-                {diff.abs >= 0 ? "+" : ""}
-                {fmtPrice(diff.abs)} ({diff.pct >= 0 ? "+" : ""}
-                {diff.pct.toFixed(1)}%)
-              </span>
-            )}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-x-5 gap-y-2 flex-wrap min-w-0">
+              {pinned.map((p, i) => (
+                <div key={`${p.time}-${i}`} className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{
+                      backgroundColor: MARKER_COLORS[i],
+                      boxShadow: `0 0 0 3px ${MARKER_COLORS[i]}1f`,
+                    }}
+                  />
+                  <div className="flex flex-col leading-tight min-w-0">
+                    <span className="text-[14px] font-semibold text-white tabular-nums">
+                      {fmtPrice(p.price)}
+                    </span>
+                    <span className="text-[10px] text-white/40 tracking-wide mt-0.5">
+                      {fmtDate(p.time)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {diff && (
+                <div className="flex items-center gap-2 pl-3 sm:border-l sm:border-white/[0.08]">
+                  <div className="flex flex-col leading-tight">
+                    <span
+                      className={`text-[14px] font-semibold tabular-nums ${
+                        diff.abs >= 0 ? "text-emerald-300" : "text-rose-300"
+                      }`}
+                    >
+                      {diff.pct >= 0 ? "+" : ""}
+                      {diff.pct.toFixed(1)}%
+                    </span>
+                    <span
+                      className={`text-[10px] tabular-nums mt-0.5 ${
+                        diff.abs >= 0 ? "text-emerald-300/60" : "text-rose-300/60"
+                      }`}
+                    >
+                      {diff.abs >= 0 ? "+" : ""}
+                      {fmtPrice(diff.abs)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPinned([])}
+              className="text-[10px] uppercase tracking-[0.15em] text-white/35 hover:text-white/80 transition-colors shrink-0 mt-1"
+            >
+              Limpiar
+            </button>
           </div>
-        )}
-        {pinned.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setPinned([])}
-            className="text-[11px] text-white/40 hover:text-white/80 underline underline-offset-2 shrink-0"
-          >
-            Limpiar
-          </button>
         )}
       </div>
     </div>
