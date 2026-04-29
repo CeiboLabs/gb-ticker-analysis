@@ -29,11 +29,10 @@ export function HeroSection({ onSearch }: Props) {
       {/* Logo */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo-bengochea.svg"
+        src="/logo-bengochea.svg?v=2"
         alt="Gastón Bengochea"
         className="h-8 sm:h-10 w-auto mb-8 sm:mb-12 relative"
         style={{
-          filter: "brightness(0) invert(1)",
           opacity: mounted ? 1 : 0,
           transform: mounted ? "translateY(0)" : "translateY(-16px)",
           transition: "all 0.8s ease-out 0.1s",

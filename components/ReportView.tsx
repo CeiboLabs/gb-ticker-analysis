@@ -17,7 +17,6 @@ import type { StockData } from "@/types/StockData";
 interface Props {
   report: StructuredReport;
   stockData: StockData;
-  cached?: boolean;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -47,7 +46,7 @@ function fmtCompact(n: number): string {
   return `${sign}$${abs.toLocaleString("en-US")}`;
 }
 
-export function ReportView({ report, stockData, cached, onRefresh, isRefreshing }: Props) {
+export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props) {
   const pfx = currencyPrefix(stockData.currency);
   const svgRef = useRef<SVGSVGElement>(null);
   const [sankeyImageUrl, setSankeyImageUrl] = useState<string | undefined>();
@@ -257,8 +256,7 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-6">
         <div className="text-xs text-[#707070]">
-          {cached ? "En caché · " : ""}
-          {today}
+          Análisis realizado el {today}
         </div>
         <div className="flex items-center gap-2">
           <button

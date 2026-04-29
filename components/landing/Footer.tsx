@@ -1,6 +1,7 @@
 "use client";
 
 import { TickerSearch } from "@/components/TickerSearch";
+import { MarketStatus } from "@/components/MarketStatus";
 
 interface Props {
   onSearch: (ticker: string) => void;
@@ -18,8 +19,12 @@ export function Footer({ onSearch }: Props) {
           Buscá cualquier empresa listada en EE.UU. y recibí un reporte profesional en segundos.
         </p>
 
-        <div className="max-w-md mx-auto mb-12 sm:mb-16">
+        <div className="max-w-md mx-auto mb-6">
           <TickerSearch variant="footer" onSubmit={onSearch} />
+        </div>
+
+        <div className="flex justify-center mb-12 sm:mb-16">
+          <MarketStatus tone="light" />
         </div>
 
         {/* Logo and attributions */}
@@ -28,6 +33,7 @@ export function Footer({ onSearch }: Props) {
           src="/logo-bengochea.svg"
           alt="Gastón Bengochea"
           className="h-6 w-auto mx-auto mb-6 opacity-30"
+          style={{ filter: "brightness(0)" }}
         />
 
         <p className="text-xs text-[#03065E]/25 mb-2">

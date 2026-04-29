@@ -4,13 +4,13 @@ import { useState, useRef, useEffect } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { ReportView } from "@/components/ReportView";
 import { TickerSearch } from "@/components/TickerSearch";
+import { MarketStatus } from "@/components/MarketStatus";
 import type { StructuredReport } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
 interface AnalysisResult {
   report: StructuredReport;
   stockData: StockData;
-  cached: boolean;
 }
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -26,12 +26,21 @@ export default function AnalyzePage() {
   const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("ticker");
-    if (t) {
-      const upper = t.toUpperCase();
-      setTicker(upper);
-      analyze(upper);
+    function loadFromUrl() {
+      const t = new URLSearchParams(window.location.search).get("ticker");
+      if (t) {
+        const upper = t.toUpperCase();
+        if (upper === activeTicker.current) return;
+        setTicker(upper);
+        analyze(upper);
+      } else if (activeTicker.current) {
+        // Back-navigated to /analyze with no ticker — return to landing
+        window.location.replace("/");
+      }
     }
+    loadFromUrl();
+    window.addEventListener("popstate", loadFromUrl);
+    return () => window.removeEventListener("popstate", loadFromUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -44,8 +53,18 @@ export default function AnalyzePage() {
     const controller = new AbortController();
     controllerRef.current = controller;
 
+    const previousTicker = activeTicker.current;
     activeTicker.current = t;
-    window.history.pushState({}, "", `/analyze?ticker=${encodeURIComponent(t)}`);
+    const newSearch = `?ticker=${encodeURIComponent(t)}`;
+    if (window.location.search !== newSearch) {
+      // Only push a new history entry when actually changing tickers; on initial
+      // mount the URL already matches (avoid duplicate entries that break back-nav).
+      if (previousTicker) {
+        window.history.pushState({}, "", `/analyze${newSearch}`);
+      } else {
+        window.history.replaceState({}, "", `/analyze${newSearch}`);
+      }
+    }
     setError(null);
 
     if (refresh) {
@@ -68,7 +87,7 @@ export default function AnalyzePage() {
       if (contentType.includes("application/json")) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Unknown error");
-        setResult({ report: data.report, stockData: data.stockData, cached: true });
+        setResult({ report: data.report, stockData: data.stockData });
         setStatus("done");
         return;
       }
@@ -94,7 +113,7 @@ export default function AnalyzePage() {
           if (msg.error) throw new Error(msg.error as string);
           if (msg.done && msg.report && msg.stockData) {
             receivedDone = true;
-            setResult({ report: msg.report as StructuredReport, stockData: msg.stockData as StockData, cached: false });
+            setResult({ report: msg.report as StructuredReport, stockData: msg.stockData as StockData });
             setStatus("done");
           } else if (msg.stockData) {
             // Early stockData event — show header & metrics while report is generating
@@ -135,10 +154,9 @@ export default function AnalyzePage() {
           <div className="flex gap-2 items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-bengochea.svg"
+              src="/logo-bengochea.svg?v=2"
               alt="Gastón Bengochea"
               className="hidden sm:block h-7 w-auto shrink-0 mr-2 cursor-pointer"
-              style={{ filter: "brightness(0) invert(1)" }}
               onClick={() => {
                 if (status === "loading") return;
                 window.location.href = "/";
@@ -156,6 +174,10 @@ export default function AnalyzePage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8">
+        <div className="flex justify-end -mt-2 mb-4 sm:mb-6">
+          <MarketStatus tone="light" />
+        </div>
+
         {status === "idle" && (
           <div className="text-center py-12 sm:py-24 select-none">
             <div className="text-3xl sm:text-4xl font-bold text-[#03065E]/10 mb-3 tracking-widest uppercase">
@@ -179,7 +201,6 @@ export default function AnalyzePage() {
           <ReportView
             report={result.report}
             stockData={result.stockData}
-            cached={result.cached}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
           />
