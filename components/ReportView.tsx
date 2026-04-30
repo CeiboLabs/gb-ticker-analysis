@@ -11,6 +11,7 @@ import { PriceChart } from "@/components/PriceChart";
 import { PdfExportButton } from "@/components/PdfExportButton";
 import ReactMarkdown from "react-markdown";
 import { currencyPrefix } from "@/lib/currencyPrefix";
+import { getMontserratFontFaceCss } from "@/lib/embedFonts";
 import type { StructuredReport } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
@@ -218,13 +219,24 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
 
   useEffect(() => {
     if (!report.segmentData) { setSankeyImageUrl(undefined); return; }
-    const id = setTimeout(() => {
+    let cancelled = false;
+    const id = setTimeout(async () => {
       const el = svgRef.current;
       if (!el) return;
+      const fontCss = await getMontserratFontFaceCss();
+      if (cancelled) return;
       const vb = el.viewBox.baseVal;
       const W = vb.width || 1800;
       const H = vb.height || 1000;
-      const svgString = new XMLSerializer().serializeToString(el);
+      const clone = el.cloneNode(true) as SVGSVGElement;
+      clone.setAttribute("font-family", "'Montserrat', Arial, Helvetica, sans-serif");
+      if (fontCss) {
+        const ns = "http://www.w3.org/2000/svg";
+        const styleEl = document.createElementNS(ns, "style");
+        styleEl.textContent = fontCss;
+        clone.insertBefore(styleEl, clone.firstChild);
+      }
+      const svgString = new XMLSerializer().serializeToString(clone);
       const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const img = new window.Image();
@@ -237,12 +249,12 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
         ctx.fillRect(0, 0, W, H);
         ctx.drawImage(img, 0, 0, W, H);
         URL.revokeObjectURL(url);
-        setSankeyImageUrl(canvas.toDataURL("image/png"));
+        if (!cancelled) setSankeyImageUrl(canvas.toDataURL("image/png"));
       };
       img.onerror = () => URL.revokeObjectURL(url);
       img.src = url;
     }, 150);
-    return () => clearTimeout(id);
+    return () => { cancelled = true; clearTimeout(id); };
   }, [report]);
 
   const today = new Date().toLocaleString("es-UY", {
@@ -251,6 +263,7 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 
   return (

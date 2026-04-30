@@ -421,7 +421,7 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
                     (report.segmentData.segmentPeriod && report.segmentData.segmentPeriod !== report.segmentData.period
                       ? " · Segmentos: " + report.segmentData.segmentPeriod
                       : "") +
-                    " · en " + report.segmentData.currency + ", " + report.segmentData.unit}
+                    " · en " + report.segmentData.currency}
                 </Text>
                 <Image src={sankeyImageUrl} style={{ width: "100%", borderRadius: 4 }} />
               </View>

@@ -159,6 +159,11 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       });
     return () => {
       cancelled = true;
+      // If the cache populates (e.g. the analyze response seeds 3Y) while
+      // this fetch is still in flight, the .finally above is no-op'd by the
+      // cancelled guard — without this reset, the spinner sticks on until
+      // the user switches tabs.
+      setLoading(false);
     };
   }, [range, ticker, cache]);
 
@@ -267,7 +272,17 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
           }),
         },
         handleScroll: false,
-        handleScale: false,
+        // Disable every interaction explicitly. Passing `handleScale: false`
+        // alone leaves `axisDoubleClickReset` active in some builds — a
+        // double-click on the right price axis (or near it) then resets the
+        // scale to autoFit and, combined with our custom scaleMargins + dual
+        // price scales, blanks the trace until the chart is recreated.
+        handleScale: {
+          mouseWheel: false,
+          pinch: false,
+          axisPressedMouseMove: false,
+          axisDoubleClickReset: false,
+        },
       });
 
       chartInstance = chart;
@@ -290,7 +305,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       // unique times. Yahoo occasionally returns repeats around session
       // boundaries; cached payloads from older builds may also drift.
       const seen = new Set<string | number>();
-      const sorted = [...prices]
+      const sortedAll = [...prices]
         .sort((a, b) => {
           if (typeof a.time === "number" && typeof b.time === "number") return a.time - b.time;
           return String(a.time).localeCompare(String(b.time));
@@ -304,16 +319,18 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       const reg = payload?.regularSession ?? null;
       const renderSplit = isIntraday && reg !== null;
 
-      // Split data into pre / regular / post when rendering the intraday tab
-      // so the extended-hours sections can use a dashed, dimmer line — the
-      // most legible distinction industry-wide (Robinhood, Apple Stocks).
-      // Boundary points are duplicated into both sides so the dashed and
-      // solid segments visually meet without a 5-minute gap.
+      // Drop after-hours points entirely — only pre-market and regular session
+      // are rendered.
+      const sorted = renderSplit
+        ? sortedAll.filter((p) => typeof p.time === "number" && p.time <= reg!.end)
+        : sortedAll;
+
+      // Split data into pre / regular when rendering the intraday tab so the
+      // pre-market section can use a dashed, dimmer line. Boundary points are
+      // duplicated into both sides so the dashed and solid segments visually
+      // meet without a 5-minute gap.
       const preData = renderSplit
         ? sorted.filter((p) => typeof p.time === "number" && p.time <= reg!.start)
-        : [];
-      const postData = renderSplit
-        ? sorted.filter((p) => typeof p.time === "number" && p.time >= reg!.end)
         : [];
       const regularData = renderSplit
         ? sorted.filter(
@@ -341,9 +358,8 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       regularSeries.setData(toLwPoints(regularData));
       lineSeriesRef.current = regularSeries;
 
-      // Extended-hours series share the right price scale but render dashed
-      // and dimmer. Two separate series (pre + post) avoid a phantom line
-      // crossing through regular-session hours.
+      // Pre-market series shares the right price scale but renders dashed
+      // and dimmer.
       const extendedOpts = {
         color: "rgba(255,255,255,0.55)",
         lineWidth: 2 as const,
@@ -358,18 +374,17 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       };
       const preSeries = preData.length > 0 ? chart.addSeries(LineSeries, extendedOpts) : null;
       if (preSeries) preSeries.setData(toLwPoints(preData));
-      const postSeries = postData.length > 0 ? chart.addSeries(LineSeries, extendedOpts) : null;
-      if (postSeries) postSeries.setData(toLwPoints(postData));
 
-      // Pre-market & after-hours background shading + boundary hairlines.
-      if (isIntraday && reg && prices.length > 0) {
+      // Pre-market background shading + boundary hairlines. After-hours is
+      // hidden, so cap lastTime at regularEnd to suppress the AFTER band.
+      if (isIntraday && reg && sorted.length > 0) {
         const shading = new SessionShadingPrimitive();
         regularSeries.attachPrimitive(shading);
         const bounds: SessionBounds = {
-          firstTime: prices[0].time as unknown as import("lightweight-charts").Time,
+          firstTime: sorted[0].time as unknown as import("lightweight-charts").Time,
           regularStart: reg.start as unknown as import("lightweight-charts").Time,
           regularEnd: reg.end as unknown as import("lightweight-charts").Time,
-          lastTime: prices[prices.length - 1].time as unknown as import("lightweight-charts").Time,
+          lastTime: reg.end as unknown as import("lightweight-charts").Time,
         };
         shading.setBounds(bounds);
       }
@@ -390,7 +405,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
 
       chart.subscribeClick((param) => {
         if (!param.point) return;
-        const candidates = [regularSeries, preSeries, postSeries].filter(Boolean) as LineSeriesApi[];
+        const candidates = [regularSeries, preSeries].filter(Boolean) as LineSeriesApi[];
         let data: { time?: string | number; value?: number } | undefined;
         for (const s of candidates) {
           const d = param.seriesData.get(s) as
@@ -486,7 +501,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
         )}
       </div>
 
-      <div className="flex items-center gap-1 px-3 sm:px-4 pb-2 bg-[#0B1B5C]" role="tablist" aria-label="Rango temporal">
+      <div className="flex items-center gap-1 px-3 sm:px-4 pb-2 bg-[#0B1B5C] select-none" role="tablist" aria-label="Rango temporal">
         {RANGES.map((r) => {
           const active = r.id === range;
           return (
@@ -513,7 +528,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       </div>
 
       <div className="relative" style={{ background: "#0B1B5C" }}>
-        <div ref={containerRef} />
+        <div ref={containerRef} style={{ height: 280 }} />
         {error && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-[11px] text-rose-300/80 tracking-wide">{error}</span>

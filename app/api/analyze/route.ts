@@ -110,12 +110,16 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
   // Only emit the breakdown when the components reconcile to ≤105 % of opex.
   const hasBreakdown = (rd > 0 || sga > 0) && knownOpex <= opex * 1.05;
 
+  const segments = (s.segments ?? [])
+    .map((seg) => ({ name: seg.name, value: sc(seg.value) }))
+    .filter((seg) => seg.value > 0);
+
   return {
     currency,
     period,
     endDate: s.endDate,
     unit,
-    segments: [],
+    segments,
     totalRevenue:        sc(rev),
     grossProfit:         sc(gp),
     grossMarginPct:      gp > 0 ? pct(gp) : undefined,

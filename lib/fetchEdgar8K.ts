@@ -22,6 +22,11 @@ import { secFetch, resolveCIK } from "@/lib/fetchEdgarSegments";
 const SEC = "https://www.sec.gov";
 const DATA_SEC = "https://data.sec.gov";
 
+export interface Edgar8KSegment {
+  name: string;
+  value: number; // already scaled to dollars
+}
+
 export interface Edgar8KIncomeStatement {
   endDate: string;
   totalRevenue: number;
@@ -35,6 +40,7 @@ export interface Edgar8KIncomeStatement {
   incomeBeforeTax: number | null;
   incomeTaxExpense: number | null;
   netIncome: number;
+  segments?: Edgar8KSegment[];
 }
 
 interface FilingMatch {
@@ -230,15 +236,49 @@ function parseNumber(cell: string): number | null {
   return negative ? -n : n;
 }
 
-function detectScale(tableHtml: string, rows: string[][]): number {
-  const text = tableHtml.replace(/<[^>]+>/g, " ").toLowerCase();
-  if (/in\s+thousands/.test(text))      return 1_000;
-  if (/in\s+millions/.test(text))       return 1_000_000;
-  if (/in\s+billions/.test(text))       return 1_000_000_000;
+function detectScale(tableHtml: string, rows: string[][], docHtml?: string, tableStart?: number): number {
+  // Pick the unit phrase that appears FIRST in the text. Primary units are
+  // always declared up front (e.g. "(In millions, except number of shares
+  // which are reflected in thousands and per share amounts)" — millions is
+  // the IS unit, thousands only modifies the share count). Earliest match
+  // wins so the parenthetical "except" clause doesn't override.
+  const earliestUnit = (text: string): number | null => {
+    const matches: Array<{ idx: number; scale: number }> = [];
+    const m1 = text.match(/in\s+thousands/);
+    if (m1) matches.push({ idx: m1.index ?? Infinity, scale: 1_000 });
+    const m2 = text.match(/in\s+millions/);
+    if (m2) matches.push({ idx: m2.index ?? Infinity, scale: 1_000_000 });
+    const m3 = text.match(/in\s+billions/);
+    if (m3) matches.push({ idx: m3.index ?? Infinity, scale: 1_000_000_000 });
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => a.idx - b.idx);
+    return matches[0].scale;
+  };
+
+  const tableText = tableHtml.replace(/<[^>]+>/g, " ").toLowerCase();
+  const inTable = earliestUnit(tableText);
+  if (inTable !== null) return inTable;
+
   for (const row of rows.slice(0, 3)) {
     const joined = row.join(" ").toLowerCase();
     if (/millions/.test(joined)) return 1_000_000;
     if (/thousands/.test(joined)) return 1_000;
+  }
+
+  // Issuers like Apple put "(In millions, except number of shares...)" in a
+  // <p> ABOVE the table, not inside it. Look at a window of preceding HTML
+  // (and as a last resort the whole document — most filings declare units
+  // exactly once at the top of the statements section).
+  if (docHtml) {
+    const start = typeof tableStart === "number" ? Math.max(0, tableStart - 4000) : 0;
+    const end   = typeof tableStart === "number" ? tableStart : docHtml.length;
+    const preceding = docHtml.slice(start, end).replace(/<[^>]+>/g, " ").toLowerCase();
+    const inPreceding = earliestUnit(preceding);
+    if (inPreceding !== null) return inPreceding;
+
+    const fullText = docHtml.replace(/<[^>]+>/g, " ").toLowerCase();
+    const inFull = earliestUnit(fullText);
+    if (inFull !== null) return inFull;
   }
   return 1;
 }
@@ -265,11 +305,112 @@ function scoreTable(rows: string[][]): number {
   return score;
 }
 
+// Walk a row and produce { label, firstValue } where label concatenates the
+// leading non-numeric cells and firstValue is the first numeric column.
+// Mirrors the splitRow helper inside extractIncomeStatement. Standalone
+// currency symbols ($, €, ¥…) get dropped — issuers like Apple put a "$"
+// in its own cell before the first row of each section, which would
+// otherwise be appended to the label as "iPhone $" / "Net income $".
+function rowLabelValue(row: string[]): { label: string; value: number | null } {
+  let label = "";
+  let value: number | null = null;
+  let foundLabel = false;
+  for (const cell of row) {
+    const t = cell.trim();
+    if (!t) continue;
+    if (/^[$€£¥₹]+$/.test(t)) continue;
+    const n = parseNumber(t);
+    if (!foundLabel) {
+      if (n === null) {
+        label = label ? `${label} ${t}` : t;
+      } else {
+        foundLabel = true;
+        value = n;
+      }
+    } else if (value === null && n !== null) {
+      value = n;
+    }
+  }
+  return { label: label.replace(/[\s$€£¥₹]+$/u, "").trim(), value };
+}
+
+// Geographic segment labels we don't want to surface as a "product" breakdown
+// when both kinds of tables are present in the press release.
+const GEO_LABEL_RE = /\b(americas|europe|emea|apac|asia[- ]?pacific|greater\s+china|china|japan|north\s+america|latin\s+america|rest\s+of\s+(world|asia)|domestic|international|united\s+states|u\.s\.|canada|mexico|africa|middle\s+east)\b/i;
+
+// Subtotal/total rows we exclude from segment sums so the breakdown reconciles
+// to revenue without double-counting.
+const TOTAL_LABEL_RE = /^(total|subtotal|net\s+sales|net\s+revenues?|total\s+(net\s+)?(sales|revenues?))\b/i;
+
+interface SegmentCandidate {
+  rows: Edgar8KSegment[];
+  hasGeoKeywords: boolean;
+}
+
+// Find any contiguous run of rows whose values reconcile to the IS revenue.
+// Searches within EVERY table (including the IS itself, since issuers like
+// Apple embed the segment breakdown right inside the IS table as sub-rows
+// under "Net sales:" before the totals line). Header rows (label only, no
+// value) and total/subtotal rows break the run. When multiple runs match,
+// we prefer non-geographic ones and, within that, more granular (more rows).
+function extractRevenueSegments(
+  html: string,
+  totalRevenue: number,
+  scale: number,
+): Edgar8KSegment[] | null {
+  if (totalRevenue <= 0) return null;
+  const tableRe = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
+  const candidates: SegmentCandidate[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = tableRe.exec(html)) !== null) {
+    const rawRows = tableToRows(m[0]);
+    if (rawRows.length < 3) continue;
+    const labeled = rawRows.map(rowLabelValue);
+
+    let i = 0;
+    while (i < labeled.length) {
+      const r = labeled[i];
+      const rowOk = !!r.label && r.value !== null && r.value > 0 && !TOTAL_LABEL_RE.test(r.label);
+      if (!rowOk) { i++; continue; }
+
+      let sum = 0;
+      const run: Edgar8KSegment[] = [];
+      let j = i;
+      while (j < labeled.length) {
+        const rj = labeled[j];
+        if (!rj.label || rj.value === null || rj.value <= 0) break;
+        if (TOTAL_LABEL_RE.test(rj.label)) break;
+        sum += rj.value;
+        run.push({ name: rj.label, value: rj.value * scale });
+        j++;
+      }
+
+      if (run.length >= 2) {
+        const sumScaled = sum * scale;
+        const ratio = sumScaled / totalRevenue;
+        if (ratio >= 0.98 && ratio <= 1.02) {
+          const geoHits = run.filter((s) => GEO_LABEL_RE.test(s.name)).length;
+          candidates.push({ rows: run, hasGeoKeywords: geoHits >= 2 });
+        }
+      }
+      i = Math.max(j + 1, i + 1);
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => {
+    if (a.hasGeoKeywords !== b.hasGeoKeywords) return a.hasGeoKeywords ? 1 : -1;
+    return b.rows.length - a.rows.length;
+  });
+  return candidates[0].rows;
+}
+
 function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
   const tableRe = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
   let bestRows: string[][] | null = null;
   let bestScore = 0;
   let bestHtml = "";
+  let bestStart = 0;
   let m: RegExpExecArray | null;
   while ((m = tableRe.exec(html)) !== null) {
     const tableHtml = m[0];
@@ -280,6 +421,7 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
       bestScore = score;
       bestRows  = rows;
       bestHtml  = tableHtml;
+      bestStart = m.index;
     }
   }
 
@@ -288,7 +430,7 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
   // cost-of-revenue / gross-profit lines.
   if (!bestRows || bestScore < 4) return null;
 
-  const scale = detectScale(bestHtml, bestRows);
+  const scale = detectScale(bestHtml, bestRows, html, bestStart);
   const rowsRef = bestRows;
 
   // Some issuers (e.g. ADP) indent line items with leading empty cells, so
@@ -427,9 +569,12 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
   }
   if (!endDate) return null;
 
+  const totalRevenueScaled = rev * scale;
+  const segments = extractRevenueSegments(html, totalRevenueScaled, scale) ?? undefined;
+
   return {
     endDate,
-    totalRevenue:                  rev * scale,
+    totalRevenue:                  totalRevenueScaled,
     costOfRevenue:                 nullableMul(lineValue("costOfRevenue"), scale),
     grossProfit:                   nullableMul(lineValue("grossProfit"), scale),
     researchDevelopment:           nullableMul(lineValue("researchDevelopment"), scale),
@@ -440,6 +585,7 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
     incomeBeforeTax:               nullableMul(lineValue("incomeBeforeTax"), scale),
     incomeTaxExpense:              nullableMul(lineValue("incomeTaxExpense"), scale),
     netIncome:                     ni * scale,
+    segments,
   };
 }
 
