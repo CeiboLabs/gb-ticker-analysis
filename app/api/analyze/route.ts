@@ -78,7 +78,6 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
   if (rev <= 0) return null;
 
   const gp    = s.grossProfit ?? Math.max(0, rev - (s.costOfRevenue ?? 0));
-  const cogs  = s.costOfRevenue ?? Math.max(0, rev - gp);
   const opInc = s.operatingIncome ?? 0;
   const ni    = s.netIncome;
   // Always derive opex from gp − op. Some issuers (e.g. ABBV) report
@@ -180,7 +179,6 @@ function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
   // Hybrid: actual where Yahoo has it, TTM-margin estimate where Yahoo zeroes
   const gp    = yahooGp ?? (tmGm > 0 ? rev * tmGm : Math.max(0, rev - (yahooCogs ?? 0)));
   const opInc = yahooOp ?? (tmOm > 0 ? rev * tmOm : 0);
-  const cogs  = yahooCogs ?? Math.max(0, rev - gp);
   const opex  = yahooOpex ?? Math.max(0, gp - Math.max(0, opInc));
 
   // The gap between op and ni is taxes + interest + other below-the-line.

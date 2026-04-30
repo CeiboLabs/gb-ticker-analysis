@@ -295,9 +295,12 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
         </div>
       )}
 
-      <div className="space-y-6 divide-y divide-[#03065E]/10">
-        {SECTIONS.map(({ key, title }) => (
-          <div key={key} className="pt-6 first:pt-0">
+      <div className="space-y-6">
+        {SECTIONS.map(({ key, title }, idx) => {
+          const prev = SECTIONS[idx - 1];
+          const skipBorder = idx === 0 || (prev?.key === "revenueStreams" && !!report.segmentData);
+          return (
+          <div key={key} className={`pt-6 ${skipBorder ? "" : "border-t border-[#03065E]/10"}`}>
             <ReportSection title={title} content={report[key] as string} />
             {key === "capitalExpenditure" && stockData.annualCashFlow && stockData.annualCashFlow.length > 0 && (
               <div className="mt-4 overflow-x-auto">
@@ -348,7 +351,8 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
             )}
 
           </div>
-        ))}
+          );
+        })}
 
         {/* Bull / Bear cases */}
         {report.bullCase && report.bearCase && (
