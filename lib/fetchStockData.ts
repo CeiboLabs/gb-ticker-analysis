@@ -9,6 +9,7 @@ import type {
   InsiderTransaction,
   PeerComparison,
   PeerMultiple,
+  QuarterIncomeStatement,
 } from "@/types/StockData";
 
 export const yahooFinance = new YahooFinance({
@@ -49,7 +50,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   const today = new Date();
   const tenYearsAgo = new Date(Date.now() - 11 * 365 * 24 * 60 * 60 * 1000);
 
-  const [result, historicalRaw, searchResult, edgarRevenue, fundamentalsRaw] = await Promise.all([
+  const [result, historicalRaw, searchResult, edgarRevenue, fundamentalsRaw, fundamentalsQuarterlyRaw] = await Promise.all([
     yahooFinance.quoteSummary(
     ticker,
     {
@@ -66,6 +67,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         "upgradeDowngradeHistory",
         "insiderTransactions",
         "majorHoldersBreakdown",
+        "incomeStatementHistoryQuarterly",
       ],
     },
     { validateResult: false },
@@ -82,9 +84,107 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         { validateResult: false },
       )
       .catch(() => null) as Promise<AnyRecord[] | null>,
+    yahooFinance
+      .fundamentalsTimeSeries(
+        ticker,
+        { period1: oneYearAgo, type: "quarterly", module: "all" },
+        { validateResult: false },
+      )
+      .catch(() => null) as Promise<AnyRecord[] | null>,
   ]);
 
-  const revenueRaw = edgarRevenue;
+  // ── Quarterly revenue: EDGAR + Yahoo gap-fill ──────────────────────────────
+  // EDGAR is authoritative but its `companyconcept` API occasionally misses
+  // a quarter (most often Q4, when neither a standalone Q4 quarterly fact
+  // nor the annual − YTD derivation succeeds, leaving a visible hole in
+  // the chart). Two complementary Yahoo sources cover the gaps:
+  //   • incomeStatementHistoryQuarterly: last ~4 quarters, includes the
+  //     most-recently-reported one before its 10-Q hits EDGAR.
+  //   • fundamentalsTimeSeries quarterly: ~5 years of history, covers older
+  //     missing quarters that incomeStatementHistoryQuarterly doesn't reach
+  //     (US filers only — sparse/null for ADRs of foreign companies).
+  // ADRs of foreign filers (e.g. GGB) end up with limited quarterly history
+  // because Yahoo doesn't have it and EDGAR has no XBRL for 6-K filings.
+  // Paid alternatives (FMP/AV) were tried previously but get rate-limited
+  // from Cloudflare IPs — see commit b7322a1.
+  const yahooQuarterlyRev = new Map<string, number>();
+
+  const isQuarterly = ((result.incomeStatementHistoryQuarterly as AnyRecord)?.incomeStatementHistory ?? []) as AnyRecord[];
+  for (const q of isQuarterly) {
+    const end = fmtDate(q.endDate);
+    const rev = typeof q.totalRevenue === "number"
+      ? q.totalRevenue
+      : (q.totalRevenue?.raw as number | undefined);
+    if (end && rev && rev > 0) yahooQuarterlyRev.set(end, rev);
+  }
+
+  // Find the most-recent quarterly IS for use as Sankey fallback when EDGAR
+  // is behind. Yahoo returns these in reverse-chronological order, but pick
+  // the latest defensively in case ordering changes.
+  const num = (v: unknown): number | null => {
+    if (typeof v === "number") return v;
+    if (v && typeof v === "object" && "raw" in (v as object)) {
+      const raw = (v as { raw?: unknown }).raw;
+      return typeof raw === "number" ? raw : null;
+    }
+    return null;
+  };
+  let latestQuarterIS: QuarterIncomeStatement | null = null;
+  for (const q of isQuarterly) {
+    const end = fmtDate(q.endDate);
+    const rev = num(q.totalRevenue);
+    if (!end || rev == null || rev <= 0) continue;
+    if (!latestQuarterIS || end > latestQuarterIS.endDate) {
+      latestQuarterIS = {
+        endDate: end,
+        totalRevenue: rev,
+        costOfRevenue: num(q.costOfRevenue),
+        grossProfit: num(q.grossProfit),
+        researchDevelopment: num(q.researchDevelopment),
+        sellingGeneralAdministrative: num(q.sellingGeneralAdministrative),
+        totalOperatingExpenses: num(q.totalOperatingExpenses),
+        operatingIncome: num(q.operatingIncome),
+        incomeBeforeTax: num(q.incomeBeforeTax),
+        incomeTaxExpense: num(q.incomeTaxExpense),
+        netIncome: num(q.netIncome),
+      };
+    }
+  }
+
+  if (Array.isArray(fundamentalsQuarterlyRaw)) {
+    for (const r of fundamentalsQuarterlyRaw) {
+      const dateVal: unknown = r.date;
+      const end = dateVal instanceof Date
+        ? fmtDate(dateVal)
+        : typeof dateVal === "string"
+          ? dateVal.slice(0, 10)
+          : null;
+      const rev = (r.totalRevenue ?? r.revenue) as number | undefined;
+      if (end && rev && rev > 0 && !yahooQuarterlyRev.has(end)) {
+        yahooQuarterlyRev.set(end, rev);
+      }
+    }
+  }
+
+  let revenueRaw = edgarRevenue;
+  if (yahooQuarterlyRev.size > 0) {
+    const merged = [...(revenueRaw ?? [])];
+    const existingMs = merged.map((q) => Date.parse(q.time));
+    // 7-day tolerance: yahoo-finance2 may return quarter ends shifted by
+    // timezone (e.g. 2023-12-31 vs 2024-01-01) or at slightly different
+    // dates than EDGAR for the same logical quarter.
+    const SAME_QUARTER_MS = 7 * 86_400_000;
+    for (const [time, value] of yahooQuarterlyRev) {
+      const yMs = Date.parse(time);
+      if (!isFinite(yMs)) continue;
+      const isDuplicate = existingMs.some((ms) => Math.abs(ms - yMs) <= SAME_QUARTER_MS);
+      if (!isDuplicate) {
+        merged.push({ time, value });
+        existingMs.push(yMs);
+      }
+    }
+    revenueRaw = merged.sort((a, b) => a.time.localeCompare(b.time));
+  }
 
   const price   = result.price        as AnyRecord | undefined;
   const detail  = result.summaryDetail as AnyRecord | undefined;
@@ -253,6 +353,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     exDividendDate: fmtDate(detail?.exDividendDate) ?? null,
 
     earningsHistory,
+    latestQuarterIS,
     forwardEstimates,
     nextEarningsDate,
 

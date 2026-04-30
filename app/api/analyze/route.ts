@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
+import { fetchEdgar8KIncomeStatement, type Edgar8KIncomeStatement } from "@/lib/fetchEdgar8K";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
-import { cacheGet, cacheSet, cacheClear } from "@/lib/cache";
+import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
 import { checkRateLimit } from "@/lib/rateLimiter";
 import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
@@ -49,6 +50,194 @@ function buildFallbackSegmentData(sd: StockData): SegmentSankeyData | null {
     netProfit: sc(netProfit),
     netMarginPct: parseFloat((nm * 100).toFixed(1)),
     operatingExpenses: sc(operatingExpenses),
+  };
+}
+
+// Yahoo updates earnings within minutes of a press release; SEC EDGAR only
+// reflects the quarter once the 10-Q is filed (typically 1–3 days later).
+// When Yahoo's most recent quarter end is materially newer than EDGAR's
+// period end, the Sankey/income-statement panel is showing a stale quarter.
+function isEdgarStale(stockData: StockData, segmentData: SegmentSankeyData | null): boolean {
+  if (!segmentData?.endDate) return false;
+  const yahooEnd = stockData.latestQuarterIS?.endDate;
+  if (!yahooEnd) return false;
+  const yahooMs = Date.parse(yahooEnd);
+  const edgarMs = Date.parse(segmentData.endDate);
+  if (!isFinite(yahooMs) || !isFinite(edgarMs)) return false;
+  // 45 days ≈ half a quarter — comfortably past any normal filing lag, so a
+  // gap this large means EDGAR is missing the most recent reported quarter.
+  return (yahooMs - edgarMs) / 86_400_000 >= 45;
+}
+
+// Build a Sankey from a parsed 8-K Exhibit 99.1 income statement. These are
+// the actual numbers from the press release table, days before the 10-Q's
+// XBRL lands. No segment breakdowns (the table is the consolidated IS), but
+// every line item is real data — no TTM-margin estimates.
+function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): SegmentSankeyData | null {
+  const rev = s.totalRevenue;
+  if (rev <= 0) return null;
+
+  const gp    = s.grossProfit ?? Math.max(0, rev - (s.costOfRevenue ?? 0));
+  const cogs  = s.costOfRevenue ?? Math.max(0, rev - gp);
+  const opInc = s.operatingIncome ?? 0;
+  const ni    = s.netIncome;
+  // Always derive opex from gp − op. Some issuers (e.g. ABBV) report
+  // "Total operating costs and expenses" that includes COGS, which would
+  // double-count if we used it directly for the GP→OpEx Sankey edge.
+  const opex  = Math.max(0, gp - Math.max(0, opInc));
+  // The op→ni gap is taxes + interest + other non-operating items. Charge
+  // it all to the "tax" bucket so the Sankey balances; the label "Taxes"
+  // is imperfect when interest/non-op dominate (e.g. ABBV) but the alternative
+  // is a dangling op-side height with no outflow.
+  const tax   = opInc > 0 && opInc > ni ? Math.max(0, opInc - Math.max(0, ni)) : (s.incomeTaxExpense ?? 0);
+  const ibt   = s.incomeBeforeTax ?? Math.max(0, ni + (s.incomeTaxExpense ?? 0));
+
+  const unit    = rev >= 1e12 ? "T" : rev >= 1e9 ? "B" : "M";
+  const divisor = rev >= 1e12 ? 1e12 : rev >= 1e9 ? 1e9 : 1e6;
+  const sc = (v: number) => parseFloat((Math.max(0, v) / divisor).toFixed(2));
+  const pct = (n: number) => parseFloat(((n / rev) * 100).toFixed(1));
+
+  const d  = new Date(s.endDate);
+  const qN = Math.floor(d.getUTCMonth() / 3) + 1;
+  const yr = d.getUTCFullYear();
+  const period = `Q${qN} FY${yr}`;
+
+  const rd  = s.researchDevelopment ?? 0;
+  const sga = s.sellingGeneralAdministrative ?? 0;
+  const knownOpex = (rd > 0 ? rd : 0) + (sga > 0 ? sga : 0);
+  const otherOpex = knownOpex > 0 ? Math.max(0, opex - knownOpex) : 0;
+  // Single-step IS issuers (e.g. ADP) include R&D inside Cost of Revenue, not
+  // in OpEx — so attributing R&D to the OpEx node would overflow the flow.
+  // Only emit the breakdown when the components reconcile to ≤105 % of opex.
+  const hasBreakdown = (rd > 0 || sga > 0) && knownOpex <= opex * 1.05;
+
+  return {
+    currency,
+    period,
+    endDate: s.endDate,
+    unit,
+    segments: [],
+    totalRevenue:        sc(rev),
+    grossProfit:         sc(gp),
+    grossMarginPct:      gp > 0 ? pct(gp) : undefined,
+    costOfRevenue:       sc(Math.max(0, rev - gp)),
+    operatingProfit:     sc(Math.max(0, opInc)),
+    operatingMarginPct:  opInc > 0 ? pct(opInc) : undefined,
+    netProfit:           sc(Math.max(0, ni)),
+    netMarginPct:        ni > 0 ? pct(ni) : undefined,
+    operatingExpenses:   sc(opex),
+    opexBreakdown: hasBreakdown ? {
+      rd:             rd > 0  ? sc(rd) : undefined,
+      salesMarketing: sga > 0 ? sc(sga) : undefined,
+      other:          otherOpex > 0 ? sc(otherOpex) : undefined,
+    } : undefined,
+    tax: sc(Math.max(0, tax)),
+    nonOperatingIncome: (() => {
+      const nonOp = ibt - Math.max(0, opInc);
+      return nonOp > Math.max(0, opInc) * 0.01 ? sc(nonOp) : undefined;
+    })(),
+  };
+}
+
+// Build a Sankey from Yahoo's latest quarterly income statement. Used when
+// EDGAR's most recent 10-Q lags behind a reported quarter — segments are
+// empty (Yahoo doesn't break revenue down by business line) but headline
+// totals match what the chart's bars are showing.
+function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
+  const q = sd.latestQuarterIS;
+  if (!q || q.totalRevenue <= 0) return null;
+
+  // Need at least one of GP/OpInc/NetInc to render a meaningful Sankey
+  // beyond a single revenue node — without that, the chart component drops
+  // it for having too few nodes/links and the user sees nothing.
+  const hasMeaningfulData =
+    (q.grossProfit ?? 0) > 0 ||
+    (q.operatingIncome ?? 0) > 0 ||
+    (q.netIncome ?? 0) > 0 ||
+    (q.costOfRevenue ?? 0) > 0;
+  if (!hasMeaningfulData) return null;
+
+  const rev = q.totalRevenue;
+  const ni  = q.netIncome ?? 0;
+
+  // Yahoo zeroes out (not nullifies) IS items it doesn't have for a given
+  // ticker — e.g. ABBV's Q1 2026 only has rev + ni populated, gp/op/cogs/opex
+  // all return 0. Treat 0 as "missing" so we can fall back to TTM-margin
+  // estimates applied to the actual quarter revenue. Net income is taken
+  // as-is since it's the most consequential headline number.
+  const yahooField = (v: number | null | undefined): number | null =>
+    typeof v === "number" && v > 0 ? v : null;
+
+  const yahooGp   = yahooField(q.grossProfit);
+  const yahooCogs = yahooField(q.costOfRevenue);
+  const yahooOp   = yahooField(q.operatingIncome);
+  const yahooOpex = yahooField(q.totalOperatingExpenses);
+  const yahooTax  = yahooField(q.incomeTaxExpense);
+
+  const tmGm = sd.grossMargins ?? 0;
+  const tmOm = sd.operatingMargins ?? 0;
+
+  // Hybrid: actual where Yahoo has it, TTM-margin estimate where Yahoo zeroes
+  const gp    = yahooGp ?? (tmGm > 0 ? rev * tmGm : Math.max(0, rev - (yahooCogs ?? 0)));
+  const opInc = yahooOp ?? (tmOm > 0 ? rev * tmOm : 0);
+  const cogs  = yahooCogs ?? Math.max(0, rev - gp);
+  const opex  = yahooOpex ?? Math.max(0, gp - Math.max(0, opInc));
+
+  // The gap between op and ni is taxes + interest + other below-the-line.
+  // If Yahoo gave us tax explicitly, use it. Otherwise charge the entire
+  // gap to a "Tax & Other" bucket so the Sankey balances visually instead
+  // of leaving a dangling op-side height with no outflow.
+  const opNiGap = Math.max(0, Math.max(0, opInc) - Math.max(0, ni));
+  const tax     = yahooTax ?? opNiGap;
+  const ibt     = q.incomeBeforeTax ?? Math.max(0, ni + tax);
+
+  const unit    = rev >= 1e12 ? "T" : rev >= 1e9 ? "B" : "M";
+  const divisor = rev >= 1e12 ? 1e12 : rev >= 1e9 ? 1e9 : 1e6;
+  const sc = (v: number) => parseFloat((Math.max(0, v) / divisor).toFixed(2));
+  const pct = (n: number) => parseFloat(((n / rev) * 100).toFixed(1));
+
+  // Period label — assumes calendar quarter end (Mar/Jun/Sep/Dec). Fiscal-year
+  // tagging here may not match the company's fiscal calendar but at least the
+  // numbers are correct and the endDate matches the chart's latest bar.
+  const d  = new Date(q.endDate);
+  const qN = Math.floor(d.getUTCMonth() / 3) + 1;
+  const yr = d.getUTCFullYear();
+  // Annotate when any of the breakdown items came from TTM-margin estimates
+  // rather than direct Yahoo fields, so the label reflects the data quality.
+  const usedEstimates = !yahooGp || !yahooOp || !yahooTax;
+  const period = `Q${qN} FY${yr}${usedEstimates ? " · pendiente 10-Q" : ""}`;
+
+  const rd = q.researchDevelopment ?? 0;
+  const sga = q.sellingGeneralAdministrative ?? 0;
+  const knownOpex = (rd > 0 ? rd : 0) + (sga > 0 ? sga : 0);
+  const otherOpex = knownOpex > 0 ? Math.max(0, opex - knownOpex) : 0;
+  const hasBreakdown = rd > 0 || sga > 0;
+
+  return {
+    currency: sd.currency ?? "USD",
+    period,
+    endDate: q.endDate,
+    unit,
+    segments: [],
+    totalRevenue: sc(rev),
+    grossProfit: sc(gp),
+    grossMarginPct: gp > 0 ? pct(gp) : undefined,
+    costOfRevenue: sc(Math.max(0, rev - gp)),
+    operatingProfit: sc(Math.max(0, opInc)),
+    operatingMarginPct: opInc > 0 ? pct(opInc) : undefined,
+    netProfit: sc(Math.max(0, ni)),
+    netMarginPct: ni > 0 ? pct(ni) : undefined,
+    operatingExpenses: sc(opex),
+    opexBreakdown: hasBreakdown ? {
+      rd:             rd > 0  ? sc(rd) : undefined,
+      salesMarketing: sga > 0 ? sc(sga) : undefined,
+      other:          otherOpex > 0 ? sc(otherOpex) : undefined,
+    } : undefined,
+    tax: sc(Math.max(0, tax)),
+    nonOperatingIncome: (() => {
+      const nonOp = ibt - Math.max(0, opInc);
+      return nonOp > Math.max(0, opInc) * 0.01 ? sc(nonOp) : undefined;
+    })(),
   };
 }
 
@@ -120,8 +309,14 @@ export async function POST(req: NextRequest) {
   if (!refresh) {
     const cached = await cacheGet(ticker);
     if (cached) {
-      void recordTickerView(ticker).catch(() => {});
-      return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
+      // If EDGAR data was already stale relative to Yahoo when this was
+      // cached, treat as a miss so we re-fetch — the 10-Q may now be filed.
+      if (isEdgarStale(cached.stockData, cached.report.segmentData ?? null)) {
+        await cacheClear(ticker);
+      } else {
+        void recordTickerView(ticker).catch(() => {});
+        return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
+      }
     }
   } else {
     await cacheClear(ticker);
@@ -132,12 +327,31 @@ export async function POST(req: NextRequest) {
   let segmentData;
   try {
     let peerComparison;
-    [stockData, segmentData, peerComparison] = await Promise.all([
+    let edgar8K: Edgar8KIncomeStatement | null;
+    [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
       fetchStockData(ticker),
       fetchSegmentData(ticker),
       fetchPeerComparison(ticker),
+      fetchEdgar8KIncomeStatement(ticker),
     ]);
     stockData.peerComparison = peerComparison;
+
+    // If EDGAR's latest 10-Q lags behind the press-released quarter, override
+    // the Sankey so it matches the chart's latest bar. Source priority:
+    //   1. 8-K Exhibit 99.1 parse — actual press-release numbers, no estimates
+    //   2. Yahoo + TTM-margin estimates — partial actuals + interpolation
+    //   3. Leave EDGAR Sankey as-is — older period but real and complete
+    if (isEdgarStale(stockData, segmentData)) {
+      let override: SegmentSankeyData | null = null;
+      if (edgar8K) {
+        const segEnd = segmentData?.endDate ?? "";
+        if (!segEnd || edgar8K.endDate > segEnd) {
+          override = buildSankeyFrom8K(edgar8K, stockData.currency ?? "USD");
+        }
+      }
+      if (!override) override = buildSankeyFromYahooQuarter(stockData);
+      if (override) segmentData = override;
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("no está listado")) {
@@ -165,7 +379,8 @@ export async function POST(req: NextRequest) {
       bearCase: { narrative: "", priceTarget: "—" },
       segmentData: segmentData ?? buildFallbackSegmentData(stockData),
     };
-    cacheSet(ticker, stub, stockData);
+    const stubTtl = isEdgarStale(stockData, stub.segmentData ?? null) ? SHORT_TTL : undefined;
+    cacheSet(ticker, stub, stockData, stubTtl);
     void recordTickerView(ticker).catch(() => {});
     return NextResponse.json({ report: stub, stockData, cached: false });
   }
@@ -235,7 +450,8 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        await cacheSet(ticker, report, stockData);
+        const ttl = isEdgarStale(stockData, report.segmentData ?? null) ? SHORT_TTL : undefined;
+        await cacheSet(ticker, report, stockData, ttl);
         void recordTickerView(ticker).catch(() => {});
 
         // Send final payload: full structured report + stockData for UI components

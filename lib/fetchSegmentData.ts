@@ -55,6 +55,7 @@ export async function fetchSegmentData(
     return {
       currency:     is.currency,
       period:       is.period,
+      endDate:      is.endDate,
       segmentPeriod: segmentResult?.segmentPeriod,
       unit,
       segments: segmentResult?.segments.map((s) => ({

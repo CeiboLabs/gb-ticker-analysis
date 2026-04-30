@@ -88,7 +88,10 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   const op    = gp > 0 ? Math.min(rawOp, gp) : rawOp;
   const opex  = Math.max(0, gp - op);
   const nonOp = Math.max(0, Number(nonOperatingIncome) || 0);
-  const np    = Math.max(0, Math.min(Number(netProfit) || 0, op));
+  // Cap np by whichever upstream node it flows from. With no op/gp data
+  // (e.g. Yahoo headline-only quarter for some tickers), fall back to rev.
+  const npCap = op > 0 ? op : (gp > 0 ? gp : rev);
+  const np    = Math.max(0, Math.min(Number(netProfit) || 0, npCap));
   const inv   = Number(investments) || 0;
   const tx    = Number(tax) || 0;
 
@@ -196,7 +199,23 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     nonOp > 0 ? `+ ${fmt(nonOp, unit)} non-operating` : null,
   ].filter(Boolean).join("  ·  ") || undefined;
 
-  if (np > 0) {
+  // Bare-minimum Sankey when only revenue + net income are available
+  // (typical of Yahoo headline-only data — e.g. press release before 10-Q).
+  // Connect NP straight off revenue and represent everything else as
+  // "Total Costs" so we still have a renderable two-link flow.
+  let npHandled = false;
+  if (gp <= 0 && op <= 0 && np > 0) {
+    addNode({ id: "np", name: "Net Income", displayValue: fmt(np, unit), subLabel: npSubLabel, color: C_NP });
+    addLink({ source: "revenue", target: "np", value: np, color: C_NP });
+    const totalCosts = rev - np;
+    if (totalCosts > 0 && !nodes.some((n) => n.id === "cogs")) {
+      addNode({ id: "cogs", name: "Total Costs", displayValue: fmt(totalCosts, unit), color: C_COGS });
+      addLink({ source: "revenue", target: "cogs", value: totalCosts, color: C_COGS });
+    }
+    npHandled = true;
+  }
+
+  if (np > 0 && !npHandled) {
     addNode({ id: "np", name: "Net Income", displayValue: fmt(np, unit), subLabel: npSubLabel, color: C_NP });
     addLink({ source: "op", target: "np",  value: np  * opK, color: C_NP  });
   }
@@ -365,7 +384,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         {data.segmentPeriod && data.segments.length > 0 && data.segmentPeriod !== data.period && (
           <span className="ml-1">· Segments: {data.segmentPeriod}</span>
         )}
-        <span className="ml-2 font-normal text-[#707070]">in {data.currency}, {unit}</span>
+        <span className="ml-2 font-normal text-[#707070]">in {data.currency}</span>
       </div>
 
       <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} className="w-full sm:max-h-[800px]" style={{ display: "block" }}>

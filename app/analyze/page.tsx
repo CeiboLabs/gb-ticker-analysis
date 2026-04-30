@@ -156,13 +156,13 @@ export default function AnalyzePage() {
             <img
               src="/logo-bengochea.svg?v=2"
               alt="Gastón Bengochea"
-              className="hidden sm:block h-7 w-auto shrink-0 mr-2 cursor-pointer"
+              className="h-6 sm:h-7 w-auto shrink-0 mr-1 sm:mr-2 cursor-pointer"
               onClick={() => {
                 if (status === "loading") return;
                 window.location.href = "/";
               }}
             />
-            <div className="hidden sm:block w-px h-5 bg-white/20 mr-1" />
+            <div className="w-px h-5 bg-white/20 mr-1 hidden sm:block" />
             <TickerSearch
               variant="header"
               onSubmit={handleSearch}

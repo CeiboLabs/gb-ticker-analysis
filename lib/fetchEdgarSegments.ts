@@ -31,7 +31,7 @@ export interface EdgarSegmentResult {
 // XBRL filings regularly exceed that).
 const memCache = new Map<string, { body: string; status: number; ts: number }>();
 
-async function secFetch(url: string, ttl = 3600): Promise<Response> {
+export async function secFetch(url: string, ttl = 3600): Promise<Response> {
   const cached = memCache.get(url);
   if (cached && Date.now() - cached.ts < ttl * 1000) {
     return new Response(cached.body, { status: cached.status });
@@ -45,12 +45,15 @@ async function secFetch(url: string, ttl = 3600): Promise<Response> {
   return r;
 }
 
-async function resolveCIK(ticker: string): Promise<string | null> {
+export async function resolveCIK(ticker: string): Promise<string | null> {
   const r = await secFetch(`${SEC}/files/company_tickers.json`, 86400);
   if (!r.ok) return null;
   const map: Record<string, { cik_str: number; ticker: string }> = await r.json();
+  // SEC uses dashes as share-class separators (BRK-B, BF-B); Yahoo/exchanges
+  // use dots (BRK.B, BF.B). Normalize to dashes for the lookup.
+  const normalized = ticker.toUpperCase().replace(/\./g, "-");
   const entry = Object.values(map).find(
-    (e) => e.ticker.toUpperCase() === ticker.toUpperCase()
+    (e) => e.ticker.toUpperCase() === normalized
   );
   return entry ? String(entry.cik_str) : null;
 }
@@ -403,6 +406,7 @@ const IS_CONCEPTS: Record<string, string[]> = {
 
 export interface EdgarIncomeStatement {
   period: string;       // e.g. "Q2 FY2026"
+  endDate: string;      // YYYY-MM-DD — period end date from XBRL
   currency: string;
   revenue: number;
   grossProfit: number;
@@ -498,6 +502,7 @@ function extractISFromXbrl(
 
   return {
     period,
+    endDate: latestEnd,
     currency: "USD",
     revenue: rev, grossProfit: gp, costOfRevenue: cogs,
     operatingIncome: op, netIncome: ni,
@@ -554,21 +559,26 @@ export async function fetchEdgarQuarterlyRevenue(
 
     const cikPadded = cik.padStart(10, "0");
 
-    for (const concept of REV_CONCEPTS) {
-      const url = `${DATA_SEC}/api/xbrl/companyconcept/CIK${cikPadded}/us-gaap/${concept}.json`;
-      const r = await secFetch(url, 3600);
-      if (!r.ok) continue;
+    // Merge facts from ALL revenue concepts before deriving Q4 — companies
+    // (especially industrials like 3M) sometimes switch concepts between
+    // filings, so any single concept can have gaps that another fills.
+    const quarterly = new Map<string, { val: number; filed: string; start: string }>();
+    const annual    = new Map<string, { val: number; start: string; filed: string }>();
 
-      const data = await r.json() as {
-        units?: { USD?: Array<{ start?: string; end: string; val: number; filed?: string }> };
-      };
+    const conceptResponses = await Promise.all(
+      REV_CONCEPTS.map(async (concept) => {
+        const url = `${DATA_SEC}/api/xbrl/companyconcept/CIK${cikPadded}/us-gaap/${concept}.json`;
+        const r = await secFetch(url, 3600);
+        if (!r.ok) return null;
+        return r.json() as Promise<{
+          units?: { USD?: Array<{ start?: string; end: string; val: number; filed?: string }> };
+        }>;
+      }),
+    );
 
-      const facts = data.units?.USD;
+    for (const data of conceptResponses) {
+      const facts = data?.units?.USD;
       if (!Array.isArray(facts)) continue;
-
-      // Collect quarterly (~90 days) and annual (~365 days) facts separately
-      const quarterly = new Map<string, { val: number; filed: string; start: string }>();
-      const annual    = new Map<string, { val: number; start: string; filed: string }>();
 
       for (const f of facts) {
         if (!f.start || !f.end || f.val <= 0) continue;
@@ -585,35 +595,33 @@ export async function fetchEdgarQuarterlyRevenue(
           }
         }
       }
-
-      if (quarterly.size === 0) continue;
-
-      // Derive missing Q4 = annual − (Q1 + Q2 + Q3) for each fiscal year
-      for (const [annualEnd, ann] of annual) {
-        if (quarterly.has(annualEnd)) continue; // Q4 already present
-        const annStartMs = Date.parse(ann.start);
-        const annEndMs   = Date.parse(annualEnd);
-        let qtdSum = 0, qtdCount = 0;
-        for (const [qEnd, q] of quarterly) {
-          const qStartMs = Date.parse(q.start);
-          const qEndMs   = Date.parse(qEnd);
-          if (qStartMs >= annStartMs && qEndMs < annEndMs) { qtdSum += q.val; qtdCount++; }
-        }
-        if (qtdCount === 3) {
-          const q4Val = ann.val - qtdSum;
-          if (q4Val > 0) quarterly.set(annualEnd, { val: q4Val, filed: "", start: "" });
-        }
-      }
-
-      const result = [...quarterly.entries()]
-        .filter(([time]) => new Date(time) >= period1)
-        .map(([time, { val }]) => ({ time, value: val }))
-        .sort((a, b) => a.time.localeCompare(b.time));
-
-      if (result.length > 0) return result;
     }
 
-    return null;
+    if (quarterly.size === 0) return null;
+
+    // Derive missing Q4 = annual − (Q1 + Q2 + Q3) for each fiscal year
+    for (const [annualEnd, ann] of annual) {
+      if (quarterly.has(annualEnd)) continue; // Q4 already present
+      const annStartMs = Date.parse(ann.start);
+      const annEndMs   = Date.parse(annualEnd);
+      let qtdSum = 0, qtdCount = 0;
+      for (const [qEnd, q] of quarterly) {
+        const qStartMs = Date.parse(q.start);
+        const qEndMs   = Date.parse(qEnd);
+        if (qStartMs >= annStartMs && qEndMs < annEndMs) { qtdSum += q.val; qtdCount++; }
+      }
+      if (qtdCount === 3) {
+        const q4Val = ann.val - qtdSum;
+        if (q4Val > 0) quarterly.set(annualEnd, { val: q4Val, filed: "", start: "" });
+      }
+    }
+
+    const result = [...quarterly.entries()]
+      .filter(([time]) => new Date(time) >= period1)
+      .map(([time, { val }]) => ({ time, value: val }))
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    return result.length > 0 ? result : null;
   } catch {
     return null;
   }
@@ -682,6 +690,7 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
 
             incomeStatement = {
               period:           `Q4 FY${yr}`,
+              endDate:          annualIS.endDate,
               currency:         annualIS.currency,
               revenue:          q4Rev,
               grossProfit:      q4Gp,

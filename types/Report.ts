@@ -10,6 +10,7 @@ export interface SegmentItem {
 export interface SegmentSankeyData {
   currency: string;
   period: string;
+  endDate?: string; // YYYY-MM-DD — quarter/fiscal-year end from EDGAR XBRL
   segmentPeriod?: string;
   unit: string;
   segments: SegmentItem[];

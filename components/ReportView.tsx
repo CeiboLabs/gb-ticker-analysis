@@ -245,10 +245,12 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
     return () => clearTimeout(id);
   }, [report]);
 
-  const today = new Date().toLocaleDateString("es-UY", {
-    month: "short",
+  const today = new Date().toLocaleString("es-UY", {
     day: "numeric",
+    month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   return (
@@ -280,6 +282,7 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
       <ReportHeader stockData={stockData} />
       <MetricsDashboard stockData={stockData} />
       <PriceChart
+        ticker={stockData.ticker}
         historicalPrices={stockData.historicalPrices}
         quarterlyRevenue={stockData.quarterlyRevenue}
       />

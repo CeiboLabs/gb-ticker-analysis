@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from "next/server";
+import { fetchChartRange, type ChartRange } from "@/lib/fetchChartRange";
+
+export const runtime = "edge";
+
+const VALID_RANGES: ChartRange[] = ["1D", "5D", "1M", "3M", "1Y", "3Y"];
+
+// Per-range edge cache. Intraday updates frequently, longer ranges are stable.
+const CACHE_SECONDS: Record<ChartRange, number> = {
+  "1D": 60,
+  "5D": 5 * 60,
+  "1M": 15 * 60,
+  "3M": 60 * 60,
+  "1Y": 6 * 60 * 60,
+  "3Y": 12 * 60 * 60,
+};
+
+export async function GET(req: NextRequest) {
+  const ticker = req.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
+  const rangeParam = req.nextUrl.searchParams.get("range")?.trim().toUpperCase() as ChartRange | undefined;
+
+  if (!ticker || !/^[A-Z0-9.\-\^]+$/.test(ticker) || ticker.length > 10) {
+    return NextResponse.json({ error: "Invalid ticker" }, { status: 400 });
+  }
+  if (!rangeParam || !VALID_RANGES.includes(rangeParam)) {
+    return NextResponse.json({ error: "Invalid range" }, { status: 400 });
+  }
+
+  try {
+    const payload = await fetchChartRange(ticker, rangeParam);
+    const ttl = CACHE_SECONDS[rangeParam];
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 4}`,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+}
