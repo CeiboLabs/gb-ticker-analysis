@@ -23,7 +23,7 @@ export async function fetchSegmentData(
     const data = await fetchEdgarAll(ticker);
     if (!data) return null;
 
-    const { incomeStatement: is, segmentResult } = data;
+    const { incomeStatement: is, segmentResult, isAnnual } = data;
 
     const { unit, divisor } = autoScale([
       is.revenue, is.grossProfit, is.costOfRevenue,
@@ -33,8 +33,20 @@ export async function fetchSegmentData(
     const sc = (v: number) =>
       parseFloat((Math.max(0, v) / divisor).toFixed(2));
 
-    const gp        = is.grossProfit || Math.max(0, is.revenue - is.costOfRevenue);
-    const op        = is.operatingIncome;
+    // Only derive GP when COGS is explicit; otherwise leave it at 0 so the
+    // Sankey takes the service-company branch (Op Income vs Total Costs)
+    // instead of computing GP = revenue − 0 = revenue.
+    const gp        = is.grossProfit > 0
+                        ? is.grossProfit
+                        : (is.costOfRevenue > 0 ? Math.max(0, is.revenue - is.costOfRevenue) : 0);
+    // Oil/integrated issuers (CVX, XOM) don't tag OperatingIncomeLoss in
+    // XBRL — they go straight from "Total costs and other deductions" to
+    // IBT. With op=0 the chart would try to link np/tax from a non-existent
+    // "op" node and break the d3-sankey layout. Fall back to IBT (close
+    // proxy: off only by interest/other non-op items).
+    const op        = is.operatingIncome > 0
+                        ? is.operatingIncome
+                        : Math.max(0, is.incomeBeforeTax);
     const totalOpex = Math.max(0, gp - op);
 
     const pct = (n: number) =>
@@ -57,6 +69,7 @@ export async function fetchSegmentData(
       period:       is.period,
       endDate:      is.endDate,
       segmentPeriod: segmentResult?.segmentPeriod,
+      source:       isAnnual ? "10-K" : "10-Q",
       unit,
       segments: segmentResult?.segments.map((s) => ({
         name:  s.name,
@@ -72,6 +85,7 @@ export async function fetchSegmentData(
       operatingMarginPct:  pct(Math.max(0, op)),
       netProfit:           sc(Math.max(0, is.netIncome)),
       netMarginPct:        pct(Math.max(0, is.netIncome)),
+      netLoss:             is.netIncome < 0 ? sc(-is.netIncome) : undefined,
       operatingExpenses:   sc(totalOpex),
       opexBreakdown: hasBreakdown ? {
         rd:             rdVal > 0 ? sc(rdVal) : undefined,

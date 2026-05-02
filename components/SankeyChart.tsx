@@ -1,7 +1,7 @@
 "use client";
 
 import { type RefObject } from "react";
-import { sankey as d3Sankey, sankeyCenter } from "d3-sankey";
+import { sankey as d3Sankey, sankeyCenter, sankeyJustify } from "d3-sankey";
 import type { SegmentSankeyData } from "@/types/Report";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -72,11 +72,11 @@ interface SLink {
 // ── Component ─────────────────────────────────────────────────────────────────
 export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?: RefObject<SVGSVGElement | null> }) {
   const {
-    segments, totalRevenue, grossProfit,
+    segments, totalRevenue, grossProfit, costOfRevenue,
     operatingProfit, operatingExpenses, netProfit,
     opexBreakdown, investments, tax, unit,
     grossMarginPct, operatingMarginPct, netMarginPct, totalRevenueYoy,
-    nonOperatingIncome,
+    nonOperatingIncome, netLoss,
   } = data;
 
   const rev = Number(totalRevenue);
@@ -92,6 +92,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   // (e.g. Yahoo headline-only quarter for some tickers), fall back to rev.
   const npCap = op > 0 ? op : (gp > 0 ? gp : rev);
   const np    = Math.max(0, Math.min(Number(netProfit) || 0, npCap));
+  const loss  = Math.max(0, Number(netLoss) || 0);
   const inv   = Number(investments) || 0;
   const tx    = Number(tax) || 0;
 
@@ -143,7 +144,123 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     color: "#03065E",
   });
 
-  if (gp > 0) {
+  // Pre-compute cost breakdown values so we can decide between the regular
+  // GP→OpEx layout and the loss-period "Total Costs" pattern up front.
+  const realCogs = Number(costOfRevenue) || 0;
+  const opbRd = opexBreakdown ? Number(opexBreakdown.rd) || 0 : 0;
+  const opbSm = opexBreakdown ? Number(opexBreakdown.salesMarketing) || 0 : 0;
+  const opbGa = opexBreakdown ? Number(opexBreakdown.generalAdmin) || 0 : 0;
+  const opbOt = opexBreakdown ? Number(opexBreakdown.other) || 0 : 0;
+  const realOpex = opbRd + opbSm + opbGa + opbOt;
+  const realTax  = Math.max(0, Number(tax) || 0);
+  const realTotalCosts = realCogs + realOpex + realTax;
+
+  // Loss-period detection: triggered by either an explicit Net Loss (data.netLoss
+  // set when reported NI < 0 — covers PFE-style cases with positive GP but
+  // negative bottom line from impairment/non-op charges) or an all-negative
+  // biotech profile (MRNA-style: gp/op/np all clamp to 0 with realTotalCosts > rev).
+  // Both render the same Total Costs structure: Revenue + Net Loss → Total Costs
+  // → cost breakdown. This keeps the loss visually prominent without distorting
+  // the GP→OpEx flow that wouldn't make sense in a money-losing period.
+  const treatAsLoss =
+    (loss > 0 && realTotalCosts > 0) ||
+    (gp <= 0 && op <= 0 && np <= 0 && realTotalCosts > rev);
+
+  let lossHandled = false;
+
+  if (treatAsLoss) {
+    // Loss amount: prefer the explicit reported NI (data.netLoss) so the
+    // displayed "-$X" matches what the issuer actually reported. Fall back to
+    // the cost gap (realTotalCosts − rev) when no explicit value is present
+    // (early biotechs that don't tag NI separately, etc.).
+    const baseGap   = Math.max(0, realTotalCosts - rev);
+    const lossAmt   = loss > 0 ? loss : baseGap;
+    // Reconciliation between (rev + loss) and the sum of tagged costs:
+    //   synthSink   > 0 → tagged costs short of (rev + loss) → untagged costs
+    //                     (impairment, interest, restructuring) absorbed by a
+    //                     synthetic "Tax & Non-Op" sink. PFE-style.
+    //   synthSource > 0 → tagged costs exceed (rev + loss) → untagged income
+    //                     (interest income, tax benefit) modeled as a "Non-Op
+    //                     Income" SOURCE alongside Revenue + Net Loss. MRNA-style.
+    const synthSink   = Math.max(0, (rev + lossAmt) - realTotalCosts);
+    const synthSource = Math.max(0, realTotalCosts - (rev + lossAmt));
+
+    addNode({
+      id: "loss",
+      name: "Net Loss",
+      displayValue: `-${fmt(lossAmt, unit)}`,
+      color: "#B0353A",
+    });
+    // Label "loss" with the same LEFT placement + greedy anti-overlap used for
+    // revenue segments — prevents label collisions when col-1 stacks Revenue,
+    // Net Loss, and (optionally) Non-Op Income in the same column.
+    segNodeIds.add("loss");
+
+    if (synthSource > 0) {
+      addNode({
+        id: "nonop",
+        name: "Non-Op Income",
+        displayValue: `+${fmt(synthSource, unit)}`,
+        color: "#5A8A5A",
+      });
+      segNodeIds.add("nonop");
+    }
+
+    // CoGS sits as a direct outflow from Revenue (standard income statement
+    // view). When CoGS > rev (biotech burn), Revenue funds what it can and
+    // Net Loss funds the rest of CoGS via a second inflow.
+    const cogsFromRev  = Math.min(realCogs, rev);
+    const cogsFromLoss = Math.max(0, realCogs - rev);
+    const revRemainder = rev - cogsFromRev;
+
+    if (realCogs > 0) {
+      addNode({ id: "cogs", name: "Cost of Rev.", displayValue: fmt(realCogs, unit), color: C_COGS });
+      addLink({ source: "revenue", target: "cogs", value: cogsFromRev, color: C_COGS });
+      if (cogsFromLoss > 0) {
+        addLink({ source: "loss", target: "cogs", value: cogsFromLoss, color: "#B0353A" });
+      }
+    }
+
+    const otherCostEntries: Array<{ id: string; name: string; value: number; color: string }> = [];
+    if (opbRd    > 0) otherCostEntries.push({ id: "rd",    name: "R&D",          value: opbRd,      color: "#D06050" });
+    if (opbSm    > 0) otherCostEntries.push({ id: "sm",    name: "Sales & Mkt",  value: opbSm,      color: C_OPEX   });
+    if (opbGa    > 0) otherCostEntries.push({ id: "ga",    name: "G&A",          value: opbGa,      color: "#B07030" });
+    if (opbOt    > 0) otherCostEntries.push({ id: "ot",    name: "Other OpEx",   value: opbOt,      color: "#C09050" });
+    if (realTax  > 0) otherCostEntries.push({ id: "tax",   name: "Taxes",        value: realTax,    color: C_TAX    });
+    if (synthSink > 0) otherCostEntries.push({ id: "below", name: "Tax & Non-Op", value: synthSink, color: "#A06070" });
+
+    // Route everything below CoGS through an "Op. Costs" intermediate so
+    // multiple inflows (residual Revenue, Net Loss, Non-Op Income) cleanly
+    // split into the cost breakdown without criss-crossing ribbons.
+    const lossToTc = lossAmt - cogsFromLoss;
+    const tcTotal  = revRemainder + lossToTc + synthSource;
+
+    if (otherCostEntries.length > 0 && tcTotal > 0) {
+      addNode({
+        id: "tc",
+        name: "Op. Costs",
+        displayValue: fmt(tcTotal, unit),
+        color: C_OPEX,
+      });
+      if (revRemainder > 0) {
+        addLink({ source: "revenue", target: "tc", value: revRemainder, color: C_OPEX });
+      } else {
+        // Structural-only: a negligible Revenue → Op. Costs link so d3-sankey's
+        // BFS depth puts tc downstream of Revenue (depth 2). Without it, tc's
+        // only inflows are Loss/Non-Op sources at depth 0 → tc collapses to
+        // depth 1, gets clamped into Revenue's column, and the layout breaks.
+        // Width = 0.0011 ≈ 0.0003 px — visually invisible.
+        links.push({ source: "revenue", target: "tc", value: 0.0011, color: C_OPEX });
+      }
+      if (lossToTc > 0)    addLink({ source: "loss",  target: "tc", value: lossToTc,    color: "#B0353A" });
+      if (synthSource > 0) addLink({ source: "nonop", target: "tc", value: synthSource, color: "#5A8A5A" });
+      for (const c of otherCostEntries) {
+        addNode({ id: c.id, name: c.name, displayValue: fmt(c.value, unit), color: c.color });
+        addLink({ source: "tc", target: c.id, value: c.value, color: c.color });
+      }
+    }
+    lossHandled = true;
+  } else if (gp > 0) {
     addNode({
       id: "gp",
       name: "Gross Profit",
@@ -203,8 +320,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   // (typical of Yahoo headline-only data — e.g. press release before 10-Q).
   // Connect NP straight off revenue and represent everything else as
   // "Total Costs" so we still have a renderable two-link flow.
-  let npHandled = false;
-  if (gp <= 0 && op <= 0 && np > 0) {
+  let npHandled = lossHandled;
+  if (!lossHandled && gp <= 0 && op <= 0 && np > 0) {
     addNode({ id: "np", name: "Net Income", displayValue: fmt(np, unit), subLabel: npSubLabel, color: C_NP });
     addLink({ source: "revenue", target: "np", value: np, color: C_NP });
     const totalCosts = rev - np;
@@ -219,16 +336,18 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     addNode({ id: "np", name: "Net Income", displayValue: fmt(np, unit), subLabel: npSubLabel, color: C_NP });
     addLink({ source: "op", target: "np",  value: np  * opK, color: C_NP  });
   }
-  if (tx > 0) {
+  if (tx > 0 && !lossHandled) {
     addNode({ id: "tax", name: "Taxes", displayValue: fmt(tx, unit), color: C_TAX });
     addLink({ source: "op", target: "tax", value: tx  * opK, color: C_TAX });
   }
-  if (inv > 0) {
+  if (inv > 0 && !lossHandled) {
     addNode({ id: "inv", name: "Investments", displayValue: fmt(inv, unit), color: C_INV });
     addLink({ source: "op", target: "inv", value: inv * opK, color: C_INV });
   }
 
-  if (opexBreakdown && opex > 0) {
+  // Skip when in loss-period mode: there is no "opex" parent node — the cost
+  // breakdown was already wired directly under "tc" (Total Costs).
+  if (opexBreakdown && opex > 0 && !lossHandled) {
     const rd = Number(opexBreakdown.rd)             || 0;
     const sm = Number(opexBreakdown.salesMarketing)  || 0;
     const ga = Number(opexBreakdown.generalAdmin)    || 0;
@@ -250,9 +369,25 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
 
   // ── Run d3-sankey layout ───────────────────────────────────────────────────
   const VH = Math.max(550, displaySegs.length * 70 + 250);
+
+  // Loss-period layout uses sankeyJustify so all cost sinks (CoGS, R&D, G&A,
+  // OpEx items) line up at the last column instead of getting scattered across
+  // intermediate columns by their topology depth. Net Loss is forced into the
+  // same column as Revenue so the two source-side nodes stack vertically.
+  // Loss-period: Net Loss + Non-Op Income are sources (depth 0) so by default
+  // sankeyJustify would put them next to segments at column 0. Force them into
+  // Revenue's column so the source-side stacks vertically. The structural
+  // Revenue→Op.Costs link added during loss-handler construction takes care of
+  // pushing tc and downstream sinks into their own columns.
+  const baseCol = displaySegs.length > 0 ? 1 : 0;
+  const lossAware = (node: SNode, n: number) =>
+    node.id === "loss" || node.id === "nonop"
+      ? baseCol
+      : sankeyJustify(node, n);
+
   const layout = d3Sankey<SNode, SLink>()
     .nodeId((n) => n.id)
-    .nodeAlign(sankeyCenter)
+    .nodeAlign(lossHandled ? lossAware : sankeyCenter)
     .nodeWidth(NODE_W)
     .nodePadding(PAD)
     // Leave 70 SVG units at the bottom so BELOW-node labels have room.
@@ -277,6 +412,11 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     const top = colNodes.reduce((a, b) => (a.y0 ?? Infinity) < (b.y0 ?? Infinity) ? a : b);
     colTopId.add(top.id);
   }
+  // Loss-period exception: the "Op. Costs" intermediate (tc) sits in its own
+  // column with straight-through ribbons (Revenue→CoGS, Loss→CoGS) crossing
+  // ABOVE it. Force its label BELOW so it doesn't land on top of a ribbon.
+  // Doesn't affect non-loss charts where tc never exists.
+  colTopId.delete("tc");
 
   // ── Render helpers ─────────────────────────────────────────────────────────
   const LINE_H = 20;
@@ -495,6 +635,11 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           );
         })}
       </svg>
+      {data.source && (
+        <div className="px-3 pt-1 text-[10px] text-[#707070] text-right">
+          Fuente: {data.source}
+        </div>
+      )}
     </div>
   );
 }

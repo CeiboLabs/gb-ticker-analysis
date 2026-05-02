@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
@@ -39,6 +40,7 @@ function buildFallbackSegmentData(sd: StockData): SegmentSankeyData | null {
   return {
     currency: "USD",
     period: "TTM",
+    source: "Yahoo",
     unit,
     segments: [],
     totalRevenue: sc(rev),
@@ -77,9 +79,21 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
   const rev = s.totalRevenue;
   if (rev <= 0) return null;
 
-  const gp    = s.grossProfit ?? Math.max(0, rev - (s.costOfRevenue ?? 0));
-  const opInc = s.operatingIncome ?? 0;
   const ni    = s.netIncome;
+  const ibt   = s.incomeBeforeTax ?? Math.max(0, ni + (s.incomeTaxExpense ?? 0));
+  // Oil/integrated issuers (XOM) and some service companies report a single
+  // "Total costs and other deductions" line — no Gross Profit, no Cost of
+  // Revenue. Without that we'd fake gp = rev − 0 = rev (100 % margin) and
+  // the chart would render a meaningless flow. Detect "no COGS structure"
+  // and fall through to an op-income-only Sankey driven by IBT.
+  const hasCogsStructure = s.grossProfit !== null || s.costOfRevenue !== null;
+  const gp    = hasCogsStructure
+                  ? (s.grossProfit ?? Math.max(0, rev - (s.costOfRevenue ?? 0)))
+                  : 0;
+  // When op income isn't tagged but the issuer has no COGS layer, IBT is the
+  // closest proxy (off only by interest expense in most cases) — gives the
+  // chart a meaningful Op Income → NI + Tax flow instead of a dead end.
+  const opInc = s.operatingIncome ?? (hasCogsStructure ? 0 : ibt);
   // Always derive opex from gp − op. Some issuers (e.g. ABBV) report
   // "Total operating costs and expenses" that includes COGS, which would
   // double-count if we used it directly for the GP→OpEx Sankey edge.
@@ -89,7 +103,6 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
   // is imperfect when interest/non-op dominate (e.g. ABBV) but the alternative
   // is a dangling op-side height with no outflow.
   const tax   = opInc > 0 && opInc > ni ? Math.max(0, opInc - Math.max(0, ni)) : (s.incomeTaxExpense ?? 0);
-  const ibt   = s.incomeBeforeTax ?? Math.max(0, ni + (s.incomeTaxExpense ?? 0));
 
   const unit    = rev >= 1e12 ? "T" : rev >= 1e9 ? "B" : "M";
   const divisor = rev >= 1e12 ? 1e12 : rev >= 1e9 ? 1e9 : 1e6;
@@ -118,6 +131,7 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
     currency,
     period,
     endDate: s.endDate,
+    source: "8-K",
     unit,
     segments,
     totalRevenue:        sc(rev),
@@ -219,6 +233,7 @@ function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
     currency: sd.currency ?? "USD",
     period,
     endDate: q.endDate,
+    source: "Yahoo",
     unit,
     segments: [],
     totalRevenue: sc(rev),
@@ -283,10 +298,13 @@ export async function POST(req: NextRequest) {
     "unknown";
   const { allowed, retryAfter } = checkRateLimit(ip);
   if (!allowed) {
-    return new Response("Demasiadas solicitudes. Intente nuevamente más tarde.", {
-      status: 429,
-      headers: { "Retry-After": String(retryAfter) },
-    });
+    return NextResponse.json(
+      {
+        error: "Análisis no disponible por el momento. Intente en unos minutos.",
+        code: "analysis_unavailable",
+      },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
   }
 
   // 1. Parse + validate
@@ -338,12 +356,15 @@ export async function POST(req: NextRequest) {
     ]);
     stockData.peerComparison = peerComparison;
 
-    // If EDGAR's latest 10-Q lags behind the press-released quarter, override
-    // the Sankey so it matches the chart's latest bar. Source priority:
+    // Override the Sankey when EDGAR's 10-Q/10-K either (a) lags behind the
+    // press-released quarter or (b) failed to parse entirely — without this,
+    // a missing 10-Q drops the user to the Yahoo-TTM fallback even when the
+    // 8-K with this quarter's actuals is sitting right there. Source priority:
     //   1. 8-K Exhibit 99.1 parse — actual press-release numbers, no estimates
     //   2. Yahoo + TTM-margin estimates — partial actuals + interpolation
     //   3. Leave EDGAR Sankey as-is — older period but real and complete
-    if (isEdgarStale(stockData, segmentData)) {
+    const needsOverride = !segmentData || isEdgarStale(stockData, segmentData);
+    if (needsOverride) {
       let override: SegmentSankeyData | null = null;
       if (edgar8K) {
         const segEnd = segmentData?.endDate ?? "";
@@ -363,7 +384,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 });
     }
     return NextResponse.json(
-      { error: `Failed to fetch data for ${ticker}. Yahoo Finance may be temporarily unavailable.` },
+      {
+        error: "Análisis no disponible por el momento. Intente en unos minutos.",
+        code: "analysis_unavailable",
+      },
       { status: 502 }
     );
   }
@@ -446,7 +470,12 @@ export async function POST(req: NextRequest) {
           report.segmentData = segmentData ?? buildFallbackSegmentData(stockData);
         } catch {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: "Failed to parse analysis output." })}\n\n`)
+            encoder.encode(
+              `data: ${JSON.stringify({
+                error: "Análisis no disponible por el momento. Intente en unos minutos.",
+                code: "analysis_unavailable",
+              })}\n\n`
+            )
           );
           controller.close();
           return;
@@ -464,9 +493,22 @@ export async function POST(req: NextRequest) {
         );
         controller.close();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
+        // OpenAI outages (rate limit, 5xx, connection/timeout) bubble up as
+        // OpenAI.APIError subclasses. Surface a friendly Spanish message + a
+        // code so the UI can render a soft "service unavailable" notice
+        // instead of a hard error trace.
+        const isOpenAIError =
+          err instanceof OpenAI.APIError ||
+          err instanceof OpenAI.APIConnectionError ||
+          err instanceof OpenAI.APIConnectionTimeoutError;
+        const message = isOpenAIError
+          ? "Análisis no disponible por el momento. Intente en unos minutos."
+          : err instanceof Error ? err.message : "Unknown error";
+        const payload = isOpenAIError
+          ? { error: message, code: "analysis_unavailable" }
+          : { error: message };
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
         );
         controller.close();
       }

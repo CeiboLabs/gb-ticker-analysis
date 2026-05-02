@@ -172,6 +172,7 @@ function parseXbrl(
   isAnnual = false,
   totalRevenue = 0,
   dayRange?: { min: number; max: number },
+  expectedEndDate?: string,
 ): EdgarSegmentResult | null {
   const MIN_DAYS = dayRange?.min ?? (isAnnual ? 350 : 80);
   const MAX_DAYS = dayRange?.max ?? (isAnnual ? 380 : 100);
@@ -200,13 +201,30 @@ function parseXbrl(
       allDims.push({ axis: dim[1], member: dim[2].trim() });
     }
 
-    // Only accept contexts with exactly ONE dimension that is a supported segment axis.
-    // Multi-dimensional contexts (e.g. ProductOrService × Geography) are sub-segments
-    // that would cause duplicate/overlapping flows in the Sankey.
-    if (allDims.length !== 1) continue;
-    const axisLocal = allDims[0].axis.split(":").pop() ?? "";
+    // Identify which dimension (if any) names this segment. Accept:
+    //   (a) exactly one dimension that is a supported segment axis, OR
+    //   (b) two dimensions: a segment axis paired with
+    //       ConsolidationItemsAxis=OperatingSegmentsMember — the standard
+    //       "operating segments rollup" pattern. Some issuers (e.g. AON) put
+    //       only metadata (goodwill, headcount) in the 1-dim segment context
+    //       and tag revenue exclusively against this 2-dim rollup.
+    // Reject everything else (3+ dims, Geography × Segment, IntersegmentElimination, etc.)
+    // to avoid sub-segment double-counting.
+    let segDim: { axis: string; member: string } | null = null;
+    if (allDims.length === 1) {
+      segDim = allDims[0];
+    } else if (allDims.length === 2) {
+      const seg  = allDims.find((d) => SEGMENT_AXES.includes(d.axis.split(":").pop() ?? ""));
+      const cons = allDims.find((d) =>
+        (d.axis.split(":").pop() ?? "") === "ConsolidationItemsAxis" &&
+        (d.member.split(":").pop() ?? "") === "OperatingSegmentsMember"
+      );
+      if (seg && cons) segDim = seg;
+    }
+    if (!segDim) continue;
+    const axisLocal = segDim.axis.split(":").pop() ?? "";
     if (!SEGMENT_AXES.includes(axisLocal)) continue;
-    const memberFull = allDims[0].member;
+    const memberFull = segDim.member;
 
     const memberLocal = memberFull.split(":").pop() ?? memberFull;
     const ns          = memberFull.includes(":") ? memberFull.split(":")[0] : "us-gaap";
@@ -224,7 +242,10 @@ function parseXbrl(
   // Pre-scan which context IDs actually carry revenue data (any REV_CONCEPT value > 0).
   // Lets us pick the first axis with both qualifying contexts AND actual revenue values —
   // avoids choosing an axis whose contexts have no matching revenue facts.
-  const revPatternPre = REV_CONCEPTS.map((t) => `(?:[^:>\\s]+:)?${t}`).join("|");
+  // Optional "Adjusted" suffix matches non-GAAP segment-revenue concepts that
+  // some issuers (e.g. EL: el:RevenueFromContractWithCustomerExcludingAssessedTaxAdjusted)
+  // tag instead of the standard us-gaap variant for product/business segments.
+  const revPatternPre = REV_CONCEPTS.map((t) => `(?:[^:>\\s]+:)?${t}(?:Adjusted)?`).join("|");
   const preRevRe = new RegExp(
     `<(?:${revPatternPre})\\b[^>]*contextRef="([^"]+)"[^>]*>([0-9]+)<`, "g"
   );
@@ -242,7 +263,17 @@ function parseXbrl(
 
   const quarterCtxs = allQuarterCtxs.filter(([, c]) => c.axis === chosenAxis);
 
-  const latestEnd = quarterCtxs.map(([, c]) => c.end).sort().at(-1)!;
+  // When the caller knows the IS period end date, anchor segment selection to it.
+  // Without this guard, a 10-K with derived Q4 IS can pick up stale dimensional
+  // contexts left for narrative reasons (e.g. PFE's 2024 Paxlovid EUA/NDA disclosures)
+  // that happen to fall in the quarterly day-range, mislabeling them as the
+  // current period and bypassing the proper Q4 = annual − YTD derivation.
+  const candidateEnds = expectedEndDate
+    ? quarterCtxs.map(([, c]) => c.end).filter((e) =>
+        Math.abs((Date.parse(e) - Date.parse(expectedEndDate)) / 86_400_000) <= 15)
+    : quarterCtxs.map(([, c]) => c.end);
+  if (candidateEnds.length === 0) return null;
+  const latestEnd = candidateEnds.sort().at(-1)!;
 
   const currentCtxIds = new Set(
     quarterCtxs.filter(([, c]) => c.end === latestEnd).map(([id]) => id)
@@ -256,7 +287,7 @@ function parseXbrl(
     if (diffDays <= 12) priorCtxByMember.set(c.memberFull, id);
   }
 
-  const revPattern = REV_CONCEPTS.map((t) => `(?:[^:>\\s]+:)?${t}`).join("|");
+  const revPattern = REV_CONCEPTS.map((t) => `(?:[^:>\\s]+:)?${t}(?:Adjusted)?`).join("|");
   const factRe = new RegExp(
     `<(?:${revPattern})\\b[^>]*contextRef="([^"]+)"[^>]*>([0-9]+)</`,
     "g"
@@ -477,10 +508,39 @@ function extractISFromXbrl(
   const rev = firstVal(IS_CONCEPTS.revenue, currentIds);
   if (rev <= 0) return null;
 
-  const gp   = firstVal(IS_CONCEPTS.grossProfit,     currentIds);
-  const cogs = firstVal(IS_CONCEPTS.costOfRevenue,   currentIds) || Math.max(0, rev - gp);
+  const gp        = firstVal(IS_CONCEPTS.grossProfit,     currentIds);
+  const directCogs = firstVal(IS_CONCEPTS.costOfRevenue,  currentIds);
+  // Only derive cogs from (rev − gp) when GP is explicitly tagged. For
+  // service issuers (e.g. MA, V) that report neither GP nor COGS, leaving
+  // cogs at 0 lets the Sankey render the "Op Income / Total Costs" branch
+  // instead of falsely showing a 100 %-of-revenue cost line.
+  const cogs = directCogs > 0 ? directCogs : (gp > 0 ? Math.max(0, rev - gp) : 0);
   const op   = firstVal(IS_CONCEPTS.operatingIncome, currentIds);
-  const ni   = firstVal(IS_CONCEPTS.netIncome,       currentIds);
+  // Net income: prefer NetIncomeLoss (already net of noncontrolling interest).
+  // Fall back to ProfitLoss − NCI for issuers (Mastercard) that only tag the
+  // consolidated profit and NCI separately, expecting subtraction.
+  let ni = firstVal(IS_CONCEPTS.netIncome, currentIds);
+  if (ni === 0) {
+    const profitLoss = firstVal(["ProfitLoss"], currentIds);
+    if (profitLoss !== 0) {
+      const nci = firstVal(["NetIncomeLossAttributableToNoncontrollingInterest"], currentIds);
+      ni = profitLoss - nci;
+    }
+  }
+  if (ni === 0) {
+    // BKNG (and similar) tag NetIncomeLoss only in dimensional contexts
+    // (RetainedEarnings rollforward) and leave the plain consolidated context
+    // with only NetIncomeLossAvailableToCommonStockholdersBasic. Recover NI by
+    // adding back preferred dividends if separately reported.
+    const niCommon = firstVal(["NetIncomeLossAvailableToCommonStockholdersBasic"], currentIds);
+    if (niCommon !== 0) {
+      const prefDiv = firstVal(
+        ["PreferredStockDividendsAndOtherAdjustments", "PreferredStockDividends"],
+        currentIds,
+      );
+      ni = niCommon + prefDiv;
+    }
+  }
   const rd   = firstVal(IS_CONCEPTS.rd,              currentIds);
   const sm   = firstVal(IS_CONCEPTS.salesMarketing,  currentIds);
   const ga   = firstVal(IS_CONCEPTS.generalAdmin,    currentIds);
@@ -539,6 +599,7 @@ export async function fetchEdgarIncomeStatement(
 export interface EdgarAllData {
   incomeStatement: EdgarIncomeStatement;
   segmentResult:   EdgarSegmentResult | null;
+  isAnnual:        boolean;
 }
 
 // ── Quarterly revenue history from EDGAR companyconcept ───────────────────────
@@ -719,8 +780,8 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
     // For segments: try quarterly contexts first (Q4 in 10-K); fall back to annual only
     // when the income statement itself is annual (ensures consistent scale in the Sankey).
     let segmentResult = usedAnnual
-      ? parseXbrl(xml, labelsData, true,  incomeStatement.revenue)
-      : parseXbrl(xml, labelsData, false, incomeStatement.revenue);
+      ? parseXbrl(xml, labelsData, true,  incomeStatement.revenue, undefined, incomeStatement.endDate)
+      : parseXbrl(xml, labelsData, false, incomeStatement.revenue, undefined, incomeStatement.endDate);
 
     // For derived Q4: 10-K rarely embeds standalone Q4 segment contexts.
     // Strategy: annual segments (10-K) − 9M YTD segments (Q3 10-Q) = Q4 segments.
@@ -764,7 +825,7 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
       }
     }
 
-    return { incomeStatement, segmentResult };
+    return { incomeStatement, segmentResult, isAnnual: filing.isAnnual };
   } catch {
     return null;
   }

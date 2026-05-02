@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface SearchResult {
   symbol: string;
@@ -102,8 +103,37 @@ export function TickerSearch({
   const [noResults, setNoResults] = useState(false);
   const [recents, setRecents] = useState<SearchResult[]>([]);
   const [showRecents, setShowRecents] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
 
   const styles = variantStyles[variant];
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  const updateDropdownPos = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setDropdownPos({
+      left: rect.left,
+      top: rect.bottom + 4,
+      width: rect.width,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updateDropdownPos();
+    const handler = () => updateDropdownPos();
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("scroll", handler, true);
+      window.removeEventListener("resize", handler);
+    };
+  }, [isOpen, updateDropdownPos]);
 
   // Load recents from localStorage on mount
   useEffect(() => {
@@ -301,11 +331,17 @@ export function TickerSearch({
           className={`w-full rounded-xl px-4 sm:px-5 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:border-transparent ${styles.input}`}
         />
 
-        {/* Dropdown */}
-        {isOpen && (results.length > 0 || noResults || (showRecents && recents.length > 0)) && (
+        {/* Dropdown — portaled to body so it escapes any ancestor `overflow-hidden` */}
+        {portalReady && isOpen && dropdownPos && (results.length > 0 || noResults || (showRecents && recents.length > 0)) && createPortal(
           <div
             ref={dropdownRef}
-            className={`absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-50 ${styles.dropdown}`}
+            style={{
+              position: "fixed",
+              left: dropdownPos.left,
+              top: dropdownPos.top,
+              width: dropdownPos.width,
+            }}
+            className={`rounded-xl overflow-hidden z-[100] ${styles.dropdown}`}
           >
             {showRecents && results.length === 0 && !noResults ? (
               <>
@@ -385,7 +421,8 @@ export function TickerSearch({
                 </button>
               ))
             )}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 

@@ -52,7 +52,7 @@ export function AnalystConsensus({ stockData: d }: Props) {
               </div>
             )}
             {d.targetLowPrice != null && d.targetHighPrice != null && (
-              <div className="text-xs text-[#707070] mt-1">
+              <div className="text-xs text-[#707070] mt-1 whitespace-nowrap">
                 Rango: {pfx}{d.targetLowPrice.toFixed(2)} – {pfx}{d.targetHighPrice.toFixed(2)}
               </div>
             )}

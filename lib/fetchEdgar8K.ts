@@ -73,10 +73,20 @@ async function findLatestEarnings8K(cik: string): Promise<FilingMatch | null> {
   for (let i = 0; i < forms.length; i++) {
     if (forms[i] === "10-Q" || forms[i] === "10-K") { latest10QK = i; break; }
   }
-  if (latest10QK === -1) return null;
+  if (latest10QK !== -1) {
+    for (let i = 0; i < latest10QK; i++) {
+      if (forms[i] === "8-K") {
+        return { accession: accessions[i], filingDate: filingDates[i], reportDate: reportDates[i] };
+      }
+    }
+  }
 
-  for (let i = 0; i < latest10QK; i++) {
-    if (forms[i] === "8-K") {
+  // Foreign private issuers (SPOT, BABA, NIO, ASML, TSM, etc.) don't file 8-K
+  // / 10-Q / 10-K — they file 6-K (interim) and 20-F (annual). The 6-K is
+  // where the earnings press release lands; same Exhibit 99.1 convention as
+  // 8-K. Fall through to the most recent 6-K when no 8-K is found.
+  for (let i = 0; i < forms.length; i++) {
+    if (forms[i] === "6-K") {
       return { accession: accessions[i], filingDate: filingDates[i], reportDate: reportDates[i] };
     }
   }
@@ -144,8 +154,10 @@ const KEYWORDS: Record<string, RegExp[]> = {
   totalRevenue: [
     // Priority 1: standalone "Total/Net <revenue|sales>" — must be the whole
     // label, otherwise sub-component lines like "Net sales from products"
-    // (AXON, XYL) would shadow the actual total.
-    /^(?:total\s+(?:revenues?|net\s+sales|sales)|net\s+(?:revenues?|sales))\s*:?\s*$/i,
+    // (AXON, XYL) would shadow the actual total. Allow optional "X and Y"
+    // chain (CAT: "Total sales and revenues") and a trailing footnote
+    // marker like "(1)" (AAPL).
+    /^(?:total\s+(?:net\s+)?(?:revenues?|sales)(?:\s+and\s+(?:revenues?|sales))?|net\s+(?:revenues?|sales))\s*(?:\(\d+\))?\s*:?\s*$/i,
     // Priority 2: just "Revenue(s)" or "Sales" alone (XYL labels its total
     // simply "Revenue" with sub-lines like "Revenue from products" above).
     /^(?:revenues?|sales)\s*:?\s*$/i,
@@ -177,7 +189,8 @@ const KEYWORDS: Record<string, RegExp[]> = {
     /\b(operating\s+(?:income|earnings|profit))\b/i,
     // ADP-style fallback: when there's no explicit op income, EBT often
     // serves the same purpose because interest is already in total expenses.
-    /\bearnings\s+before\s+(?:income|provision)\s+tax|\bincome\s+before\s+(?:income\s+)?tax/i,
+    // Allow optional "(Loss)" / "(Profit)" parenthetical (CVX style).
+    /\b(?:earnings|income|profit)\s+(?:\([^)]+\)\s+)?before\s+(?:income\s+|provision\s+(?:for\s+)?)?tax/i,
   ],
   totalOperatingExpenses: [
     /\btotal\s+(?:operating\s+)?(?:expenses|costs)\b/i,
@@ -186,19 +199,42 @@ const KEYWORDS: Record<string, RegExp[]> = {
     /\binterest\s+expense\b/i,
   ],
   incomeBeforeTax: [
-    /\bearnings\s+before\s+(?:income|provision)|income\s+before\s+(?:income\s+)?tax/i,
+    /\b(?:earnings|income|profit)\s+(?:\([^)]+\)\s+)?before\s+(?:income\s+|provision\s+(?:for\s+)?)?tax/i,
   ],
   incomeTaxExpense: [
-    /\b(income\s+tax(?:es)?\s+(?:expense|provision)|provision\s+for\s+(?:income\s+)?tax)/i,
+    // Priority 1: anchored — must START with the tax-expense phrase. Prevents
+    // matching the substring "income tax expense" inside the IBT row label
+    // (e.g. CVX: "Income (Loss) Before Income Tax Expense").
+    /^income\s+tax(?:es)?\s+(?:expense|provision)/i,
+    /^provision\s+(?:\([^)]+\)\s+)?for\s+(?:income\s+)?tax/i,
+    // Priority 2: lossy — only used if no anchored match elsewhere.
+    /\b(income\s+tax(?:es)?\s+(?:expense|provision)|provision\s+(?:\([^)]+\)\s+)?for\s+(?:income\s+)?tax)/i,
     // Insurance/banking issuers often label this just "Income taxes"
     /^income\s+tax(?:es)?$/i,
   ],
   netIncome: [
     /\bnet\s+(?:earnings|income)\b/i,
+    // CAT-style: bottom line is just "Profit" or "Profit N" (footnote marker).
+    // Anchored so "Operating profit" / "Profit of consolidated companies" /
+    // "Profit per common share" don't shadow the real bottom line.
+    /^profit(?:\s+\d+)?\s*:?\s*$/i,
   ],
 };
 
 type LineKey = keyof typeof KEYWORDS;
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", nbsp: " ", quot: '"', apos: "'",
+};
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = parseInt(n, 10);
+      return code === 160 ? " " : String.fromCharCode(code);
+    })
+    .replace(/&([a-z]+);/gi, (m, e) => NAMED_ENTITIES[e.toLowerCase()] ?? m);
+}
 
 function tableToRows(tableHtml: string): string[][] {
   const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
@@ -210,11 +246,7 @@ function tableToRows(tableHtml: string): string[][] {
     const cells: string[] = [];
     let c: RegExpExecArray | null;
     while ((c = cellRe.exec(rowHtml)) !== null) {
-      const text = c[1]
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&#160;/g, " ")
+      const text = decodeEntities(c[1].replace(/<[^>]+>/g, " "))
         .replace(/\s+/g, " ")
         .trim();
       cells.push(text);
@@ -242,14 +274,18 @@ function detectScale(tableHtml: string, rows: string[][], docHtml?: string, tabl
   // which are reflected in thousands and per share amounts)" — millions is
   // the IS unit, thousands only modifies the share count). Earliest match
   // wins so the parenthetical "except" clause doesn't override.
+  // Accepts "in millions", "millions of dollars" (CVX), and standalone
+  // "millions" only when adjacent to "of" or "dollars" to avoid false
+  // positives like "millions of barrels".
   const earliestUnit = (text: string): number | null => {
     const matches: Array<{ idx: number; scale: number }> = [];
-    const m1 = text.match(/in\s+thousands/);
-    if (m1) matches.push({ idx: m1.index ?? Infinity, scale: 1_000 });
-    const m2 = text.match(/in\s+millions/);
-    if (m2) matches.push({ idx: m2.index ?? Infinity, scale: 1_000_000 });
-    const m3 = text.match(/in\s+billions/);
-    if (m3) matches.push({ idx: m3.index ?? Infinity, scale: 1_000_000_000 });
+    const re = /\b(?:(?:in\s+|^)(thousands|millions|billions)\b|(thousands|millions|billions)\s+of\s+(?:dollars|usd|us\s+dollars))/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const word = (m[1] ?? m[2]).toLowerCase();
+      const scale = word === "thousands" ? 1_000 : word === "millions" ? 1_000_000 : 1_000_000_000;
+      matches.push({ idx: m.index, scale });
+    }
     if (matches.length === 0) return null;
     matches.sort((a, b) => a.idx - b.idx);
     return matches[0].scale;
@@ -305,6 +341,17 @@ function scoreTable(rows: string[][]): number {
   return score;
 }
 
+// Standalone 4-digit year (1990–2100) — virtually always a column header,
+// never a P&L value (which would have commas, decimals, or be much larger).
+// Issuers like CVX merge the section header and year row: a single <tr> with
+// "REVENUES AND OTHER INCOME" + "2026" + "2025" cells. Without this skip,
+// splitRow would return firstValue=2026 and pollute totalRevenue lookups.
+function isYearCell(t: string): boolean {
+  if (!/^\d{4}$/.test(t)) return false;
+  const n = parseInt(t, 10);
+  return n >= 1990 && n <= 2100;
+}
+
 // Walk a row and produce { label, firstValue } where label concatenates the
 // leading non-numeric cells and firstValue is the first numeric column.
 // Mirrors the splitRow helper inside extractIncomeStatement. Standalone
@@ -313,22 +360,31 @@ function scoreTable(rows: string[][]): number {
 // otherwise be appended to the label as "iPhone $" / "Net income $".
 function rowLabelValue(row: string[]): { label: string; value: number | null } {
   let label = "";
-  let value: number | null = null;
   let foundLabel = false;
+  const values: number[] = [];
   for (const cell of row) {
     const t = cell.trim();
     if (!t) continue;
     if (/^[$€£¥₹]+$/.test(t)) continue;
+    if (isYearCell(t)) continue;
     const n = parseNumber(t);
     if (!foundLabel) {
       if (n === null) {
         label = label ? `${label} ${t}` : t;
       } else {
         foundLabel = true;
-        value = n;
+        values.push(n);
       }
-    } else if (value === null && n !== null) {
-      value = n;
+    } else if (n !== null) {
+      values.push(n);
+    }
+  }
+  let value: number | null = values[0] ?? null;
+  // Same note-column heuristic as splitRow (see comment there).
+  if (values.length >= 2 && value !== null && Number.isInteger(value) && Math.abs(value) <= 30) {
+    const maxAbs = Math.max(...values.slice(1).map((v) => Math.abs(v)));
+    if (maxAbs >= Math.abs(value) * 30) {
+      value = values[1];
     }
   }
   return { label: label.replace(/[\s$€£¥₹]+$/u, "").trim(), value };
@@ -439,25 +495,47 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
   // numeric value (which is the most-recent quarter).
   const splitRow = (row: string[]): { label: string; firstValue: number | null } => {
     let label = "";
-    let firstValue: number | null = null;
     let foundLabel = false;
+    const values: number[] = [];
     for (const cell of row) {
       const t = cell.trim();
       if (!t) continue;
+      // Drop standalone currency-symbol cells — issuers like CAT/AAPL render
+      // a lone "$" before the first numeric column, which would otherwise be
+      // concatenated to the label as "Profit 1 $" / "iPhone $" and break
+      // anchored regex matches.
+      if (/^[$€£¥₹]+$/.test(t)) continue;
+      // Drop standalone year cells (e.g. CVX merges section header + year
+      // headers into a single <tr>: "REVENUES AND OTHER INCOME" + "2026" +
+      // "2025"). Otherwise totalRevenue would resolve to the year (2026).
+      if (isYearCell(t)) continue;
       const n = parseNumber(t);
       if (!foundLabel) {
         if (n === null) {
-          // Concatenate consecutive non-numeric cells (e.g. multi-cell labels)
           label = label ? `${label} ${t}` : t;
         } else {
-          // First numeric cell — label section is done
           foundLabel = true;
-          firstValue = n;
+          values.push(n);
         }
-      } else if (firstValue === null && n !== null) {
-        firstValue = n;
+      } else if (n !== null) {
+        values.push(n);
       }
     }
+    label = label.replace(/[\s$€£¥₹]+$/u, "").trim();
+
+    // Foreign-filer 6-K layouts (SPOT, etc.) put a small "Note" column
+    // between the label and the actual values: "revenue | 20 | 4,533 | 4,190"
+    // where 20 is a footnote reference. If the first numeric is a small
+    // integer (≤ 30) and any subsequent numeric is ≥ 30× larger, treat it
+    // as a note column and skip to the next value.
+    let firstValue: number | null = values[0] ?? null;
+    if (values.length >= 2 && firstValue !== null && Number.isInteger(firstValue) && Math.abs(firstValue) <= 30) {
+      const maxAbs = Math.max(...values.slice(1).map((v) => Math.abs(v)));
+      if (maxAbs >= Math.abs(firstValue) * 30) {
+        firstValue = values[1];
+      }
+    }
+
     if (label && firstValue !== null) return { label, firstValue };
     if (label) return { label, firstValue: null };
     return { label: "", firstValue: null };

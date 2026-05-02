@@ -14,6 +14,7 @@ interface AnalysisResult {
 }
 
 type Status = "idle" | "loading" | "done" | "error";
+type ErrorKind = "generic" | "analysis_unavailable";
 
 export default function AnalyzePage() {
   const [ticker, setTicker] = useState("");
@@ -21,6 +22,7 @@ export default function AnalyzePage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [partialStockData, setPartialStockData] = useState<StockData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ErrorKind>("generic");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const activeTicker = useRef<string>("");
   const controllerRef = useRef<AbortController | null>(null);
@@ -66,6 +68,7 @@ export default function AnalyzePage() {
       }
     }
     setError(null);
+    setErrorKind("generic");
 
     if (refresh) {
       setIsRefreshing(true);
@@ -86,7 +89,11 @@ export default function AnalyzePage() {
       const contentType = res.headers.get("content-type") ?? "";
       if (contentType.includes("application/json")) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Unknown error");
+        if (!res.ok) {
+          const e = new Error(data.error ?? "Unknown error") as Error & { code?: string };
+          if (typeof data.code === "string") e.code = data.code;
+          throw e;
+        }
         setResult({ report: data.report, stockData: data.stockData });
         setStatus("done");
         return;
@@ -110,7 +117,11 @@ export default function AnalyzePage() {
           let msg: Record<string, unknown>;
           try { msg = JSON.parse(payload); } catch { continue; }
 
-          if (msg.error) throw new Error(msg.error as string);
+          if (msg.error) {
+            const e = new Error(msg.error as string) as Error & { code?: string };
+            if (typeof msg.code === "string") e.code = msg.code;
+            throw e;
+          }
           if (msg.done && msg.report && msg.stockData) {
             receivedDone = true;
             setResult({ report: msg.report as StructuredReport, stockData: msg.stockData as StockData });
@@ -126,10 +137,14 @@ export default function AnalyzePage() {
         // The server likely completed and cached the result before the stream was cut.
         // Retry once — the cache hit will resolve instantly.
         if (!isRetry) return analyze(tickerInput, false, true);
-        throw new Error("La respuesta fue interrumpida. Intentá de nuevo.");
+        const e = new Error("La respuesta fue interrumpida. Intentá de nuevo.") as Error & { code?: string };
+        e.code = "analysis_unavailable";
+        throw e;
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      const code = (err as { code?: string })?.code;
+      setErrorKind(code === "analysis_unavailable" ? "analysis_unavailable" : "generic");
       setError(err instanceof Error ? err.message : "Algo salió mal.");
       setStatus("error");
     } finally {
@@ -191,7 +206,29 @@ export default function AnalyzePage() {
 
         {status === "loading" && <LoadingState ticker={ticker} stockData={partialStockData} />}
 
-        {status === "error" && (
+        {status === "error" && errorKind === "analysis_unavailable" && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-5 text-amber-900 text-sm">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="font-semibold mb-1">Análisis no disponible por el momento</p>
+                <p className="text-amber-800/90">
+                  El servicio de análisis está experimentando demoras. Intente nuevamente en unos minutos.
+                </p>
+                <button
+                  onClick={() => activeTicker.current && analyze(activeTicker.current, true)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
+                >
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status === "error" && errorKind !== "analysis_unavailable" && (
           <div className="rounded-xl bg-red-50 border border-red-200 p-5 text-red-700 text-sm">
             <strong>Error:</strong> {error ?? "Algo salió mal."}
           </div>

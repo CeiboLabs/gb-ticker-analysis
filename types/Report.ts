@@ -7,11 +7,14 @@ export interface SegmentItem {
   yoy?: string;
 }
 
+export type SankeyDataSource = "10-Q" | "10-K" | "8-K" | "Yahoo";
+
 export interface SegmentSankeyData {
   currency: string;
   period: string;
   endDate?: string; // YYYY-MM-DD — quarter/fiscal-year end from EDGAR XBRL
   segmentPeriod?: string;
+  source?: SankeyDataSource;
   unit: string;
   segments: SegmentItem[];
   totalRevenue: number;
@@ -34,6 +37,9 @@ export interface SegmentSankeyData {
   investments?: number;
   tax?: number;
   nonOperatingIncome?: number;
+  // Positive amount of net loss when the period reported a loss (NI < 0).
+  // Set in addition to (not instead of) netProfit, which stays clamped to 0.
+  netLoss?: number;
 }
 
 export interface Verdict {
