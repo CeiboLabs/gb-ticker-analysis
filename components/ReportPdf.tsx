@@ -465,6 +465,7 @@ interface DownloadProps {
 
 export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChartImageUrl }: DownloadProps) {
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [justDownloaded, setJustDownloaded] = useState(false);
 
   // Pre-generate the PDF as soon as the report is ready. iOS Safari requires
   // navigator.share() to run inside the user-activation window (~5s after
@@ -486,8 +487,14 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
     };
   }, [report, stockData, sankeyImageUrl, priceChartImageUrl]);
 
+  useEffect(() => {
+    if (!justDownloaded) return;
+    const t = setTimeout(() => setJustDownloaded(false), 3000);
+    return () => clearTimeout(t);
+  }, [justDownloaded]);
+
   const handleClick = useCallback(() => {
-    if (!pdfBlob) return;
+    if (!pdfBlob || justDownloaded) return;
     const today = new Date().toISOString().split("T")[0];
     const filename = `${stockData.ticker}-analysis-${today}.pdf`;
     const file = new File([pdfBlob], filename, { type: "application/pdf" });
@@ -498,25 +505,34 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
       typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
 
     if (isTouchDevice && typeof navigator.share === "function") {
-      navigator.share({ files: [file], title: `${stockData.ticker} — Análisis` }).catch((err) => {
-        if ((err as DOMException)?.name === "AbortError") return;
-        downloadFallback(pdfBlob, filename);
-      });
+      navigator.share({ files: [file], title: `${stockData.ticker} — Análisis` })
+        .then(() => setJustDownloaded(true))
+        .catch((err) => {
+          if ((err as DOMException)?.name === "AbortError") return;
+          downloadFallback(pdfBlob, filename);
+          setJustDownloaded(true);
+        });
       return;
     }
 
     downloadFallback(pdfBlob, filename);
-  }, [pdfBlob, stockData.ticker]);
+    setJustDownloaded(true);
+  }, [pdfBlob, justDownloaded, stockData.ticker]);
 
   const ready = pdfBlob !== null;
 
   return (
     <button
       onClick={handleClick}
-      disabled={!ready}
-      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+      disabled={!ready || justDownloaded}
+      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
     >
-      {ready ? (
+      {justDownloaded ? (
+        <>
+          <span className="sm:hidden">Descargado ✓</span>
+          <span className="hidden sm:inline">Descargado ✓</span>
+        </>
+      ) : ready ? (
         <>
           <span className="sm:hidden">PDF</span>
           <span className="hidden sm:inline">Exportar PDF</span>

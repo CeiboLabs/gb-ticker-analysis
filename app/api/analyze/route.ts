@@ -4,13 +4,88 @@ import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { fetchEdgar8KIncomeStatement, type Edgar8KIncomeStatement } from "@/lib/fetchEdgar8K";
+import { fetchUsdRate } from "@/lib/fxRates";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
 import { checkRateLimit } from "@/lib/rateLimiter";
+import {
+  recordAnalyzeEvent,
+  eventBaseFromRequest,
+  type AnalyzeEvent,
+  type SankeySource,
+} from "@/lib/metrics";
+import { scoreSankey, snapshotSankey } from "@/lib/sankeyQuality";
+
+// Slim helpers for monitor snapshots — keep the JSON small but informative.
+function slimEdgar8K(e: Edgar8KIncomeStatement | null) {
+  if (!e) return undefined;
+  return {
+    cik: e.cik,
+    accession: e.accession,
+    sourceUrl: e.sourceUrl,
+    form: e.form,
+    endDate: e.endDate,
+    currency: e.currency,
+    isAnnual: e.isAnnual,
+    isSemiAnnual: e.isSemiAnnual,
+    fiscalYearEndMonth: e.fiscalYearEndMonth,
+    totalRevenue: e.totalRevenue,
+    costOfRevenue: e.costOfRevenue,
+    grossProfit: e.grossProfit,
+    researchDevelopment: e.researchDevelopment,
+    sellingGeneralAdministrative: e.sellingGeneralAdministrative,
+    totalOperatingExpenses: e.totalOperatingExpenses,
+    operatingIncome: e.operatingIncome,
+    interestExpense: e.interestExpense,
+    incomeBeforeTax: e.incomeBeforeTax,
+    incomeTaxExpense: e.incomeTaxExpense,
+    netIncome: e.netIncome,
+    aircraftFuel: e.aircraftFuel,
+    salariesWages: e.salariesWages,
+    aircraftMaintenance: e.aircraftMaintenance,
+    aircraftRent: e.aircraftRent,
+    landingFees: e.landingFees,
+    depreciationAmortization: e.depreciationAmortization,
+    segments: e.segments,
+  };
+}
+
+function slimYahooQuarter(sd: StockData | undefined | null) {
+  if (!sd?.latestQuarterIS) return undefined;
+  const q = sd.latestQuarterIS;
+  return {
+    endDate: q.endDate,
+    totalRevenue: q.totalRevenue,
+    grossProfit: q.grossProfit,
+    costOfRevenue: q.costOfRevenue,
+    operatingIncome: q.operatingIncome,
+    netIncome: q.netIncome,
+    totalOperatingExpenses: q.totalOperatingExpenses,
+    researchDevelopment: q.researchDevelopment,
+    sellingGeneralAdministrative: q.sellingGeneralAdministrative,
+  };
+}
 import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
+
+// Map a SegmentSankeyData back to the source bucket we record in the monitor.
+// "segments" = original XBRL parse from fetchSegmentData, never overridden.
+// "8k"/"6k"  = override from the 8-K Exhibit 99.1 parser.
+// "yahoo_fallback" = built from Yahoo's latest quarterly IS when EDGAR is stale.
+// "yahoo_ttm" = built from TTM margins by buildFallbackSegmentData (stub path).
+function classifySankeySource(
+  d: SegmentSankeyData | null | undefined,
+): SankeySource {
+  if (!d) return "none";
+  switch (d.source) {
+    case "8-K":   return "8k";
+    case "6-K":   return "6k";
+    case "Yahoo": return d.period === "TTM" ? "yahoo_ttm" : "yahoo_fallback";
+    default:      return "segments";
+  }
+}
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -71,11 +146,53 @@ function isEdgarStale(stockData: StockData, segmentData: SegmentSankeyData | nul
   return (yahooMs - edgarMs) / 86_400_000 >= 45;
 }
 
+// Foreign issuers (NOK, ASML, ...) report in EUR/GBP/CHF; the parser tags
+// the IS with its native currency. Multiply every monetary line by the
+// USD/native rate so the chart always displays USD figures regardless of
+// reporting currency. Returns null when FX is unavailable (network failure
+// or unsupported currency) — caller should fall back to Yahoo rather than
+// render wrong-currency numbers labeled as USD.
+async function convertEdgar8KToUsd(s: Edgar8KIncomeStatement): Promise<Edgar8KIncomeStatement | null> {
+  const code = (s.currency ?? "USD").toUpperCase();
+  if (code === "USD") return s;
+  const rate = await fetchUsdRate(code);
+  if (!rate || rate <= 0) return null;
+  const m = (v: number | null): number | null => (v === null ? null : v * rate);
+  return {
+    ...s,
+    totalRevenue:                  s.totalRevenue * rate,
+    costOfRevenue:                 m(s.costOfRevenue),
+    grossProfit:                   m(s.grossProfit),
+    researchDevelopment:           m(s.researchDevelopment),
+    sellingGeneralAdministrative:  m(s.sellingGeneralAdministrative),
+    salesMarketing:                m(s.salesMarketing),
+    generalAdmin:                  m(s.generalAdmin),
+    totalOperatingExpenses:        m(s.totalOperatingExpenses),
+    operatingIncome:               m(s.operatingIncome),
+    interestExpense:               m(s.interestExpense),
+    incomeBeforeTax:               m(s.incomeBeforeTax),
+    incomeTaxExpense:              m(s.incomeTaxExpense),
+    netIncome:                     s.netIncome * rate,
+    aircraftFuel:                  m(s.aircraftFuel),
+    salariesWages:                 m(s.salariesWages),
+    aircraftMaintenance:           m(s.aircraftMaintenance),
+    aircraftRent:                  m(s.aircraftRent),
+    landingFees:                   m(s.landingFees),
+    depreciationAmortization:      m(s.depreciationAmortization),
+    segments: s.segments?.map((seg) => ({ name: seg.name, value: seg.value * rate })),
+    currency: "USD",
+  };
+}
+
 // Build a Sankey from a parsed 8-K Exhibit 99.1 income statement. These are
 // the actual numbers from the press release table, days before the 10-Q's
 // XBRL lands. No segment breakdowns (the table is the consolidated IS), but
 // every line item is real data — no TTM-margin estimates.
-function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): SegmentSankeyData | null {
+function buildSankeyFrom8K(
+  s: Edgar8KIncomeStatement,
+  currency: string,
+  industryProfile?: SegmentSankeyData["industryProfile"],
+): SegmentSankeyData | null {
   const rev = s.totalRevenue;
   if (rev <= 0) return null;
 
@@ -109,19 +226,103 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
   const sc = (v: number) => parseFloat((Math.max(0, v) / divisor).toFixed(2));
   const pct = (n: number) => parseFloat(((n / rev) * 100).toFixed(1));
 
-  const d  = new Date(s.endDate);
-  const qN = Math.floor(d.getUTCMonth() / 3) + 1;
-  const yr = d.getUTCFullYear();
-  const period = `Q${qN} FY${yr}`;
+  // Translate calendar endDate → issuer's fiscal-year period label. Default
+  // to December (FYE=12) when the submissions JSON didn't expose a fiscal
+  // year end — calendar-year reporters are the dominant case and produce the
+  // correct "Q3 FY2025" label without the override.
+  //
+  // For non-December fiscals (SKBL FYE=3, AAPL FYE=9), the calendar quarter
+  // is wrong: SKBL's six months ended Sep 30 2025 is H1 of FY2026 (April
+  // 2025 — March 2026), not Q3 of FY2025. We compute:
+  //   • fyEndYear  — calendar year in which the issuer's fiscal year ends
+  //   • monthsIn   — how many months into the fiscal year endDate falls (1–12)
+  //   • period     — H1/H2 for semiannual interim, Q1–Q4 otherwise
+  const period = (() => {
+    const d = new Date(s.endDate);
+    const m = d.getUTCMonth() + 1;          // 1–12
+    const y = d.getUTCFullYear();
+    const fye = (s.fiscalYearEndMonth && s.fiscalYearEndMonth >= 1 && s.fiscalYearEndMonth <= 12)
+      ? s.fiscalYearEndMonth
+      : 12;
+    const fyStart = (fye % 12) + 1;          // 1 for Dec FYE, 4 for March FYE
+    let monthsIn = m - fyStart + 1;
+    if (monthsIn <= 0) monthsIn += 12;
+    // Fiscal-year label: the calendar year in which the fiscal year ends.
+    // SKBL endDate Sep 30 2025 with FYE=March → fiscal year ends March 2026 → FY2026.
+    // AAPL endDate Dec 27 2025 with FYE=Sep   → fiscal year ends Sep 2026   → FY2026.
+    // Calendar filer (FYE=12): m never exceeds fye, so fy = y as expected.
+    const fy = m > fye ? y + 1 : y;
+    if (s.isAnnual) return `FY${fy}`;
+    if (s.isSemiAnnual) return `${monthsIn <= 6 ? "H1" : "H2"} FY${fy}`;
+    const q = Math.min(4, Math.max(1, Math.ceil(monthsIn / 3)));
+    return `Q${q} FY${fy}`;
+  })();
 
   const rd  = s.researchDevelopment ?? 0;
   const sga = s.sellingGeneralAdministrative ?? 0;
-  const knownOpex = (rd > 0 ? rd : 0) + (sga > 0 ? sga : 0);
-  const otherOpex = knownOpex > 0 ? Math.max(0, opex - knownOpex) : 0;
+  // Issuers that split S&M and G&A into separate IS lines (BABA, NIO, JD,
+  // PDD, BIDU, …) populate `salesMarketing` and `generalAdmin` directly.
+  // When both are present we render them as two distinct opex buckets;
+  // otherwise we fall back to the combined SG&A line as a single bucket.
+  const smRaw = s.salesMarketing ?? 0;
+  const gaRaw = s.generalAdmin ?? 0;
+  const splitSga = smRaw > 0 && gaRaw > 0;
+  const sm = splitSga ? smRaw : sga;
+  const ga = splitSga ? gaRaw : 0;
+  // Airline detection: US carriers (AAL/DAL/UAL/LUV...) report fuel + labor
+  // as top-level IS lines (no GP/COGS layer). IFRS-by-function carriers
+  // (LATAM/LTM) report a single Cost-of-Sales line and break it down by
+  // nature in a footnote — same buckets emerge after the by-nature scan.
+  // Two acceptance paths:
+  //   (a) Standard: fuel ≥ 5% of rev + ≥1 other airline signal
+  //       (maintenance / aircraft rent / landing fees). Catches mainline
+  //       carriers that pay their own fuel.
+  //   (b) Regional: fuel < 5% (capacity-purchase carriers like SKYW reimburse
+  //       fuel through Flying-Agreement revenue, so the IS fuel line is tiny)
+  //       BUT aircraft maintenance is present AND the airline-bucket sum
+  //       (fuel + labor + maint + D&A) is ≥40% of revenue. The bucket sum
+  //       gate keeps non-airlines (logistics companies with stray "Aircraft
+  //       fuel" lines) out, since their non-airline cost base swamps the
+  //       airline buckets.
+  const airlineSignalCount8K =
+    ((s.aircraftMaintenance ?? 0) > 0 ? 1 : 0) +
+    ((s.aircraftRent ?? 0) > 0 ? 1 : 0) +
+    ((s.landingFees ?? 0) > 0 ? 1 : 0);
+  const fuelRaw   = s.aircraftFuel ?? 0;
+  const laborRaw  = s.salariesWages ?? 0;
+  const maintRaw  = s.aircraftMaintenance ?? 0;
+  const depRaw    = s.depreciationAmortization ?? 0;
+  const bucketSum = fuelRaw + laborRaw + maintRaw + depRaw;
+  const baseAirline = fuelRaw > 0 && laborRaw > 0 && rev > 0;
+  const mainlinePath  = baseAirline && fuelRaw / rev >= 0.05 && airlineSignalCount8K >= 1;
+  const regionalPath  = baseAirline && maintRaw > 0 && bucketSum / rev >= 0.4;
+  const isAirline = mainlinePath || regionalPath;
+  // Buckets are populated by the airline-aware scan; for IFRS issuers the
+  // values cover items already inside COGS, so they sum to (COGS + opex)
+  // rather than just opex.
+  const fuel        = isAirline ? (s.aircraftFuel ?? 0) : 0;
+  const labor       = isAirline ? (s.salariesWages ?? 0) : 0;
+  const maint       = isAirline ? (s.aircraftMaintenance ?? 0) : 0;
+  const rentLanding = isAirline ? ((s.aircraftRent ?? 0) + (s.landingFees ?? 0)) : 0;
+  const depAmort    = isAirline ? (s.depreciationAmortization ?? 0) : 0;
+  // Airline opex denominator: when in airline mode, treat ALL costs below
+  // revenue as operating costs (rev − opInc), since the airline buckets
+  // include what would otherwise be COGS for IFRS-by-function issuers.
+  // Falls back to totalOperatingExpenses for US carriers when reported.
+  const airlineOpex = isAirline
+    ? Math.max(0, rev - Math.max(0, opInc))
+    : opex;
+
+  const knownOpex = (rd > 0 ? rd : 0) + (sm > 0 ? sm : 0) + (ga > 0 ? ga : 0)
+    + fuel + labor + maint + rentLanding + depAmort;
+  const otherOpex = knownOpex > 0 ? Math.max(0, airlineOpex - knownOpex) : 0;
   // Single-step IS issuers (e.g. ADP) include R&D inside Cost of Revenue, not
   // in OpEx — so attributing R&D to the OpEx node would overflow the flow.
   // Only emit the breakdown when the components reconcile to ≤105 % of opex.
-  const hasBreakdown = (rd > 0 || sga > 0) && knownOpex <= opex * 1.05;
+  // Airline mode always emits a breakdown (the airline buckets ARE the opex
+  // structure — without them the chart falls back to a useless single bucket).
+  const hasBreakdown = isAirline ||
+    ((rd > 0 || sm > 0 || ga > 0) && knownOpex <= opex * 1.05);
 
   const segments = (s.segments ?? [])
     .map((seg) => ({ name: seg.name, value: sc(seg.value) }))
@@ -131,22 +332,37 @@ function buildSankeyFrom8K(s: Edgar8KIncomeStatement, currency: string): Segment
     currency,
     period,
     endDate: s.endDate,
-    source: "8-K",
+    source: s.form === "6-K" ? "6-K" : "8-K",
     unit,
+    industryProfile,
     segments,
     totalRevenue:        sc(rev),
-    grossProfit:         sc(gp),
-    grossMarginPct:      gp > 0 ? pct(gp) : undefined,
-    costOfRevenue:       sc(Math.max(0, rev - gp)),
+    // Airlines don't have a meaningful Gross-Profit / Cost-of-Revenue layer
+    // for our purposes — the airline buckets (fuel, labor, maintenance, ...)
+    // span what would otherwise be COGS + OpEx combined. Zeroing both gp and
+    // cogs forces SankeyChart into the no-GP "Op. Costs" layout (same as
+    // profitable US carriers UAL/LUV) and prevents double counting when the
+    // issuer (e.g. LATAM IFRS-by-function) reports a single Cost-of-Sales
+    // line on its main IS.
+    grossProfit:         sc(isAirline ? 0 : gp),
+    grossMarginPct:      !isAirline && gp > 0 ? pct(gp) : undefined,
+    costOfRevenue:       sc(isAirline ? 0 : Math.max(0, rev - gp)),
     operatingProfit:     sc(Math.max(0, opInc)),
     operatingMarginPct:  opInc > 0 ? pct(opInc) : undefined,
     netProfit:           sc(Math.max(0, ni)),
     netMarginPct:        ni > 0 ? pct(ni) : undefined,
-    operatingExpenses:   sc(opex),
+    netLoss:             ni < 0 ? sc(-ni) : undefined,
+    operatingExpenses:   sc(isAirline ? airlineOpex : opex),
     opexBreakdown: hasBreakdown ? {
       rd:             rd > 0  ? sc(rd) : undefined,
-      salesMarketing: sga > 0 ? sc(sga) : undefined,
+      salesMarketing: sm > 0  ? sc(sm) : undefined,
+      generalAdmin:   ga > 0  ? sc(ga) : undefined,
       other:          otherOpex > 0 ? sc(otherOpex) : undefined,
+      fuel:           fuel > 0 ? sc(fuel) : undefined,
+      salariesWages:  labor > 0 ? sc(labor) : undefined,
+      maintenance:    maint > 0 ? sc(maint) : undefined,
+      rentAndLanding: rentLanding > 0 ? sc(rentLanding) : undefined,
+      depreciation:   depAmort > 0 ? sc(depAmort) : undefined,
     } : undefined,
     tax: sc(Math.max(0, tax)),
     nonOperatingIncome: (() => {
@@ -258,6 +474,151 @@ function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
   };
 }
 
+// Derive the second-half (H2) period for foreign issuers that file 20-F annual
+// + a single H1 6-K (no quarterly statements). Mirrors the Q4 = 10-K − Q3 10-Q
+// pattern already wired up for US issuers (lib/fetchEdgarSegments.ts:1295), but
+// the H1 source is an HTML 6-K (no XBRL), so the subtraction has to happen on
+// the consumer side after both pipelines have landed.
+//
+// Triggers when:
+//   • annual is a 20-F (foreign-private-issuer annual)
+//   • h1 is a 6-K with isSemiAnnual=true
+//   • h1's endDate is ~6 months before annual's endDate (same fiscal year)
+//
+// Falls back to null (caller keeps the annual) when:
+//   • H2 revenue ≤ 0 (subtraction would produce a meaningless chart)
+//   • Currency conversion fails for non-USD H1 values
+async function deriveH2FromAnnualAnd6K(
+  annual: SegmentSankeyData,
+  h1: Edgar8KIncomeStatement,
+): Promise<SegmentSankeyData | null> {
+  if (annual.source !== "20-F" || !annual.endDate) return null;
+  if (!h1.isSemiAnnual || !h1.endDate) return null;
+
+  const annualMs = Date.parse(annual.endDate);
+  const h1Ms     = Date.parse(h1.endDate);
+  if (!isFinite(annualMs) || !isFinite(h1Ms)) return null;
+  // H1 should end ~6 months before annual end, ±30 days for fiscal calendar drift
+  const gapDays = (annualMs - h1Ms) / 86_400_000;
+  if (gapDays < 150 || gapDays > 210) return null;
+
+  const h1Usd = (h1.currency ?? "USD").toUpperCase() === "USD"
+    ? h1
+    : await convertEdgar8KToUsd(h1);
+  if (!h1Usd) return null;
+
+  const divisor = annual.unit === "T" ? 1e12
+                : annual.unit === "B" ? 1e9
+                : annual.unit === "M" ? 1e6
+                : 1e3;
+  const sc = (raw: number | null | undefined) => raw == null ? 0 : raw / divisor;
+  const sub = (a: number | undefined, raw: number | null | undefined) =>
+    Math.max(0, (a ?? 0) - sc(raw));
+  const round2 = (n: number) => parseFloat(n.toFixed(2));
+
+  const h2Rev = round2((annual.totalRevenue ?? 0) - sc(h1Usd.totalRevenue));
+  if (h2Rev <= 0) return null;
+
+  // Signed op/NI: SegmentSankeyData clamps operatingProfit/netProfit to ≥0 and
+  // exposes the loss magnitude separately. Recover the signed value so we can
+  // compute H2's operating result correctly when one half is profitable and
+  // the other is a loss (RYOJ FY2025: H1 +$0.65M op, H2 −$1.4M op, full year
+  // −$0.76M op). Without this the unsigned subtraction returns 0 and H2 looks
+  // break-even instead of loss-making.
+  const annualSignedOp = (annual.operatingProfit ?? 0) - (annual.operatingLoss ?? 0);
+  const annualSignedNi = (annual.netProfit       ?? 0) - (annual.netLoss       ?? 0);
+  const h2SignedOp = annualSignedOp - sc(h1Usd.operatingIncome);
+  const h2SignedNi = annualSignedNi - sc(h1Usd.netIncome);
+
+  const h2Gp   = round2(sub(annual.grossProfit,   h1Usd.grossProfit));
+  const h2Cogs = round2(sub(annual.costOfRevenue, h1Usd.costOfRevenue));
+  // OpEx via signed math: gp − signedOp = OpEx including the loss gap. Falls
+  // back to the tagged-OpEx subtraction when both halves are profitable so
+  // small rounding noise doesn't flip OpEx vs the issuer's reported total.
+  const h2OpexSigned = round2(Math.max(0, h2Gp - h2SignedOp));
+  const h2OpexTagged = round2(sub(annual.operatingExpenses, h1Usd.totalOperatingExpenses));
+  const h2Opex = h2SignedOp < 0 ? h2OpexSigned : h2OpexTagged;
+  const h2OpProfit = round2(Math.max(0, h2SignedOp));
+  const h2OpLoss   = h2SignedOp < 0 ? round2(-h2SignedOp) : undefined;
+  const h2NetProf  = round2(Math.max(0, h2SignedNi));
+  const h2NetLoss  = h2SignedNi < 0 ? round2(-h2SignedNi) : undefined;
+  const pct = (n: number) => h2Rev > 0 ? parseFloat(((n / h2Rev) * 100).toFixed(1)) : undefined;
+
+  // OpEx breakdown: only subtract buckets the 6-K parser CAN extract from the
+  // interim IS (rd / sm / ga / SGA / airline buckets / D&A). Buckets that the
+  // XBRL annual tagged but the 6-K HTML doesn't break out (payroll, rent,
+  // advertising, stock comp, impairment, restructuring) cannot be subtracted
+  // — keeping the annual values unchanged would overshoot the H2 OpEx total
+  // (RYOJ H2: G&A $1.5M + Payroll $0.9M would sum to $2.4M against an OpEx
+  // parent of $2.0M). Drop those buckets and let `other` absorb the residual
+  // so the breakdown reconciles to the H2 parent.
+  const ob = annual.opexBreakdown;
+  const h2Breakdown = ob ? {
+    rd:             ob.rd             != null ? round2(sub(ob.rd,             h1Usd.researchDevelopment))      : undefined,
+    salesMarketing: ob.salesMarketing != null ? round2(sub(ob.salesMarketing,
+                      h1Usd.salesMarketing ?? h1Usd.sellingGeneralAdministrative)) : undefined,
+    generalAdmin:   ob.generalAdmin   != null ? round2(sub(ob.generalAdmin,   h1Usd.generalAdmin))             : undefined,
+    other:          undefined as number | undefined,  // recomputed as residual below
+    fuel:           ob.fuel           != null ? round2(sub(ob.fuel,           h1Usd.aircraftFuel))             : undefined,
+    salariesWages:  ob.salariesWages  != null ? round2(sub(ob.salariesWages,  h1Usd.salariesWages))            : undefined,
+    maintenance:    ob.maintenance    != null ? round2(sub(ob.maintenance,    h1Usd.aircraftMaintenance))      : undefined,
+    rentAndLanding: ob.rentAndLanding != null ? round2(sub(ob.rentAndLanding,
+                      (h1Usd.aircraftRent ?? 0) + (h1Usd.landingFees ?? 0)))                                    : undefined,
+    depreciation:   ob.depreciation   != null ? round2(sub(ob.depreciation,   h1Usd.depreciationAmortization)) : undefined,
+  } as NonNullable<SegmentSankeyData["opexBreakdown"]> : undefined;
+  // Compute "other" as residual = H2 OpEx − sum of admitted sub-buckets. Picks
+  // up the dropped buckets (payroll, rent, ...) plus any other untagged opex.
+  if (h2Breakdown && h2Opex > 0) {
+    const known = (h2Breakdown.rd ?? 0) + (h2Breakdown.salesMarketing ?? 0)
+                + (h2Breakdown.generalAdmin ?? 0)
+                + (h2Breakdown.fuel ?? 0) + (h2Breakdown.salariesWages ?? 0)
+                + (h2Breakdown.maintenance ?? 0) + (h2Breakdown.rentAndLanding ?? 0)
+                + (h2Breakdown.depreciation ?? 0);
+    const residual = Math.max(0, h2Opex - known);
+    h2Breakdown.other = residual > 0.005 ? round2(residual) : undefined;
+  }
+
+  // Period label: H2 of the fiscal year that ends at annual.endDate.
+  // Default to calendar-year FY when fiscalYearEnd info isn't available.
+  const annualYr = new Date(annual.endDate).getUTCFullYear();
+  const period = `H2 FY${annualYr}`;
+
+  // Segments: the 6-K's HTML usually doesn't break revenue down by segment, so
+  // re-use annual's segments scaled to H2's revenue share. YoY drops because
+  // the prior-period H2 isn't comparable.
+  const annualRev = annual.totalRevenue ?? 0;
+  const scale = annualRev > 0 ? h2Rev / annualRev : 0;
+  const h2Segments = scale > 0
+    ? annual.segments.map((seg) => ({
+        name:  seg.name,
+        value: round2(seg.value * scale),
+        yoy:   undefined,
+      }))
+    : [];
+
+  return {
+    ...annual,
+    period,
+    segmentPeriod: annual.period,  // signals "segments come from FY annual"
+    source: "6-K",
+    segments: h2Segments,
+    totalRevenue: h2Rev,
+    totalRevenueYoy: undefined,
+    grossProfit: h2Gp,
+    grossMarginPct: h2Gp > 0 ? pct(h2Gp) : undefined,
+    grossMarginYoy: undefined,
+    costOfRevenue: h2Cogs,
+    operatingProfit: h2OpProfit,
+    operatingMarginPct: h2OpProfit > 0 ? pct(h2OpProfit) : undefined,
+    operatingLoss: h2OpLoss,
+    netProfit: h2NetProf,
+    netMarginPct: h2NetProf > 0 ? pct(h2NetProf) : undefined,
+    netLoss: h2NetLoss,
+    operatingExpenses: h2Opex,
+    opexBreakdown: h2Breakdown,
+  };
+}
+
 // Convert a field value to a readable string if GPT-4o returns an object instead of prose
 function serializeField(value: unknown): string {
   if (typeof value === "string") return value;
@@ -291,20 +652,43 @@ function serializeField(value: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  // 0. Rate limiting
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown";
-  const { allowed, retryAfter } = checkRateLimit(ip);
+  // Monitor: capture request-level metadata once. Each exit path fills in the
+  // outcome and fires recordAnalyzeEvent — D1 write is best-effort.
+  const startedAt = Date.now();
+  const eventBase = eventBaseFromRequest(req);
+  const fireEvent = (e: Omit<AnalyzeEvent, keyof typeof eventBase> & { ticker: string }) => {
+    void recordAnalyzeEvent({
+      ...eventBase,
+      durationMs: Date.now() - startedAt,
+      ...e,
+    });
+  };
+
+  // 0. Rate limiting — keyed by a per-browser session cookie rather than IP, so
+  // multiple users behind the same office NAT each get their own bucket.
+  // Cookie is httpOnly and lives for a year; missing/cleared cookie just mints
+  // a fresh session (acceptable trade-off vs locking out shared-IP offices).
+  const SESSION_COOKIE = "ticker_session";
+  const existingSession = req.cookies.get(SESSION_COOKIE)?.value;
+  const sessionId = existingSession ?? crypto.randomUUID();
+  const setCookieHeader = existingSession
+    ? null
+    : `${SESSION_COOKIE}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 365}`;
+  const withSession = <T extends Response>(res: T): T => {
+    if (setCookieHeader) res.headers.append("Set-Cookie", setCookieHeader);
+    return res;
+  };
+
+  const { allowed, retryAfter } = checkRateLimit(sessionId);
   if (!allowed) {
-    return NextResponse.json(
+    fireEvent({ ticker: "-", status: "rate_limited", errorStage: "rate_limit" });
+    return withSession(NextResponse.json(
       {
         error: "Análisis no disponible por el momento. Intente en unos minutos.",
         code: "analysis_unavailable",
       },
       { status: 429, headers: { "Retry-After": String(retryAfter) } }
-    );
+    ));
   }
 
   // 1. Parse + validate
@@ -312,15 +696,15 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: "invalid JSON body" });
+    return withSession(NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }));
   }
 
   const parsed = AnalyzeRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request" },
-      { status: 400 }
-    );
+    const msg = parsed.error.issues[0]?.message ?? "Invalid request";
+    fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: msg });
+    return withSession(NextResponse.json({ error: msg }, { status: 400 }));
   }
 
   const { ticker, refresh } = parsed.data;
@@ -335,7 +719,38 @@ export async function POST(req: NextRequest) {
         await cacheClear(ticker);
       } else {
         void recordTickerView(ticker).catch(() => {});
-        return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
+        const qCached = scoreSankey(cached.report.segmentData ?? null, ticker);
+        fireEvent({
+          ticker,
+          status: "cache_hit",
+          sankeySource: classifySankeySource(cached.report.segmentData ?? null),
+          sankeyStale: false,
+          qualityScore: qCached.score,
+          hasSegments: qCached.hasSegments,
+          segmentCount: qCached.segmentCount,
+          hasOpexBreakdown: qCached.hasOpexBreakdown,
+          segmentBalancePct: qCached.segmentBalancePct,
+          costBalancePct: qCached.costBalancePct,
+          opexBalancePct: qCached.opexBalancePct,
+          opChainBalancePct: qCached.opChainBalancePct,
+          qualityFlags: qCached.findings.map((f) => f.code),
+          qualityFindings: qCached.findings.length > 0 ? JSON.stringify(qCached.findings) : null,
+          sankeySnapshot: snapshotSankey({
+            finalSankey: cached.report.segmentData ?? null,
+            overridePath: "cache",
+            yahooQuarter: slimYahooQuarter(cached.stockData),
+            yahooCurrency: cached.stockData?.currency ?? null,
+          }),
+          verdictRating: cached.report.verdict?.rating ?? null,
+          verdictConviction: cached.report.verdict?.conviction ?? null,
+          verdictRationale: cached.report.verdict?.rationale ?? null,
+          companyName: cached.stockData?.companyName ?? null,
+          currentPrice: cached.stockData?.currentPrice ?? null,
+          marketCap: cached.stockData?.marketCap ?? null,
+          bullTarget: cached.report.bullCase?.priceTarget ?? null,
+          bearTarget: cached.report.bearCase?.priceTarget ?? null,
+        });
+        return withSession(NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true }));
       }
     }
   } else {
@@ -345,16 +760,30 @@ export async function POST(req: NextRequest) {
   // 3. Fetch financial data
   let stockData;
   let segmentData;
+  // Monitor: track which secondary sources came back so we can spot regressions
+  // (e.g. EDGAR 8-K fetch starts failing across the board). Hoisted out of
+  // the try block so we can include them in the snapshot at the success exit.
+  let edgar8kOk: boolean | null = null;
+  let segmentsOk: boolean | null = null;
+  let edgar8K: Edgar8KIncomeStatement | null = null;
+  let xbrlSegmentsRaw: SegmentSankeyData | null = null;
+  let overridePath: "8k_override" | "yahoo_fallback" | "yahoo_ttm" | "segments_kept" | "stub" | "cache" = "segments_kept";
   try {
     let peerComparison;
-    let edgar8K: Edgar8KIncomeStatement | null;
     [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
       fetchStockData(ticker),
-      fetchSegmentData(ticker),
+      fetchSegmentData(ticker).then(
+        (r) => { segmentsOk = r != null; return r; },
+        (e) => { segmentsOk = false; throw e; },
+      ),
       fetchPeerComparison(ticker),
-      fetchEdgar8KIncomeStatement(ticker),
+      fetchEdgar8KIncomeStatement(ticker).then(
+        (r) => { edgar8kOk = r != null; return r; },
+        (e) => { edgar8kOk = false; throw e; },
+      ),
     ]);
     stockData.peerComparison = peerComparison;
+    xbrlSegmentsRaw = segmentData;
 
     // Override the Sankey when EDGAR's 10-Q/10-K either (a) lags behind the
     // press-released quarter or (b) failed to parse entirely — without this,
@@ -363,33 +792,118 @@ export async function POST(req: NextRequest) {
     //   1. 8-K Exhibit 99.1 parse — actual press-release numbers, no estimates
     //   2. Yahoo + TTM-margin estimates — partial actuals + interpolation
     //   3. Leave EDGAR Sankey as-is — older period but real and complete
-    const needsOverride = !segmentData || isEdgarStale(stockData, segmentData);
+    // Foreign private issuers (SKBL, BABA, ASML, ...) often have sparse Yahoo
+    // quarterly data, so isEdgarStale's Yahoo-vs-EDGAR comparison returns
+    // false and the override never fires — even when the 8-K/6-K reports a
+    // strictly more recent period than the XBRL annual we just pulled. Add a
+    // direct endDate comparison so an 8-K that ships a newer fiscal period
+    // wins regardless of whether Yahoo also confirmed it.
+    const eightKMoreRecent = !!(
+      edgar8K?.endDate && segmentData?.endDate && edgar8K.endDate > segmentData.endDate
+    );
+    // Foreign private issuers (NIO, BABA, ...) file a 20-F annual and a Q4
+    // earnings 6-K with the SAME fiscal-year-end date. The 6-K press release
+    // exposes a "Three Months Ended" quarterly column alongside the annual,
+    // and our 6-K parser picks the quarterly. Without this branch the strict
+    // `>` comparison above keeps the FY annual 20-F and the user never sees
+    // the Q4 slice they actually want. Only swap when the 6-K is genuinely
+    // quarterly — IFRS annual-only 6-Ks (LATAM/LTM) set isAnnual=true and
+    // would just be a lateral move.
+    const segIsAnnual = segmentData?.source === "20-F" || segmentData?.source === "10-K";
+    const eightKQuarterlyForAnnualClose = !!(
+      edgar8K?.endDate &&
+      segmentData?.endDate &&
+      edgar8K.endDate === segmentData.endDate &&
+      segIsAnnual &&
+      edgar8K.isAnnual !== true
+    );
+    const needsOverride = !segmentData || isEdgarStale(stockData, segmentData)
+      || eightKMoreRecent || eightKQuarterlyForAnnualClose;
     if (needsOverride) {
       let override: SegmentSankeyData | null = null;
+      let pickedFrom: "8k_override" | "yahoo_fallback" | null = null;
       if (edgar8K) {
         const segEnd = segmentData?.endDate ?? "";
-        if (!segEnd || edgar8K.endDate > segEnd) {
-          override = buildSankeyFrom8K(edgar8K, stockData.currency ?? "USD");
+        if (!segEnd || edgar8K.endDate > segEnd || eightKQuarterlyForAnnualClose) {
+          // All Sankey/chart values rendered in USD regardless of reporting
+          // currency, so a CNY/EUR/JPY-denominated 8-K/6-K becomes directly
+          // comparable to USD-reporting peers in the same dashboard. FX rate
+          // pulled from the ECB-sourced Frankfurter feed (24h cache). When
+          // FX is unavailable we leave `override` null so the next branch
+          // falls back to Yahoo (which is already USD) rather than render
+          // foreign-currency numbers labeled as USD.
+          const native = (edgar8K.currency ?? "USD").toUpperCase();
+          const edgar8KUsd = native === "USD"
+            ? edgar8K
+            : await convertEdgar8KToUsd(edgar8K);
+          if (edgar8KUsd) {
+            override = buildSankeyFrom8K(edgar8KUsd, "USD", segmentData?.industryProfile);
+          }
+          if (override) pickedFrom = "8k_override";
+          // Preserve XBRL segments when the 8-K parser can't extract them.
+          // Press releases for oil/gas (CVX, XOM) and many bank/insurance
+          // issuers don't put segment breakdowns in the consolidated IS table
+          // — the data lives in narrative footnotes our parser doesn't read.
+          // The XBRL segments are slightly older but accurate; rather than
+          // showing an empty sources column, scale them proportionally to
+          // the 8-K's headline revenue so the Sankey balances visually.
+          if (override
+              && (!override.segments || override.segments.length === 0)
+              && segmentData?.segments && segmentData.segments.length > 0
+              && segmentData.totalRevenue > 0) {
+            const scale = override.totalRevenue / segmentData.totalRevenue;
+            override.segments = segmentData.segments.map((s) => ({
+              name:  s.name,
+              value: parseFloat((s.value * scale).toFixed(2)),
+              yoy:   undefined, // YoY no longer accurate after scaling — drop it
+            }));
+            // Mark the period mismatch so the chart header shows that segments
+            // come from an older filing than the headline numbers.
+            override.segmentPeriod = segmentData.segmentPeriod ?? segmentData.period;
+          }
         }
       }
-      if (!override) override = buildSankeyFromYahooQuarter(stockData);
-      if (override) segmentData = override;
+      if (!override) {
+        override = buildSankeyFromYahooQuarter(stockData);
+        if (override) pickedFrom = "yahoo_fallback";
+      }
+      if (override) {
+        segmentData = override;
+        if (pickedFrom) overridePath = pickedFrom;
+      }
+    }
+
+    // H2 derivation for FPI semi-annual filers (RYOJ, SKBL, ASML-style):
+    // when the chart is sitting on a 20-F annual but a 6-K exposed H1 of the
+    // SAME fiscal year, H2 = annual − H1 gives a granular six-month period
+    // matching what `Q4 = 10-K − 9M 10-Q` does for US issuers. Fired AFTER
+    // the override branch so that if 8-K override already produced a quarterly
+    // (e.g. NIO Q4 6-K), we don't undo it.
+    if (segmentData?.source === "20-F" && edgar8K?.isSemiAnnual) {
+      const h2 = await deriveH2FromAnnualAnd6K(segmentData, edgar8K);
+      if (h2) segmentData = h2;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("no está listado")) {
-      return NextResponse.json({ error: message }, { status: 400 });
+      fireEvent({ ticker, status: "bad_request", errorStage: "yahoo", errorMsg: message, edgar8kOk, segmentsOk });
+      return withSession(NextResponse.json({ error: message }, { status: 400 }));
     }
     if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("no data")) {
-      return NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 });
+      fireEvent({ ticker, status: "not_found", errorStage: "yahoo", errorMsg: message, edgar8kOk, segmentsOk });
+      return withSession(NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 }));
     }
-    return NextResponse.json(
+    // Either fetchStockData or one of the EDGAR fetches threw — pick the
+    // most likely stage from the rejection origin recorded above.
+    const stage = segmentsOk === false || edgar8kOk === false ? "edgar" : "yahoo";
+    fireEvent({ ticker, status: "error", errorStage: stage, errorMsg: message, edgar8kOk, segmentsOk });
+    return withSession(NextResponse.json(
       {
         error: "Análisis no disponible por el momento. Intente en unos minutos.",
         code: "analysis_unavailable",
       },
       { status: 502 }
-    );
+    ));
   }
 
   // 4. Mock mode — skip OpenAI, return stub report with real segment data
@@ -405,10 +919,39 @@ export async function POST(req: NextRequest) {
       bearCase: { narrative: "", priceTarget: "—" },
       segmentData: segmentData ?? buildFallbackSegmentData(stockData),
     };
-    const stubTtl = isEdgarStale(stockData, stub.segmentData ?? null) ? SHORT_TTL : undefined;
+    const stubStale = isEdgarStale(stockData, stub.segmentData ?? null);
+    const stubTtl = stubStale ? SHORT_TTL : undefined;
     cacheSet(ticker, stub, stockData, stubTtl);
     void recordTickerView(ticker).catch(() => {});
-    return NextResponse.json({ report: stub, stockData, cached: false });
+    const qStub = scoreSankey(stub.segmentData ?? null, ticker);
+    fireEvent({
+      ticker,
+      status: "ok",
+      sankeySource: classifySankeySource(stub.segmentData),
+      sankeyStale: stubStale,
+      edgar8kOk,
+      segmentsOk,
+      qualityScore: qStub.score,
+      hasSegments: qStub.hasSegments,
+      segmentCount: qStub.segmentCount,
+      hasOpexBreakdown: qStub.hasOpexBreakdown,
+      segmentBalancePct: qStub.segmentBalancePct,
+      costBalancePct: qStub.costBalancePct,
+      opexBalancePct: qStub.opexBalancePct,
+      opChainBalancePct: qStub.opChainBalancePct,
+      qualityFlags: qStub.findings.map((f) => f.code),
+      qualityFindings: qStub.findings.length > 0 ? JSON.stringify(qStub.findings) : null,
+      sankeySnapshot: snapshotSankey({
+        finalSankey: stub.segmentData ?? null,
+        overridePath: "stub",
+        edgar8kRaw: slimEdgar8K(edgar8K),
+        xbrlSegmentsRaw,
+        yahooQuarter: slimYahooQuarter(stockData),
+        yahooCurrency: stockData?.currency ?? null,
+        filingIndexUrl: edgar8K?.sourceUrl ?? null,
+      }),
+    });
+    return withSession(NextResponse.json({ report: stub, stockData, cached: false }));
   }
 
   // 5. Build prompt
@@ -468,7 +1011,16 @@ export async function POST(req: NextRequest) {
           report = raw as unknown as StructuredReport;
           // Use EDGAR segment data; fall back to Yahoo Finance TTM margins
           report.segmentData = segmentData ?? buildFallbackSegmentData(stockData);
-        } catch {
+        } catch (parseErr) {
+          fireEvent({
+            ticker,
+            status: "error",
+            errorStage: "parse",
+            errorMsg: parseErr instanceof Error ? parseErr.message : "OpenAI JSON parse failed",
+            sankeySource: classifySankeySource(segmentData ?? null),
+            edgar8kOk,
+            segmentsOk,
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
@@ -481,9 +1033,46 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const ttl = isEdgarStale(stockData, report.segmentData ?? null) ? SHORT_TTL : undefined;
+        const stale = isEdgarStale(stockData, report.segmentData ?? null);
+        const ttl = stale ? SHORT_TTL : undefined;
         await cacheSet(ticker, report, stockData, ttl);
         void recordTickerView(ticker).catch(() => {});
+        const q = scoreSankey(report.segmentData ?? null, ticker);
+        fireEvent({
+          ticker,
+          status: "ok",
+          sankeySource: classifySankeySource(report.segmentData ?? null),
+          sankeyStale: stale,
+          edgar8kOk,
+          segmentsOk,
+          qualityScore: q.score,
+          hasSegments: q.hasSegments,
+          segmentCount: q.segmentCount,
+          hasOpexBreakdown: q.hasOpexBreakdown,
+          segmentBalancePct: q.segmentBalancePct,
+          costBalancePct: q.costBalancePct,
+          opexBalancePct: q.opexBalancePct,
+          opChainBalancePct: q.opChainBalancePct,
+          qualityFlags: q.findings.map((f) => f.code),
+          qualityFindings: q.findings.length > 0 ? JSON.stringify(q.findings) : null,
+          sankeySnapshot: snapshotSankey({
+            finalSankey: report.segmentData ?? null,
+            overridePath,
+            edgar8kRaw: slimEdgar8K(edgar8K),
+            xbrlSegmentsRaw,
+            yahooQuarter: slimYahooQuarter(stockData),
+            yahooCurrency: stockData?.currency ?? null,
+            filingIndexUrl: edgar8K?.sourceUrl ?? null,
+          }),
+          verdictRating: report.verdict?.rating ?? null,
+          verdictConviction: report.verdict?.conviction ?? null,
+          verdictRationale: report.verdict?.rationale ?? null,
+          companyName: stockData.companyName ?? null,
+          currentPrice: stockData.currentPrice ?? null,
+          marketCap: stockData.marketCap ?? null,
+          bullTarget: report.bullCase?.priceTarget ?? null,
+          bearTarget: report.bearCase?.priceTarget ?? null,
+        });
 
         // Send final payload: full structured report + stockData for UI components
         controller.enqueue(
@@ -501,12 +1090,22 @@ export async function POST(req: NextRequest) {
           err instanceof OpenAI.APIError ||
           err instanceof OpenAI.APIConnectionError ||
           err instanceof OpenAI.APIConnectionTimeoutError;
+        const rawMsg = err instanceof Error ? err.message : "Unknown error";
         const message = isOpenAIError
           ? "Análisis no disponible por el momento. Intente en unos minutos."
-          : err instanceof Error ? err.message : "Unknown error";
+          : rawMsg;
         const payload = isOpenAIError
           ? { error: message, code: "analysis_unavailable" }
           : { error: message };
+        fireEvent({
+          ticker,
+          status: "error",
+          errorStage: isOpenAIError ? "openai" : "unknown",
+          errorMsg: rawMsg,
+          sankeySource: classifySankeySource(segmentData ?? null),
+          edgar8kOk,
+          segmentsOk,
+        });
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
         );
@@ -515,11 +1114,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return new Response(stream, {
+  return withSession(new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     },
-  });
+  }));
 }

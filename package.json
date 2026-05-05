@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "pages:build": "npx @cloudflare/next-on-pages",
-    "pages:deploy": "npm run pages:build && wrangler pages deploy",
-    "pages:preview": "npm run pages:build && wrangler pages dev"
+    "pages:deploy": "npm run pages:build && npx wrangler pages deploy",
+    "pages:preview": "npm run pages:build && npx wrangler pages dev"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",

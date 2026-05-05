@@ -1,5 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import { fetchEdgarQuarterlyRevenue } from "@/lib/fetchEdgarSegments";
+import { fetchUsdRate } from "@/lib/fxRates";
+import { resolveLogoDomain } from "@/lib/logoDomain";
 import type {
   StockData,
   CashFlowYear,
@@ -67,7 +69,6 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         "upgradeDowngradeHistory",
         "insiderTransactions",
         "majorHoldersBreakdown",
-        "incomeStatementHistoryQuarterly",
       ],
     },
     { validateResult: false },
@@ -97,71 +98,44 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   // EDGAR is authoritative but its `companyconcept` API occasionally misses
   // a quarter (most often Q4, when neither a standalone Q4 quarterly fact
   // nor the annual − YTD derivation succeeds, leaving a visible hole in
-  // the chart). Two complementary Yahoo sources cover the gaps:
-  //   • incomeStatementHistoryQuarterly: last ~4 quarters, includes the
-  //     most-recently-reported one before its 10-Q hits EDGAR.
-  //   • fundamentalsTimeSeries quarterly: ~5 years of history, covers older
-  //     missing quarters that incomeStatementHistoryQuarterly doesn't reach
-  //     (US filers only — sparse/null for ADRs of foreign companies).
-  // ADRs of foreign filers (e.g. GGB) end up with limited quarterly history
-  // because Yahoo doesn't have it and EDGAR has no XBRL for 6-K filings.
+  // the chart). Yahoo's `fundamentalsTimeSeries` quarterly stream covers
+  // the gaps with ~5 years of history (US filers only — sparse/null for
+  // ADRs of foreign companies). The legacy `incomeStatementHistoryQuarterly`
+  // submodule is no longer used: Yahoo's quoteSummary financial-statement
+  // submodules have been returning empty since Nov 2024.
   // Paid alternatives (FMP/AV) were tried previously but get rate-limited
   // from Cloudflare IPs — see commit b7322a1.
-  const yahooQuarterlyRev = new Map<string, number>();
-
-  const isQuarterly = ((result.incomeStatementHistoryQuarterly as AnyRecord)?.incomeStatementHistory ?? []) as AnyRecord[];
-  for (const q of isQuarterly) {
-    const end = fmtDate(q.endDate);
-    const rev = typeof q.totalRevenue === "number"
-      ? q.totalRevenue
-      : (q.totalRevenue?.raw as number | undefined);
-    if (end && rev && rev > 0) yahooQuarterlyRev.set(end, rev);
-  }
-
   // Find the most-recent quarterly IS for use as Sankey fallback when EDGAR
-  // is behind. Yahoo returns these in reverse-chronological order, but pick
-  // the latest defensively in case ordering changes.
-  const num = (v: unknown): number | null => {
-    if (typeof v === "number") return v;
-    if (v && typeof v === "object" && "raw" in (v as object)) {
-      const raw = (v as { raw?: unknown }).raw;
-      return typeof raw === "number" ? raw : null;
-    }
-    return null;
-  };
+  // is behind. Field names follow fundamentalsTimeSeries (e.g.
+  // researchAndDevelopment vs the legacy researchDevelopment).
+  const yahooQuarterlyRev = new Map<string, number>();
+  const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
   let latestQuarterIS: QuarterIncomeStatement | null = null;
-  for (const q of isQuarterly) {
-    const end = fmtDate(q.endDate);
-    const rev = num(q.totalRevenue);
-    if (!end || rev == null || rev <= 0) continue;
-    if (!latestQuarterIS || end > latestQuarterIS.endDate) {
-      latestQuarterIS = {
-        endDate: end,
-        totalRevenue: rev,
-        costOfRevenue: num(q.costOfRevenue),
-        grossProfit: num(q.grossProfit),
-        researchDevelopment: num(q.researchDevelopment),
-        sellingGeneralAdministrative: num(q.sellingGeneralAdministrative),
-        totalOperatingExpenses: num(q.totalOperatingExpenses),
-        operatingIncome: num(q.operatingIncome),
-        incomeBeforeTax: num(q.incomeBeforeTax),
-        incomeTaxExpense: num(q.incomeTaxExpense),
-        netIncome: num(q.netIncome),
-      };
-    }
-  }
-
   if (Array.isArray(fundamentalsQuarterlyRaw)) {
-    for (const r of fundamentalsQuarterlyRaw) {
-      const dateVal: unknown = r.date;
+    for (const row of fundamentalsQuarterlyRaw) {
+      const dateVal: unknown = row.date;
       const end = dateVal instanceof Date
         ? fmtDate(dateVal)
         : typeof dateVal === "string"
           ? dateVal.slice(0, 10)
           : null;
-      const rev = (r.totalRevenue ?? r.revenue) as number | undefined;
-      if (end && rev && rev > 0 && !yahooQuarterlyRev.has(end)) {
-        yahooQuarterlyRev.set(end, rev);
+      const rev = (row.totalRevenue ?? row.revenue) as number | undefined;
+      if (!end || !rev || rev <= 0) continue;
+      if (!yahooQuarterlyRev.has(end)) yahooQuarterlyRev.set(end, rev);
+      if (!latestQuarterIS || end > latestQuarterIS.endDate) {
+        latestQuarterIS = {
+          endDate: end,
+          totalRevenue: rev,
+          costOfRevenue: num(row.costOfRevenue),
+          grossProfit: num(row.grossProfit),
+          researchDevelopment: num(row.researchAndDevelopment),
+          sellingGeneralAdministrative: num(row.sellingGeneralAndAdministration),
+          totalOperatingExpenses: num(row.operatingExpense),
+          operatingIncome: num(row.operatingIncome),
+          incomeBeforeTax: num(row.pretaxIncome),
+          incomeTaxExpense: num(row.taxProvision),
+          netIncome: num(row.netIncome),
+        };
       }
     }
   }
@@ -195,6 +169,45 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   const trend   = result.recommendationTrend as AnyRecord | undefined;
   const holders = result.majorHoldersBreakdown as AnyRecord | undefined;
 
+  // Issuer's reporting currency (CNY for BABA, EUR for ASML/NOK, JPY for TM,
+  // GBP for HSBC, …). All Yahoo financial-statement and time-series figures
+  // come back in this currency — without conversion the revenue chart, KPI
+  // cards and Sankey-Yahoo-fallback for foreign issuers would render in the
+  // native currency. We render USD across the entire app, so resolve the FX
+  // rate once and apply it to every Yahoo-sourced monetary field below.
+  // ADR price/marketCap stay in trading currency (already USD on US exchanges
+  // — the US-exchange gate above ensures this).
+  const financialCurrency = (fin?.financialCurrency as string | undefined)?.toUpperCase() ?? "USD";
+  const fxToUsd = financialCurrency !== "USD" ? await fetchUsdRate(financialCurrency) : 1;
+  const fx = (fxToUsd && fxToUsd > 0) ? fxToUsd : 1;
+  const fxConvert = (v: number | null | undefined): number | null =>
+    v == null ? null : v * fx;
+
+  // Convert Yahoo-sourced quarterly revenue values to USD. EDGAR-sourced
+  // values are already USD-filtered at the XBRL `units.USD` boundary, so
+  // for US issuers (financialCurrency === "USD") fx=1 and this is a no-op.
+  // For foreign issuers (BABA et al.) edgarRevenue is empty because their
+  // XBRL is in native currency, so revenueRaw is 100 % Yahoo and 100 %
+  // financialCurrency — uniform conversion is safe.
+  if (fx !== 1 && revenueRaw) {
+    revenueRaw = revenueRaw.map((q) => ({ time: q.time, value: q.value * fx }));
+  }
+  if (fx !== 1 && latestQuarterIS) {
+    latestQuarterIS = {
+      endDate:                       latestQuarterIS.endDate,
+      totalRevenue:                  latestQuarterIS.totalRevenue * fx,
+      costOfRevenue:                 fxConvert(latestQuarterIS.costOfRevenue),
+      grossProfit:                   fxConvert(latestQuarterIS.grossProfit),
+      researchDevelopment:           fxConvert(latestQuarterIS.researchDevelopment),
+      sellingGeneralAdministrative:  fxConvert(latestQuarterIS.sellingGeneralAdministrative),
+      totalOperatingExpenses:        fxConvert(latestQuarterIS.totalOperatingExpenses),
+      operatingIncome:               fxConvert(latestQuarterIS.operatingIncome),
+      incomeBeforeTax:               fxConvert(latestQuarterIS.incomeBeforeTax),
+      incomeTaxExpense:              fxConvert(latestQuarterIS.incomeTaxExpense),
+      netIncome:                     fxConvert(latestQuarterIS.netIncome) ?? 0,
+    };
+  }
+
   // Verify US exchange — uses data already fetched, no extra API call
   const US_EXCHANGES = new Set(["NMS", "NAS", "NGM", "NCM", "NYS", "NYQ", "ASE"]);
   const exchange = price?.exchange as string | undefined;
@@ -202,7 +215,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     throw new Error(`"${ticker}" no está listado en una bolsa de EE.UU.`);
   }
 
-  const domain = extractDomain(profile?.website ?? null);
+  const domain = resolveLogoDomain(ticker, extractDomain(profile?.website ?? null));
 
   // ── Analyst consensus breakdown ─────────────────────────────────────────────
   const recTrend = trend?.trend?.[0] as AnyRecord | undefined;
@@ -217,13 +230,15 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
   }));
 
   // ── Forward estimates ───────────────────────────────────────────────────────
+  // Yahoo's revenue estimate comes back in the issuer's reporting currency;
+  // EPS stays in trading currency (per-ADR), so only revenueEstimate flips.
   const rawTrend = ((result.earningsTrend as AnyRecord)?.trend ?? []) as AnyRecord[];
   const forwardEstimates: ForwardEstimate[] = rawTrend
     .filter((t) => ["0q", "+1q", "0y", "+1y"].includes(t.period))
     .map((t) => ({
       period: t.period,
       epsEstimate: t.earningsEstimate?.avg ?? null,
-      revenueEstimate: t.revenueEstimate?.avg ?? null,
+      revenueEstimate: fxConvert(t.revenueEstimate?.avg ?? null),
       growth: t.growth ?? null,
     }));
 
@@ -258,9 +273,9 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         .filter((r) => r.capitalExpenditure != null || r.operatingCashFlow != null)
         .map((r) => ({
           year: r.date instanceof Date ? r.date.getFullYear().toString() : String(r.date).slice(0, 4),
-          capitalExpenditure: r.capitalExpenditure ?? null,
-          operatingCashFlow: r.operatingCashFlow ?? null,
-          freeCashFlow: r.freeCashFlow ?? null,
+          capitalExpenditure: fxConvert(r.capitalExpenditure ?? null),
+          operatingCashFlow: fxConvert(r.operatingCashFlow ?? null),
+          freeCashFlow: fxConvert(r.freeCashFlow ?? null),
         }))
         .sort((a, b) => a.year.localeCompare(b.year))
         .slice(-5)
@@ -268,8 +283,8 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
 
   // Fallback: build a single-year entry from financialData when fundamentalsTimeSeries fails
   if ((!annualCashFlow || annualCashFlow.length === 0) && (fin?.operatingCashflow != null || fin?.freeCashflow != null)) {
-    const ocf = (fin?.operatingCashflow as number | null) ?? null;
-    const fcf = (fin?.freeCashflow as number | null) ?? null;
+    const ocf = fxConvert((fin?.operatingCashflow as number | null) ?? null);
+    const fcf = fxConvert((fin?.freeCashflow as number | null) ?? null);
     const capex = ocf != null && fcf != null ? fcf - ocf : null;
     annualCashFlow = [{
       year: "TTM",
@@ -325,22 +340,22 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     capeRatio,
     capeYears,
 
-    totalRevenue: fin?.totalRevenue ?? null,
+    totalRevenue: fxConvert(fin?.totalRevenue ?? null),
     revenueGrowth: fin?.revenueGrowth ?? null,
     grossMargins: fin?.grossMargins ?? null,
     operatingMargins: fin?.operatingMargins ?? null,
     profitMargins: fin?.profitMargins ?? null,
     ebitdaMargins: fin?.ebitdaMargins ?? null,
-    ebitda: fin?.ebitda ?? null,
+    ebitda: fxConvert(fin?.ebitda ?? null),
     returnOnEquity: fin?.returnOnEquity ?? null,
     returnOnAssets: fin?.returnOnAssets ?? null,
-    totalDebt: fin?.totalDebt ?? null,
-    totalCash: fin?.totalCash ?? null,
+    totalDebt: fxConvert(fin?.totalDebt ?? null),
+    totalCash: fxConvert(fin?.totalCash ?? null),
     debtToEquity: fin?.debtToEquity ?? null,
     currentRatio: fin?.currentRatio ?? null,
     quickRatio: fin?.quickRatio ?? null,
-    freeCashflow: fin?.freeCashflow ?? null,
-    operatingCashflow: fin?.operatingCashflow ?? null,
+    freeCashflow: fxConvert(fin?.freeCashflow ?? null),
+    operatingCashflow: fxConvert(fin?.operatingCashflow ?? null),
     earningsGrowth: fin?.earningsGrowth ?? null,
     shortPercentOfFloat: stats?.shortPercentOfFloat ?? null,
     sharesOutstanding: stats?.sharesOutstanding ?? null,

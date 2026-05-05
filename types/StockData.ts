@@ -40,9 +40,9 @@ export interface CashFlowYear {
   freeCashFlow: number | null;
 }
 
-// Latest quarterly income statement from Yahoo's incomeStatementHistoryQuarterly.
-// Used as a fallback Sankey source when EDGAR's 10-Q lags behind the press
-// release for the same quarter.
+// Latest quarterly income statement from Yahoo's fundamentalsTimeSeries
+// (quarterly). Used as a fallback Sankey source when EDGAR's 10-Q lags
+// behind the press release for the same quarter.
 export interface QuarterIncomeStatement {
   endDate: string; // YYYY-MM-DD
   totalRevenue: number;

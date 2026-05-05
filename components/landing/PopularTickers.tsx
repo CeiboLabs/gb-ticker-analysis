@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLogoBrightness } from "@/lib/useLogoBrightness";
 
 interface Quote {
   symbol: string;
@@ -14,6 +15,23 @@ interface Quote {
 
 interface Props {
   onSelect: (ticker: string) => void;
+}
+
+function PopularLogo({ symbol, domain }: { symbol: string; domain: string | null }) {
+  const src = `/api/logo?ticker=${encodeURIComponent(symbol)}${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`;
+  const brightness = useLogoBrightness(src);
+  const bg = brightness === "light" ? "bg-[#03065E]" : "bg-white";
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className={`w-7 h-7 rounded-md object-contain p-0.5 shrink-0 transition-colors ${bg}`}
+      onError={(e) => {
+        (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+      }}
+    />
+  );
 }
 
 // Used only as skeleton placeholders while /api/popular is loading.
@@ -81,19 +99,7 @@ export function PopularTickers({ onSelect }: Props) {
                   aria-label={`Analizar ${q.name ?? q.symbol}`}
                 >
                   <div className="flex items-center gap-2 sm:gap-2.5 mb-2.5 sm:mb-3">
-                    {q.domain ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/logo?domain=${q.domain}`}
-                        alt=""
-                        className="w-7 h-7 rounded-md object-contain bg-white p-0.5 shrink-0"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-7 h-7 rounded-md bg-white/10 shrink-0" />
-                    )}
+                    <PopularLogo symbol={q.symbol} domain={q.domain ?? null} />
                     <span className="font-mono font-bold text-white text-sm tracking-tight">
                       {q.symbol}
                     </span>

@@ -4,3 +4,17 @@ compatibility_flags = ["nodejs_compat"]
 
 # Cloudflare Pages — output directory from @cloudflare/next-on-pages build
 pages_build_output_dir = ".vercel/output/static"
+
+# D1 binding for the usage / failure monitor.
+# Create the DB once with `wrangler d1 create ticker-metrics` and paste the
+# returned database_id below. Apply schema with:
+#   wrangler d1 execute ticker-metrics --file=db/schema.sql --remote
+# Local dev uses a separate sqlite file under .wrangler/ — apply with --local.
+[[d1_databases]]
+binding       = "METRICS_DB"
+database_name = "ticker-metrics"
+database_id   = "3cc6d984-1c52-437a-a45e-38fe1b3b54dd"
+
+# Retention: Pages no soporta crons nativos. Para limpiar eventos viejos
+# llamar a /api/admin/retention?days=90 desde un cron externo (Worker con
+# cron trigger, cron-job.org, etc.) con header x-admin-token: $ADMIN_TOKEN.

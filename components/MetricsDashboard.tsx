@@ -94,7 +94,7 @@ function Metric({
       {isOpen && info && (
         <div
           role="tooltip"
-          className="absolute top-7 right-1.5 z-20 w-56 bg-[#03065E] text-white text-[11px] leading-snug rounded-xl shadow-lg p-3 normal-case tracking-normal font-normal"
+          className="absolute top-7 right-1.5 left-1.5 sm:left-auto sm:w-56 z-20 bg-[#03065E] text-white text-[11px] leading-snug rounded-xl shadow-lg p-3 normal-case tracking-normal font-normal"
         >
           {info}
         </div>

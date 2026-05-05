@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { StockData } from "@/types/StockData";
 import { currencyPrefix } from "@/lib/currencyPrefix";
+import { useLogoBrightness } from "@/lib/useLogoBrightness";
 
 interface Props {
   stockData: StockData;
@@ -17,9 +18,11 @@ export function ReportHeader({ stockData }: Props) {
   const [logoFailed, setLogoFailed] = useState(false);
   const initial = stockData.ticker.charAt(0);
 
-  const logoUrl = !logoFailed && stockData.domain
-    ? `https://www.google.com/s2/favicons?domain=${stockData.domain}&sz=128`
+  const logoUrl = !logoFailed
+    ? `/api/logo?ticker=${encodeURIComponent(stockData.ticker)}${stockData.domain ? `&domain=${encodeURIComponent(stockData.domain)}` : ""}`
     : null;
+  const logoBrightness = useLogoBrightness(logoUrl);
+  const logoBgClass = logoBrightness === "light" ? "bg-[#03065E]" : "bg-white";
 
   const changeSign = (stockData.priceChangePercent ?? 0) >= 0 ? "+" : "";
   const changePct =
@@ -36,7 +39,7 @@ export function ReportHeader({ stockData }: Props) {
           width={48}
           height={48}
           style={{ imageRendering: "auto" }}
-          className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-contain bg-white p-1 shadow-sm border border-[#03065E]/10 shrink-0"
+          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-contain p-1 shrink-0 border-0 outline-none transition-colors ${logoBgClass}`}
           onError={() => setLogoFailed(true)}
         />
       ) : (

@@ -29,6 +29,49 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Monitor de uso (D1)
+
+`/admin/metrics` muestra tasa de éxito, distribución de fuentes del Sankey
+(8-K vs XBRL vs Yahoo fallback), errores por etapa y tickers que más fallan.
+Cada request a `/api/analyze` escribe una fila en una D1 (best-effort,
+no bloquea el response).
+
+### Setup inicial
+
+```bash
+# 1. Crear la base D1 (devuelve un database_id)
+wrangler d1 create ticker-metrics
+
+# 2. Pegar el database_id en wrangler.toml
+#    (campo database_id bajo [[d1_databases]])
+
+# 3. Aplicar el schema
+wrangler d1 execute ticker-metrics --file=db/schema.sql --remote
+wrangler d1 execute ticker-metrics --file=db/schema.sql --local   # para dev
+
+# 4. Setear ADMIN_TOKEN en Cloudflare:
+#    Pages → Settings → Environment variables → Production
+#    Local dev: copiar a .dev.vars como ADMIN_TOKEN=...
+```
+
+### Retención
+
+`/api/admin/retention?days=90` borra eventos viejos. Llamarlo desde un cron
+externo (Cloudflare Worker con cron trigger, cron-job.org, etc.) una vez al
+día con header `x-admin-token`.
+
+### Queries útiles
+
+```bash
+# Tasa de errores últimas 24h
+wrangler d1 execute ticker-metrics --remote --command \
+  "SELECT status, COUNT(*) FROM analyze_events WHERE ts >= unixepoch()*1000 - 86400000 GROUP BY status"
+
+# Tickers que más fallaron esta semana
+wrangler d1 execute ticker-metrics --remote --command \
+  "SELECT ticker, COUNT(*) AS errors FROM analyze_events WHERE status='error' AND ts >= unixepoch()*1000 - 7*86400000 GROUP BY ticker ORDER BY errors DESC LIMIT 10"
+```
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

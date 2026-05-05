@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
+import { resolveLogoDomain } from "@/lib/logoDomain";
 
 export const runtime = "edge";
 
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
           price: quote.regularMarketPrice ?? null,
           changePercent: quote.regularMarketChangePercent ?? null,
           currency: quote.currency ?? null,
-          domain: extractDomain(profile?.assetProfile?.website),
+          domain: resolveLogoDomain(sym, extractDomain(profile?.assetProfile?.website)),
         };
       }),
     );
