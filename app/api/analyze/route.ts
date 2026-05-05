@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import OpenAI from "openai";
 import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
@@ -657,11 +657,12 @@ export async function POST(req: NextRequest) {
   const startedAt = Date.now();
   const eventBase = eventBaseFromRequest(req);
   const fireEvent = (e: Omit<AnalyzeEvent, keyof typeof eventBase> & { ticker: string }) => {
-    void recordAnalyzeEvent({
+    const payload: AnalyzeEvent = {
       ...eventBase,
       durationMs: Date.now() - startedAt,
       ...e,
-    });
+    };
+    after(() => recordAnalyzeEvent(payload));
   };
 
   // 0. Rate limiting — keyed by a per-browser session cookie rather than IP, so
