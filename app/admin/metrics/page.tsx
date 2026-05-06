@@ -460,7 +460,7 @@ export default function MetricsDashboard() {
           <Kpi
             label="Análisis hoy"
             value={(data.analyses.counts.today ?? 0).toLocaleString()}
-            sub="últimas 24h"
+            sub="día calendario (UY)"
           />
           <Kpi
             label="Análisis esta semana"

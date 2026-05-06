@@ -60,6 +60,11 @@ export async function GET(req: NextRequest) {
   const t7d  = now - 7 * DAY_MS;
   const t30d = now - 30 * DAY_MS;
 
+  // "Hoy" en hora Uruguay (UTC-3, sin DST): inicio del día calendario UY
+  // expresado como timestamp UTC en ms.
+  const UY_OFFSET_MS = 3 * 60 * 60 * 1000;
+  const tTodayUY = Math.floor((now - UY_OFFSET_MS) / DAY_MS) * DAY_MS + UY_OFFSET_MS;
+
   // Summary counts (24h, 7d, 30d) by status
   const [byStatus24, byStatus7d, byStatus30d] = await Promise.all([
     db.prepare("SELECT status, COUNT(*) AS n FROM analyze_events WHERE ts >= ? GROUP BY status").bind(t24h).all<StatusRow>(),
@@ -145,10 +150,10 @@ export async function GET(req: NextRequest) {
     .prepare("SELECT COUNT(*) AS n FROM analyze_events")
     .first<CountRow>();
 
-  // Volume counts for the analyses dashboard. "Today" is computed as a 24h
-  // sliding window — UTC midnight buckets would distort right-of-graph
-  // numbers as the day starts. All-time counts only completed analyses
-  // (status ok or cache_hit), excluding errors / rate limits / bad requests.
+  // Volume counts for the analyses dashboard. "Today" usa el día calendario
+  // en hora Uruguay (UTC-3) — desde la medianoche UY hasta ahora. All-time
+  // counts only completed analyses (status ok or cache_hit), excluding
+  // errors / rate limits / bad requests.
   const successFilter = "status IN ('ok', 'cache_hit')";
   const counts = await db
     .prepare(
@@ -160,7 +165,7 @@ export async function GET(req: NextRequest) {
       "  COUNT(DISTINCT CASE WHEN " + successFilter + " THEN ticker END) AS uniqueAllTime " +
       "FROM analyze_events"
     )
-    .bind(t24h, t7d, t7d)
+    .bind(tTodayUY, t7d, t7d)
     .first<{ today: number; week: number; allTime: number; uniqueWeek: number; uniqueAllTime: number }>();
 
   // Daily volume for the last 30 days — used by the dashboard's bar chart.
