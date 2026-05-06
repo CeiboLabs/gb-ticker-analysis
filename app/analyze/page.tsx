@@ -46,7 +46,7 @@ export default function AnalyzePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function analyze(tickerInput: string, refresh = false, isRetry = false) {
+  async function analyze(tickerInput: string, refresh = false) {
     const t = tickerInput.trim().toUpperCase();
     if (!t) return;
 
@@ -103,13 +103,22 @@ export default function AnalyzePage() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let receivedDone = false;
+      // The final {done: true, report, stockData} payload is large enough to
+      // span multiple TCP chunks. Buffer partial lines across reads so a split
+      // mid-payload doesn't drop the message and force the retry path below.
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        for (const line of text.split("\n")) {
+        buffer += decoder.decode(value, { stream: true });
+        const newlineIdx = buffer.lastIndexOf("\n");
+        if (newlineIdx === -1) continue;
+        const complete = buffer.slice(0, newlineIdx);
+        buffer = buffer.slice(newlineIdx + 1);
+
+        for (const line of complete.split("\n")) {
           if (!line.startsWith("data: ")) continue;
           const payload = line.slice(6).trim();
           if (!payload) continue;
@@ -134,9 +143,6 @@ export default function AnalyzePage() {
       }
 
       if (!receivedDone) {
-        // The server likely completed and cached the result before the stream was cut.
-        // Retry once — the cache hit will resolve instantly.
-        if (!isRetry) return analyze(tickerInput, false, true);
         const e = new Error("La respuesta fue interrumpida. Intentá de nuevo.") as Error & { code?: string };
         e.code = "analysis_unavailable";
         throw e;
