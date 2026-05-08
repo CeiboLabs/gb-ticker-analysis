@@ -895,7 +895,17 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     // SNPS Q1 FY2026: op $0.2B, np ≈ $50M, tax ≈ $20M, gross intExp ≈ $130M
     // from $10B Ansys-deal debt → Interest Exp. ($130M) closes the gap
     // exactly; "Non-Op Exp." doesn't fire.
-    if (op > 0 && np > 0 && !lossHandled) {
+    //
+    // The gate is `op > 0` — NOT `op > 0 && np > 0`. When NI is negative or
+    // tiny enough to round to 0 in scaled units (BA Q1 FY2026: NI = −$4M
+    // against $22B revenue → sc(-4M / 1e9) = 0.00 → np clamps to 0, netLoss
+    // also rounds to 0 so treatAsLoss doesn't fire), the np > 0 gate would
+    // skip gap-filling and leave Op Income with only its tiny Tax ribbon
+    // (Boeing's $448M op income → only $33M tax ribbon, ~7% of the op node's
+    // height — visually a barely-visible sliver). Op Income's $616M was
+    // actually consumed by InterestAndDebtExpense; rendering Interest Exp.
+    // as the gap-fill child shows that flow honestly.
+    if (op > 0 && !lossHandled) {
       const opGap = Math.max(0, op - (np + tx + inv));
       const intExpReported = Math.max(0, Number(nonOpBreakdown?.interestExpense) || 0);
       const intIncReported = Math.max(0, Number(nonOpBreakdown?.interestIncome)  || 0);
@@ -1704,7 +1714,19 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       </svg>
       {data.source && (
         <div className="px-3 pt-1 text-[10px] text-[#707070] text-right">
-          Fuente: {data.source}
+          Fuente:{" "}
+          {data.sourceUrl ? (
+            <a
+              href={data.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted hover:text-[#0a2540]"
+            >
+              SEC EDGAR · {data.source} ↗
+            </a>
+          ) : (
+            data.source
+          )}
         </div>
       )}
     </div>

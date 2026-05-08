@@ -7,6 +7,7 @@ import {
   Text,
   View,
   Image,
+  Link,
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
@@ -424,6 +425,21 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
                     " · en " + report.segmentData.currency}
                 </Text>
                 <Image src={sankeyImageUrl} style={{ width: "100%", borderRadius: 4 }} />
+                {report.segmentData.source && (
+                  <Text style={{ fontSize: 6.5, color: "#9ca3af", marginTop: 3, textAlign: "right" }}>
+                    Fuente:{" "}
+                    {report.segmentData.sourceUrl ? (
+                      <Link
+                        src={report.segmentData.sourceUrl}
+                        style={{ color: "#6b7280", textDecoration: "underline" }}
+                      >
+                        SEC EDGAR · {report.segmentData.source}
+                      </Link>
+                    ) : (
+                      report.segmentData.source
+                    )}
+                  </Text>
+                )}
               </View>
             )}
           </Fragment>

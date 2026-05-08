@@ -122,7 +122,7 @@ export async function resolveCIK(ticker: string): Promise<string | null> {
 
 async function latestFilingAccession(
   cik: string
-): Promise<{ accession: string; isAnnual: boolean; isForeign: boolean; foreignFormType?: "20-F" | "40-F"; priorQuarterlyAccession?: string } | null> {
+): Promise<{ accession: string; isAnnual: boolean; isForeign: boolean; foreignFormType?: "20-F" | "40-F"; priorQuarterlyAccession?: string; primaryDocument?: string } | null> {
   const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`);
   if (!r.ok) return null;
   const d = await r.json();
@@ -130,6 +130,7 @@ async function latestFilingAccession(
   if (!recent) return null;
   const forms = recent.form as string[];
   const accessions = recent.accessionNumber as string[];
+  const primaryDocs = (recent.primaryDocument ?? []) as string[];
   // filings are in reverse-chronological order — first match wins
   let qIdx = -1, kIdx = -1, fIdx = -1, mjdsIdx = -1;
   for (let i = 0; i < forms.length; i++) {
@@ -164,7 +165,12 @@ async function latestFilingAccession(
   if (qIdx === -1 && aIdx === -1) return null;
   // pick whichever is more recent (lower index = filed later)
   if (aIdx === -1 || (qIdx !== -1 && qIdx < aIdx)) {
-    return { accession: accessions[qIdx], isAnnual: false, isForeign: false };
+    return {
+      accession: accessions[qIdx],
+      isAnnual: false,
+      isForeign: false,
+      primaryDocument: primaryDocs[qIdx],
+    };
   }
   // Annual is most recent; keep prior quarterly accession so we can derive
   // Q4 = annual − YTD. Foreign 20-F / 40-F filers don't file 10-Q (they file
@@ -175,6 +181,7 @@ async function latestFilingAccession(
     isForeign: aIsForeign,
     foreignFormType: aForeignFormType,
     priorQuarterlyAccession: !aIsForeign && qIdx !== -1 ? accessions[qIdx] : undefined,
+    primaryDocument: primaryDocs[aIdx],
   };
 }
 
@@ -374,31 +381,55 @@ function parseXbrl(
     // Collect ALL dimensions in this context
     const dimRe = /dimension="([^"]+)">([^<]+)</g;
     let dim: RegExpExecArray | null;
-    const allDims: Array<{ axis: string; member: string }> = [];
+    const allDimsRaw: Array<{ axis: string; member: string }> = [];
 
     while ((dim = dimRe.exec(body)) !== null) {
-      allDims.push({ axis: dim[1], member: dim[2].trim() });
+      allDimsRaw.push({ axis: dim[1], member: dim[2].trim() });
     }
 
-    // Identify which dimension (if any) names this segment. Accept:
-    //   (a) exactly one dimension that is a supported segment axis, OR
-    //   (b) two dimensions: a segment axis paired with
-    //       ConsolidationItemsAxis=OperatingSegmentsMember — the standard
-    //       "operating segments rollup" pattern. Some issuers (e.g. AON) put
-    //       only metadata (goodwill, headcount) in the 1-dim segment context
-    //       and tag revenue exclusively against this 2-dim rollup.
-    // Reject everything else (3+ dims, Geography × Segment, IntersegmentElimination, etc.)
-    // to avoid sub-segment double-counting.
+    // Identify the segment dimension. The principle: a context is a valid
+    // segment context iff it carries exactly ONE dimension that partitions
+    // revenue (a SEGMENT_AXES dim) AND every other dimension is a
+    // non-restrictive wrapper that does not change the value's meaning.
+    //
+    // Two classes of "wrapper" dimension:
+    //   • PURE_WRAPPER_AXES — the axis itself is an informational overlay
+    //     regardless of which member it carries. ConcentrationRiskByBenchmark/
+    //     ByType (RBLX): the issuer is co-disclosing the same USD geographic
+    //     revenue under ASC 280's concentration-risk framework. The axis
+    //     adds metadata but does not sub-partition the value.
+    //   • CONDITIONAL_WRAPPERS — the axis is a wrapper only on a specific
+    //     "rollup" member; other members on the same axis change the value's
+    //     meaning. ConsolidationItemsAxis=OperatingSegmentsMember (AON):
+    //     legitimate rollup. ConsolidationItemsAxis=ConsolidationEliminations
+    //     Member: the value is an elimination, NOT segment revenue — must
+    //     stay rejected.
+    //
+    // Anything that survives the strip and isn't the segment dim is a real
+    // sub-partition (Geography × Segment cartesian, IntersegmentEliminations,
+    // RestatementAxis=AsRestated, ...) — those still get rejected because
+    // accepting them would either double-count or mis-attribute values.
+    const PURE_WRAPPER_AXES = new Set([
+      "ConcentrationRiskByBenchmarkAxis",
+      "ConcentrationRiskByTypeAxis",
+    ]);
+    const isWrapper = (d: { axis: string; member: string }): boolean => {
+      const ax = d.axis.split(":").pop() ?? "";
+      if (PURE_WRAPPER_AXES.has(ax)) return true;
+      if (ax === "ConsolidationItemsAxis"
+          && (d.member.split(":").pop() ?? "") === "OperatingSegmentsMember") {
+        return true;
+      }
+      return false;
+    };
+    const nonWrapperDims = allDimsRaw.filter((d) => !isWrapper(d));
+
     let segDim: { axis: string; member: string } | null = null;
-    if (allDims.length === 1) {
-      segDim = allDims[0];
-    } else if (allDims.length === 2) {
-      const seg  = allDims.find((d) => SEGMENT_AXES.includes(d.axis.split(":").pop() ?? ""));
-      const cons = allDims.find((d) =>
-        (d.axis.split(":").pop() ?? "") === "ConsolidationItemsAxis" &&
-        (d.member.split(":").pop() ?? "") === "OperatingSegmentsMember"
-      );
-      if (seg && cons) segDim = seg;
+    if (
+      nonWrapperDims.length === 1 &&
+      SEGMENT_AXES.includes(nonWrapperDims[0].axis.split(":").pop() ?? "")
+    ) {
+      segDim = nonWrapperDims[0];
     }
     if (!segDim) continue;
     const axisLocal = segDim.axis.split(":").pop() ?? "";
@@ -1170,7 +1201,11 @@ const IS_CONCEPTS: Record<string, string[]> = {
   // FinanceCosts which bundles interest + FX + amortization of issuance
   // costs and would over-state the line on the Sankey. `InterestAnd
   // SimilarExpense` is the Brazilian-bank IFRS counterpart.
-  interestExpense:       ["InterestExpense", "InterestExpenseOperating", "InterestExpenseDebt", "InterestExpenseBorrowings", "InterestAndSimilarExpense", "InterestAndSimilarExpenses", "FinanceCosts"],
+  // `InterestAndDebtExpense` is the GAAP concept used by debt-heavy industrial
+  // issuers (Boeing tags ~$616M Q1 2026 here, not as InterestExpense). Without
+  // it the Sankey loses the dominant below-the-line item: Op Income gets left
+  // with no gap-fill child and the chart shows only a tiny Tax ribbon.
+  interestExpense:       ["InterestExpense", "InterestExpenseOperating", "InterestExpenseDebt", "InterestExpenseBorrowings", "InterestAndDebtExpense", "InterestAndSimilarExpense", "InterestAndSimilarExpenses", "FinanceCosts"],
   // Provision for credit losses — keep US-GAAP-only here. The IFRS concept
   // `ImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss` is
   // ambiguous: bank-IFRS filers (SMFG, MUFG) use it for credit-loss
@@ -1731,6 +1766,10 @@ export interface EdgarAllData {
   // and the UI both reflect the actual filing type.
   foreignFormType?: "20-F" | "40-F";
   sicCode?:        string;  // 4-digit SIC industry code, used as profile tiebreaker
+  // SEC EDGAR filing-index URL for the accession the IS / segments came from.
+  // Threaded into SegmentSankeyData.sourceUrl so the Sankey can show a "Fuente:
+  // 10-K ↗" link to the actual filing.
+  sourceUrl?:      string;
 }
 
 // ── Quarterly revenue history from EDGAR companyconcept ───────────────────────
@@ -2112,12 +2151,25 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
     }
 
     const sicCode = await fetchSicCode(cik) ?? undefined;
+    // Build the iXBRL viewer URL from the filing's PRIMARY document (the
+    // human-readable inline-XBRL `.htm` listed in submissions JSON), not the
+    // raw `_htm.xml` instance the parser ingests — `/ix?doc=` can't render
+    // the raw instance and gets stuck on "Loading Inline Docs". The primary
+    // `.htm` carries the same XBRL facts wrapped as inline XBRL, so the
+    // viewer renders the filing as users expect. Fallback to the filing-index
+    // page when primaryDocument is missing (very old filings).
+    const cikInt = String(parseInt(cik, 10));
+    const accNoDash = filing.accession.replace(/-/g, "");
+    const sourceUrl = filing.primaryDocument
+      ? `${SEC}/Archives/edgar/data/${cikInt}/${accNoDash}/${filing.primaryDocument}`
+      : `${SEC}/Archives/edgar/data/${cikInt}/${accNoDash}/${filing.accession}-index.htm`;
     return {
       incomeStatement, segmentResult,
       isAnnual: filing.isAnnual,
       isForeign: filing.isForeign,
       foreignFormType: filing.foreignFormType,
       sicCode,
+      sourceUrl,
     };
   } catch {
     return null;

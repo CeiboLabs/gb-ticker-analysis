@@ -268,7 +268,7 @@ export async function fetchSegmentData(
     if (!usdData) return null;
     const is = usdData.is;
     const segmentResult = usdData.segmentResult;
-    const { isAnnual, isForeign, foreignFormType, sicCode } = data;
+    const { isAnnual, isForeign, foreignFormType, sicCode, sourceUrl } = data;
 
     const industryProfile = detectIndustryProfile(is, sicCode);
 
@@ -731,6 +731,7 @@ export async function fetchSegmentData(
       source:       isAnnual
                        ? (isForeign ? (foreignFormType ?? "20-F") : "10-K")
                        : "10-Q",
+      sourceUrl,
       unit,
       industryProfile,
       segments,

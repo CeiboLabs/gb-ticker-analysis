@@ -32,6 +32,11 @@ export interface SegmentSankeyData {
   endDate?: string; // YYYY-MM-DD — quarter/fiscal-year end from EDGAR XBRL
   segmentPeriod?: string;
   source?: SankeyDataSource;
+  // SEC EDGAR filing index URL (Archives/edgar/.../{accession}-index.htm).
+  // Only set for EDGAR-sourced sankeys (10-K/10-Q/20-F/40-F/8-K/6-K); the
+  // Yahoo-TTM stub leaves it undefined. Renderer turns the source label into
+  // a clickable attribution link when present.
+  sourceUrl?: string;
   unit: string;
   industryProfile?: IndustryProfile;
   segments: SegmentItem[];

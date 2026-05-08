@@ -338,6 +338,7 @@ function buildSankeyFrom8K(
     period,
     endDate: s.endDate,
     source: s.form === "6-K" ? "6-K" : "8-K",
+    sourceUrl: s.sourceUrl,
     unit,
     industryProfile,
     segments,
@@ -606,6 +607,11 @@ async function deriveH2FromAnnualAnd6K(
     period,
     segmentPeriod: annual.period,  // signals "segments come from FY annual"
     source: "6-K",
+    // H2 is derived from "annual − H1 6-K"; link the H1 6-K filing since it's
+    // the interim disclosure that produced these H2 numbers (the annual is
+    // already in segmentPeriod context). When the H1 6-K wasn't fetched with
+    // a sourceUrl, fall back to the annual's URL via the spread above.
+    sourceUrl: h1Usd.sourceUrl ?? annual.sourceUrl,
     segments: h2Segments,
     totalRevenue: h2Rev,
     totalRevenueYoy: undefined,
