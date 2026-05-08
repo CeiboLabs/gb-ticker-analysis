@@ -4,9 +4,8 @@ import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
 
 // USD per 1M tokens. Reasoning tokens are billed as output.
 const PRICING: Record<string, { in: number; out: number }> = {
