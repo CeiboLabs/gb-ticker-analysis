@@ -356,6 +356,41 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           color: C_OPEX,
         });
         addLink({ source: "revenue", target: "nonExp", value: nonExp, color: C_OPEX });
+
+        // Decompose Noninterest Expense into compensation / tech / occupancy /
+        // professional / marketing / other when the issuer tagged them. Sub-
+        // nodes flow from `nonExp` so the chart shows the bank's cost
+        // structure (typically compensation 50-60% of noninterest expense).
+        const bankBuckets: Array<{ id: string; name: string; value: number; color: string }> = [];
+        if (opexBreakdown) {
+          const v = (x: number | undefined) => Math.max(0, Number(x) || 0);
+          const compNeb  = v(opexBreakdown.bankCompensation);
+          const techNeb  = v(opexBreakdown.bankTechnology);
+          const occNeb   = v(opexBreakdown.bankOccupancy);
+          const profNeb  = v(opexBreakdown.bankProfessional);
+          const mktNeb   = v(opexBreakdown.bankMarketing);
+          const othNeb   = v(opexBreakdown.bankOtherNoninterest);
+          if (compNeb > 0)  bankBuckets.push({ id: "neComp",  name: "Compensation",   value: compNeb, color: "#A06070" });
+          if (techNeb > 0)  bankBuckets.push({ id: "neTech",  name: "Tech & Comm.",   value: techNeb, color: "#7A6E5A" });
+          if (occNeb > 0)   bankBuckets.push({ id: "neOcc",   name: "Occupancy",      value: occNeb,  color: "#B07030" });
+          if (profNeb > 0)  bankBuckets.push({ id: "neProf",  name: "Prof. Services", value: profNeb, color: "#5A8A5A" });
+          if (mktNeb > 0)   bankBuckets.push({ id: "neMkt",   name: "Marketing",      value: mktNeb,  color: "#C95A2C" });
+          if (othNeb > 0)   bankBuckets.push({ id: "neOther", name: "Other",          value: othNeb,  color: "#C09050" });
+        }
+        const bucketSum = bankBuckets.reduce((s, b) => s + b.value, 0);
+        if (bucketSum > 0 && bucketSum <= nonExp * 1.02) {
+          for (const b of bankBuckets) {
+            addNode({ id: b.id, name: b.name, displayValue: fmt(b.value, unit), color: b.color });
+            addLink({ source: "nonExp", target: b.id, value: b.value, color: b.color });
+          }
+          // Residual within Noninterest Exp. (when sum < total) shown as
+          // "Other Noninterest" so the parent's outflow sums to its inflow.
+          const neResidual = nonExp - bucketSum;
+          if (neResidual > nonExp * 0.02) {
+            addNode({ id: "neResidual", name: "Other", displayValue: fmt(neResidual, unit), color: "#C09050" });
+            addLink({ source: "nonExp", target: "neResidual", value: neResidual, color: "#C09050" });
+          }
+        }
       }
       if (residual > 0 && residual / rev > 0.01) {
         addNode({ id: "otherBank", name: "Other Costs", displayValue: fmt(residual, unit), color: "#C09050" });
@@ -838,6 +873,44 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       addNode({ id: "inv", name: "Investments", displayValue: fmt(inv, unit), color: C_INV });
       addLink({ source: "op", target: "inv", value: inv * opK, color: C_INV });
     }
+    // Below-the-line: when np + tx + inv < op (op income gets eaten by non-
+    // operating items before reaching NI), the rendered children leave op
+    // partially unconsumed unless we surface the gap as outflows.
+    //
+    // The data pipeline already extracts the actual components into
+    // `nonOpBreakdown` (fetchSegmentData.ts:697-703) — interestIncome,
+    // interestExpense, gainLossOnSale — and other branches (pre-revenue:248,
+    // REIT:427) already render Interest Exp. as a real child. The standard
+    // branch was the only one ignoring the breakdown, so the gap appeared
+    // as visual rectangle leakage instead of a labeled flow.
+    //
+    // Now we consume the breakdown in two passes:
+    //  1) Net interest expense (interestExpense − interestIncome) → "Interest
+    //     Exp." child, capped to the gap. For cash-rich issuers where
+    //     intInc ≥ intExp (e.g. GOOGL), the netted value floors at 0 and the
+    //     node is omitted, which is correct (no net interest drag).
+    //  2) Any remaining gap (FX losses, equity-method losses, other non-op
+    //     items not tagged in the breakdown) → fallback "Non-Op Exp." sink.
+    //
+    // SNPS Q1 FY2026: op $0.2B, np ≈ $50M, tax ≈ $20M, gross intExp ≈ $130M
+    // from $10B Ansys-deal debt → Interest Exp. ($130M) closes the gap
+    // exactly; "Non-Op Exp." doesn't fire.
+    if (op > 0 && np > 0 && !lossHandled) {
+      const opGap = Math.max(0, op - (np + tx + inv));
+      const intExpReported = Math.max(0, Number(nonOpBreakdown?.interestExpense) || 0);
+      const intIncReported = Math.max(0, Number(nonOpBreakdown?.interestIncome)  || 0);
+      const netIntExp = Math.max(0, intExpReported - intIncReported);
+      const intExpVal = Math.min(netIntExp, opGap);
+      if (intExpVal > op * 0.005) {
+        addNode({ id: "intExp", name: "Interest Exp.", displayValue: fmt(intExpVal, unit), color: "#C95A2C" });
+        addLink({ source: "op", target: "intExp", value: intExpVal, color: "#C95A2C" });
+      }
+      const residualGap = opGap - intExpVal;
+      if (residualGap > op * 0.005) {
+        addNode({ id: "below", name: "Non-Op Exp.", displayValue: fmt(residualGap, unit), color: "#A06070" });
+        addLink({ source: "op", target: "below", value: residualGap, color: "#A06070" });
+      }
+    }
   }
 
   // Skip when in loss-period mode: there is no "opex" parent node — the cost
@@ -894,23 +967,32 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     // the breakdown through "cogs" (the "Op. Costs" intermediate from the
     // op > 0 branch above).
     const parentId = nodes.some((n) => n.id === "opex") ? "opex" : "cogs";
-    // When the parent is the "Total Costs" node (no GP layer was built) and
-    // the tagged opex buckets fall short of the parent's value, fill the gap
-    // with a residual sibling so the breakdown sums to the bar.
-    //   • standard (AAPL): the parser missed CostOfRevenue → label "Cost of
-    //     Rev." (AAPL Q1: $56.4B residual under a $75.3B bar with only
-    //     $18.9B of R&D + S&M + G&A tagged).
-    //   • services (V, MA): no CoGS exists; the gap is operating costs the
-    //     issuer didn't tag as a separate XBRL line — label "Other OpEx" so
-    //     it doesn't suggest a Cost of Goods Sold that isn't there.
-    if (parentId === "cogs") {
-      const parentVal = rev - op;
+    // Reconcile the breakdown buckets to sum exactly to the parent's
+    // upstream link value. Without this the parent node ends up with
+    // sum(in) ≠ sum(out); d3-sankey sizes the bar to max(in, out) and the
+    // smaller side leaves visible empty space — the trace doesn't line up
+    // with the node's start/end. Handle both directions:
+    //   • gap > 0 (outflows fall short): pad with a residual sibling.
+    //       - standard (AAPL): parser missed CostOfRevenue → "Cost of Rev."
+    //       - services (V, MA): no CoGS exists → "Other OpEx" so it doesn't
+    //         imply a Cost of Goods Sold that isn't there.
+    //   • gap < 0 (outflows overshoot): shrink the largest bucket. Common
+    //     when the reported op tag includes items (e.g., equity-affiliate
+    //     income for integrated oil majors) so rev − op underestimates the
+    //     tagged cost stack by a small amount. The residual bucket
+    //     ("Purchases & Prod" for oil-gas, the largest opex line otherwise)
+    //     absorbs the overflow, displayed value preserved.
+    {
+      const parentVal = parentId === "opex"
+        ? (opLoss > 0 ? Math.min(gp, opex) : opex)
+        : (rev - op);
       const breakdownSum = entries.reduce(
         (s, e) => s + (e.value > 0 ? e.value : 0),
         0,
       );
       const gap = parentVal - breakdownSum;
-      if (parentVal > 0 && gap > parentVal * 0.05) {
+      const RECONCILE_THRESHOLD = 0.005; // 0.5%
+      if (parentVal > 0 && gap > parentVal * RECONCILE_THRESHOLD) {
         const isServices = industryProfile === "services";
         entries.unshift({
           id: isServices ? "otherOpex" : "cor",
@@ -919,6 +1001,15 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           value: gap,
           color: isServices ? "#C09050" : C_COGS,
         });
+      } else if (parentVal > 0 && -gap > parentVal * RECONCILE_THRESHOLD) {
+        const overflow = -gap;
+        let largest: typeof entries[number] | undefined;
+        for (const e of entries) {
+          if (e.value > 0 && (!largest || e.value > largest.value)) largest = e;
+        }
+        if (largest && largest.value > overflow) {
+          largest.value -= overflow;
+        }
       }
     }
     entries.forEach(({ id, name, displayValue, value, color }) => {
@@ -956,10 +1047,13 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   // ribbons (BABA Q3 FY26 case). Pin a deterministic top→bottom order so:
   //   • Col 2 stack:   cogs, gp, opex, op  (op at bottom)
   //   • Col 3 stack:   rd, sm, ga, sbc, impair, restr, payroll, rentE, adv,
-  //                    depStd, txOth, explor, ot   (children of opex, top)
-  //                    np, tax, inv, below          (children of op, bottom)
+  //                    depStd, txOth, explor, ot     (children of opex, top)
+  //                    np, intExp, tax, inv, below   (children of op, bottom)
   // Tax stays at the bottom of its column where its inflow ribbon (op→tax)
   // can travel the short bottom band without crossing any opex bucket ribbon.
+  // intExp slots between np and tax: NI (green) at top of op's children for
+  // visual continuity with the largest op→child ribbon, then the red non-op
+  // ribbons (intExp, tax) flow underneath without crossing.
   const standardOrder = [
     "revenue", "loss", "nonop",
     "cogs", "gp", "opex", "op",
@@ -968,7 +1062,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     "payroll", "rentE", "adv", "depStd",
     "txOth", "explor",
     "ot",
-    "np", "tax", "inv", "below",
+    "np", "intExp", "tax", "inv", "below",
   ];
   const standardSort = (a: SNode, b: SNode) => {
     const ai = standardOrder.indexOf(a.id);
@@ -1469,6 +1563,14 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         )}
         {data.segmentPeriod && data.segments.length > 0 && data.segmentPeriod !== data.period && (
           <span className="font-normal text-[#707070]">· Segments: {data.segmentPeriod}</span>
+        )}
+        {/^FY\d{4}$/i.test(data.period ?? "") && (
+          <span
+            className="font-normal text-[#707070] italic"
+            title="El emisor publica resultados trimestrales en formato no estructurado (slides / imágenes / press release sin tabla parseable). El reporte muestra el último período anual (20-F / 40-F / 10-K) que sí está en XBRL."
+          >
+            · trimestral no disponible
+          </span>
         )}
         <span className="font-normal text-[#707070]">in {data.currency}</span>
       </div>

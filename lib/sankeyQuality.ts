@@ -181,12 +181,13 @@ export function scoreSankey(
     let pathHint: string;
     switch (src) {
       case "20-F":
+      case "40-F":
       case "6-K":
         pathHint =
           `El parser cargó un ${src} (foreign issuer). Revisá tryDeriveQ4From6K en lib/fetchEdgar8K.ts: ` +
           `verificá que esté encontrando el 9M YTD anterior para derivar Q4 = FY − 9M. ` +
-          `Si ${T} solo publica reportes anuales (típico para algunos foreign privates), no hay nada que derivar — ` +
-          `pero validá que sea el caso real revisando los últimos filings de ${T} en sec.gov.`;
+          `Si ${T} solo publica reportes anuales (típico para algunos foreign privates — Canadian MJDS 40-F filers ` +
+          `entre ellos), no hay nada que derivar — pero validá que sea el caso real revisando los últimos filings de ${T} en sec.gov.`;
         break;
       case "10-K":
         pathHint =
@@ -371,7 +372,13 @@ export function scoreSankey(
   if (d.operatingProfit > 0) {
     const tax = (d as { tax?: number }).tax ?? 0;
     const nonOp = (d as { nonOperatingIncome?: number }).nonOperatingIncome ?? 0;
-    const reconstructed = d.netProfit + tax + nonOp;
+    // Net interest expense from nonOpBreakdown closes part of the gap when
+    // pretax < op (issuer pays more interest than it earns). The renderer
+    // surfaces this as an "Interest Exp." child of op (SankeyChart.tsx ~870),
+    // so for the chain reconciliation we credit the same magnitude.
+    const nob = (d as { nonOpBreakdown?: { interestExpense?: number; interestIncome?: number } }).nonOpBreakdown;
+    const netIntExp = Math.max(0, (nob?.interestExpense ?? 0) - (nob?.interestIncome ?? 0));
+    const reconstructed = d.netProfit + tax + nonOp + netIntExp;
     opChainBalancePct = pctDiff(d.operatingProfit, reconstructed);
     if (opChainBalancePct > 10) {
       const gap = d.operatingProfit - reconstructed;
@@ -379,17 +386,18 @@ export function scoreSankey(
         code: "op_chain_imbalance",
         severity: opChainBalancePct > 25 ? "error" : "warn",
         message:
-          `[${T}] La cadena Op Income → NI + Tax no reconcilia: operatingProfit ${fmt(d.operatingProfit, unit)} ` +
-          `≠ netProfit ${fmt(d.netProfit, unit)} + tax ${fmt(tax, unit)} + nonOp ${fmt(nonOp, unit)} ` +
+          `[${T}] La cadena Op Income → NI + Tax + Net Interest no reconcilia: operatingProfit ${fmt(d.operatingProfit, unit)} ` +
+          `≠ netProfit ${fmt(d.netProfit, unit)} + tax ${fmt(tax, unit)} + nonOp ${fmt(nonOp, unit)} + netIntExp ${fmt(netIntExp, unit)} ` +
           `(suma ${fmt(reconstructed, unit)}, gap ${fmt(gap, unit)} = ${opChainBalancePct.toFixed(1)}%). ` +
-          `Para ${T} probablemente falta una línea "Interest expense" o "Other (income)/expense" entre op income y pre-tax income, ` +
-          `o el parser leyó mal incomeTaxExpense. ` +
+          `Para ${T} probablemente falta una línea below-the-line no capturada (FX loss, equity-method, impairment), ` +
+          `el parser leyó mal incomeTaxExpense, o nonOpBreakdown está incompleto. ` +
           `Revisá la lógica de tax en buildSankeyFrom8K (app/api/analyze/route.ts) y los campos interestExpense/incomeBeforeTax del Edgar 8-K raw.`,
         values: {
           operatingProfit: d.operatingProfit,
           netProfit: d.netProfit,
           tax,
           nonOperatingIncome: nonOp,
+          netInterestExpense: netIntExp,
           reconstructed,
           gap,
           gapPct: opChainBalancePct,

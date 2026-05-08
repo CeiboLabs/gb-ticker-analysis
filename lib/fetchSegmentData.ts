@@ -1,5 +1,86 @@
 import type { SegmentSankeyData, IndustryProfile } from "@/types/Report";
-import { fetchEdgarAll, type EdgarIncomeStatement } from "@/lib/fetchEdgarSegments";
+import { fetchEdgarAll, type EdgarIncomeStatement, type EdgarSegmentResult } from "@/lib/fetchEdgarSegments";
+import { fetchUsdRate } from "@/lib/fxRates";
+
+// Convert every monetary line on an EdgarIncomeStatement from its native
+// reporting currency to USD using a Frankfurter (ECB)-sourced rate. Used by
+// the Sankey path for foreign-private issuers — Canadian MJDS 40-F filers
+// (CCJ/Cameco, NTR, GOLD, SU, RY, TD, BNS, ...) and IFRS 20-F filers (NOK,
+// ASML) — whose XBRL facts are tagged in CAD/EUR/GBP/JPY/... rather than
+// USD. Returns null when FX is unavailable so the caller can fall back to
+// the Yahoo-TTM path instead of rendering wrong-currency numbers labeled as
+// USD. Mirrors `convertEdgar8KToUsd` in app/api/analyze/route.ts.
+async function convertISToUsd(
+  is: EdgarIncomeStatement,
+  segmentResult: EdgarSegmentResult | null,
+): Promise<{ is: EdgarIncomeStatement; segmentResult: EdgarSegmentResult | null } | null> {
+  const code = (is.currency ?? "USD").toUpperCase();
+  if (code === "USD") return { is, segmentResult };
+  const rate = await fetchUsdRate(code);
+  if (!rate || rate <= 0) return null;
+  const m = (v: number): number => v * rate;
+  const converted: EdgarIncomeStatement = {
+    ...is,
+    currency: "USD",
+    revenue:                m(is.revenue),
+    grossProfit:            m(is.grossProfit),
+    costOfRevenue:          m(is.costOfRevenue),
+    operatingIncome:        m(is.operatingIncome),
+    netIncome:              m(is.netIncome),
+    rd:                     m(is.rd),
+    salesMarketing:         m(is.salesMarketing),
+    generalAdmin:           m(is.generalAdmin),
+    sga:                    m(is.sga),
+    tax:                    m(is.tax),
+    incomeBeforeTax:        m(is.incomeBeforeTax),
+    fuel:                   m(is.fuel),
+    salariesWages:          m(is.salariesWages),
+    maintenance:            m(is.maintenance),
+    aircraftRental:         m(is.aircraftRental),
+    landingFees:            m(is.landingFees),
+    daExpense:              m(is.daExpense),
+    costsAndExpenses:       m(is.costsAndExpenses),
+    interestIncome:         m(is.interestIncome),
+    interestExpense:        m(is.interestExpense),
+    provisionForLoanLosses: m(is.provisionForLoanLosses),
+    noninterestIncome:      m(is.noninterestIncome),
+    noninterestExpense:     m(is.noninterestExpense),
+    bankCompensation:       m(is.bankCompensation),
+    bankTechnology:         m(is.bankTechnology),
+    bankProfessional:       m(is.bankProfessional),
+    bankOccupancy:          m(is.bankOccupancy),
+    bankMarketing:          m(is.bankMarketing),
+    bankOtherNoninterest:   m(is.bankOtherNoninterest),
+    bankProvisionIFRS:      m(is.bankProvisionIFRS),
+    premiumsEarned:         m(is.premiumsEarned),
+    policyholderBenefits:   m(is.policyholderBenefits),
+    underwritingExpense:    m(is.underwritingExpense),
+    rentalIncome:           m(is.rentalIncome),
+    managementFees:         m(is.managementFees),
+    performanceFees:        m(is.performanceFees),
+    compensationExpense:    m(is.compensationExpense),
+    stockBasedComp:         m(is.stockBasedComp),
+    impairment:             m(is.impairment),
+    restructuring:          m(is.restructuring),
+    gainLossOnSale:         m(is.gainLossOnSale),
+    taxesOther:             m(is.taxesOther),
+    explorationExpense:     m(is.explorationExpense),
+    payroll:                m(is.payroll),
+    rentExpense:            m(is.rentExpense),
+    advertising:            m(is.advertising),
+    daExpenseStandard:      m(is.daExpenseStandard),
+  };
+  const convertedSegments = segmentResult
+    ? {
+        ...segmentResult,
+        segments: segmentResult.segments.map((s) => ({
+          ...s,
+          valueUSD: s.valueUSD * rate,
+        })),
+      }
+    : null;
+  return { is: converted, segmentResult: convertedSegments };
+}
 
 // SIC code prefixes used as tiebreakers in industry detection. SIC alone is
 // not authoritative — issuers self-classify, and many banks/REITs file under
@@ -10,6 +91,11 @@ const SIC_REIT         = ["6798"];
 const SIC_ASSET_MGR    = ["6282", "6199"];
 const SIC_BIOTECH      = ["2836", "8731"];
 const SIC_OIL_GAS      = ["1311", "1381", "2911", "1389"];
+// Mining (BHP, RIO, GOLD, AEM, FCX, NEM, SCCO, ...) — IS shape mirrors
+// oil & gas: production-cost dominated, no clean GP/COGS layer, D&A heavy.
+// Map to oil-gas profile so the breakdown logic (D&A / TaxesOther /
+// Exploration / Purchases) renders the same way.
+const SIC_MINING       = ["1000", "1040", "1090", "1220", "1221", "1222", "1311", "1381", "1400", "1411", "1474"];
 
 function sicMatches(sic: string | undefined, prefixes: string[]): boolean {
   if (!sic) return false;
@@ -116,6 +202,14 @@ export function detectIndustryProfile(
   if (sicMatches(sicCode, SIC_OIL_GAS) && is.operatingIncome === 0 && is.incomeBeforeTax > 0) {
     return "oil-gas";
   }
+  // 6b. Mining (BHP, RIO, FCX, NEM, GOLD, AEM, SCCO, ...) — same IS shape
+  //     as integrated oil/gas (commodity production, no clean GP/COGS,
+  //     D&A heavy). SIC 1000-1499 is the canonical mining range. Route
+  //     through oil-gas profile so the breakdown renderer treats them
+  //     identically.
+  if (sicMatches(sicCode, SIC_MINING) && is.revenue > 0 && is.costsAndExpenses > 0) {
+    return "oil-gas";
+  }
 
   // 7. Biotech — R&D dominates and operating loss. The standard render still
   //    works but the dedicated branch lets R&D > revenue render cleanly.
@@ -165,7 +259,16 @@ export async function fetchSegmentData(
     const data = await fetchEdgarAll(ticker);
     if (!data) return null;
 
-    const { incomeStatement: is, segmentResult, isAnnual, isForeign, sicCode } = data;
+    // FX-convert to USD when the issuer reports in a non-USD currency
+    // (CAD for Canadian MJDS 40-F filers, EUR/GBP/JPY/... for IFRS 20-F
+    // filers). Returns null when FX is unavailable — caller falls back to
+    // Yahoo, same as today, instead of rendering wrong-currency numbers
+    // labeled as USD.
+    const usdData = await convertISToUsd(data.incomeStatement, data.segmentResult);
+    if (!usdData) return null;
+    const is = usdData.is;
+    const segmentResult = usdData.segmentResult;
+    const { isAnnual, isForeign, foreignFormType, sicCode } = data;
 
     const industryProfile = detectIndustryProfile(is, sicCode);
 
@@ -273,6 +376,15 @@ export async function fetchSegmentData(
     // −$755K — the unsigned formula clamps op to 0 and yields totalOpex = gp.
     // The signed math (gp − operatingIncome) returns the true OpEx of $3.24M,
     // matching the issuer's tagged us-gaap:OperatingExpenses concept.
+    // Single-step IS issuers (ENB / pipelines, V / MA / payment networks)
+    // tag a single CostsAndExpenses block instead of GP / COGS layers.
+    // When gp=0 + costOfRevenue=0 + operatingIncome>0 + costsAndExpenses>0,
+    // the gp − op fallback produces totalOpex=0 which collapses the entire
+    // expense flow into a single block. Using CostsAndExpenses directly
+    // preserves the full opex magnitude and lets the breakdown logic
+    // surface G&A / D&A / Other buckets.
+    const isSingleStepIS = gp === 0 && is.costOfRevenue === 0
+      && is.operatingIncome > 0 && is.costsAndExpenses > 0;
     const totalOpex = isAirline
       ? (is.costsAndExpenses > 0 ? is.costsAndExpenses : airlineBucketSumRaw)
       : isOilGas
@@ -281,7 +393,9 @@ export async function fetchSegmentData(
           ? is.costsAndExpenses
           : gpInconsistent && is.costsAndExpenses > 0
             ? is.costsAndExpenses
-            : Math.max(0, gp - is.operatingIncome);
+            : isSingleStepIS
+              ? is.costsAndExpenses
+              : Math.max(0, gp - is.operatingIncome);
 
     const pct = (n: number) =>
       is.revenue ? parseFloat(((n / is.revenue) * 100).toFixed(1)) : undefined;
@@ -421,35 +535,61 @@ export async function fetchSegmentData(
     // tagged R&D / S&M / G&A but a material write-down or restructuring
     // charge would otherwise render OpEx as a leaf. Both values already pass
     // the wouldOvershoot guard above, so admitting them here is bounded.
+    const hasBankBreakdown = industryProfile === "bank" && (
+      is.bankCompensation > 0 || is.bankTechnology > 0 || is.bankProfessional > 0
+      || is.bankOccupancy > 0 || is.bankMarketing > 0 || is.bankOtherNoninterest > 0
+    );
     const hasBreakdown = rdVal > 0 || smVal > 0 || gaVal > 0 || isAirline
       || (isOilGas && (daVal > 0 || taxesOtherVal > 0 || explorationVal > 0 || purchasesVal > 0))
       || (isPreRevenue && (rdVal > 0 || gaVal > 0 || daVal > 0))
       || payrollVal > 0 || rentExpVal > 0 || advertisingVal > 0 || daStdVal > 0
-      || impairmentVal > 0 || restructuringVal > 0;
+      || impairmentVal > 0 || restructuringVal > 0
+      || hasBankBreakdown;
 
-    // Backfill the residual when tagged dimensional segments don't sum to
-    // consolidated revenue. Some issuers (e.g. ULCC) only tag their dominant
-    // revenue stream as a member; the rest sits in an untagged residual
-    // that would otherwise leave a visible gap between the segment ribbons
-    // and the Revenue node. If an "Other" segment already exists in XBRL,
-    // fold the gap into it rather than emit a duplicate node.
+    // Reconcile tagged dimensional segments with consolidated revenue so the
+    // Sankey's input ribbons exactly fill the Revenue node. Two failure modes:
+    //   • Undershoot >1% (e.g. ULCC, CCJ Westinghouse missing): real untagged
+    //     revenue stream — backfill an "Other" node so it shows up explicitly.
+    //     If an "Other" segment already exists in XBRL, fold the gap into it.
+    //   • Undershoot ≤1% or any overshoot: rounding noise / minor tagging
+    //     reconciliation — scale segments proportionally to match revenue.
+    //     Avoids adding a sliver "Other" node for sub-percent gaps while still
+    //     closing the visual gap d3-sankey would otherwise leave (the outflow
+    //     side gp + cogs is forced to equal rev exactly, so any inflow ≠ rev
+    //     leaves dead space at the top of Revenue).
     const rawSegs = segmentResult?.segments ?? [];
     const segSumUSD = rawSegs.reduce((s, x) => s + x.valueUSD, 0);
-    const gapUSD = rawSegs.length > 0 && segSumUSD > 0
-      ? Math.max(0, is.revenue - segSumUSD)
-      : 0;
-    const shouldBackfill = gapUSD > 0 && gapUSD > is.revenue * 0.01;
+    const hasSegs = rawSegs.length > 0 && segSumUSD > 0 && is.revenue > 0;
+    const undershootUSD = hasSegs ? Math.max(0, is.revenue - segSumUSD) : 0;
+    const shouldBackfill = undershootUSD > is.revenue * 0.01;
     const existingOther = shouldBackfill
       ? rawSegs.find((s) => /^other(\s|$|,)/i.test(s.name))
       : undefined;
-    const segments = rawSegs.map((s) => ({
-      name:  s.name,
-      value: sc(s === existingOther ? s.valueUSD + gapUSD : s.valueUSD),
-      yoy:   s.yoy,
+
+    let scaledSegs = rawSegs.map((s) => ({
+      name: s.name,
+      valueUSD: s === existingOther ? s.valueUSD + undershootUSD : s.valueUSD,
+      yoy: s.yoy,
     }));
     if (shouldBackfill && !existingOther) {
-      segments.push({ name: "Other", value: sc(gapUSD), yoy: undefined });
+      scaledSegs.push({ name: "Other", valueUSD: undershootUSD, yoy: undefined });
     }
+    // Proportional scaling for sub-1% mismatches (both directions). After the
+    // backfill above this only triggers when the residual gap is rounding-level
+    // or when segments exceed revenue (e.g. tagged member overlap with negative
+    // untagged eliminations rolled into `Revenues`).
+    if (hasSegs) {
+      const adjustedSum = scaledSegs.reduce((s, x) => s + x.valueUSD, 0);
+      if (adjustedSum > 0 && Math.abs(adjustedSum - is.revenue) > is.revenue * 0.001) {
+        const factor = is.revenue / adjustedSum;
+        scaledSegs = scaledSegs.map((s) => ({ ...s, valueUSD: s.valueUSD * factor }));
+      }
+    }
+    const segments = scaledSegs.map((s) => ({
+      name: s.name,
+      value: sc(s.valueUSD),
+      yoy: s.yoy,
+    }));
 
     // For industries where business segments don't represent how revenue is
     // earned (banks: NII vs noninterest income; asset managers: mgmt fees vs
@@ -588,7 +728,9 @@ export async function fetchSegmentData(
       period:       is.period,
       endDate:      is.endDate,
       segmentPeriod: segmentResult?.segmentPeriod,
-      source:       isAnnual ? (isForeign ? "20-F" : "10-K") : "10-Q",
+      source:       isAnnual
+                       ? (isForeign ? (foreignFormType ?? "20-F") : "10-K")
+                       : "10-Q",
       unit,
       industryProfile,
       segments,
@@ -630,12 +772,30 @@ export async function fetchSegmentData(
         rentExpense:    rentExpVal     > 0 ? sc(rentExpVal)     : undefined,
         advertising:    advertisingVal > 0 ? sc(advertisingVal) : undefined,
         depreciationStandard: daStdVal > 0 ? sc(daStdVal) : undefined,
+        // Bank Noninterest-Expense decomposition (industryProfile === "bank")
+        bankCompensation:     is.bankCompensation     > 0 ? sc(is.bankCompensation)     : undefined,
+        bankTechnology:       is.bankTechnology       > 0 ? sc(is.bankTechnology)       : undefined,
+        bankProfessional:     is.bankProfessional     > 0 ? sc(is.bankProfessional)     : undefined,
+        bankOccupancy:        is.bankOccupancy        > 0 ? sc(is.bankOccupancy)        : undefined,
+        bankMarketing:        is.bankMarketing        > 0 ? sc(is.bankMarketing)        : undefined,
+        bankOtherNoninterest: is.bankOtherNoninterest > 0 ? sc(is.bankOtherNoninterest) : undefined,
       } : undefined,
       // Bank
       interestIncome:         is.interestIncome  > 0 ? sc(is.interestIncome)  : undefined,
       interestExpense:        is.interestExpense > 0 ? sc(is.interestExpense) : undefined,
       netInterestIncome:      nii !== undefined && nii > 0 ? sc(nii) : undefined,
-      provisionForLoanLosses: is.provisionForLoanLosses > 0 ? sc(is.provisionForLoanLosses) : undefined,
+      // Bank IFRS provision fallback: SMFG / MUFG / ITUB tag the IFRS
+      // `ImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss`
+      // as the bank-equivalent of provision for credit losses. Surface it
+      // ONLY when the profile is already classified as `bank` — same
+      // concept is used by miners (BHP, RIO) for asset impairments, so
+      // we extract it separately and only route it to the provision flow
+      // when the bank context is established.
+      provisionForLoanLosses: is.provisionForLoanLosses > 0
+        ? sc(is.provisionForLoanLosses)
+        : (industryProfile === "bank" && is.bankProvisionIFRS > 0
+            ? sc(is.bankProvisionIFRS)
+            : undefined),
       noninterestIncome:      is.noninterestIncome  > 0 ? sc(is.noninterestIncome)  : undefined,
       noninterestExpense:     is.noninterestExpense > 0 ? sc(is.noninterestExpense) : undefined,
       // Insurance

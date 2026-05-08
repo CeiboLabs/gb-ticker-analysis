@@ -3,6 +3,7 @@
  * Free, official data. Works for any US company that files 10-Q with the SEC.
  */
 import type { RevenueQuarter } from "@/types/StockData";
+import { fetchUsdRate } from "@/lib/fxRates";
 
 const SEC      = "https://www.sec.gov";
 const DATA_SEC = "https://data.sec.gov";
@@ -14,6 +15,12 @@ const REV_CONCEPTS = [
   "Revenues",
   "SalesRevenueNet",
   "RevenueFromContractWithCustomer",
+  // IFRS — Canadian MJDS 40-F filers (CCJ, NTR, GOLD, ...) and many 20-F
+  // filers tag their dimensional segment revenues against `ifrs-full:Revenue`
+  // (singular) or `ifrs-full:RevenueFromContractsWithCustomers` (plural with
+  // 's', distinct from the US-GAAP `RevenueFromContractWithCustomer*` family).
+  "RevenueFromContractsWithCustomers",
+  "Revenue",
 ];
 
 export interface EdgarSegmentRaw {
@@ -115,7 +122,7 @@ export async function resolveCIK(ticker: string): Promise<string | null> {
 
 async function latestFilingAccession(
   cik: string
-): Promise<{ accession: string; isAnnual: boolean; isForeign: boolean; priorQuarterlyAccession?: string } | null> {
+): Promise<{ accession: string; isAnnual: boolean; isForeign: boolean; foreignFormType?: "20-F" | "40-F"; priorQuarterlyAccession?: string } | null> {
   const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`);
   if (!r.ok) return null;
   const d = await r.json();
@@ -124,7 +131,7 @@ async function latestFilingAccession(
   const forms = recent.form as string[];
   const accessions = recent.accessionNumber as string[];
   // filings are in reverse-chronological order — first match wins
-  let qIdx = -1, kIdx = -1, fIdx = -1;
+  let qIdx = -1, kIdx = -1, fIdx = -1, mjdsIdx = -1;
   for (let i = 0; i < forms.length; i++) {
     if (forms[i] === "10-Q" && qIdx === -1) qIdx = i;
     if (forms[i] === "10-K" && kIdx === -1) kIdx = i;
@@ -134,18 +141,25 @@ async function latestFilingAccession(
     // F-style XBRL is less consistently tagged than US issuers' but still
     // beats falling all the way through to a stale 6-K text parse.
     if (forms[i] === "20-F" && fIdx === -1) fIdx = i;
-    if (qIdx !== -1 && kIdx !== -1 && fIdx !== -1) break;
+    // 40-F is the Canadian MJDS annual filing (Cameco, Nutrien, Barrick,
+    // Suncor, RY/TD/BNS/BMO/CM, Manulife, Enbridge, ...). Filed under IFRS
+    // with native-currency (CAD) facts. Same XBRL stream layout as 20-F.
+    if (forms[i] === "40-F" && mjdsIdx === -1) mjdsIdx = i;
+    if (qIdx !== -1 && kIdx !== -1 && fIdx !== -1 && mjdsIdx !== -1) break;
   }
-  // pick the most recent annual (lower index wins) between 10-K and 20-F
+  // pick the most recent annual (lower index wins) across 10-K / 20-F / 40-F
   let aIdx = -1;
   let aIsForeign = false;
-  if (kIdx !== -1 && fIdx !== -1) {
-    if (kIdx <= fIdx) { aIdx = kIdx; aIsForeign = false; }
-    else              { aIdx = fIdx; aIsForeign = true;  }
-  } else if (kIdx !== -1) {
-    aIdx = kIdx; aIsForeign = false;
-  } else if (fIdx !== -1) {
-    aIdx = fIdx; aIsForeign = true;
+  let aForeignFormType: "20-F" | "40-F" | undefined;
+  const candidates: Array<{ idx: number; foreign: boolean; type?: "20-F" | "40-F" }> = [];
+  if (kIdx     !== -1) candidates.push({ idx: kIdx,     foreign: false });
+  if (fIdx     !== -1) candidates.push({ idx: fIdx,     foreign: true, type: "20-F" });
+  if (mjdsIdx  !== -1) candidates.push({ idx: mjdsIdx,  foreign: true, type: "40-F" });
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => a.idx - b.idx);
+    aIdx = candidates[0].idx;
+    aIsForeign = candidates[0].foreign;
+    aForeignFormType = candidates[0].type;
   }
   if (qIdx === -1 && aIdx === -1) return null;
   // pick whichever is more recent (lower index = filed later)
@@ -153,12 +167,13 @@ async function latestFilingAccession(
     return { accession: accessions[qIdx], isAnnual: false, isForeign: false };
   }
   // Annual is most recent; keep prior quarterly accession so we can derive
-  // Q4 = annual − YTD. Foreign 20-F filers don't file 10-Q (they file 6-K
-  // interim), so priorQuarterlyAccession is always undefined for them.
+  // Q4 = annual − YTD. Foreign 20-F / 40-F filers don't file 10-Q (they file
+  // 6-K interim), so priorQuarterlyAccession is always undefined for them.
   return {
     accession: accessions[aIdx],
     isAnnual: true,
     isForeign: aIsForeign,
+    foreignFormType: aForeignFormType,
     priorQuarterlyAccession: !aIsForeign && qIdx !== -1 ? accessions[qIdx] : undefined,
   };
 }
@@ -175,20 +190,91 @@ async function xbrlDocUrl(cik: string, accession: string): Promise<string | null
   return m ? `${SEC}${m[1]}` : null;
 }
 
-async function loadLabels(xbrlUrl: string): Promise<Record<string, string>> {
-  const labUrl = xbrlUrl.replace(/_htm\.xml$/, "_lab.xml");
-  const r = await secFetch(labUrl);
-  if (!r.ok) return {};
-  const xml = await r.text();
+// Locate the label linkbase for a filing. Most issuers ship it as a sibling
+// of the iXBRL doc (`d34605d40f_htm.xml` → `d34605d40f_lab.xml`), but
+// Canadian MJDS filers under IFRS (Cameco, Suncor, ...) use a different
+// stem entirely — `ccj-20251231_lab.xml` next to `d34605d40f_htm.xml`.
+// Resolve from the filing's directory listing.
+//
+// Two discovery paths, tried in order:
+//   1. `/Archives/edgar/data/{cik}/{accession}/index.json` — structured
+//      directory listing (immutable per accession, cache friendly). More
+//      robust than HTML scraping; still works if SEC changes the
+//      `index.htm` markup.
+//   2. `{accession}-index.htm` HTML scrape — fallback for the rare case
+//      where index.json is unavailable.
+async function xbrlLabUrl(cik: string, accession: string): Promise<string | null> {
+  const cikInt = parseInt(cik, 10);
+  const noDash = accession.replace(/-/g, "");
+  const baseDir = `${SEC}/Archives/edgar/data/${cikInt}/${noDash}`;
+
+  // Path 1: structured index.json
+  const jsonRes = await secFetch(`${baseDir}/index.json`, 7 * 86400);
+  if (jsonRes.ok) {
+    try {
+      const data = await jsonRes.json() as { directory?: { item?: Array<{ name?: string }> } };
+      const items = data.directory?.item ?? [];
+      const labItem = items.find((it) => typeof it.name === "string" && /_lab\.xml$/i.test(it.name));
+      if (labItem?.name) return `${baseDir}/${labItem.name}`;
+    } catch {
+      // fall through to HTML scrape
+    }
+  }
+
+  // Path 2: HTML scrape fallback
+  const htmlRes = await secFetch(`${baseDir}/${accession}-index.htm`);
+  if (!htmlRes.ok) return null;
+  const html = await htmlRes.text();
+  const m = html.match(/href="(\/Archives\/edgar\/data\/[^"]+_lab\.xml)"/);
+  return m ? `${SEC}${m[1]}` : null;
+}
+
+async function loadLabels(xbrlUrl: string, labUrlOverride?: string | null): Promise<Record<string, string>> {
+  // Most US filers ship the label linkbase as a sibling of the iXBRL doc
+  // with the same stem: `..._htm.xml` → `..._lab.xml`. Canadian MJDS
+  // filers (Cameco, Suncor, ...) use a different stem entirely (the lab
+  // is `ccj-20251231_lab.xml` while the iXBRL is `d34605d40f_htm.xml`),
+  // so callers can pass an explicit URL discovered from the filing index.
+  const candidates: string[] = [];
+  if (labUrlOverride) candidates.push(labUrlOverride);
+  candidates.push(xbrlUrl.replace(/_htm\.xml$/, "_lab.xml"));
+
+  let xml = "";
+  for (const url of candidates) {
+    const r = await secFetch(url);
+    if (r.ok) { xml = await r.text(); break; }
+  }
+  if (!xml) return {};
+  // Two label-naming conventions seen in production:
+  //   (a) `xlink:label="lab_xx_KEY"` — most US filers (Workiva-generated).
+  //   (b) `xlink:label="lbl_KEY_N"` (or just `lbl_KEY`) — IFRS issuers
+  //       under Canadian MJDS (Cameco, Suncor, ...) where the KEY embeds
+  //       the concept/member name and `_N` is a label-role index.
+  // The regex captures the KEY between either prefix and an optional
+  // trailing `_<digit>+`. Each <link:label> carries an `xlink:role` —
+  // `.../label` is the user-facing terse label ("Uranium [Member]"),
+  // `.../documentation` is the verbose definition ("Uranium operating
+  // segment."). Prefer the terse label and strip the trailing ` [Member]`
+  // marker; fall back to documentation only when no terse label exists.
   const out: Record<string, string> = {};
-  const re = /xlink:label="lab_[^_"]+_([^"]+)"[^>]*>([^<]+)</g;
+  const fallback: Record<string, string> = {};
+  const re = /<link:label\b[^>]*xlink:label="(?:lab_[^_"]+|lbl)_([^"]+?)(?:_\d+)?"[^>]*?xlink:role="([^"]+)"[^>]*>([^<]+)</g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml)) !== null) {
-    const key  = m[1];
-    const text = m[2].trim();
-    if (!out[key] && !text.includes("[Member]")) {
-      out[key] = text;
+    const key   = m[1];
+    const role  = m[2];
+    const text  = m[3].trim().replace(/\s*\[Member\]\s*$/i, "");
+    if (!text) continue;
+    const isPrimary = /\/label$/i.test(role);
+    const isDoc     = /\/documentation$/i.test(role);
+    if (isPrimary) {
+      if (!out[key]) out[key] = text;
+    } else if (isDoc) {
+      if (!fallback[key]) fallback[key] = text;
     }
+  }
+  for (const [k, v] of Object.entries(fallback)) {
+    if (!out[k]) out[k] = v;
   }
   return out;
 }
@@ -203,16 +289,28 @@ interface CtxInfo {
   axis:        string;
 }
 
-// Axes accepted for segment revenue, in priority order.
-// StatementBusinessSegmentsAxis = operating segments (e.g. Studios/Networks/Streaming, Google Services/Cloud).
-// ProductOrServiceAxis = revenue disaggregated by product/service type — fallback when business segments absent.
-// SubsegmentsAxis = sub-segment breakdown (e.g. SKBL: Public vs Private sector
-//   construction). Smaller filers (especially foreign-private issuers) tag the
-//   ONLY revenue split here when no parent business-segments axis is present.
-// StatementGeographicalAxis = revenue by region — used only when none of the
-//   above is tagged. Better than no breakdown at all (e.g. asset managers like
-//   BLK that report only by region).
-const SEGMENT_AXES = ["StatementBusinessSegmentsAxis", "ProductOrServiceAxis", "SubsegmentsAxis", "StatementGeographicalAxis"];
+// Axes accepted for segment revenue, in priority order. US-GAAP and IFRS
+// equivalents are paired together (US-GAAP first, then the IFRS analog) so
+// the priority preference holds regardless of which taxonomy the issuer
+// uses.
+//   StatementBusinessSegmentsAxis | SegmentsAxis (IFRS) — operating
+//     segments (e.g. Studios/Networks/Streaming, Cameco Uranium/FuelServices).
+//   ProductOrServiceAxis | ProductsAndServicesAxis (IFRS) — revenue
+//     disaggregated by product/service type.
+//   SubsegmentsAxis — sub-segment breakdown (SKBL Public vs Private sector).
+//   StatementGeographicalAxis | GeographicalAreasAxis (IFRS) — revenue by
+//     region; last-resort fallback (asset managers like BLK report only here).
+const SEGMENT_AXES = [
+  "StatementBusinessSegmentsAxis",
+  "SegmentsAxis",
+  "OperatingSegmentsAxis",       // IFRS variant some filers use directly
+  "ReportableSegmentsAxis",      // IFRS variant — same intent as above
+  "ProductOrServiceAxis",
+  "ProductsAndServicesAxis",
+  "SubsegmentsAxis",
+  "StatementGeographicalAxis",
+  "GeographicalAreasAxis",
+];
 
 // ── Minimal-cover helper ──────────────────────────────────────────────────────
 // Returns the smallest subset of `segs` whose values sum to `target` ± tolerance.
@@ -376,6 +474,43 @@ function parseXbrl(
     }
   }
 
+  // Single-segment-fallback override: when the chosen non-geography axis has
+  // exactly ONE member with revenue data and that member is a generic
+  // single-reportable-segment marker (`app:ReportableSegmentMember` after
+  // AppLovin's 2025 Apps divestiture, or any `ReportableSegmentMember` /
+  // `OperatingSegmentMember` style placeholder used by issuers with one
+  // reportable segment), the resulting Sankey would render a single ribbon
+  // equal to total revenue — uninformative. Prefer the geographical axis if
+  // it has ≥ 2 members with revenue data so the chart renders a meaningful
+  // US / Non-US (or regional) split instead.
+  const isGenericSingleSegmentMarker = (s: string) =>
+    /^(?:Reportable|Operating|All|Total)(?:[A-Z][a-zA-Z]+)*Segments?Member$/i.test(s);
+  const GEO_AXES = ["StatementGeographicalAxis", "GeographicalAreasAxis"];
+  if (!GEO_AXES.includes(chosenAxis)) {
+    // Count UNIQUE members on the chosen axis. A single member can appear in
+    // multiple contexts (current period + prior-year comparative), so length
+    // alone overcounts.
+    const uniqueMembers = new Set(
+      allQuarterCtxs
+        .filter(([id, c]) => c.axis === chosenAxis && ctxsWithRevData.has(id))
+        .map(([, c]) => c.memberLocal),
+    );
+    if (
+      uniqueMembers.size === 1 &&
+      isGenericSingleSegmentMarker([...uniqueMembers][0])
+    ) {
+      const altGeo = GEO_AXES.find((a) => {
+        const geoMembers = new Set(
+          allQuarterCtxs
+            .filter(([id, c]) => c.axis === a && ctxsWithRevData.has(id))
+            .map(([, c]) => c.memberLocal),
+        );
+        return geoMembers.size >= 2;
+      });
+      if (altGeo) chosenAxis = altGeo;
+    }
+  }
+
   const quarterCtxs = allQuarterCtxs.filter(([, c]) => c.axis === chosenAxis);
 
   // When the caller knows the IS period end date, anchor segment selection to it.
@@ -431,11 +566,78 @@ function parseXbrl(
   // Sum of custom-member values to detect generic aggregates.
   // e.g. AAPL: us-gaap:ProductMember ≈ iPhone+Mac+iPad+Wearables → remove it.
   // But us-gaap:ServiceMember (no custom counterpart) → keep.
-  const customValSum = [...currentCtxIds].reduce((sum, id) => {
+  //
+  // Tracks the count separately so the duplicate check below can require ≥ 2
+  // custom members before treating a generic as an aggregator. With only one
+  // custom member, the "sum" is just one value, and a generic peer of similar
+  // size (APP geography: country:US 907M vs us-gaap:NonUsMember 935M, peers
+  // not aggregator + part) gets falsely dropped at the 5% tolerance.
+  let customValSum = 0;
+  let customCount = 0;
+  for (const id of currentCtxIds) {
     const ctx = contexts.get(id);
-    if (!ctx?.isCustom) return sum;
-    return sum + (currentVals.get(id) ?? 0);
-  }, 0);
+    if (!ctx?.isCustom) continue;
+    customValSum += currentVals.get(id) ?? 0;
+    customCount += 1;
+  }
+
+  // ── AdjustmentsMember pairing for IFRS issuers ──────────────────────────────
+  // IFRS filers (Cameco, Suncor, ...) frequently disclose equity-method
+  // investees alongside reportable segments under the same SegmentsAxis,
+  // with a paired AdjustmentsMember whose value exactly negates the
+  // investee's revenue. Cameco FY2025 example:
+  //   ccj:WestinghouseElectricCorporationMember = +3,457,633,000 CAD
+  //   ccj:AdjustmentsMember                     = −3,457,633,000 CAD
+  // The Adjustments line is a XBRL-encoded "this is not a real segment"
+  // marker. Use its absolute value to identify and drop the matched
+  // positive member. Without this, Westinghouse (99 % of consolidated
+  // revenue) shadows the actual segment partition (Uranium / Fuel / Other).
+  const adjustmentsAbs: number[] = [];
+  {
+    const adjPattern = REV_CONCEPTS.map((t) => `(?:[^:>\\s]+:)?${t}(?:Adjusted)?`).join("|");
+    const adjFactRe = new RegExp(
+      `<(?:${adjPattern})\\b[^>]*contextRef="([^"]+)"[^>]*>(-?[0-9]+)<`, "g",
+    );
+    let am: RegExpExecArray | null;
+    while ((am = adjFactRe.exec(xml)) !== null) {
+      const ctxRef = am[1];
+      // Only consider adjustments tagged in the CURRENT period's contexts.
+      // Cameco's prior-year AdjustmentsMember (FY2024) had a value of $2.89B
+      // CAD which by coincidence is within 1 % of FY2025 Uranium revenue
+      // ($2.87B CAD); without this scoping, the prior-year adjustment would
+      // wrongly drop the current-year Uranium segment.
+      if (!currentCtxIds.has(ctxRef)) continue;
+      const ctx = contexts.get(ctxRef);
+      if (!ctx) continue;
+      if (!/Adjustments?Member$/i.test(ctx.memberLocal)) continue;
+      const v = Math.abs(parseInt(am[2], 10));
+      if (v > 0) adjustmentsAbs.push(v);
+    }
+  }
+  // Generic IFRS aggregator / elimination members that represent the SUM
+  // of all reportable segments (or their netting), not a peer. Drop them so
+  // minimalCover can't pick a size-1 aggregator over the real partition.
+  // Patterns covered:
+  //   (a) Bare aggregator names: ReportableSegmentsMember /
+  //       OperatingSegmentsMember / AllSegmentsMember / TotalSegmentsMember.
+  //   (b) Compound aggregators: TotalSegmentsAfterIntersegmentEliminations
+  //       (CNQ/Canadian Natural) — starts with one of the prefixes, ends in
+  //       SegmentsMember, with arbitrary descriptive text in the middle.
+  //   (c) Eliminations: EliminationOfIntersegmentAmountsAndOtherMember
+  //       (CNQ) and similar reconciling items that show up alongside
+  //       segment-axis facts. Same intent as AdjustmentsMember pairing
+  //       (which is handled separately for the equity-investee case).
+  // The terminal `Segments` is REQUIRED to be plural — singular forms like
+  // `ReportableSegmentMember` (APP after the 2025 Apps divestiture) are
+  // legitimate single-segment markers, not aggregators, and the
+  // single-segment fallback above already redirected the axis when one was
+  // the only member. If we still see a singular marker here it's because
+  // geography wasn't available, so admit it instead of producing zero
+  // segments.
+  const isGenericAggregateMember = (memberLocal: string): boolean =>
+    /^(?:Reportable|Operating|All|Total)(?:[A-Z][a-zA-Z]+)*SegmentsMember$/i.test(memberLocal)
+    || /(?:^|[A-Z])Eliminations?(?:[A-Z][a-zA-Z]+)*Member$/i.test(memberLocal)
+    || /^IntersegmentEliminations?(?:[A-Z][a-zA-Z]+)*Member$/i.test(memberLocal);
 
   const segments: EdgarSegmentRaw[] = [];
 
@@ -446,11 +648,22 @@ function parseXbrl(
     const val = currentVals.get(ctxId);
     if (!val || val <= 0) continue;
 
-    // Skip a generic member if its value duplicates the custom members' sum (±5%)
-    if (!ctx.isCustom && customValSum > 0) {
+    // Skip a generic member if its value duplicates the SUM of multiple
+    // custom members (±5%) — that's the aggregator pattern (us-gaap:ProductMember
+    // = iPhone+Mac+iPad+Wearables). Require ≥ 2 custom members so a single
+    // custom peer of similar size (APP geography: country:US ≈ NonUs to within
+    // 5%, peers in a 2-region partition) isn't falsely treated as an aggregate.
+    if (!ctx.isCustom && customCount >= 2 && customValSum > 0) {
       const diff = Math.abs(val - customValSum) / Math.max(val, customValSum);
       if (diff <= 0.05) continue;
     }
+
+    // Skip generic IFRS aggregator (ReportableSegmentsMember, ...).
+    if (isGenericAggregateMember(ctx.memberLocal)) continue;
+
+    // Skip equity-investee / supplementary disclosures paired with an
+    // AdjustmentsMember of equal-and-opposite value (CCJ / Westinghouse).
+    if (adjustmentsAbs.some((a) => Math.abs(val - a) / Math.max(val, a) <= 0.01)) continue;
 
     const displayName =
       labels[ctx.memberLocal] ??
@@ -676,6 +889,131 @@ function parseSegmentTableHtml(
   return null;
 }
 
+// Customer-concentration fallback: when no segment / product / geography
+// axis carries revenue data (single-segment companies that don't
+// disaggregate, e.g. LOPE / Grand Canyon Education whose entire revenue
+// comes from service agreements with university partners), derive a revenue
+// partition from XBRL-tagged `us-gaap:ConcentrationRiskPercentage1` facts.
+// Each customer member with a tagged percentage on `srt:MajorCustomersAxis`
+// + benchmark = revenue + risk type = customer becomes a segment whose
+// dollar value = percentage × consolidated revenue. The residual to 100%
+// gets surfaced as "Other Customers" so the input ribbons sum to revenue.
+//
+// Acceptance gates:
+//   - At least one tagged customer with concentration >= 10 % (below that
+//     it isn't a meaningful "concentration" — likely a side disclosure).
+//   - Period matches the IS endDate (avoids picking up a prior-year
+//     concentration left in the filing for narrative comparison).
+function parseConcentrationSegments(
+  xml: string,
+  labels: Record<string, string>,
+  totalRevenue: number,
+  expectedEndDate: string,
+  isAnnual: boolean,
+): EdgarSegmentResult | null {
+  if (!totalRevenue || totalRevenue <= 0) return null;
+
+  type ConcCtx = {
+    end: string;
+    days: number;
+    customer: string;
+    benchmark: string;
+    riskType: string;
+  };
+  const ctxMap = new Map<string, ConcCtx>();
+  const ctxMatches = xml.matchAll(/<context\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/context>/g);
+  for (const cm of ctxMatches) {
+    const id = cm[1];
+    const body = cm[2];
+    const startM = body.match(/<startDate>([^<]+)/);
+    const endM = body.match(/<endDate>([^<]+)/);
+    if (!startM || !endM) continue;
+    const start = startM[1].trim();
+    const end = endM[1].trim();
+    const days = (Date.parse(end) - Date.parse(start)) / 86_400_000;
+
+    let customer = "", benchmark = "", riskType = "";
+    for (const dm of body.matchAll(/dimension="([^"]+)">([^<]+)</g)) {
+      const axis = dm[1].split(":").pop() ?? "";
+      const memberLocal = dm[2].trim().split(":").pop() ?? "";
+      if (axis === "MajorCustomersAxis") customer = memberLocal;
+      else if (axis === "ConcentrationRiskByBenchmarkAxis") benchmark = memberLocal;
+      else if (axis === "ConcentrationRiskByTypeAxis") riskType = memberLocal;
+    }
+    if (!customer || !benchmark || !riskType) continue;
+    ctxMap.set(id, { end, days, customer, benchmark, riskType });
+  }
+  if (ctxMap.size === 0) return null;
+
+  const expectedMs = Date.parse(expectedEndDate);
+  const minDays = isAnnual ? 350 : 80;
+  const maxDays = isAnnual ? 380 : 100;
+  const validCtxIds = new Set<string>();
+  for (const [id, c] of ctxMap.entries()) {
+    if (c.days < minDays || c.days > maxDays) continue;
+    const dEnd = Math.abs((Date.parse(c.end) - expectedMs) / 86_400_000);
+    if (dEnd > 15) continue;
+    if (!/SalesRevenueNetMember|RevenueFromContract|^Revenues?Member$/i.test(c.benchmark)) continue;
+    if (!/CustomerConcentrationRiskMember/i.test(c.riskType)) continue;
+    validCtxIds.add(id);
+  }
+  if (validCtxIds.size === 0) return null;
+
+  const concentrations: Array<{ customer: string; pct: number }> = [];
+  for (const pm of xml.matchAll(
+    /<us-gaap:ConcentrationRiskPercentage1\b[^>]*contextRef="([^"]+)"[^>]*>([0-9.]+)<\/us-gaap:ConcentrationRiskPercentage1>/g,
+  )) {
+    if (!validCtxIds.has(pm[1])) continue;
+    const pct = parseFloat(pm[2]);
+    if (!isFinite(pct) || pct <= 0 || pct > 1.01) continue;
+    const ctx = ctxMap.get(pm[1])!;
+    concentrations.push({ customer: ctx.customer, pct });
+  }
+  if (concentrations.length === 0) return null;
+
+  const byCust = new Map<string, { customer: string; pct: number }>();
+  for (const c of concentrations) {
+    const prev = byCust.get(c.customer);
+    if (!prev || c.pct > prev.pct) byCust.set(c.customer, c);
+  }
+  const customerList = [...byCust.values()].sort((a, b) => b.pct - a.pct);
+  if (customerList[0].pct < 0.10) return null;
+
+  const totalPct = customerList.reduce((s, c) => s + c.pct, 0);
+  if (totalPct > 1.01) return null;
+
+  const segments: EdgarSegmentRaw[] = customerList.map((c) => {
+    const displayName =
+      labels[c.customer] ??
+      labels[c.customer.replace(/Member$/, "")] ??
+      c.customer
+        .replace(/Member$/, "")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+        .trim();
+    return {
+      name: displayName,
+      valueUSD: Math.round(c.pct * totalRevenue),
+      yoy: undefined,
+    };
+  });
+
+  if (totalPct < 0.99) {
+    segments.push({
+      name: "Other Customers",
+      valueUSD: Math.round((1 - totalPct) * totalRevenue),
+      yoy: undefined,
+    });
+  }
+
+  const d = new Date(expectedEndDate);
+  const q = Math.floor(d.getUTCMonth() / 3) + 1;
+  const yr = d.getUTCFullYear();
+  const periodLabel = isAnnual ? `FY${yr}` : `Q${q} FY${yr}`;
+
+  return { segments, segmentPeriod: periodLabel, geographyOnly: false };
+}
+
 // Extract product-segment revenue from XBRL text-block tags when the standard
 // dimensional parse failed. Foreign-private issuers (RYOJ, ...) commonly tag
 // segment data only in narrative text blocks because the SRT/US-GAAP segment
@@ -736,12 +1074,15 @@ export async function fetchEdgarSegments(
     const filing = await latestFilingAccession(cik);
     if (!filing) return null;
 
-    const docUrl = await xbrlDocUrl(cik, filing.accession);
+    const [docUrl, labUrl] = await Promise.all([
+      xbrlDocUrl(cik, filing.accession),
+      xbrlLabUrl(cik, filing.accession),
+    ]);
     if (!docUrl) return null;
 
     const [xbrlRes, labelsData] = await Promise.all([
       secFetch(docUrl),
-      loadLabels(docUrl),
+      loadLabels(docUrl, labUrl),
     ]);
     if (!xbrlRes.ok) return null;
 
@@ -755,21 +1096,39 @@ export async function fetchEdgarSegments(
 // ── EDGAR Income Statement ────────────────────────────────────────────────────
 // Extracts a full quarterly income statement from EDGAR XBRL.
 
+// US-GAAP names take priority; IFRS aliases (`Revenue`, `CostOfSales`,
+// `ProfitLoss`, ...) sit at the back of each list so foreign-private issuers
+// filing under IFRS — Canadian MJDS (CCJ, NTR, GOLD, SU, CNQ, RY, TD, BNS,
+// MFC, ENB, ...) and many 20-F filers (NOK, RYAAY, BABA partial) — get their
+// statements parsed by the same extractor instead of falling through to the
+// Yahoo-TTM stub. The firstVal regex is namespace-tolerant
+// (`<[^:>\\s]+:?CONCEPT\\b`), so once a concept name is in the list it
+// matches regardless of the issuer's taxonomy prefix.
 const IS_CONCEPTS: Record<string, string[]> = {
-  revenue:         ["RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "Revenues", "SalesRevenueNet"],
+  // Revenue concept ordering matters: ENB / Enbridge tags BOTH the legacy
+  // `Revenues` ($65.2B, total inc. leases / derivatives / commodity sales)
+  // AND the post-ASC-606 `RevenueFromContractWithCustomerExcludingAssessedTax`
+  // ($29.3B, subset = contract revenue only). The contract-only concept is
+  // a partial view; using it as headline revenue would mis-state ENB by
+  // ~55%. `Revenues` first means: for ASC-606-only filers (AAPL, MSFT)
+  // who don't tag legacy `Revenues`, the parser falls through to the new
+  // concept and behavior is unchanged; for issuers that tag both, the
+  // broader total wins (correct).
+  revenue:         ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet", "RevenueFromContractsWithCustomers", "Revenue"],
   grossProfit:     ["GrossProfit"],
-  costOfRevenue:   ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSoldAndServicesSold"],
-  operatingIncome: ["OperatingIncomeLoss"],
-  netIncome:       ["NetIncomeLoss"],
+  costOfRevenue:   ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSoldAndServicesSold", "CostOfSales"],
+  operatingIncome: ["OperatingIncomeLoss", "ProfitLossFromOperatingActivities"],
+  netIncome:       ["NetIncomeLoss", "ProfitLoss"],
   rd:              ["ResearchAndDevelopmentExpense"],
   salesMarketing:  ["SellingAndMarketingExpense", "SellingExpense"],
-  generalAdmin:    ["GeneralAndAdministrativeExpense"],
+  generalAdmin:    ["GeneralAndAdministrativeExpense", "AdministrativeExpense"],
   sga:             ["SellingGeneralAndAdministrativeExpense"],  // combined fallback
-  tax:             ["IncomeTaxExpenseBenefit", "IncomeTaxExpense"],
+  tax:             ["IncomeTaxExpenseBenefit", "IncomeTaxExpense", "IncomeTaxExpenseContinuingOperations"],
   incomeBeforeTax: [
     "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
     "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
     "IncomeLossBeforeIncomeTaxes",
+    "ProfitLossBeforeTax",
   ],
   // Airline-specific opex concepts. Reported by US carriers (AAL, DAL, UAL,
   // LUV...) instead of a Cost-of-Revenue / Gross-Profit structure. Detection
@@ -784,20 +1143,69 @@ const IS_CONCEPTS: Record<string, string[]> = {
   maintenance:     ["AircraftMaintenanceMaterialsAndRepairs"],
   aircraftRental:  ["AircraftRental"],
   landingFees:     ["LandingFeesAndOtherRentals"],
-  daExpense:       ["DepreciationAndAmortization", "DepreciationDepletionAndAmortization"],
+  daExpense:       ["DepreciationAndAmortization", "DepreciationDepletionAndAmortization", "DepreciationAndAmortisationExpense"],
   // Total opex line — used as the airline opex denominator since GP/COGS
-  // aren't reported. Falls back to gp − op when this isn't tagged.
-  costsAndExpenses: ["CostsAndExpenses", "OperatingCostsAndExpenses", "OperatingExpenses"],
+  // aren't reported. Falls back to gp − op when this isn't tagged. IFRS
+  // singular `OperatingExpense` covers the IFRS-by-function variant
+  // (SMFG, NOK, ASML when reporting full IS).
+  costsAndExpenses: ["CostsAndExpenses", "OperatingCostsAndExpenses", "OperatingExpenses", "OperatingExpense"],
 
   // Bank-specific concepts (JPM, BAC, WFC, C). Banks report Interest Income
   // and Interest Expense as the primary revenue/cost block; the difference is
   // Net Interest Income. Provision for credit losses is the bank-specific
   // analog of COGS.
-  interestIncome:        ["InterestAndDividendIncomeOperating", "InterestIncomeOperating", "InterestAndFeeIncomeLoansCommercial", "InvestmentIncomeInterest"],
-  interestExpense:       ["InterestExpense", "InterestExpenseOperating", "InterestExpenseDebt", "InterestExpenseBorrowings"],
+  // Interest income — Japanese / European / global IFRS banks (SMFG, MUFG,
+  // HDB) tag `RevenueFromInterest` for bank-operating interest income;
+  // `FinanceIncome` is the generic IFRS concept for non-bank issuers
+  // (Cameco's interest on cash equivalents). RevenueFromInterest must come
+  // BEFORE FinanceIncome so that banks tagging both don't latch onto
+  // FinanceIncome (which for SMFG is a tiny ¥13B lease-related figure
+  // rather than the ¥6.7T loan-book interest).
+  // `InterestAndSimilarIncome` is the IFRS-12 banking convention used by
+  // Brazilian banks (ITUB, BBD), some European banks too. Without this
+  // they fall to standard profile and the Sankey loses the bank-specific
+  // NII / Noninterest layout.
+  interestIncome:        ["InterestAndDividendIncomeOperating", "InterestIncomeOperating", "InterestAndFeeIncomeLoansCommercial", "InvestmentIncomeInterest", "RevenueFromInterest", "InterestAndSimilarIncome", "FinanceIncome"],
+  // InterestExpense (clean line, IFRS or US-GAAP) takes priority over
+  // FinanceCosts which bundles interest + FX + amortization of issuance
+  // costs and would over-state the line on the Sankey. `InterestAnd
+  // SimilarExpense` is the Brazilian-bank IFRS counterpart.
+  interestExpense:       ["InterestExpense", "InterestExpenseOperating", "InterestExpenseDebt", "InterestExpenseBorrowings", "InterestAndSimilarExpense", "InterestAndSimilarExpenses", "FinanceCosts"],
+  // Provision for credit losses — keep US-GAAP-only here. The IFRS concept
+  // `ImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss` is
+  // ambiguous: bank-IFRS filers (SMFG, MUFG) use it for credit-loss
+  // provisions on loans, but mining / industrial IFRS filers (BHP, RIO)
+  // use the SAME concept for PP&E or goodwill asset impairments.
+  // Including it here would erroneously trip the bank-profile detector
+  // (which checks `provisionForLoanLosses > 0`) for any miner with an
+  // asset write-down — and BHP / RIO render with profile="bank" instead
+  // of "standard" / "oil-gas". The bank-profile fall-through still fires
+  // for SMFG / MUFG via the noninterestIncome path
+  // (FeeAndCommissionIncomeExpense > 0) which is bank-specific enough not
+  // to false-positive on miners.
   provisionForLoanLosses:["ProvisionForLoanLeaseAndOtherLosses", "ProvisionForCreditLosses", "ProvisionForLoanAndLeaseLosses"],
-  noninterestIncome:     ["NoninterestIncome"],
-  noninterestExpense:    ["NoninterestExpense"],
+  // Noninterest income — for IFRS banks the closest analogs are net fees &
+  // commissions (FeeAndCommissionIncomeExpense = FCI minus FCE) plus
+  // trading income. SMFG / MUFG break these out individually; we accept
+  // either the netted concept or the gross income concept.
+  noninterestIncome:     ["NoninterestIncome", "FeeAndCommissionIncomeExpense", "FeeAndCommissionIncome"],
+  noninterestExpense:    ["NoninterestExpense", "FeeAndCommissionExpense"],
+
+  // Bank Noninterest-Expense decomposition. JPM / BAC / WFC / C tag these
+  // as separate IS lines under us-gaap; the bank-profile renderer surfaces
+  // them as sub-nodes off the "Noninterest Exp." parent so the chart
+  // shows the cost structure (compensation 50-60%, tech, occupancy, etc.).
+  bankCompensation:      ["LaborAndRelatedExpense", "EmployeeBenefitsAndShareBasedCompensation", "SalariesAndWages", "CompensationAndBenefits", "EmployeeBenefitsExpense"],
+  bankTechnology:        ["CommunicationsAndInformationTechnology", "TechnologyExpense", "InformationTechnologyAndDataProcessing"],
+  bankProfessional:      ["ProfessionalAndContractServicesExpense", "ProfessionalFees", "OutsideServicesExpense"],
+  bankOccupancy:         ["OccupancyNet", "OccupancyExpense"],
+  bankMarketing:         ["MarketingAndAdvertisingExpense", "AdvertisingExpense"],
+  bankOtherNoninterest:  ["OtherNoninterestExpense"],
+  // Bank-IFRS provision-equivalent. SMFG / MUFG use the official IFRS
+  // concept; ITUB / BBD use a Brazilian-bank custom concept. Same as
+  // miners (BHP, RIO) use for asset impairments, so we extract
+  // separately and gate by industryProfile === "bank" downstream.
+  bankProvisionIFRS:     ["ImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss", "ExpectedLossFromFinancialAssets", "ExpectedCreditLossIncome"],
 
   // Insurance concepts (MET, PGR, AIG, BRK.B). Premiums earned is the
   // top-line; benefits and underwriting expense are the cost side.
@@ -835,7 +1243,7 @@ const IS_CONCEPTS: Record<string, string[]> = {
   // Tagged separately from `daExpense` (which is reserved for the airline /
   // oil-gas / pre-revenue paths). Same concept list — surfaced only when the
   // issuer breaks D&A out as its own opex line.
-  daExpenseStandard:     ["DepreciationAndAmortization", "DepreciationDepletionAndAmortization"],
+  daExpenseStandard:     ["DepreciationAndAmortization", "DepreciationDepletionAndAmortization", "DepreciationAndAmortisationExpense"],
 
   // Oil & gas-specific opex lines. Integrated majors (XOM, CVX) and E&Ps
   // tag these alongside the generic CostsAndExpenses total — surfacing them
@@ -843,7 +1251,7 @@ const IS_CONCEPTS: Record<string, string[]> = {
   // / Exploration / SG&A / Purchases (residual = crude + refined product
   // purchases + production & manufacturing, which aren't tagged separately).
   taxesOther:            ["TaxesOther", "ExciseAndSalesTaxes"],
-  explorationExpense:    ["ExplorationExpense", "ExplorationAbandonmentAndDryHoleCosts"],
+  explorationExpense:    ["ExplorationExpense", "ExplorationAbandonmentAndDryHoleCosts", "ExpenseArisingFromExplorationForAndEvaluationOfMineralResources"],
 };
 
 export interface EdgarIncomeStatement {
@@ -876,6 +1284,14 @@ export interface EdgarIncomeStatement {
   provisionForLoanLosses: number;
   noninterestIncome: number;
   noninterestExpense: number;
+  // Bank Noninterest-Expense decomposition (zero for non-banks).
+  bankCompensation: number;
+  bankTechnology: number;
+  bankProfessional: number;
+  bankOccupancy: number;
+  bankMarketing: number;
+  bankOtherNoninterest: number;
+  bankProvisionIFRS: number;
   // Insurance-specific lines. Zero for non-insurance issuers.
   premiumsEarned: number;
   policyholderBenefits: number;
@@ -931,8 +1347,48 @@ function extractISFromXbrl(
 
   if (plainCtxQ.size === 0) return null;
 
-  // Latest quarterly end date
-  const latestEnd = [...plainCtxQ.values()].map(c => c.end).sort().at(-1)!;
+  // Filter out forward-looking contexts whose end date is strictly in the
+  // future. NTR/Nutrien is the canonical case — pension / impairment
+  // projections under a `FYFutureYear` context dated Dec 31 of next year.
+  const todayMs = Date.now() + 86_400_000; // +1 day grace for timezones
+  for (const [id, c] of plainCtxQ) {
+    if (Date.parse(c.end) > todayMs) plainCtxQ.delete(id);
+  }
+  if (plainCtxQ.size === 0) return null;
+
+  // Restrict candidate end-dates to contexts that actually carry IS data.
+  // Some issuers (CNQ/Canadian Natural is the canonical case) attach a
+  // long-dated rolling-year context (e.g. 2025-03-13 → 2026-03-12 for a
+  // pension assumption / insurance program duration) that satisfies the
+  // 350-380 day window AND has a non-future end date — but contains none
+  // of revenue / cost / profit. Picking it as `latestEnd` would crash the
+  // extractor with rev=0. Anchor the selection to contexts where at least
+  // one canonical IS concept (revenue OR cost-of-sales OR net profit) is
+  // tagged, falling back to the unrestricted latest only when no candidate
+  // has signal — that path matches the prior behavior exactly.
+  const IS_SIGNAL_RE = new RegExp(
+    "<[^:>\\s]+:?(?:" +
+    [
+      "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "RevenueFromContractWithCustomerIncludingAssessedTax",
+      "Revenues", "SalesRevenueNet",
+      "RevenueFromContractsWithCustomers", "Revenue",
+      "CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfSales",
+      "NetIncomeLoss", "ProfitLoss",
+      "OperatingIncomeLoss", "ProfitLossFromOperatingActivities",
+    ].join("|") +
+    ")\\b[^>]*?contextRef=\"([^\"]+)\"[^>]*>-?[0-9]",
+    "g",
+  );
+  const ctxIdsWithISData = new Set<string>();
+  let signalMatch: RegExpExecArray | null;
+  while ((signalMatch = IS_SIGNAL_RE.exec(xml)) !== null) {
+    if (plainCtxQ.has(signalMatch[1])) ctxIdsWithISData.add(signalMatch[1]);
+  }
+  const candidateEnds = ctxIdsWithISData.size > 0
+    ? [...plainCtxQ.entries()].filter(([id]) => ctxIdsWithISData.has(id)).map(([, c]) => c.end)
+    : [...plainCtxQ.values()].map(c => c.end);
+  const latestEnd = candidateEnds.sort().at(-1)!;
   const currentIds = new Set([...plainCtxQ.entries()].filter(([, c]) => c.end === latestEnd).map(([id]) => id));
 
   // Prior year same quarter
@@ -941,12 +1397,65 @@ function extractISFromXbrl(
     .filter(([id, c]) => !currentIds.has(id) && Math.abs((prevEndMs - Date.parse(c.end)) / 86_400_000 - 365) <= 12)
     .map(([id]) => id));
 
+  // ── Resolve unitRef → ISO 4217 currency code ───────────────────────────────
+  // Two filer conventions exist on EDGAR:
+  //   (a) Plain code in unitRef (CCJ/Cameco, NTR/Nutrien, most US filers):
+  //       <ifrs-full:Revenue unitRef="CAD">3481933000</...>
+  //   (b) Opaque GUID in unitRef (SU/Suncor and many issuers using auto-
+  //       generated unit ids): unitRef="Unit_Standard_CAD_GUID" plus a
+  //       separate <unit id="Unit_Standard_CAD_GUID"><measure>iso4217:CAD
+  //       </measure></unit> declaration.
+  // Build a unit_id → ISO code map from the <unit> table so both forms
+  // resolve to the same canonical code, then count occurrences across the
+  // period's monetary facts to pick the dominant reporting currency.
+  const KNOWN_CCY = new Set(["USD","CAD","EUR","GBP","JPY","CHF","CNY","HKD","TWD","KRW","INR","AUD","SGD","BRL","MXN","NOK","SEK","DKK","NZD","ILS","ZAR","RUB"]);
+  const unitToCcy = new Map<string, string>();
+  {
+    const unitRe = /<unit\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/unit>/g;
+    let um: RegExpExecArray | null;
+    while ((um = unitRe.exec(xml)) !== null) {
+      const id = um[1];
+      const body = um[2];
+      // Skip ratio units (Divide structure) — they're not pure monetary
+      // amounts (per-share, per-bbl, etc.). Only single iso4217 measures.
+      if (/<unitNumerator|<unitDenominator/.test(body)) continue;
+      const meas = body.match(/<measure>\s*iso4217:([A-Za-z]{3})\s*<\/measure>/);
+      if (!meas) continue;
+      const code = meas[1].toUpperCase();
+      if (KNOWN_CCY.has(code)) unitToCcy.set(id, code);
+    }
+  }
+  function resolveUnit(unitRef: string): string | null {
+    const direct = unitRef.toUpperCase();
+    if (/^[A-Z]{3}$/.test(direct) && KNOWN_CCY.has(direct)) return direct;
+    return unitToCcy.get(unitRef) ?? null;
+  }
+
+  // ── Detect reporting currency ──────────────────────────────────────────────
+  // Replaces the previous USD-only hard filter that dropped every fact for
+  // foreign-private issuers reporting in CAD (Canadian MJDS 40-F filers —
+  // CCJ/Cameco, NTR/Nutrien, SU/Suncor), EUR (NOK, ASML), GBP, JPY, etc.
+  // Multi-currency disclosures (RYOJ tagging ImpairmentOfIntangibles in
+  // both USD and CNY) remain safe because the accept set restricts to a
+  // single dominant code.
+  const reportingCurrency = (() => {
+    const counts = new Map<string, number>();
+    const monRe = /<[^:>\s]+:[A-Za-z][A-Za-z0-9]+\s[^>]*?contextRef="([^"]+)"[^>]*?unitRef="([^"]+)"[^>]*>-?[0-9]/g;
+    let mm: RegExpExecArray | null;
+    while ((mm = monRe.exec(xml)) !== null) {
+      if (!currentIds.has(mm[1])) continue;
+      const code = resolveUnit(mm[2]);
+      if (!code) continue;
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+    let best = "USD", bestN = 0;
+    for (const [u, n] of counts) {
+      if (n > bestN) { best = u; bestN = n; }
+    }
+    return bestN === 0 ? "USD" : best;
+  })();
+
   // ── Extract concept values ─────────────────────────────────────────────────
-  // Filters by unitRef to USD-only. Multi-currency disclosures occur even on
-  // USD-reporting issuers — RYOJ for example tags ImpairmentOfIntangibles with
-  // both unitRef="USD" and unitRef="CNY" in the same FY context. Without this
-  // filter, document order alone decides which value wins; if the CNY fact
-  // happened to come first, the parser would treat 54.6M CNY as $54.6M USD.
   function firstVal(concepts: string[], ctxSet: Set<string>): number {
     for (const concept of concepts) {
       const re = new RegExp(`<[^:>\\s]+:?${concept}\\b([^>]*?)>(-?[0-9]+)<`, "g");
@@ -956,7 +1465,17 @@ function extractISFromXbrl(
         const ctxM = attrs.match(/contextRef="([^"]+)"/);
         if (!ctxM || !ctxSet.has(ctxM[1])) continue;
         const unitM = attrs.match(/unitRef="([^"]+)"/);
-        if (unitM && !/USD/i.test(unitM[1])) continue;
+        if (unitM) {
+          const code = resolveUnit(unitM[1]);
+          // Reject the fact if the unit either (a) resolves to a different
+          // currency than the reporting one, or (b) is a non-monetary unit
+          // (shares / per-share / pure / utr:* — all return null from
+          // resolveUnit). Issuers occasionally tag share counts and
+          // monetary values with the same concept under dimensional
+          // contexts, and admitting a share count as a dollar amount blows
+          // the chart up.
+          if (code === null || code !== reportingCurrency) continue;
+        }
         return parseInt(hit[2], 10);
       }
     }
@@ -1074,6 +1593,14 @@ function extractISFromXbrl(
   const provisionForLoanLosses = firstVal(IS_CONCEPTS.provisionForLoanLosses, currentIds);
   const noninterestIncome      = noninterestIncomeEarly;
   const noninterestExpense     = firstVal(IS_CONCEPTS.noninterestExpense,     currentIds);
+  // Bank Noninterest-Expense decomposition
+  const bankCompensation     = firstVal(IS_CONCEPTS.bankCompensation,     currentIds);
+  const bankTechnology       = firstVal(IS_CONCEPTS.bankTechnology,       currentIds);
+  const bankProfessional     = firstVal(IS_CONCEPTS.bankProfessional,     currentIds);
+  const bankOccupancy        = firstVal(IS_CONCEPTS.bankOccupancy,        currentIds);
+  const bankMarketing        = firstVal(IS_CONCEPTS.bankMarketing,        currentIds);
+  const bankOtherNoninterest = firstVal(IS_CONCEPTS.bankOtherNoninterest, currentIds);
+  const bankProvisionIFRS    = firstVal(IS_CONCEPTS.bankProvisionIFRS,    currentIds);
   // Insurance
   const premiumsEarned       = premiumsEarnedEarly;
   const policyholderBenefits = firstVal(IS_CONCEPTS.policyholderBenefits, currentIds);
@@ -1126,6 +1653,15 @@ function extractISFromXbrl(
     ? `${(rev - prevRev) / prevRev >= 0 ? "+" : ""}${(((rev - prevRev) / prevRev) * 100).toFixed(0)}% Y/Y`
     : undefined;
 
+  // (IFRS-by-function COGS synthesis removed — derived COGS as
+  // `OperatingExpense − SGA − R&D − D&A`, which assumes those four buckets
+  // exhaust operating expense. Real-world IFRS-by-function statements
+  // include other categories (employee benefits, lease cost, etc.) that
+  // would inflate the synthesised COGS. For a professional report we
+  // surface only the buckets the issuer directly tagged; if the
+  // GP / COGS layer isn't there, the chart shows the issuer's actual
+  // structure (Revenue → OpEx → OpIncome) without inventing one.)
+
   // Period label
   const d  = new Date(latestEnd);
   const q  = Math.floor(d.getUTCMonth() / 3) + 1;
@@ -1135,7 +1671,7 @@ function extractISFromXbrl(
   return {
     period,
     endDate: latestEnd,
-    currency: "USD",
+    currency: reportingCurrency,
     revenue: rev, grossProfit: gp, costOfRevenue: cogs,
     operatingIncome: op, netIncome: ni,
     rd, salesMarketing: sm, generalAdmin: ga, sga, tax,
@@ -1145,6 +1681,7 @@ function extractISFromXbrl(
     costsAndExpenses,
     interestIncome, interestExpense, provisionForLoanLosses,
     noninterestIncome, noninterestExpense,
+    bankCompensation, bankTechnology, bankProfessional, bankOccupancy, bankMarketing, bankOtherNoninterest, bankProvisionIFRS,
     premiumsEarned, policyholderBenefits, underwritingExpense,
     rentalIncome,
     managementFees, performanceFees, compensationExpense,
@@ -1182,12 +1719,17 @@ export interface EdgarAllData {
   incomeStatement: EdgarIncomeStatement;
   segmentResult:   EdgarSegmentResult | null;
   isAnnual:        boolean;
-  // True when the latest annual filing is a 20-F (foreign-private issuer)
-  // rather than a 10-K. Used to label the source as "20-F" instead of "10-K"
-  // and to set user expectations: 20-F filers don't file quarterly statements,
-  // so the most recent IS data is always the annual filing (no Q1/Q2/Q3 to
-  // show until the next 6-K with interim financials lands).
+  // True when the latest annual filing is a foreign-private-issuer annual
+  // (20-F or 40-F) rather than a 10-K. Used to label the source and set
+  // user expectations: foreign annual filers don't file quarterly
+  // statements, so the most recent IS data is always the annual filing
+  // (no Q1/Q2/Q3 to show until the next 6-K with interim financials).
   isForeign:       boolean;
+  // Distinguishes 20-F (international FPIs) from 40-F (Canadian MJDS).
+  // Undefined for 10-K and quarterly filings. Used by fetchSegmentData to
+  // label `source` correctly so the quality check in lib/sankeyQuality.ts
+  // and the UI both reflect the actual filing type.
+  foreignFormType?: "20-F" | "40-F";
   sicCode?:        string;  // 4-digit SIC industry code, used as profile tiebreaker
 }
 
@@ -1221,9 +1763,7 @@ export async function fetchEdgarQuarterlyRevenue(
     // nothing. Only fall through to additional concepts when the running
     // dataset is missing recent quarters — covers concept-switching issuers
     // (3M, CAT) without burning 5 SEC requests on every analysis.
-    const conceptResponses: Array<{
-      units?: { USD?: Array<{ start?: string; end: string; val: number; filed?: string }> };
-    } | null> = [];
+    type ConceptUnits = Record<string, Array<{ start?: string; end: string; val: number; filed?: string }> | undefined>;
     const haveRecentEnough = (): boolean => {
       // Stop fetching once we have at least 4 quarters in the last 18 months
       // — enough to render the chart and back-fill via Q4 = annual − Q1+Q2+Q3.
@@ -1234,65 +1774,77 @@ export async function fetchEdgarQuarterlyRevenue(
       }
       return recent >= 4;
     };
+
+    // ── Currency-flexible fact merging ──────────────────────────────────────────
+    // companyconcept returns facts under `units.{ISO_CURRENCY}` (USD, CAD,
+    // EUR, ...). Most US issuers ship USD-only and the simple `units.USD`
+    // path covers them. Canadian MJDS filers under IFRS (CCJ/Cameco,
+    // NTR/Nutrien, SU/Suncor, ...) tag in CAD, German/EU issuers in EUR,
+    // etc. — without honoring those, the historical revenue chart is
+    // empty for any non-USD reporter. Convert each non-USD fact to USD via
+    // the current FX rate (single-rate approximation; a per-period rate
+    // would be more precise but Frankfurter only exposes latest).
+    const KNOWN_CCY = new Set(["USD","CAD","EUR","GBP","JPY","CHF","CNY","HKD","TWD","KRW","INR","AUD","SGD","BRL","MXN","NOK","SEK","DKK","NZD","ILS","ZAR"]);
+    const fxCache = new Map<string, number | null>();
+    const getRate = async (code: string): Promise<number | null> => {
+      if (code === "USD") return 1;
+      if (fxCache.has(code)) return fxCache.get(code) ?? null;
+      const r = await fetchUsdRate(code);
+      fxCache.set(code, r);
+      return r;
+    };
+    const mergeFact = async (
+      f: { start?: string; end: string; val: number; filed?: string },
+      ccy: string,
+    ) => {
+      if (!f.start || !f.end || f.val <= 0) return;
+      const rate = await getRate(ccy);
+      if (!rate || rate <= 0) return;
+      const usdVal = f.val * rate;
+      const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
+      if (days >= 75 && days <= 110) {
+        const prev = quarterly.get(f.end);
+        if (!prev || (f.filed ?? "") > prev.filed) {
+          quarterly.set(f.end, { val: usdVal, filed: f.filed ?? "", start: f.start });
+        }
+      } else if (days >= 340 && days <= 380) {
+        const prev = annual.get(f.end);
+        if (!prev || (f.filed ?? "") > prev.filed) {
+          annual.set(f.end, { val: usdVal, start: f.start, filed: f.filed ?? "" });
+        }
+      }
+    };
+    const ingestUnits = async (units: ConceptUnits | undefined) => {
+      if (!units) return;
+      for (const [code, facts] of Object.entries(units)) {
+        const upper = code.toUpperCase();
+        if (!KNOWN_CCY.has(upper)) continue;
+        if (!Array.isArray(facts)) continue;
+        for (const f of facts) await mergeFact(f, upper);
+      }
+    };
+
+    // Try the us-gaap concept namespace first (covers most US filers); fall
+    // back to ifrs-full on 404. Foreign-private issuers reporting under IFRS
+    // (Canadian MJDS 40-F, EU 20-F) tag `Revenue` and
+    // `RevenueFromContractsWithCustomers` in the IFRS taxonomy and the
+    // us-gaap endpoint returns 404 for them.
+    const NAMESPACES: Array<"us-gaap" | "ifrs-full"> = ["us-gaap", "ifrs-full"];
     for (const concept of REV_CONCEPTS) {
-      const url = `${DATA_SEC}/api/xbrl/companyconcept/CIK${cikPadded}/us-gaap/${concept}.json`;
-      // companyconcept returns append-only XBRL facts (each filed quarter
-      // is immutable once reported); a long cache TTL is safe and slashes
-      // SEC traffic when multiple tickers reuse cached responses.
-      const r = await secFetch(url, 86400);
-      if (!r.ok) {
-        conceptResponses.push(null);
-        continue;
+      let merged = false;
+      for (const ns of NAMESPACES) {
+        const url = `${DATA_SEC}/api/xbrl/companyconcept/CIK${cikPadded}/${ns}/${concept}.json`;
+        // companyconcept returns append-only XBRL facts (each filed quarter
+        // is immutable once reported); a long cache TTL is safe and slashes
+        // SEC traffic when multiple tickers reuse cached responses.
+        const r = await secFetch(url, 86400);
+        if (!r.ok) continue;
+        const data = (await r.json()) as { units?: ConceptUnits };
+        await ingestUnits(data.units);
+        merged = true;
+        break; // one namespace hit is enough for this concept
       }
-      const data = (await r.json()) as {
-        units?: { USD?: Array<{ start?: string; end: string; val: number; filed?: string }> };
-      };
-      conceptResponses.push(data);
-      // Merge this concept's facts into the running maps so haveRecentEnough()
-      // reflects the full state before deciding to fetch the next concept.
-      const facts = data?.units?.USD;
-      if (Array.isArray(facts)) {
-        for (const f of facts) {
-          if (!f.start || !f.end || f.val <= 0) continue;
-          const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
-          if (days >= 75 && days <= 110) {
-            const prev = quarterly.get(f.end);
-            if (!prev || (f.filed ?? "") > prev.filed) {
-              quarterly.set(f.end, { val: f.val, filed: f.filed ?? "", start: f.start });
-            }
-          } else if (days >= 340 && days <= 380) {
-            const prev = annual.get(f.end);
-            if (!prev || (f.filed ?? "") > prev.filed) {
-              annual.set(f.end, { val: f.val, start: f.start, filed: f.filed ?? "" });
-            }
-          }
-        }
-      }
-      if (haveRecentEnough()) break;
-    }
-
-    // The merge above already populated quarterly/annual; the legacy loop is
-    // a no-op when conceptResponses is freshly built, but kept as a safety
-    // net in case future refactors add other producers of conceptResponses.
-    for (const data of conceptResponses) {
-      const facts = data?.units?.USD;
-      if (!Array.isArray(facts)) continue;
-
-      for (const f of facts) {
-        if (!f.start || !f.end || f.val <= 0) continue;
-        const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
-        if (days >= 75 && days <= 110) {
-          const prev = quarterly.get(f.end);
-          if (!prev || (f.filed ?? "") > prev.filed) {
-            quarterly.set(f.end, { val: f.val, filed: f.filed ?? "", start: f.start });
-          }
-        } else if (days >= 340 && days <= 380) {
-          const prev = annual.get(f.end);
-          if (!prev || (f.filed ?? "") > prev.filed) {
-            annual.set(f.end, { val: f.val, start: f.start, filed: f.filed ?? "" });
-          }
-        }
-      }
+      if (merged && haveRecentEnough()) break;
     }
 
     if (quarterly.size === 0) return null;
@@ -1333,13 +1885,16 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
     const filing = await latestFilingAccession(cik);
     if (!filing) return null;
 
-    const docUrl = await xbrlDocUrl(cik, filing.accession);
+    const [docUrl, labUrl] = await Promise.all([
+      xbrlDocUrl(cik, filing.accession),
+      xbrlLabUrl(cik, filing.accession),
+    ]);
     if (!docUrl) return null;
 
     // Fetch XBRL and labels in parallel — single download
     const [xbrlRes, labelsData] = await Promise.all([
       secFetch(docUrl),
-      loadLabels(docUrl),
+      loadLabels(docUrl, labUrl),
     ]);
     if (!xbrlRes.ok) return null;
 
@@ -1395,12 +1950,13 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
             }
 
             // Sanity guard against concept-tag inconsistencies between the
-            // 10-K and prior 10-Q. If the issuer tags a concept in the annual
-            // filing but uses a different concept (or omits it) in the YTD
-            // filing, the firstVal lookup returns 0 for YTD and the
+            // 10-K and prior 10-Q. If the issuer tags a concept in the
+            // annual filing but uses a different concept (or omits it) in
+            // the YTD filing, the firstVal lookup returns 0 for YTD and the
             // subtraction yields the FULL annual as Q4 — wildly wrong.
-            // Zero suspicious values (annual significant, ytd 0, derived ≈ annual)
-            // and let the Other-Op residual in the Sankey absorb them.
+            // Zero suspicious values (annual significant, ytd 0, derived ≈
+            // annual) — leaves the bucket missing rather than inventing a
+            // ratio-scaled estimate.
             const safeQ4 = (annual: number, ytd: number): number => {
               const derived = annual - ytd;
               if (annual > 0 && ytd === 0 && derived > annual * 0.6) return 0;
@@ -1435,6 +1991,13 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
               provisionForLoanLosses: safeQ4(annualIS.provisionForLoanLosses, ytd.provisionForLoanLosses),
               noninterestIncome:      safeQ4(annualIS.noninterestIncome,      ytd.noninterestIncome),
               noninterestExpense:     safeQ4(annualIS.noninterestExpense,     ytd.noninterestExpense),
+              bankCompensation:       safeQ4(annualIS.bankCompensation,       ytd.bankCompensation),
+              bankTechnology:         safeQ4(annualIS.bankTechnology,         ytd.bankTechnology),
+              bankProfessional:       safeQ4(annualIS.bankProfessional,       ytd.bankProfessional),
+              bankOccupancy:          safeQ4(annualIS.bankOccupancy,          ytd.bankOccupancy),
+              bankMarketing:          safeQ4(annualIS.bankMarketing,          ytd.bankMarketing),
+              bankOtherNoninterest:   safeQ4(annualIS.bankOtherNoninterest,   ytd.bankOtherNoninterest),
+              bankProvisionIFRS:      safeQ4(annualIS.bankProvisionIFRS,      ytd.bankProvisionIFRS),
               premiumsEarned:         safeQ4(annualIS.premiumsEarned,         ytd.premiumsEarned),
               policyholderBenefits:   safeQ4(annualIS.policyholderBenefits,   ytd.policyholderBenefits),
               underwritingExpense:    safeQ4(annualIS.underwritingExpense,    ytd.underwritingExpense),
@@ -1464,6 +2027,12 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
     }
     if (!incomeStatement) return null;
 
+    // (Bucket backfill from annual ratio removed — for ENB-style issuers
+    // whose Q4 quarterly context tags only headline numbers, we no longer
+    // ratio-scale annual buckets to estimate the missing Q4 G&A / D&A /
+    // CostsAndExpenses. The chart shows whatever is directly tagged in
+    // the Q4 context; missing buckets stay missing.)
+
     // ── Segment extraction ──────────────────────────────────────────────────────
     // For segments: try quarterly contexts first (Q4 in 10-K); fall back to annual only
     // when the income statement itself is annual (ensures consistent scale in the Sankey).
@@ -1481,6 +2050,19 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
     if (!segmentResult && incomeStatement.revenue > 0) {
       segmentResult = parseSegmentsFromTextBlock(
         xml, incomeStatement.revenue, usedAnnual, incomeStatement.endDate,
+      );
+    }
+
+    // Customer-concentration fallback for single-segment issuers that
+    // disclose a major-customer concentration percentage but no segment /
+    // product / geography axis (LOPE / Grand Canyon Education: 90.3 % from
+    // Grand Canyon University, no other revenue split). Lower priority than
+    // the dimensional and text-block parsers — only fires when both produce
+    // nothing, since a real segment partition is more informative than a
+    // synthetic customer split.
+    if (!segmentResult && incomeStatement.revenue > 0 && incomeStatement.endDate) {
+      segmentResult = parseConcentrationSegments(
+        xml, labelsData, incomeStatement.revenue, incomeStatement.endDate, usedAnnual,
       );
     }
 
@@ -1534,6 +2116,7 @@ export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null
       incomeStatement, segmentResult,
       isAnnual: filing.isAnnual,
       isForeign: filing.isForeign,
+      foreignFormType: filing.foreignFormType,
       sicCode,
     };
   } catch {

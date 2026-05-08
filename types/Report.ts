@@ -7,7 +7,7 @@ export interface SegmentItem {
   yoy?: string;
 }
 
-export type SankeyDataSource = "10-Q" | "10-K" | "20-F" | "8-K" | "6-K" | "Yahoo";
+export type SankeyDataSource = "10-Q" | "10-K" | "20-F" | "40-F" | "8-K" | "6-K" | "Yahoo";
 
 // Industry-specific render branch. Detected from the income-statement concept
 // signature (see lib/fetchSegmentData.ts:detectIndustryProfile). The renderer
@@ -80,6 +80,17 @@ export interface SegmentSankeyData {
     // (airline / oil-gas / pre-revenue paths) so we don't accidentally render
     // it twice when a profile reclassifies.
     depreciationStandard?: number;
+    // Bank-profile Noninterest-Expense decomposition. Surfaced as sub-nodes
+    // off the "Noninterest Exp." parent in the bank-profile renderer when
+    // the issuer tags these IS lines (JPM / BAC / WFC / C / RF, ...). Sum
+    // of populated buckets ≤ noninterestExpense; remainder shows as
+    // "Other" inside the bank parent.
+    bankCompensation?: number;
+    bankTechnology?: number;
+    bankProfessional?: number;
+    bankOccupancy?: number;
+    bankMarketing?: number;
+    bankOtherNoninterest?: number;
   };
   // Bank-specific (industryProfile = "bank")
   interestIncome?: number;

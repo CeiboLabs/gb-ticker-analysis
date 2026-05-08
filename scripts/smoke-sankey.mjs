@@ -51,6 +51,26 @@ const MATRIX = [
   // Services (V, MA, ADP)
   { ticker: "V",    expectedAirline: false, expectedProfile: "services" },
   { ticker: "MA",   expectedAirline: false, expectedProfile: "services" },
+  // Canadian MJDS 40-F (added in this session)
+  { ticker: "CCJ",  expectedAirline: false },                                           // Cameco — 6-K Q1 quarterly via press release
+  { ticker: "NTR",  expectedAirline: false, expectedProfile: "standard" },              // Nutrien — 40-F annual
+  { ticker: "SU",   expectedAirline: false, expectedProfile: "oil-gas" },               // Suncor
+  { ticker: "TD",   expectedAirline: false, expectedProfile: "bank" },                  // TD Bank
+  { ticker: "RY",   expectedAirline: false, expectedProfile: "bank" },                  // Royal Bank of Canada
+  { ticker: "BNS",  expectedAirline: false, expectedProfile: "bank" },                  // Scotiabank
+  // 20-F IFRS issuers (added in this session)
+  { ticker: "TM",   expectedAirline: false, expectedProfile: "services" },              // Toyota — 20-F IFRS by-function
+  { ticker: "MUFG", expectedAirline: false, expectedProfile: "bank" },                  // Mitsubishi UFJ
+  { ticker: "SMFG", expectedAirline: false, expectedProfile: "bank" },                  // Sumitomo Mitsui
+  { ticker: "HDB",  expectedAirline: false, expectedProfile: "bank" },                  // HDFC Bank
+  { ticker: "ITUB", expectedAirline: false, expectedProfile: "bank" },                  // Itaú Unibanco — IFRS InterestAndSimilar
+  { ticker: "PBR",  expectedAirline: false, expectedProfile: "standard" },              // Petrobras
+  { ticker: "ASML", expectedAirline: false, expectedProfile: "standard" },              // ASML — 6-K Q4
+  { ticker: "NOK",  expectedAirline: false, expectedProfile: "standard" },              // Nokia — 6-K Q4
+  { ticker: "TSM",  expectedAirline: false, expectedProfile: "standard" },              // Taiwan Semi — TWD via static rate
+  { ticker: "BABA", expectedAirline: false, expectedProfile: "standard" },              // Alibaba — 6-K
+  { ticker: "NIO",  expectedAirline: false, expectedProfile: "standard" },              // NIO — 6-K
+  { ticker: "NVO",  expectedAirline: false, expectedProfile: "standard" },              // Novo Nordisk — 6-K DKK
 ];
 
 const AIRLINE_KEYS = ["fuel", "salariesWages", "maintenance", "rentAndLanding", "depreciation"];

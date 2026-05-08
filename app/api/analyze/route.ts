@@ -262,13 +262,18 @@ function buildSankeyFrom8K(
   const sga = s.sellingGeneralAdministrative ?? 0;
   // Issuers that split S&M and G&A into separate IS lines (BABA, NIO, JD,
   // PDD, BIDU, …) populate `salesMarketing` and `generalAdmin` directly.
-  // When both are present we render them as two distinct opex buckets;
-  // otherwise we fall back to the combined SG&A line as a single bucket.
+  // Surface whichever values are present; fall back to the combined SG&A
+  // line as a single bucket only when BOTH split values are zero. The
+  // earlier all-or-nothing condition (`smRaw > 0 && gaRaw > 0`) silently
+  // dropped G&A whenever S&M was missing — Cameco's peer Agnico Eagle
+  // reports `generalAdmin: 77.85M` with no separate S&M line and ended up
+  // showing only `salesMarketing` (from a tiny stray match) plus a huge
+  // unstructured "Other" residual.
   const smRaw = s.salesMarketing ?? 0;
   const gaRaw = s.generalAdmin ?? 0;
-  const splitSga = smRaw > 0 && gaRaw > 0;
-  const sm = splitSga ? smRaw : sga;
-  const ga = splitSga ? gaRaw : 0;
+  const eitherSplit = smRaw > 0 || gaRaw > 0;
+  const sm = eitherSplit ? smRaw : sga;
+  const ga = eitherSplit ? gaRaw : 0;
   // Airline detection: US carriers (AAL/DAL/UAL/LUV...) report fuel + labor
   // as top-level IS lines (no GP/COGS layer). IFRS-by-function carriers
   // (LATAM/LTM) report a single Cost-of-Sales line and break it down by
@@ -862,11 +867,33 @@ export async function POST(req: NextRequest) {
             // come from an older filing than the headline numbers.
             override.segmentPeriod = segmentData.segmentPeriod ?? segmentData.period;
           }
+
+          // (Annual-ratio proxy for missing op income / tax / opex
+          // breakdown removed — produced estimated values, not real
+          // quarterly data. When a press release exposes only Revenue /
+          // GP / NI (Cameco-style "Highlights" table), we now show
+          // exactly that without inventing the missing structure.)
         }
       }
       if (!override) {
-        override = buildSankeyFromYahooQuarter(stockData);
-        if (override) pickedFrom = "yahoo_fallback";
+        // Don't drop a working FPI annual (20-F / 40-F) for Yahoo's
+        // segmentless interim. The override branch above only fires when
+        // the 6-K/8-K parser returned a usable IS; if it did NOT and we
+        // already have a parsed annual XBRL with segments, keeping it gives
+        // the user real segment breakdowns and accurate opex bucketing — at
+        // the cost of a slightly older period (e.g. FY2025 vs Yahoo's Q1
+        // 2026). Yahoo's quarterly path produces empty segments and
+        // TTM-margin estimates, which for Canadian MJDS filers (CCJ, NTR,
+        // GOLD, SU, ...) is strictly worse than the 40-F XBRL we just
+        // parsed. Limited to FPI annuals (20-F / 40-F) so US 10-Q stale
+        // detection still routes to Yahoo when appropriate.
+        const isFpiAnnualWithSegments = segmentData
+          && (segmentData.source === "20-F" || segmentData.source === "40-F")
+          && segmentData.totalRevenue > 0;
+        if (!isFpiAnnualWithSegments) {
+          override = buildSankeyFromYahooQuarter(stockData);
+          if (override) pickedFrom = "yahoo_fallback";
+        }
       }
       if (override) {
         segmentData = override;
@@ -884,6 +911,36 @@ export async function POST(req: NextRequest) {
       const h2 = await deriveH2FromAnnualAnd6K(segmentData, edgar8K);
       if (h2) segmentData = h2;
     }
+
+    // Final boundary normalization: ensure segment values sum exactly to
+    // totalRevenue so the Sankey's input ribbons fill the Revenue node
+    // completely. The outflow side (gp + cogs) is forced to equal rev by the
+    // chart itself (cogs = rev − gp), so any mismatch on the inflow side
+    // leaves visible dead space at the top of the Revenue bar (CCJ-style
+    // case the user flagged: 8-K override scales annual segments by
+    // override.totalRevenue / segmentData.totalRevenue, but the per-segment
+    // toFixed(2) rounding leaves the sum 0.4% short of override.totalRevenue).
+    // Skip when the gap is large (>1.5% — likely a real untagged residual the
+    // upstream backfill should have caught, scaling would distort proportions).
+    if (segmentData
+        && segmentData.totalRevenue > 0
+        && segmentData.segments && segmentData.segments.length > 0) {
+      const segSum = segmentData.segments.reduce((s, x) => s + Number(x.value), 0);
+      const target = Number(segmentData.totalRevenue);
+      if (segSum > 0
+          && Math.abs(segSum - target) > 0.005
+          && Math.abs(segSum - target) <= target * 0.015) {
+        const factor = target / segSum;
+        segmentData = {
+          ...segmentData,
+          segments: segmentData.segments.map((s) => ({
+            ...s,
+            value: parseFloat((Number(s.value) * factor).toFixed(2)),
+          })),
+        };
+      }
+    }
+
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("no está listado")) {

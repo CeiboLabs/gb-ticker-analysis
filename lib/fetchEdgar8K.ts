@@ -429,6 +429,33 @@ const KEYWORDS: Record<string, RegExp[]> = {
     // negative. Anchored so "Net (loss)/profit attributable to ordinary
     // shareholders" sub-lines don't shadow the consolidated total.
     /^net\s+\(loss\)\s*\/\s*(?:profit|income)(?:\s+\d+)?\s*:?\s*$/i,
+    // BHP / Rio Tinto / EU IFRS issuers use "Attributable profit" or
+    // "Profit attributable to (owners of parent / equity holders)" as
+    // the bottom-line consolidated NI in their H1 / FY summary tables.
+    /^(?:attributable\s+profit|profit\s+attributable\s+to)\b/i,
+  ],
+  // ── Score-only signals (not extracted as values) ────────────────────────────
+  // Two categories that flag a real earnings-summary table without being IS
+  // line items per se. Used to lift the score of compact "Highlights"
+  // tables that mid-cap IFRS issuers (Cameco's Q1 6-K is the canonical
+  // case) ship in lieu of a full Cost-of-Revenue / Operating-Income / Tax
+  // breakdown. Without these, Cameco's table 12 ({Revenue, Gross profit,
+  // Net earnings, EPS basic, EPS diluted, Adjusted EBITDA}) only counted
+  // {totalRevenue, grossProfit, netIncome} = 3 against a threshold of 4
+  // and the parser bailed.
+  // The downstream lineValue extractor never looks these up, so adding
+  // them here only affects scoring. EPS regex uses `\bper\s+(?:common|
+  // ordinary\s+)?share\b` — distinct enough that it doesn't false-match
+  // segment / debt / share-count tables. EBITDA covers both raw and
+  // Adjusted EBITDA, which appear in highlights tables but rarely in
+  // non-IS schedules.
+  earningsPerShare: [
+    /\bper\s+(?:common\s+|ordinary\s+)?share\b/i,
+    /\bearnings\s+per\s+share\b/i,
+    /\beps\b/i,
+  ],
+  ebitda: [
+    /\b(?:adjusted\s+)?ebitda\b/i,
   ],
   // Airline-specific opex lines. US carriers (AAL, DAL, UAL, LUV...) break out
   // fuel + labor as their two largest cost buckets in lieu of a Gross-Profit /
@@ -649,10 +676,24 @@ function detectScale(tableHtml: string, rows: string[][], docHtml?: string, tabl
   // "millions of barrels".
   const earliestUnit = (text: string): number | null => {
     const matches: Array<{ idx: number; scale: number }> = [];
-    const re = /\b(?:(?:in\s+|^)(thousands|millions|billions)\b|(thousands|millions|billions)\s+of\s+(?:dollars|usd|us\s+dollars|euros?|eur|pounds?|gbp|swiss\s+francs?|chf|yen|jpy|yuan|rmb|cny)|(?:USD|EUR|GBP|CHF|JPY|CNY|RMB|HKD|TWD|NTD|[$€£¥]|euros?|dollars?|pounds?|francs?|yen|yuan|renminbi)\s+(thousands?|millions?|billions?))/gi;
+    // Note: the symbol branch ($/€/£/¥) is separated out from the main
+    // alternation because `\b` at the front of `\b[$€£¥]` fails to match
+    // when the symbol is preceded by another non-word character — e.g.,
+    // Cameco's table 12 header reads "($ MILLIONS EXCEPT WHERE INDICATED)"
+    // where the `(` immediately before `$` means there's no word/non-word
+    // transition for `\b` to anchor to. Keeping the `\b` for the
+    // letter-token branch (USD, EUR, etc.) but using a separate
+    // symbol-prefix branch avoids the silent miss.
+    // The "X of Y" branch must accept regional dollar qualifiers — RY's
+    // earnings press release uses "(Millions of Canadian dollars)" inside
+    // its IS table, which the bare `dollars|usd|...` alternation didn't
+    // match. Add optional `(?:canadian|us|u\.s\.|hong\s+kong|new\s+taiwan|
+    // australian|singapore)\s+` before `dollars`.
+    const re = /\b(?:(?:in\s+|^)(thousands|millions|billions)\b|(thousands|millions|billions)\s+of\s+(?:(?:canadian|us|u\.s\.|hong\s+kong|new\s+taiwan|australian|singapore)\s+)?(?:dollars|usd|us\s+dollars|euros?|eur|pounds?|gbp|swiss\s+francs?|chf|yen|jpy|yuan|rmb|cny)|(?:USD|EUR|GBP|CHF|JPY|CNY|RMB|HKD|TWD|NTD|euros?|dollars?|pounds?|francs?|yen|yuan|renminbi)\s+(thousands?|millions?|billions?))|[$€£¥]\s+(thousands?|millions?|billions?)/gi;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
-      const word = (m[1] ?? m[2] ?? m[3]).toLowerCase().replace(/s$/, "");
+      // m[4] is the new symbol-prefix capture (`[$€£¥]\s+(thousands?|...)`).
+      const word = (m[1] ?? m[2] ?? m[3] ?? m[4]).toLowerCase().replace(/s$/, "");
       const scale = word === "thousand" ? 1_000 : word === "million" ? 1_000_000 : 1_000_000_000;
       matches.push({ idx: m.index, scale });
     }
@@ -727,7 +768,14 @@ function detectCurrency(tableHtml: string, docHtml?: string, tableStart?: number
     // forms ("NT$", "HK$", "C$") get region-specific codes.
     // €/£ are unambiguous (no regional variants), so RYAAY-style "€M"
     // table headers map directly to EUR/GBP without needing a unit word.
-    const re = /\b(USD|EUR|GBP|CHF|JPY|CNY|RMB|HKD|TWD|NTD|CAD|AUD|SGD|INR|KRW|BRL|MXN)\b|(?:\bnew\s+taiwan\s+dollars?|\bnt\s*dollars?|NT\$)|(?:\bhong\s+kong\s+dollars?|HK\$)|(?:\bcanadian\s+dollars?|CDN\$|C\$)|(?:\baustralian\s+dollars?|AU?\$)|(?:\bsingapore\s+dollars?|S\$)|(?:\bus\s+dollars?|\bu\.s\.\s+dollars?|US\$)|\b(dollars?|euros?|pounds?\s+sterling|pounds?|swiss\s+francs?|francs?|yen|yuan|renminbi|rupees?|won|reais?)\b|(€|£)/gi;
+    // GBP detection requires "pounds sterling" or "£" / "GBP" — bare
+    // "pounds" is too ambiguous because uranium / commodity issuers
+    // (Cameco's Q1 6-K is the canonical case) use "million pounds of U3O8"
+    // as a mass unit, not currency. Without this restriction Cameco's
+    // press release matched "pounds" inside the preceding 4000-char
+    // window before "Canadian dollars" reached the fallback fullText scan,
+    // and the chart rendered Cameco's CAD numbers as if they were GBP.
+    const re = /\b(USD|EUR|GBP|CHF|JPY|CNY|RMB|HKD|TWD|NTD|CAD|AUD|SGD|INR|KRW|BRL|MXN)\b|(?:\bnew\s+taiwan\s+dollars?|\bnt\s*dollars?|NT\$)|(?:\bhong\s+kong\s+dollars?|HK\$)|(?:\bcanadian\s+dollars?|CDN\$|C\$)|(?:\baustralian\s+dollars?|AU?\$)|(?:\bsingapore\s+dollars?|S\$)|(?:\bus\s+dollars?|\bu\.s\.\s+dollars?|US\$)|\b(dollars?|euros?|pounds?\s+sterling|swiss\s+francs?|francs?|yen|yuan|renminbi|rupees?|won|reais?)\b|(€|£)/gi;
     let first: { idx: number; code: string } | null = null;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
@@ -766,6 +814,42 @@ function detectCurrency(tableHtml: string, docHtml?: string, tableStart?: number
     }
     return first?.code ?? null;
   };
+
+  // ── Priority 0: declarative reporting-currency phrase anywhere in doc ───────
+  // Most filings declare the reporting currency ONCE at the top with
+  // phrases like "All amounts in Canadian dollars" (Cameco 40-F / 6-K),
+  // "in millions of euros" (NOK), "expressed in U.S. dollars". These
+  // declarations are unambiguous — when present, they trump any currency
+  // token that happens to appear earlier within a 4000-char preceding
+  // window. Cameco's press release contains "pounds of U3O8" and
+  // "US$49 million from Westinghouse" both before the IS table, both of
+  // which the position-based fallback would wrongly pick.
+  if (docHtml) {
+    const fullText = decodeEntities(docHtml.replace(/<[^>]+>/g, " "));
+    const declRe = /(?:all\s+amounts?(?:\s+(?:are|in))?(?:\s+expressed)?(?:\s+in)?|amounts(?:\s+are)?\s+(?:expressed\s+)?in|in\s+(?:millions?|thousands?|billions?)\s+of|expressed\s+in|reporting\s+currency\s*(?:[:\-—–]|is)?)\s*(?:the\s+)?(US\s+|U\.S\.\s+|new\s+taiwan\s+|hong\s+kong\s+|canadian\s+|australian\s+|singapore\s+)?(dollars?|euros?|pounds?\s+sterling|swiss\s+francs?|yen|yuan|renminbi|rupees?|won|reais?)/i;
+    const dm = fullText.match(declRe);
+    if (dm) {
+      const region = (dm[1] ?? "").toLowerCase().trim();
+      const unit   = dm[2].toLowerCase();
+      let declCode: string | null = null;
+      if (unit.startsWith("dollar")) {
+        if (region.startsWith("canadian"))                 declCode = "CAD";
+        else if (region.startsWith("australian"))          declCode = "AUD";
+        else if (region.startsWith("singapore"))           declCode = "SGD";
+        else if (region.startsWith("hong"))                declCode = "HKD";
+        else if (region.startsWith("new taiwan"))          declCode = "TWD";
+        else                                                declCode = "USD";
+      } else if (unit.startsWith("euro"))                  declCode = "EUR";
+      else if (unit.startsWith("pound"))                   declCode = "GBP";
+      else if (unit.startsWith("swiss") || /franc/.test(unit)) declCode = "CHF";
+      else if (unit === "yen")                             declCode = "JPY";
+      else if (unit === "yuan" || unit === "renminbi")     declCode = "CNY";
+      else if (unit.startsWith("rupee"))                   declCode = "INR";
+      else if (unit === "won")                             declCode = "KRW";
+      else if (unit.startsWith("rea") || unit === "real")  declCode = "BRL";
+      if (declCode) return declCode;
+    }
+  }
 
   // Decode HTML entities before sampling — RYAAY-style filings encode the
   // currency marker as &#x20AC; (€) or &#xA3; (£), which would slip past
@@ -1284,12 +1368,19 @@ function extractIfrsSegmentsFromText(
 }
 
 function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
+  // Capture the best table AND the top supplementary tables for cross-table
+  // value lookup. Some IFRS issuers (Cameco's Q1 6-K is the canonical case)
+  // ship a compact "Highlights" table with Revenue / GP / NI plus a
+  // separate segment-reconciliation table elsewhere that carries the
+  // detailed tax / D&A / SBC numbers. The best-table-only walk would miss
+  // those and force the chart to fall back to scaled annual proxies.
   const findBestTable = (allowMultiline: boolean) => {
     const tableRe = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
     let bestRows: string[][] | null = null;
     let bestScore = 0;
     let bestHtml = "";
     let bestStart = 0;
+    const supplementary: Array<{ rows: string[][]; score: number }> = [];
     let m: RegExpExecArray | null;
     while ((m = tableRe.exec(html)) !== null) {
       const tableHtml = m[0];
@@ -1297,22 +1388,29 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
       if (rows.length < 5) continue;
       const score = scoreTable(rows);
       if (score > bestScore) {
+        // Demote previous best to supplementary if it scored well enough.
+        if (bestRows && bestScore >= 3) supplementary.push({ rows: bestRows, score: bestScore });
         bestScore = score;
         bestRows  = rows;
         bestHtml  = tableHtml;
         bestStart = m.index;
+      } else if (score >= 3) {
+        supplementary.push({ rows, score });
       }
     }
-    return { bestRows, bestScore, bestHtml, bestStart };
+    // Sort supplementary tables by descending score so cross-table lookup
+    // tries the most-IS-like ones first.
+    supplementary.sort((a, b) => b.score - a.score);
+    return { bestRows, bestScore, bestHtml, bestStart, supplementary };
   };
 
   // First pass: only standard <tr>/<td> tables. The multi-line text-table
   // fallback is too lossy when adjacent 3-digit columns get merged as one
   // value (e.g., "Profit before tax 599 948 915" → 599948915). Run it only
   // if no structured table cleared the threshold of 4 unique line items.
-  let { bestRows, bestScore, bestHtml, bestStart } = findBestTable(false);
+  let { bestRows, bestScore, bestHtml, bestStart, supplementary } = findBestTable(false);
   if (!bestRows || bestScore < 4) {
-    ({ bestRows, bestScore, bestHtml, bestStart } = findBestTable(true));
+    ({ bestRows, bestScore, bestHtml, bestStart, supplementary } = findBestTable(true));
   }
   if (!bestRows || bestScore < 4) return null;
 
@@ -1469,6 +1567,97 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
       }
     }
     return null;
+  };
+
+  // ── Column-anchored multi-table fallback ────────────────────────────────────
+  // For specific high-value missing line items (Tax / Op Income / Income
+  // Before Tax), scan supplementary tables for a row matching the
+  // KEYWORDS regex AND extract the value from the column whose header
+  // matches /total|consolidated|combined/. Cameco's Q1 6-K is the
+  // canonical case: the Highlights table exposes only Revenue / GP / NI,
+  // but Tabla 21 (segment-level reconciliation: Uranium / Fuel Services
+  // / Westinghouse / Other / TOTAL) carries the consolidated tax + op
+  // income in the rightmost column. The earlier naïve `splitRow`-based
+  // fallback returned per-segment values from the leftmost column —
+  // hence the column-anchor here.
+  const lineValueFromSupplementary = (
+    label: LineKey,
+  ): number | null => {
+    const patterns = KEYWORDS[label as LineKey];
+    if (!patterns) return null;
+    for (const supp of supplementary) {
+      // Compact each row: drop empty cells and standalone $/year markers.
+      // Counting non-empty cells, identify the column index `valueCol` of
+      // the header cell whose text matches /total|consolidated/. Then for
+      // each data row, the value at that same compacted-index is the
+      // consolidated total. Cameco's Tabla 21 header is `[($ MILLIONS),
+      // URANIUM 1, FUEL SERVICES, WESTINGHOUSE, OTHER, TOTAL]` — 5 value
+      // columns; "TOTAL" is at compacted-index 5 (the 6th cell counting
+      // from 0). Data row [Income taxes, —, —, —, 32, 32] has the same
+      // structure, so values[5] = 32.
+      const compact = (row: string[]) =>
+        row.map(c => c?.trim() ?? "").filter(c => {
+          if (!c) return false;
+          if (/^[$€£¥₹]+$/.test(c)) return false;
+          if (/^\d{4}$/.test(c) && parseInt(c, 10) >= 1990 && parseInt(c, 10) <= 2100) return false;
+          return true;
+        });
+      let valueCol = -1;
+      for (let r = 0; r < Math.min(6, supp.rows.length); r++) {
+        const hdr = compact(supp.rows[r]);
+        for (let c = 0; c < hdr.length; c++) {
+          if (/^(total|consolidated|combined|grand\s*total)$/i.test(hdr[c])) {
+            valueCol = c;
+            break;
+          }
+        }
+        if (valueCol >= 0) break;
+      }
+      if (valueCol < 0) continue;
+      for (const row of supp.rows) {
+        const cells = compact(row);
+        // Build label from leading non-numeric, non-dash cells. "—" / "-"
+        // cells parse as null and would otherwise inflate the label
+        // ("Income taxes — — —"), breaking anchored regex matches that
+        // expect "Income taxes" at end of string.
+        const isDash = (s: string) => /^[—–\-]+$/.test(s.trim());
+        let lab = "";
+        let firstNumIdx = -1;
+        for (let i = 0; i < cells.length; i++) {
+          if (isDash(cells[i])) {
+            // Marks a value column with no value for this row — treat as
+            // numeric (we've left the label region). Set firstNumIdx so
+            // the loop exits and the rest of cells[] is treated as data.
+            firstNumIdx = i;
+            break;
+          }
+          const n = parseNumber(cells[i]);
+          if (n !== null) { firstNumIdx = i; break; }
+          lab = lab ? `${lab} ${cells[i]}` : cells[i];
+        }
+        if (!lab || firstNumIdx < 0) continue;
+        if (!patterns.some((re) => re.test(lab))) continue;
+        // valueCol is in the *same* compacted index space; just read it.
+        const cell = cells[valueCol];
+        if (!cell || isDash(cell)) continue;
+        const n = parseNumber(cell);
+        if (n !== null) return Math.abs(n);
+      }
+    }
+    return null;
+  };
+  const lineValueWithFallback = (label: LineKey): number | null => {
+    const v = lineValue(label);
+    if (v !== null) return v;
+    // Only use the cross-table fallback for `incomeTaxExpense` — the
+    // single line-item with an unambiguous label across reconciliation
+    // tables. operatingIncome / incomeBeforeTax KEYWORDS regexes also
+    // match Cameco-style "Net earnings (loss) before income taxes" rows
+    // in segment-reconciliation tables, but those rows are non-IFRS
+    // segment metrics that bridge to consolidated NI (not standard IBT
+    // / OpIncome) — so the totalCol value gives the wrong number.
+    if (label !== "incomeTaxExpense") return null;
+    return lineValueFromSupplementary(label);
   };
 
   const rev = lineValue("totalRevenue");
@@ -1734,7 +1923,7 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
     operatingIncome:               nullableMul(lineValue("operatingIncome"), scale),
     interestExpense:               absExp(lineValue("interestExpense")),
     incomeBeforeTax:               nullableMul(lineValue("incomeBeforeTax"), scale),
-    incomeTaxExpense:              absExp(lineValue("incomeTaxExpense")),
+    incomeTaxExpense:              absExp(lineValueWithFallback("incomeTaxExpense")),
     netIncome:                     ni * scale,
     aircraftFuel,
     salariesWages,
