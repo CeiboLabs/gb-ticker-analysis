@@ -1144,7 +1144,13 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   // and its label renders ABOVE the bar, so the 200px reservation becomes
   // visible dead space to the left of Revenue. Shrink the left margin in that
   // case so Revenue isn't suspended in empty canvas.
-  const layoutLeft = displaySegs.length > 0 ? SEG_LEFT : 40;
+  //
+  // Pre-revenue / loss-period cases also place LEFT-side-labeled nodes at
+  // column 0 (cost buckets feeding into Net Loss for pre-revenue; "loss" /
+  // "nonop" co-sources alongside Revenue for treatAsLoss). Those nodes get
+  // added to segNodeIds so the label renderer treats them as segment-style;
+  // honor that here so their labels don't render off the left edge.
+  const layoutLeft = displaySegs.length > 0 || segNodeIds.size > 0 ? SEG_LEFT : 40;
   const layout = d3Sankey<SNode, SLink>()
     .nodeId((n) => n.id)
     .nodeAlign(lossHandled ? lossAware : sankeyCenter)

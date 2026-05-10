@@ -190,10 +190,55 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
   const hasIntradayTimes =
     !!prices && prices.length > 0 && typeof prices[0].time === "number";
 
-  const effectiveRevenue = useMemo(
-    () => (range === "3Y" ? quarterlyRevenue ?? null : null),
-    [quarterlyRevenue, range],
-  );
+  const effectiveRevenue = useMemo(() => {
+    if (range !== "3Y" || !quarterlyRevenue || quarterlyRevenue.length === 0) {
+      return null;
+    }
+    // Pad sparse series with $0-valued quarter-end placeholders. Pre-revenue
+    // tickers (SOC, NextDecade-style biotechs, etc.) have only one or two
+    // populated quarters in the chart range and the upstream pipeline drops
+    // the zero-revenue quarters. Without filler entries the lone populated
+    // bar has no neighbors → QuarterBarSeries falls back to one-trading-day
+    // width (~4–8px). With fillers, the gap between the populated bar and
+    // adjacent zero-bars gives the true quarter pixel width, and the renderer
+    // skips drawing zero bars (height < 1) so the chart still looks clean.
+    const sorted = [...quarterlyRevenue].sort((a, b) => a.time.localeCompare(b.time));
+    const gaps: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      gaps.push((Date.parse(sorted[i].time) - Date.parse(sorted[i - 1].time)) / 86_400_000);
+    }
+    gaps.sort((a, b) => a - b);
+    const cadenceDays = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 91;
+    // Clamp the filler range to the price series' actual span. SOC IPO'd via
+    // SPAC in mid-2024 so its price history is ~2 years, not the full 3 the
+    // range button advertises. Extending the time scale beyond the price
+    // data with fillers would force lightweight-charts to widen the scale,
+    // pushing the real bar away from its calendar position.
+    const earliestMs = Date.parse(sorted[0].time);
+    const latestMs = Date.parse(sorted[sorted.length - 1].time);
+    const earliestPrice = prices && prices.length > 0 ? prices[0].time : null;
+    const earliestPriceMs = (() => {
+      if (earliestPrice == null) return null;
+      if (typeof earliestPrice === "string") return Date.parse(earliestPrice);
+      // Intraday timestamps are seconds since epoch; for the 3Y range we
+      // expect string dates, but defend against the Unix-seconds shape too.
+      return Number(earliestPrice) * 1000;
+    })();
+    const threeYearsBack = latestMs - 3 * 365 * 86_400_000;
+    const minMs = earliestPriceMs != null
+      ? Math.max(earliestPriceMs, threeYearsBack)
+      : threeYearsBack;
+    const existingTimes = new Set(sorted.map((q) => q.time));
+    const fillers: typeof sorted = [];
+    const stepMs = cadenceDays * 86_400_000;
+    for (let t = earliestMs - stepMs; t >= minMs; t -= stepMs) {
+      const date = new Date(t).toISOString().slice(0, 10);
+      if (!existingTimes.has(date)) {
+        fillers.push({ time: date, value: 0 });
+      }
+    }
+    return [...sorted, ...fillers].sort((a, b) => a.time.localeCompare(b.time));
+  }, [quarterlyRevenue, range, prices]);
   const showRevenue = !!effectiveRevenue && effectiveRevenue.length > 0;
 
   // Reset pinned markers when the displayed range changes — comparing a 3Y

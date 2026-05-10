@@ -97,6 +97,10 @@ export class QuarterBarSeries
 
     // Compute median gap so we can cap bars that appear double-wide due to
     // missing quarters (e.g. Q4 absent when EDGAR only has the annual 10-K context).
+    // The bars array includes whitespace placeholders for empty quarters
+    // (sparse pre-revenue tickers like SOC), so the gap between the rendered
+    // bar and an adjacent whitespace placeholder gives the true quarter width
+    // even when only one quarter has revenue.
     const gaps: number[] = [];
     for (let i = visibleRange.from + 1; i <= visibleRange.to; i++) {
       const b = bars[i], pb = bars[i - 1];
@@ -114,6 +118,10 @@ export class QuarterBarSeries
       const nextBar = bars[i + 1];
 
       if (!bar) continue;
+      // Skip whitespace placeholders (no value) — they exist only so adjacent
+      // populated quarters get a correct prev/next gap for the width math.
+      const value = (bar.originalData as { value?: number }).value;
+      if (value === undefined || value === null) continue;
 
       // Each bar spans from the PREVIOUS quarter's close to THIS quarter's close,
       // so Q4 2025 (x = Dec 31) occupies the Oct–Dec space, not Jan–Mar.
@@ -130,7 +138,7 @@ export class QuarterBarSeries
       const barWidth = quarterWidth * 0.8;
       const barX     = leftEdge + quarterWidth * 0.1;
 
-      rendered.push({ x: barX, width: barWidth, value: bar.originalData.value });
+      rendered.push({ x: barX, width: barWidth, value });
     }
 
     this._renderer.setBars(rendered, options.color);
