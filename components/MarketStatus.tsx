@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { getMarketStatus, type MarketStatus as Status } from "@/lib/marketHours";
 
 interface Props {
@@ -18,15 +18,35 @@ const DAY_ABBR: Record<string, string> = {
   domingo: "Dom",
 };
 
+// useSyncExternalStore needs a stable snapshot reference between polls so it
+// doesn't re-render when the underlying values haven't changed. Cache the
+// last result and only return a new object when fields actually differ.
+let cachedSnapshot: Status | null = null;
+function snapshot(): Status {
+  const next = getMarketStatus();
+  if (
+    cachedSnapshot &&
+    cachedSnapshot.isOpen === next.isOpen &&
+    cachedSnapshot.sessionOpen === next.sessionOpen &&
+    cachedSnapshot.sessionClose === next.sessionClose &&
+    cachedSnapshot.sessionIsToday === next.sessionIsToday &&
+    cachedSnapshot.sessionDayLabel === next.sessionDayLabel &&
+    cachedSnapshot.label === next.label &&
+    cachedSnapshot.detail === next.detail
+  ) {
+    return cachedSnapshot;
+  }
+  cachedSnapshot = next;
+  return next;
+}
+function subscribe(onChange: () => void): () => void {
+  const id = setInterval(onChange, 30_000);
+  return () => clearInterval(id);
+}
+
 export function MarketStatus({ tone = "light" }: Props) {
-  const [status, setStatus] = useState<Status | null>(null);
-
-  useEffect(() => {
-    setStatus(getMarketStatus());
-    const id = setInterval(() => setStatus(getMarketStatus()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
+  // Server-side snapshot is null so SSR renders nothing — same as before.
+  const status = useSyncExternalStore<Status | null>(subscribe, snapshot, () => null);
   if (!status) return null;
 
   const dark = tone === "dark";

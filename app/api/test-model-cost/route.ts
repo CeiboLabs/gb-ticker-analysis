@@ -3,9 +3,12 @@ import { fetchStockData } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
+import { requireAdminToken } from "@/lib/adminAuth";
+import { normalizeTicker } from "@/lib/validators";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // USD per 1M tokens. Reasoning tokens are billed as output.
 const PRICING: Record<string, { in: number; out: number }> = {
@@ -109,12 +112,28 @@ async function callModel(model: string, systemPrompt: string, userPrompt: string
 }
 
 export async function GET(req: NextRequest) {
-  const ticker = req.nextUrl.searchParams.get("ticker")?.toUpperCase() ?? "";
+  // Admin-only: this endpoint calls OpenAI directly, billing the project's API
+  // key. Public access would let anyone burn arbitrary amounts of credit by
+  // probing different tickers/models.
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
+
+  const ticker = normalizeTicker(req.nextUrl.searchParams.get("ticker"));
+  if (!ticker) return NextResponse.json({ error: "invalid ticker" }, { status: 400 });
+
   // Accept comma-separated list so we fetch SEC/Yahoo data ONCE and reuse it
-  // across all models — avoids hammering EDGAR (10 req/s rate limit).
+  // across all models — avoids hammering EDGAR (10 req/s rate limit). Only
+  // models in PRICING are accepted; anything else is rejected to prevent
+  // someone passing arbitrary expensive models.
   const modelsParam = req.nextUrl.searchParams.get("models") ?? "gpt-5";
-  const models = modelsParam.split(",").map((s) => s.trim()).filter(Boolean);
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  const requested = modelsParam.split(",").map((s) => s.trim()).filter(Boolean);
+  const models = requested.filter((m) => m in PRICING);
+  if (models.length === 0) {
+    return NextResponse.json(
+      { error: "no recognized model", allowed: Object.keys(PRICING) },
+      { status: 400 },
+    );
+  }
 
   const t0 = Date.now();
   const [stockData, segmentData] = await Promise.all([

@@ -111,7 +111,12 @@ interface FilingMatch {
 async function findEarnings8KCandidates(
   cik: string,
 ): Promise<{ candidates: FilingMatch[]; fiscalYearEndMonth?: number }> {
-  const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`);
+  // Submissions JSON is the discovery endpoint for newly filed 8-K/6-K. SEC
+  // updates it within minutes of a filing. The default secFetch TTL of 6h
+  // would delay earnings detection by hours after a press release — bad UX
+  // when the user is checking back the morning after an after-hours release.
+  // 30 min keeps SEC traffic in check while making the lag tolerable.
+  const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`, 1800);
   if (!r.ok) return { candidates: [] };
   const d = await r.json();
   const recent = d.filings?.recent;
@@ -287,8 +292,14 @@ async function findExhibit991Url(
   else                                 candidates = otherHtm.filter((h) => !ixCoverPaths.has(h));
   if (candidates.length === 0) return null;
 
-  const href = candidates[0];
-  return href.startsWith("http") ? href : `${SEC}${href.startsWith("/") ? "" : "/"}${href}`;
+  // SEC's filing-index pages occasionally render hrefs with an empty CIK
+  // segment ("/Archives/edgar/data//<accession-no-dash>/<file>") — most
+  // visibly affecting recently filed deals where the index page hasn't
+  // fully populated yet. Patch the empty segment using the CIK we have.
+  // Without this, every fetch of the patched URL returns 404 from SEC.
+  const repairedCik = parseInt(cik, 10);
+  const repaired = candidates[0].replace(/\/Archives\/edgar\/data\/\/(\d+)\//, `/Archives/edgar/data/${repairedCik}/$1/`);
+  return repaired.startsWith("http") ? repaired : `${SEC}${repaired.startsWith("/") ? "" : "/"}${repaired}`;
 }
 
 // Priority-ordered patterns per line item. lineValue() iterates priorities in
@@ -302,8 +313,15 @@ const KEYWORDS: Record<string, RegExp[]> = {
     // label, otherwise sub-component lines like "Net sales from products"
     // (AXON, XYL) would shadow the actual total. Allow optional "X and Y"
     // chain (CAT: "Total sales and revenues") and a trailing footnote
-    // marker like "(1)" (AAPL).
-    /^(?:total\s+(?:net\s+)?(?:revenues?|sales)(?:\s+and\s+(?:revenues?|sales))?|net\s+(?:revenues?|sales))\s*(?:\(\d+\))?\s*:?\s*$/i,
+    // marker like "(1)" (AAPL). Also allow "Net revenues and financial
+    // income/gains/services" — LATAM fintech-marketplaces (MELI) ship the
+    // consolidated revenue line with a fintech-side suffix, with separate
+    // "Net service revenues" and "Net product revenues" sub-rows above
+    // that would otherwise win the priority-4 lossy fallback. And allow
+    // "Total revenues and other income" — integrated oil & gas issuers
+    // (XOM, CVX) bundle the equity-affiliates / non-op income line into
+    // their consolidated revenue total at the top of the IS.
+    /^(?:total\s+(?:net\s+)?(?:revenues?|sales)(?:\s+and\s+(?:revenues?|sales|other\s+income))?|net\s+(?:revenues?|sales)(?:\s+and\s+financial\s+(?:income|gains|services))?)\s*(?:\(\d+\))?\s*:?\s*$/i,
     // Priority 2: "Total operating revenue(s)" — IFRS airlines (CPA Copa
     // Holdings, ...) break revenue into Passenger / Cargo / Other and total
     // with this exact label. Without this the priority-3 lossy fallback
@@ -322,10 +340,13 @@ const KEYWORDS: Record<string, RegExp[]> = {
     /\btotal\s+costs?\s+of\s+revenues?\b/i,
     // Priority 2: standalone "Cost of X" with no trailing modifier (e.g.
     // XYL: "Cost of revenue" with "Cost of revenue from products" above;
-    // AXON: "Cost of sales" with "Cost of product sales" above).
-    /^costs?\s+of\s+(?:products?\s+sold|revenues?|sales|services|goods)\s*:?\s*$/i,
+    // AXON: "Cost of sales" with "Cost of product sales" above). Allow an
+    // optional "net" qualifier and a "and financial expenses" suffix —
+    // LATAM fintech-marketplaces (MELI) report "Cost of net revenues and
+    // financial expenses" as their single COGS line.
+    /^costs?\s+of\s+(?:net\s+)?(?:products?\s+sold|revenues?|sales|services|goods)(?:\s+and\s+financial\s+expenses?)?\s*:?\s*$/i,
     // Priority 3: any match (lossy fallback).
-    /\bcosts?\s+of\s+(products?\s+sold|revenues?|sales|services|goods)/i,
+    /\bcosts?\s+of\s+(?:net\s+)?(products?\s+sold|revenues?|sales|services|goods)/i,
   ],
   grossProfit: [
     // Negative lookahead on `%` skips IFRS summary-table rows like
@@ -340,6 +361,14 @@ const KEYWORDS: Record<string, RegExp[]> = {
     // development expenses". Anchored to start so a stray "product …" deeper
     // in the IS doesn't shadow it.
     /^product\s+development(?:\s+expenses?)?\s*:?\s*$/i,
+    // LATAM marketplaces (MELI) merge product + tech under a single line
+    // "Product and technology development" — same conceptual bucket as
+    // R&D but the label doesn't contain the literal word "research".
+    /^product\s+and\s+technology\s+development(?:\s+expenses?)?\s*:?\s*$/i,
+    // Workiva-PDF synthesis sometimes emits "technology and product
+    // development" / "product and technology" variants — keep the order
+    // permissive but anchored.
+    /^technology\s+and\s+product\s+development(?:\s+expenses?)?\s*:?\s*$/i,
   ],
   sellingGeneralAdministrative: [
     /\bselling[,\s]+general[,\s]+and\s+administrative|\bsg&a\b/i,
@@ -360,11 +389,13 @@ const KEYWORDS: Record<string, RegExp[]> = {
     /^administrative(?:\s+expenses?)?\s*:?\s*$/i,
   ],
   operatingIncome: [
-    // Priority 1: anchored — "Operating income/earnings/profit" must START
-    // the label. Prevents "Other operating income" (a non-op credit line in
-    // VLRS Volaris and other LATAM IFRS issuers) from shadowing the actual
-    // Operating income row that follows it in the same column.
-    /^operating\s+(?:income|earnings|profit)(?:\s*\/\s*\(loss\))?\b/i,
+    // Priority 1: anchored — "Operating income/earnings/profit/loss" must
+    // START the label. Prevents "Other operating income" (a non-op credit
+    // line in VLRS Volaris and other LATAM IFRS issuers) from shadowing the
+    // actual Operating income row that follows it in the same column. Also
+    // accepts plain "Operating loss" (AAL, other airlines / cyclicals in a
+    // loss quarter); downstream Sankey treats the signed magnitude correctly.
+    /^operating\s+(?:income|earnings|profit|loss)(?:\s*\/\s*\(loss\))?\b/i,
     // Priority 1b: Chinese ADRs (NIO/BABA-style 6-Ks) and many IFRS issuers
     // label this row "(Loss)/profit from operations" or "Profit/(Loss) from
     // operations" or just "Loss from operations" / "Profit from operations".
@@ -385,26 +416,64 @@ const KEYWORDS: Record<string, RegExp[]> = {
   ],
   totalOperatingExpenses: [
     /\btotal\s+(?:operating\s+)?(?:expenses|costs)\b/i,
+    // Banks (JPM, BAC, WFC, ...) report total opex as "Noninterest expense"
+    // — there's no separate "Total operating expenses" line because the
+    // bank IS layout splits revenue into net interest income + noninterest
+    // income, costs into noninterest expense + provision for credit losses,
+    // and goes straight to pretax income / net income. Anchored so a prose
+    // reference in body text doesn't shadow the IS row.
+    /^(?:total\s+)?noninterest\s+expense(?:s)?(?:\s*\(.*\))?\s*$/i,
   ],
   interestExpense: [
     /\binterest\s+expense\b/i,
   ],
   incomeBeforeTax: [
-    /\b(?:earnings|income|profit)\s+(?:\([^)]+\)\s+)?before\s+(?:income\s+|provision\s+(?:for\s+)?)?tax/i,
+    // Accepts:
+    //   "Income before income taxes"
+    //   "Income (Loss) before income taxes"
+    //   "Income/(Loss) before income taxes"  ← XOM / many integrated oil & gas
+    //   "Loss before income taxes"           ← AAL / loss quarters
+    /\b(?:earnings|income|profit|loss)\s*\/?\s*(?:\([^)]+\)\s*)?before\s+(?:income\s+|provision\s+(?:for\s+)?)?tax/i,
   ],
   incomeTaxExpense: [
     // Priority 1: anchored — must START with the tax-expense phrase. Prevents
     // matching the substring "income tax expense" inside the IBT row label
-    // (e.g. CVX: "Income (Loss) Before Income Tax Expense").
-    /^income\s+tax(?:es)?\s+(?:expense|provision)/i,
+    // (e.g. CVX: "Income (Loss) Before Income Tax Expense"). "Benefit" is
+    // accepted alongside "expense" — issuers in a loss quarter (AAL Q1 2026
+    // reported "Income tax benefit (94)") still expose the same conceptual
+    // bottom-line tax row, just with the opposite sign. Also accept
+    // slash/parens form "Income tax expense/(benefit)" — XOM / oil & gas
+    // issuers carry both signs in the same row label.
+    /^income\s+tax(?:es)?\s*\/?\s*\(?(?:expense|provision|benefit)/i,
     /^provision\s+(?:\([^)]+\)\s+)?for\s+(?:income\s+)?tax/i,
     // Priority 2: lossy — only used if no anchored match elsewhere.
-    /\b(income\s+tax(?:es)?\s+(?:expense|provision)|provision\s+(?:\([^)]+\)\s+)?for\s+(?:income\s+)?tax)/i,
+    /\b(income\s+tax(?:es)?\s*\/?\s*\(?(?:expense|provision|benefit)|provision\s+(?:\([^)]+\)\s+)?for\s+(?:income\s+)?tax)/i,
     // Insurance/banking issuers often label this just "Income taxes"
     /^income\s+tax(?:es)?$/i,
   ],
   netIncome: [
-    /\bnet\s+(?:earnings|income)\b/i,
+    // Priority 1: anchored — "Net income/earnings/loss" must be the WHOLE
+    // label. Issuers (MELI, BABA-style 6-Ks) put rows like "Net income
+    // before income tax expense" / "Net income attributable to..." earlier
+    // in the IS, which the priority-3 lossy `\bnet\s+(?:income|earnings)\b`
+    // happily matches and locks the parser onto the wrong (pre-tax) bottom
+    // line. Loss-period issuers (AAL, money-losing biotechs) report "Net
+    // loss" instead — same conceptual bottom line; downstream sign handling
+    // converts the parsed magnitude back to a signed value. Also accepts
+    // slash/parens form "Net income/(loss)" — XOM and other oil & gas
+    // issuers carry both signs in the same row label.
+    /^net\s+(?:earnings|income|loss)(?:\s*\/?\s*\([^)]+\))?\s*(?:\(\d+\))?\s*:?\s*$/i,
+    // Priority 2: consolidated NI for issuers with noncontrolling interests
+    // (XOM, BABA, oil & gas / China ADRs). The row label expands to "Net
+    // income/(loss) including noncontrolling interests" — anchored variant
+    // catches it without falling through to priority 3 (which would also
+    // accept the NCI-only row that comes right after, and bias the picked
+    // value toward the small attributable-to-NCI value).
+    /^net\s+(?:earnings|income|loss)(?:\s*\/?\s*\([^)]+\))?\s+including\s+noncontrolling\s+interests?\s*$/i,
+    // Priority 3: lossy fallback — anywhere in label. Must skip rows that
+    // are clearly NCI-only (e.g. "Net income attributable to noncontrolling
+    // interests"); negative lookahead defends.
+    /\bnet\s+(?:earnings|income|loss)\b(?![^.]*\battributable\s+to\s+noncontrolling)/i,
     // CAT-style: bottom line is just "Profit" or "Profit N" (footnote marker).
     // Anchored so "Operating profit" / "Profit of consolidated companies" /
     // "Profit per common share" don't shadow the real bottom line.
@@ -456,6 +525,23 @@ const KEYWORDS: Record<string, RegExp[]> = {
   ],
   ebitda: [
     /\b(?:adjusted\s+)?ebitda\b/i,
+  ],
+  // Bank-specific scoring signals. Pure money-center banks (JPM, BAC, WFC)
+  // ship a compact IS shape: Net interest income + Noninterest income →
+  // Net revenue → minus Noninterest expense + Provision for credit losses
+  // → Net income. With no Cost of Revenue / Gross Profit / Op Income rows,
+  // the standard score barely scrapes 2 hits and the table never qualifies.
+  // These three signals lift the score on bank IS tables; they're not used
+  // for line-item extraction (banks render via the existing bank Sankey
+  // profile which reads from XBRL, not 8-K text).
+  netInterestIncome: [
+    /^net\s+interest\s+income\b/i,
+  ],
+  noninterestIncome: [
+    /^noninterest\s+income\b/i,
+  ],
+  provisionForCreditLosses: [
+    /\bprovision\s+(?:for\s+|\(.*\)\s+for\s+)?credit\s+losses\b/i,
   ],
   // Airline-specific opex lines. US carriers (AAL, DAL, UAL, LUV...) break out
   // fuel + labor as their two largest cost buckets in lieu of a Gross-Profit /
@@ -727,6 +813,23 @@ function detectScale(tableHtml: string, rows: string[][], docHtml?: string, tabl
   // Lowercasing alone leaves the raw entity, so the symbol-unit regex above
   // would never see the actual € character without this step.
   const tableText = decodeEntities(tableHtml.replace(/<[^>]+>/g, " ")).toLowerCase();
+
+  // Preceding-window scan FIRST. Most issuers (AAPL, AAL, MELI, ...) declare
+  // the IS unit in a `<p>` tag immediately before the table:
+  // "(In millions, except per share amounts)". Checking this first prevents
+  // a "(in thousands)" mention deep inside the table — which almost always
+  // qualifies share counts (e.g. AAL's "Weighted average shares outstanding
+  // (in thousands)" in row 35) — from shadowing the real IS unit. Compact
+  // "Highlights" tables that declare unit as their first row still hit the
+  // in-table fallback below.
+  if (docHtml) {
+    const start = typeof tableStart === "number" ? Math.max(0, tableStart - 4000) : 0;
+    const end   = typeof tableStart === "number" ? tableStart : docHtml.length;
+    const preceding = decodeEntities(docHtml.slice(start, end).replace(/<[^>]+>/g, " ")).toLowerCase();
+    const inPreceding = earliestUnit(preceding);
+    if (inPreceding !== null) return inPreceding;
+  }
+
   const inTable = earliestUnit(tableText);
   if (inTable !== null) return inTable;
 
@@ -736,17 +839,7 @@ function detectScale(tableHtml: string, rows: string[][], docHtml?: string, tabl
     if (/thousands/.test(joined)) return 1_000;
   }
 
-  // Issuers like Apple put "(In millions, except number of shares...)" in a
-  // <p> ABOVE the table, not inside it. Look at a window of preceding HTML
-  // (and as a last resort the whole document — most filings declare units
-  // exactly once at the top of the statements section).
   if (docHtml) {
-    const start = typeof tableStart === "number" ? Math.max(0, tableStart - 4000) : 0;
-    const end   = typeof tableStart === "number" ? tableStart : docHtml.length;
-    const preceding = decodeEntities(docHtml.slice(start, end).replace(/<[^>]+>/g, " ")).toLowerCase();
-    const inPreceding = earliestUnit(preceding);
-    if (inPreceding !== null) return inPreceding;
-
     const fullText = decodeEntities(docHtml.replace(/<[^>]+>/g, " ")).toLowerCase();
     const inFull = earliestUnit(fullText);
     if (inFull !== null) return inFull;
@@ -888,6 +981,81 @@ function scoreTable(rows: string[][]): number {
     if (patterns.some((re) => re.test(labels))) score++;
   }
   return score;
+}
+
+// Section-header lifting: some issuers (notably Shopify) stack their IS as
+//
+//   Revenues                                ← section header, no values
+//     Subscription solutions    750  620    ← sub-component
+//     Merchant solutions      2,420 1,740   ← sub-component
+//                             3,170 2,360   ← UNLABELED consolidated total
+//   Cost of revenues                        ← next section header
+//     ...
+//
+// The unlabeled total row has no label for `lineValue` to match against —
+// the parser bails with `rev=null` and the issuer falls all the way to
+// Yahoo. This pre-processor walks the rows and, when an unlabeled-but-
+// numeric row follows N labeled sub-components under a recognized section
+// header (Revenues / Cost of revenues / Operating expenses / …), copies a
+// "Total {section}" label onto the unlabeled row so it surfaces to
+// `lineValue` like a normal IS line. Section detection is anchored to a
+// fixed allowlist so unrelated unlabeled rows (e.g. summed-and-rounded
+// non-IS metrics) don't get mislabeled.
+function liftUnlabeledSectionTotals(rows: string[][]): string[][] {
+  const sectionRe = /^(?:revenues?|net\s+revenues?|net\s+sales|sales|cost(?:s)?\s+of\s+(?:revenues?|sales|services|goods|net\s+revenues?)|operating\s+expenses?|costs?\s+and\s+expenses?|expenses?)\s*:?\s*$/i;
+  const sectionToTotal = (header: string): string => {
+    const cleaned = header.trim().replace(/[:\s]+$/, "");
+    if (/^revenues?$/i.test(cleaned))         return "Total revenues";
+    if (/^net\s+revenues?$/i.test(cleaned))   return "Total net revenues";
+    if (/^net\s+sales$/i.test(cleaned))       return "Total net sales";
+    if (/^sales$/i.test(cleaned))             return "Total sales";
+    if (/^cost(?:s)?\s+of/i.test(cleaned))    return "Total " + cleaned.toLowerCase();
+    if (/^operating\s+expenses?$/i.test(cleaned)) return "Total operating expenses";
+    if (/^costs?\s+and\s+expenses?$/i.test(cleaned)) return "Total costs and expenses";
+    if (/^expenses?$/i.test(cleaned))         return "Total expenses";
+    return `Total ${cleaned}`;
+  };
+
+  // Two-pass: first pass identifies the unlabeled-total row index for each
+  // section-header; second pass emits the row matrix with a synthesized
+  // labeled row INSERTED right after the unlabeled-total row. Inserting
+  // (rather than replacing) preserves the original-position aware logic
+  // downstream like valueColumnOffset detection that walks header rows.
+  const totalRowLabelByIndex = new Map<number, string>();
+  for (let i = 0; i < rows.length; i++) {
+    const label = rowLabel(rows[i]).trim();
+    if (!label || !sectionRe.test(label)) continue;
+    for (let j = i + 1; j < Math.min(rows.length, i + 7); j++) {
+      const next = rows[j];
+      const nextLabel = rowLabel(next).trim();
+      const numericCells = next.filter((c) => parseNumber(c.trim()) !== null);
+      const hasNoLabel = !nextLabel;
+      const hasValues = numericCells.length >= 2;
+      if (hasNoLabel && hasValues) {
+        totalRowLabelByIndex.set(j, sectionToTotal(label));
+        break;
+      }
+      // Continue walking only over labeled sub-component rows.
+      if (nextLabel && numericCells.length >= 1) continue;
+      break;
+    }
+  }
+
+  if (totalRowLabelByIndex.size === 0) return rows;
+
+  const out: string[][] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const lifted = totalRowLabelByIndex.get(i);
+    if (lifted) {
+      // Replace the unlabeled total with a labeled version. Don't keep both —
+      // duplicating the values would double-count if a downstream consumer
+      // sums or reconciles by row.
+      out.push([lifted, ...rows[i]]);
+    } else {
+      out.push(rows[i]);
+    }
+  }
+  return out;
 }
 
 // Standalone 4-digit year (1990–2100) — virtually always a column header,
@@ -1300,14 +1468,6 @@ function extractIfrsSegmentsFromText(
     // the typical layout, but also support 1 (single-period rows) by detecting
     // distinct period strings.
     const periodTokens = periodMatches.map((m) => m[0].toLowerCase());
-    const distinctPeriods = new Set(periodTokens).size;
-    // Pairs: if periods appear in (current, prior, current, prior) order,
-    // distinctPeriods === 2 even though count is 4. Per-section value count
-    // is always 2 in that layout (Q4'25 + Q4'24, then Q1-Q4'25 + Q1-Q4'24).
-    // Single-period header (rare) gives 1 value per section.
-    const valSlots = distinctPeriods === periodTokens.length
-      ? 1
-      : Math.max(1, Math.round(periodTokens.length / Math.max(1, periodTokens.length / 2)));
     // Simplification: if header has 4+ periods alternating, assume 2 per section.
     // If header has exactly 2 periods, assume 2 per section (single section).
     const slotsPerSection = periodTokens.length >= 2 ? 2 : 1;
@@ -1367,6 +1527,412 @@ function extractIfrsSegmentsFromText(
   return null;
 }
 
+// Workiva-PDF format helpers — see synthesizeWorkivaPdfTable below for the
+// full description. Some issuers (MELI, generally Workiva-prepared shareholder
+// letters) ship their earnings 8-K Exhibit 99.1 as a slide deck of JPG images
+// with the actual IS / segment tables baked in, plus a hidden OCR-style text
+// dump alongside each image inside `<font color="white" size="1">`. There are
+// zero `<table>` tags so the standard table-walk pipeline finds nothing. We
+// synthesize a row matrix from the hidden text block that contains the IS,
+// wrap it as a synthetic `<table>` for the rest of extractIncomeStatement to
+// consume unchanged, and extract per-segment revenue from the matching
+// reporting-segments block.
+
+function readHiddenTextBlocks(html: string): string[] {
+  const blocks: string[] = [];
+  const re = /<(?:font|span|div)\b[^>]*\bcolor\s*:\s*(?:white|#fff(?:fff)?|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))[^>]*>([\s\S]*?)<\/(?:font|span|div)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const text = decodeEntities(m[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    if (text) blocks.push(text);
+  }
+  return blocks;
+}
+
+function isNumericToken(t: string): boolean {
+  if (/^[—–\-]+$/.test(t)) return true;
+  if (/^\$?\(?-?\d{1,3}(?:,\d{3})+(?:\.\d+)?\)?$/.test(t)) return true;
+  if (/^\$?\(?-?\d+(?:\.\d+)?\)?$/.test(t)) return true;
+  if (/^\(\$\d{1,3}(?:,\d{3})*(?:\.\d+)?\)$/.test(t)) return true;
+  return false;
+}
+
+function parseTextBlockToRows(text: string): string[][] {
+  // Skip past column-period header so the period markers ("2026 2025",
+  // "Q1-2025 Q2-2025 ... Q1-2026") don't appear as phantom value-only rows.
+  // Two header layouts seen in production:
+  //   (a) Year-year: MELI / BABA / NIO / standard 2-period IS.
+  //   (b) Quarter-year sequence: Tesla's "Q1 update" deck shows 5 trailing
+  //       quarters per row ("Q1-2025 Q2-2025 Q3-2025 Q4-2025 Q1-2026") and
+  //       the data rows have 5 numeric columns aligned to those quarters.
+  const yearYearRe = /\b(?:19\d{2}|20\d{2})\s+(?:19\d{2}|20\d{2})\b/;
+  const qSeqRe = /\bQ[1-4][\s\-]?(?:19\d{2}|20\d{2})(?:\s+Q[1-4][\s\-]?(?:19\d{2}|20\d{2})){2,}\b/i;
+  const wqSeqRe = /(?:First|Second|Third|Fourth)\s+Quarter\s+(?:19\d{2}|20\d{2})(?:\s+(?:First|Second|Third|Fourth)\s+Quarter\s+(?:19\d{2}|20\d{2})){1,}/i;
+  const yyMatch = text.match(yearYearRe);
+  const qMatch  = text.match(qSeqRe);
+  const wqMatch = text.match(wqSeqRe);
+  // Pick whichever header pattern appears EARLIEST (deepest header is
+  // the one closest to the data — for issuers like BAC the word-quarter
+  // header appears mid-document; for MELI the year-year is at the top).
+  const headerCandidates = [yyMatch, qMatch, wqMatch].filter((m): m is RegExpMatchArray => m !== null && typeof m.index === "number");
+  headerCandidates.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  const headerMatch = headerCandidates[0];
+  let body = text;
+  if (headerMatch && typeof headerMatch.index === "number") {
+    body = text.slice(headerMatch.index + headerMatch[0].length);
+  }
+  // Pre-glue: `$ 7,715` → `$7,715`, `( 144 )` → `(144)`, `$ ( 1,234 )` → `$(1,234)`.
+  body = body
+    .replace(/\$\s*\(\s*/g, "$(")
+    .replace(/\$\s+/g, "$")
+    .replace(/\(\s+/g, "(")
+    .replace(/\s+\)/g, ")");
+
+  const tokens = body.split(/\s+/).filter(Boolean);
+  const rawRows: string[][] = [];
+  let labelBuf: string[] = [];
+  let valueBuf: string[] = [];
+
+  for (const t of tokens) {
+    if (isNumericToken(t)) {
+      valueBuf.push(t);
+    } else {
+      if (valueBuf.length > 0) {
+        if (labelBuf.length > 0) rawRows.push([labelBuf.join(" "), ...valueBuf]);
+        labelBuf = [];
+        valueBuf = [];
+      }
+      labelBuf.push(t);
+    }
+  }
+  if (valueBuf.length > 0 && labelBuf.length > 0) {
+    rawRows.push([labelBuf.join(" "), ...valueBuf]);
+  }
+
+  // Strip section-header prefixes like "Operating expenses: " and "Other
+  // income (expenses): " that get glued onto the first row of a section
+  // when the source HTML uses paragraph breaks instead of table rows. Without
+  // this, rows like "Operating expenses: Product and technology development"
+  // never match the R&D / S&M keyword anchors which require the bucket name
+  // at the start of the label. Detect ": " followed by another capitalized
+  // word; split everything before the colon into a standalone label-only row.
+  const SECTION_HEADERS = /^(?:operating\s+expenses?|other\s+(?:income|expense)s?(?:\s*\([^)]*\))?|other\s+income\s*\(expenses?\)|costs?\s+and\s+expenses?|expenses?|income\s+\([^)]*\)|nonoperating\s+(?:income|expenses?)|non\s*-?\s*operating\s+(?:income|expenses?))(?::|$)/i;
+  const rows: string[][] = [];
+  for (const row of rawRows) {
+    const label = row[0];
+    const colonIdx = label.indexOf(": ");
+    if (colonIdx > 0) {
+      const prefix = label.slice(0, colonIdx);
+      if (SECTION_HEADERS.test(prefix + ":")) {
+        const rest = label.slice(colonIdx + 2).trim();
+        // Emit the section header as a standalone label-only row (preserves
+        // structure without affecting scoring; rows with no values get
+        // filtered by the consumers that need values).
+        rows.push([prefix]);
+        if (rest) rows.push([rest, ...row.slice(1)]);
+        else if (row.length > 1) rows.push(row.slice(1));
+        continue;
+      }
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+// Pick the IS-bearing hidden-text block. Two acceptance paths:
+//   (1) Contains an explicit IS-phrase ("Statements of Income/Operations",
+//       "Income Statement", "Summary Income Statement", or
+//       "Consolidated Statements of ..."). MELI / Chinese ADRs / European
+//       FPIs all use one of these.
+//   (2) No explicit phrase but the block has very high keyword density
+//       (≥6 hits). Catches issuers like Tesla whose "Q1 update" deck splits
+//       the IS across "REVENUES" / "COST OF REVENUES" / "OPERATING
+//       EXPENSES" section headers without a formal title; the high-bar
+//       fallback keeps non-IS sections (balance sheet, cash flow, MD&A)
+//       from sneaking in.
+// Threshold of 5 in the phrase path / 6 in the density path balances
+// recall vs precision: cash flow tables often hit 4 keywords (net income +
+// depreciation + interest + tax), so 5 phrase-path / 6 density-path keeps
+// them out while accepting any genuine IS layout.
+function findIncomeStatementBlock(blocks: string[]): string | null {
+  const PHRASE_RE = /statements?\s+of\s+(?:income|operations|profit\s+(?:and|or)\s+loss)|(?:summary|condensed|consolidated|interim)\s+(?:condensed\s+)?(?:consolidated\s+)?(?:statements?\s+of\s+)?(?:income|operations)|(?:^|\b)income\s+statements?\b/i;
+  let best: string | null = null;
+  let bestScore = 0;
+  let bestHasPhrase = false;
+  for (const block of blocks) {
+    let score = 0;
+    for (const patterns of Object.values(KEYWORDS)) {
+      if (patterns.some((re) => re.test(block))) score++;
+    }
+    const hasPhrase = PHRASE_RE.test(block);
+    // Block qualifies if (phrase + ≥5 keywords) OR (no phrase + ≥6 keywords).
+    const qualifies = hasPhrase ? score >= 5 : score >= 6;
+    if (!qualifies) continue;
+    // Tie-break: phrase-bearing blocks beat density-only blocks at equal score.
+    if (score > bestScore || (score === bestScore && hasPhrase && !bestHasPhrase)) {
+      bestScore = score;
+      bestHasPhrase = hasPhrase;
+      best = block;
+    }
+  }
+  return best;
+}
+
+// Heuristic to split a header-line into N segment names. Common patterns:
+//   - 1-word names: "Brazil Mexico Argentina"
+//   - Modifier + name: "Other Countries", "All Other"
+//   - Multi-word region: "Latin America", "North America", "Asia Pacific"
+// Strategy: take tokens between the year header and the first numeric value;
+// strip "Total" + parentheticals; greedy-merge consecutive tokens until we
+// reach the expected count.
+function pickSegmentNames(block: string, expectedCount: number): string[] {
+  const yearMatch = block.match(/\b(?:19\d{2}|20\d{2})\b/);
+  if (!yearMatch || typeof yearMatch.index !== "number") {
+    return Array.from({ length: expectedCount }, (_, i) => `Segment ${i + 1}`);
+  }
+  const after = block.slice(yearMatch.index + yearMatch[0].length);
+  const numStart = after.search(/\$|\(\s*\d|\s\d/);
+  const headerText = numStart >= 0 ? after.slice(0, numStart) : after;
+
+  const cleaned = headerText
+    .replace(/\bTotal\b.*$/i, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) {
+    return Array.from({ length: expectedCount }, (_, i) => `Segment ${i + 1}`);
+  }
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  if (tokens.length === expectedCount) return tokens;
+
+  // Greedy merge: when we have more tokens than expected segments, walk
+  // forward and merge tokens whose left side is a known modifier ("Other",
+  // "Rest of", "North", "Latin", ...). This handles "Other Countries" (2
+  // tokens, 1 name) and "Latin America" (2 tokens, 1 name) without merging
+  // the wrong pairs.
+  const MODIFIERS = /^(?:other|rest|all|north|south|east|west|central|latin|asia|europe|americas?)$/i;
+  const FILLERS = /^(?:of|the|and)$/i;
+
+  if (tokens.length > expectedCount) {
+    const merged: string[] = [];
+    let i = 0;
+    while (i < tokens.length) {
+      // Greedy lookahead: if the current token is a modifier, glue it to
+      // the next non-filler token (and consume any fillers in between).
+      let name = tokens[i];
+      let j = i + 1;
+      const surplus = tokens.length - i - (expectedCount - merged.length);
+      if (surplus > 0 && MODIFIERS.test(tokens[i])) {
+        // Pull fillers and one continuation word.
+        while (j < tokens.length && FILLERS.test(tokens[j])) {
+          name += " " + tokens[j];
+          j++;
+        }
+        if (j < tokens.length) {
+          name += " " + tokens[j];
+          j++;
+        }
+      }
+      merged.push(name);
+      i = j;
+      if (merged.length === expectedCount) {
+        // Append leftovers to the last name (handles tail "Total" if not stripped).
+        if (i < tokens.length) merged[merged.length - 1] += " " + tokens.slice(i).join(" ");
+        break;
+      }
+    }
+    if (merged.length === expectedCount) return merged;
+  }
+
+  // Last-resort: trim or pad.
+  if (tokens.length >= expectedCount) return tokens.slice(0, expectedCount);
+  const padded = [...tokens];
+  while (padded.length < expectedCount) padded.push(`Segment ${padded.length + 1}`);
+  return padded;
+}
+
+// Extract per-segment revenue from a hidden-text segment block. Block layout:
+//   <Issuer>, Inc. Financial results of reporting segments (Unaudited)
+//   Three Months Ended March 31, 2026
+//   Brazil Mexico Argentina Other Countries Total (In millions)
+//   Net service revenues and financial income $ 3,987 $ 1,774 $ 1,607 $ 347 $ 7,715
+//   Net product revenues 787 202 91 50 1,130
+//   Net revenues and financial income 4,774 1,976 1,698 397 8,845
+//
+// Why we don't just `parseTextBlockToRows`: the segment-name header line
+// ("Brazil Mexico Argentina Other Countries Total (In millions)") has no
+// numeric values associated with it, so the row-builder concatenates those
+// names onto the FIRST data row's label — corrupting the row's label and
+// leaving us unable to find the consolidated-revenue row by anchored regex.
+// Instead, we slice the block by anchoring on the consolidated-revenue
+// label phrase: read N+1 numeric tokens forward (the segment values plus
+// total) and extract the segment names from the header area before it.
+function extractSegmentsFromHiddenText(blocks: string[]): { name: string; value: number }[] {
+  const segBlock = blocks.find((b) =>
+    /\b(?:reporting|operating)\s+segments?\b|\bresults?\s+of\s+(?:reporting|operating|the)\s+segments?\b|\bsegment\s+results?\b/i.test(b),
+  );
+  if (!segBlock) return [];
+
+  // Restrict to the CURRENT-period section. Issuers like MELI ship the
+  // segment table twice in the same block: once for the current quarter
+  // (e.g. "Three Months Ended March 31, 2026") and once for the prior-year
+  // comparable (e.g. "Three Months Ended March 31, 2025"). Without this
+  // slice, the first-match logic would pick the prior-period consolidated
+  // row of one of the periods — depending on which appears physically
+  // first — and silently anchor the segment chart on the wrong year. Slice
+  // up to (not including) the second period header so the regex search
+  // below operates on the current-period segment table only.
+  const periodHeaderRe = /\b(?:three|six|nine|twelve)[\s\-]months?\s+ended\s+(?:[A-Za-z]+)\.?\s+\d{1,2},?\s+\d{4}\b|\byear\s+ended\s+(?:[A-Za-z]+)\.?\s+\d{1,2},?\s+\d{4}\b/gi;
+  const headerMatches: number[] = [];
+  let hm: RegExpExecArray | null;
+  while ((hm = periodHeaderRe.exec(segBlock)) !== null) headerMatches.push(hm.index);
+  const sliceStart = headerMatches[0] ?? 0;
+  const sliceEnd   = headerMatches[1] ?? segBlock.length;
+  const currentPeriodBlock = segBlock.slice(sliceStart, sliceEnd);
+
+  // Pre-glue $/paren so numeric tokens are atomic.
+  const glued = currentPeriodBlock
+    .replace(/\$\s*\(\s*/g, "$(")
+    .replace(/\$\s+/g, "$")
+    .replace(/\(\s+/g, "(")
+    .replace(/\s+\)/g, ")");
+
+  // Find the consolidated-revenue label. Take the FIRST match within the
+  // current-period slice — within a single period, sub-revenue rows like
+  // "Net service revenues" / "Net product revenues" don't match this regex
+  // (they have "service"/"product" between "net" and "revenues"), so the
+  // first hit is always the consolidated total row.
+  const revRe = /\bnet\s+revenues?\s+and\s+financial\s+(?:income|gains|services)\b|\bnet\s+revenues?\s+(?=\d|\$)|\btotal\s+(?:net\s+)?revenues?\s+(?=\d|\$)/i;
+  const firstMatch = glued.match(revRe);
+  if (!firstMatch || typeof firstMatch.index !== "number") return [];
+  const lastMatch = firstMatch;
+
+  // Read all consecutive numeric tokens after the label (up to ~12 to cover
+  // anything reasonable; mid-phrase tokens like "and" or "income" stop the
+  // run). The last value is the total; the rest are per-segment.
+  const after = glued.slice((lastMatch.index ?? 0) + lastMatch[0].length).trimStart();
+  const tokens = after.split(/\s+/).filter(Boolean);
+  const values: number[] = [];
+  for (const t of tokens) {
+    if (!isNumericToken(t)) break;
+    const n = parseNumber(t);
+    if (n === null) break;
+    values.push(Math.abs(n));
+    if (values.length > 15) break;
+  }
+  // Need ≥ 3 values: ≥2 segments + 1 total.
+  if (values.length < 3) return [];
+
+  const segValues = values.slice(0, -1);
+  const total = values[values.length - 1];
+  const sum = segValues.reduce((s, v) => s + v, 0);
+  if (sum <= 0 || Math.abs(sum - total) / total > 0.02) return [];
+
+  const segNames = pickSegmentNames(segBlock, segValues.length);
+  return segNames.map((name, i) => ({ name, value: segValues[i] }));
+}
+
+function rowsToSyntheticTableHtml(rows: string[][]): string {
+  const trs = rows.map((row) => {
+    const tds = row.map((cell) => `<td>${cell}</td>`).join("");
+    return `<tr>${tds}</tr>`;
+  }).join("");
+  return `<table>${trs}</table>`;
+}
+
+function synthesizeWorkivaPdfTable(html: string): {
+  syntheticHtml: string;
+  rows: string[][];
+  segments: { name: string; value: number }[];
+} | null {
+  // If the HTML has any real <table> tags, the standard pipeline already
+  // handles it — don't risk shadowing real data with synthesized rows.
+  if (/<table\b/i.test(html)) return null;
+  const blocks = readHiddenTextBlocks(html);
+  if (blocks.length === 0) return null;
+  const isBlock = findIncomeStatementBlock(blocks);
+  if (!isBlock) return null;
+  const dataRows = parseTextBlockToRows(isBlock);
+  if (dataRows.length < 5) return null;
+
+  // Inject header rows so detectScale / detectCurrency / endDate scanners
+  // (which all read the synthesized table's HTML and the surrounding text
+  // window) find the period and unit declarations from the original block.
+  // Without these, the date detector returns "" and extractIncomeStatement
+  // bails at `if (!endDate) return null`.
+  const headerRows: string[][] = [];
+  // Period phrase: "Three Months Ended March 31, 2026" / "Six months ended
+  // June 30, 2025" / "Year ended December 31, 2025". Take the LAST match
+  // (block typically restates it once at the top and once just above the
+  // column header — last is closest to the data).
+  const periodRe = /(?:three|six|nine|twelve)[\s\-]months?\s+ended\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}|year\s+ended\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}/gi;
+  let lastPeriod: RegExpExecArray | null = null;
+  let pm: RegExpExecArray | null;
+  while ((pm = periodRe.exec(isBlock)) !== null) lastPeriod = pm;
+  if (lastPeriod) {
+    headerRows.push([lastPeriod[0]]);
+  } else {
+    // Some decks omit the "Three Months Ended..." phrase and only expose
+    // period as compact column tokens. Three layouts to handle:
+    //   (1) Tesla-style: "Q1-2026" / "Q1 2026"
+    //   (2) BAC-style:   "First Quarter 2026" / "Fourth Quarter 2025"
+    //   (3) Generic:     "1Q26" / "1Q 2026" (some specialty issuers)
+    // Find the LATEST token across all three patterns and synthesize a
+    // standard period phrase so the date scanner can lock onto it.
+    const QWORDS: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4 };
+    const candidates: { q: number; y: number }[] = [];
+    for (const m of isBlock.matchAll(/Q([1-4])[\s\-]?(\d{4})\b/gi)) {
+      candidates.push({ q: parseInt(m[1], 10), y: parseInt(m[2], 10) });
+    }
+    for (const m of isBlock.matchAll(/\b([1-4])Q\s?(\d{2,4})\b/gi)) {
+      const yRaw = m[2];
+      const y = yRaw.length === 2 ? 2000 + parseInt(yRaw, 10) : parseInt(yRaw, 10);
+      candidates.push({ q: parseInt(m[1], 10), y });
+    }
+    for (const m of isBlock.matchAll(/\b(First|Second|Third|Fourth)\s+Quarter\s+(\d{4})\b/gi)) {
+      candidates.push({ q: QWORDS[m[1].toLowerCase()], y: parseInt(m[2], 10) });
+    }
+    if (candidates.length > 0) {
+      let latest = { q: 0, y: 0 };
+      for (const c of candidates) {
+        if (c.y > latest.y || (c.y === latest.y && c.q > latest.q)) latest = c;
+      }
+      if (latest.y > 0 && latest.q >= 1 && latest.q <= 4) {
+        const monthDay = ["March 31", "June 30", "September 30", "December 31"][latest.q - 1];
+        headerRows.push([`Three Months Ended ${monthDay}, ${latest.y}`]);
+      }
+    }
+  }
+  // Unit phrase: "(In millions of U.S. dollars)" / "(in thousands)".
+  const unitMatch = isBlock.match(/\((?:in\s+)?(thousands|millions|billions)(?:\s+of\s+(?:[uU]\.?[sS]\.?\s+)?(?:dollars|euros?|pounds?|yen|yuan|reais?|francs?))?[^)]*\)/i);
+  if (unitMatch) headerRows.push([unitMatch[0]]);
+  // Column header — inject so the value-column-offset heuristic in
+  // extractIncomeStatement can find the "current period" column.
+  // Three layouts handled:
+  //   (A) Bare year-year ("2026 2025") for standard 2-period IS.
+  //   (B) Quarter-year sequence ("Q1-2025 Q2-2025 ... Q1-2026") — Tesla.
+  //   (C) Word-quarter sequence ("First Quarter 2026 Fourth Quarter 2025
+  //       First Quarter 2025") — Bank of America / specialty issuers.
+  // Emit each year as its own cell so the existing "leftmost-of-max bare
+  // 4-digit year" detector finds the latest-period column index.
+  const yearYearMatch = isBlock.match(/\b(19\d{2}|20\d{2})\s+(19\d{2}|20\d{2})\b/);
+  const quarterSeqMatch = isBlock.match(/\bQ[1-4][\s\-]?(?:19\d{2}|20\d{2})(?:\s+Q[1-4][\s\-]?(?:19\d{2}|20\d{2})){2,}\b/i);
+  const wordQuarterSeqMatch = isBlock.match(/(?:First|Second|Third|Fourth)\s+Quarter\s+(?:19\d{2}|20\d{2})(?:\s+(?:First|Second|Third|Fourth)\s+Quarter\s+(?:19\d{2}|20\d{2})){1,}/i);
+  if (quarterSeqMatch) {
+    const years = [...quarterSeqMatch[0].matchAll(/Q[1-4][\s\-]?(\d{4})/gi)].map((mm) => mm[1]);
+    if (years.length >= 3) headerRows.push(years);
+  } else if (wordQuarterSeqMatch) {
+    const years = [...wordQuarterSeqMatch[0].matchAll(/(?:First|Second|Third|Fourth)\s+Quarter\s+(\d{4})/gi)].map((mm) => mm[1]);
+    if (years.length >= 2) headerRows.push(years);
+  } else if (yearYearMatch) {
+    headerRows.push([yearYearMatch[1], yearYearMatch[2]]);
+  }
+
+  const rows = [...headerRows, ...dataRows];
+  const segments = extractSegmentsFromHiddenText(blocks);
+  return { syntheticHtml: rowsToSyntheticTableHtml(rows), rows, segments };
+}
+
 function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
   // Capture the best table AND the top supplementary tables for cross-table
   // value lookup. Some IFRS issuers (Cameco's Q1 6-K is the canonical case)
@@ -1412,10 +1978,47 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
   if (!bestRows || bestScore < 4) {
     ({ bestRows, bestScore, bestHtml, bestStart, supplementary } = findBestTable(true));
   }
+
+  // Workiva-PDF format: zero <table> tags, IS table baked into a JPG image
+  // with OCR-extracted text shipped in a hidden `<font color:white>` block.
+  // Synthesize a row matrix from that hidden text and feed it into the same
+  // pipeline. See synthesizeWorkivaPdfTable above for the full layout.
+  // Segments come from a sibling block ("Financial results of reporting
+  // segments") and are attached at the final return below.
+  let workivaSynthSegments: Edgar8KSegment[] | undefined;
+  if (!bestRows || bestScore < 4) {
+    const synth = synthesizeWorkivaPdfTable(html);
+    if (synth) {
+      const synthScore = scoreTable(synth.rows);
+      if (synthScore >= 4) {
+        bestRows  = synth.rows;
+        bestScore = synthScore;
+        bestHtml  = synth.syntheticHtml;
+        bestStart = 0;
+        if (synth.segments.length >= 2) {
+          // detectScale will pick up the unit declaration from the document
+          // body ("In millions of U.S. dollars"). Apply the same scale to
+          // segment values so they're stored as raw dollar amounts like the
+          // table-based path produces.
+          workivaSynthSegments = synth.segments.map((s) => ({ name: s.name, value: s.value }));
+        }
+      }
+    }
+  }
   if (!bestRows || bestScore < 4) return null;
+
+  bestRows = liftUnlabeledSectionTotals(bestRows);
 
   const scale = detectScale(bestHtml, bestRows, html, bestStart);
   const currency = detectCurrency(bestHtml, html, bestStart);
+  // Apply the document-detected scale to Workiva-synthesized segments now
+  // that we know it. Segment numbers parsed from the hidden text are in the
+  // same unit as the IS table (almost always "in millions"), so multiplying
+  // by the unit scale lifts them to raw dollars to match what
+  // extractRevenueSegments returns.
+  if (workivaSynthSegments) {
+    workivaSynthSegments = workivaSynthSegments.map((s) => ({ name: s.name, value: s.value * scale }));
+  }
   const rowsRef = bestRows;
 
   // Some foreign issuers (BABA, NIO, many TM-prepared 6-Ks) put the prior
@@ -1471,19 +2074,34 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
       for (const [col, d] of colDates) if (d === maxDate && col < earliestCol) earliestCol = col;
       return { valueColumnOffset: earliestCol, pickedColumnEndDate: maxDate };
     }
-    const years: number[] = [];
+    // Build year-per-column mapping. Walk header rows column-by-column;
+    // first 4-digit year that appears at column index `i` wins. This
+    // generalizes the legacy 2-column "current vs prior" check to N-column
+    // layouts (Tesla's deck shows 5 trailing quarters with header
+    // "Q1-2025 Q2-2025 Q3-2025 Q4-2025 Q1-2026" — synthesized into a header
+    // row with five year cells).
+    const yearByCol = new Map<number, number>();
     for (const row of rowsRef.slice(0, 6)) {
-      for (const cell of row) {
-        const t = cell.trim();
-        if (/^\d{4}$/.test(t)) {
-          const n = parseInt(t, 10);
-          if (n >= 1990 && n <= 2100) years.push(n);
+      const filtered = row.map((c) => c.trim()).filter(Boolean);
+      for (let i = 0; i < filtered.length; i++) {
+        if (/^\d{4}$/.test(filtered[i])) {
+          const n = parseInt(filtered[i], 10);
+          if (n >= 1990 && n <= 2100 && !yearByCol.has(i)) {
+            yearByCol.set(i, n);
+          }
         }
       }
     }
-    if (years.length < 2) return { valueColumnOffset: 0, pickedColumnEndDate: "" };
-    const maxYear = Math.max(...years);
-    return { valueColumnOffset: years[0] < maxYear ? 1 : 0, pickedColumnEndDate: "" };
+    if (yearByCol.size < 2) return { valueColumnOffset: 0, pickedColumnEndDate: "" };
+    let maxYear = -1;
+    for (const y of yearByCol.values()) if (y > maxYear) maxYear = y;
+    // Leftmost column whose year equals max — covers both standard
+    // current-first layouts (offset=0) and prior-first / N-column layouts.
+    let leftmostMax = -1;
+    for (const [col, y] of yearByCol) {
+      if (y === maxYear && (leftmostMax < 0 || col < leftmostMax)) leftmostMax = col;
+    }
+    return { valueColumnOffset: leftmostMax < 0 ? 0 : leftmostMax, pickedColumnEndDate: "" };
   })();
 
   // Some issuers (e.g. ADP) indent line items with leading empty cells, so
@@ -1767,20 +2385,38 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
     // Sep 30, Dec 31). Won't match the company's fiscal calendar exactly when
     // they don't align (e.g. AAPL), but is close enough for staleness checks
     // and for labeling against Yahoo's calendar-quarter chart bars.
-    const qReA = /\b([1-4])Q\s?(\d{2})\b/i;        // "1Q26" or "1Q 26"
-    const qReB = /\bQ\s?([1-4])\s+(?:FY)?\s?(\d{2,4})\b/i; // "Q1 2026" / "Q1 26" / "Q1 FY2026"
-    const qReC = /\bQ([1-4])['′]\s?(\d{2})\b/i;     // "Q4'25" / "Q4′25" (NOK / IFRS issuers)
+    //
+    // Pick the LATEST quarter-year across all header rows. Bank earnings
+    // releases (JPM) often start row 1 with a comparison-period reminder
+    // ("Results for JPM | 4Q25 | 1Q25") and only put the current period
+    // (1Q26) in row 2 — taking the first match would lock onto the
+    // comparison quarter and silently rotate the parsed Sankey 3 months
+    // back. Same logic applies when multiple "Q1 2026 / Q4 2025 / Q1 2025"
+    // sequences appear across headers.
+    const qReA = /\b([1-4])Q\s?(\d{2,4})\b/gi;       // "1Q26" / "1Q 2026"
+    const qReB = /\bQ\s?([1-4])\s+(?:FY)?\s?(\d{2,4})\b/gi;
+    const qReC = /\bQ([1-4])['′]\s?(\d{2})\b/gi;
     const qEnd = ["03-31","06-30","09-30","12-31"];
+    let latest = { q: 0, y: 0 };
     for (const row of headerRows) {
       const joined = row.join(" ");
-      const qm = joined.match(qReA) ?? joined.match(qReB) ?? joined.match(qReC);
-      if (qm) {
-        const qNum = parseInt(qm[1], 10);
-        let yearStr = qm[2];
-        if (yearStr.length === 2) yearStr = "20" + yearStr;
-        endDate = `${yearStr}-${qEnd[qNum - 1]}`;
-        break;
+      for (const re of [qReA, qReB, qReC]) {
+        re.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(joined)) !== null) {
+          const qNum = parseInt(m[1], 10);
+          let yRaw = m[2];
+          if (yRaw.length === 2) yRaw = "20" + yRaw;
+          const yNum = parseInt(yRaw, 10);
+          if (yNum < 1990 || yNum > 2100) continue;
+          if (yNum > latest.y || (yNum === latest.y && qNum > latest.q)) {
+            latest = { q: qNum, y: yNum };
+          }
+        }
       }
+    }
+    if (latest.y > 0 && latest.q >= 1 && latest.q <= 4) {
+      endDate = `${latest.y}-${qEnd[latest.q - 1]}`;
     }
   }
   if (!endDate && preTableWindow) {
@@ -1839,12 +2475,52 @@ function extractIncomeStatement(html: string): Edgar8KIncomeStatement | null {
     }
   }
 
+  // Last resort: scan the full document for "(Three|Six|Nine|Twelve) Months
+  // Ended Month DD, YYYY". Wide-trend issuers (NEM, others with multi-quarter
+  // history tables) place the period anchor in narrative text far from the
+  // IS table — outside the 4KB preceding window scan above. Pick the LATEST
+  // (max-year, then max-month) match so an earlier comparison-period
+  // mention doesn't lock onto the prior quarter.
+  if (!endDate) {
+    const monthAlt2 = "January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec";
+    const fullDocText = decodeEntities(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
+    const periodRe = new RegExp(
+      `(?:three|six|nine|twelve)[\\s\\-]months?\\s+ended\\s+(${monthAlt2})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})`,
+      "gi",
+    );
+    let bestY = 0, bestM = 0, bestD = 0;
+    let pm: RegExpExecArray | null;
+    while ((pm = periodRe.exec(fullDocText)) !== null) {
+      const y = parseInt(pm[3], 10);
+      const m = resolveMonth(pm[1]);
+      const d = parseInt(pm[2], 10);
+      if (m <= 0 || y < 1990 || y > 2100) continue;
+      if (y > bestY || (y === bestY && (m > bestM || (m === bestM && d > bestD)))) {
+        bestY = y; bestM = m; bestD = d;
+      }
+    }
+    if (bestY > 0) {
+      endDate = `${bestY}-${String(bestM).padStart(2, "0")}-${String(bestD).padStart(2, "0")}`;
+    }
+  }
   if (!endDate) return null;
 
   const totalRevenueScaled = rev * scale;
   const segments =
     extractRevenueSegments(html, totalRevenueScaled, scale) ??
     extractIfrsSegmentsFromText(html, totalRevenueScaled, scale) ??
+    // Workiva-PDF: segments came from a hidden-text "reporting segments"
+    // block, already raw-dollar scaled above. Validate they reconcile to
+    // ~totalRevenueScaled (±3%) before accepting; the IS-block parse and
+    // segment-block parse are independent so a mismatch indicates one of
+    // them captured a different period or unit.
+    (() => {
+      if (!workivaSynthSegments) return undefined;
+      const sum = workivaSynthSegments.reduce((s, x) => s + x.value, 0);
+      if (sum <= 0) return undefined;
+      const ratio = sum / totalRevenueScaled;
+      return ratio >= 0.97 && ratio <= 1.03 ? workivaSynthSegments : undefined;
+    })() ??
     undefined;
 
   // IFRS issuers (NOK, ASML, ...) wrap expense lines in parens to denote
@@ -2060,11 +2736,16 @@ function isReconciled(s: Edgar8KIncomeStatement): boolean {
   // nothing in between — looks reconciled but carries no actual IS data, so
   // downstream gets a one-period-older endDate-mismatched parse and falls
   // back to Yahoo. Real ISes always expose at least one of these.
+  // Banks (JPM, BAC, WFC) skip cogs/gp/op/ibt entirely — they go from net
+  // revenue → noninterest expense → net income. totalOperatingExpenses
+  // carries the bank's noninterest expense and is enough proof of an
+  // operating side without forcing the row identity check.
   const hasOperatingSide =
     s.costOfRevenue !== null ||
     s.grossProfit !== null ||
     s.operatingIncome !== null ||
-    s.incomeBeforeTax !== null;
+    s.incomeBeforeTax !== null ||
+    s.totalOperatingExpenses !== null;
   if (!hasOperatingSide) return false;
 
   // GP + CoGS ≈ Revenue (within 2%). Catches scale/row mismatches.
@@ -2088,11 +2769,30 @@ function isReconciled(s: Edgar8KIncomeStatement): boolean {
   // wrongly trip a tight expected-magnitude threshold. Allow either 10% of
   // the expected magnitude OR 2% of revenue, whichever is larger; mis-parses
   // (wrong row, scale off, currency confusion) overshoot both.
+  //
+  // Tax-benefit issuers (META Q1 2026 reported a -$5,021M provision because
+  // of one-off deferred-tax credits): the lineValue extractor wraps tax in
+  // absExp (most issuers report "(1,234)" parens to denote expense, not
+  // negative), which flips a true tax benefit's sign. Accept EITHER
+  // identity — IBT = NI + tax (expense convention) OR IBT = NI − tax
+  // (benefit convention) — since after absExp we can no longer tell which
+  // sign the issuer originally wrote. Whichever side is closer wins; both
+  // overshoot for genuine mis-parses.
   if (s.incomeBeforeTax !== null && s.incomeTaxExpense !== null) {
-    const expected = s.netIncome + s.incomeTaxExpense;
-    const denom = Math.max(Math.abs(s.incomeBeforeTax), Math.abs(expected), s.totalRevenue * 0.01);
+    const expectedExpense = s.netIncome + s.incomeTaxExpense;
+    const expectedBenefit = s.netIncome - s.incomeTaxExpense;
+    const denom = Math.max(
+      Math.abs(s.incomeBeforeTax),
+      Math.abs(expectedExpense),
+      Math.abs(expectedBenefit),
+      s.totalRevenue * 0.01,
+    );
     const tolerance = Math.max(denom * 0.10, s.totalRevenue * 0.02);
-    if (Math.abs(s.incomeBeforeTax - expected) > tolerance) return false;
+    const diff = Math.min(
+      Math.abs(s.incomeBeforeTax - expectedExpense),
+      Math.abs(s.incomeBeforeTax - expectedBenefit),
+    );
+    if (diff > tolerance) return false;
   }
 
   return true;

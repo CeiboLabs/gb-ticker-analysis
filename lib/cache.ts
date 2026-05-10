@@ -15,7 +15,7 @@ const CACHE_NAME = "ticker-analysis";
 // Bump when the shape of cached data changes (new fields, gap-fill logic, etc.)
 // so old entries are invalidated immediately rather than waiting for the daily
 // rollover. Append-only — never reuse a previous version.
-const CACHE_VERSION = "v23";
+const CACHE_VERSION = "v29";
 
 export { SHORT_TTL };
 

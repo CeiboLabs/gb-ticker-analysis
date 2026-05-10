@@ -1,5 +1,5 @@
-import { fetchEdgarAll } from './lib/fetchEdgarSegments';
-import { fetchSegmentData } from './lib/fetchSegmentData';
+import { fetchEdgarAll } from '../../lib/fetchEdgarSegments';
+import { fetchSegmentData } from '../../lib/fetchSegmentData';
 const r = await fetchEdgarAll('AAPL');
 console.log('=== fetchEdgarAll ===');
 console.log('isAnnual:', r?.isAnnual, 'isForeign:', r?.isForeign);

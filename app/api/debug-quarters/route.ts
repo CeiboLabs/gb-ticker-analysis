@@ -3,6 +3,8 @@ import { yahooFinance, fetchStockData } from "@/lib/fetchStockData";
 import { fetchEdgarQuarterlyRevenue } from "@/lib/fetchEdgarSegments";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
 import { fetchEdgar8KIncomeStatement, debugEdgar8K } from "@/lib/fetchEdgar8K";
+import { requireAdminToken } from "@/lib/adminAuth";
+import { normalizeTicker } from "@/lib/validators";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -17,7 +19,13 @@ function fmtDate(d: unknown): string | null {
 }
 
 export async function GET(req: NextRequest) {
-  const ticker = req.nextUrl.searchParams.get("ticker")?.toUpperCase() ?? "MMM";
+  // Admin-only: each call fans out 7 upstream requests (EDGAR + Yahoo + 8-K
+  // debug) and returns raw parser internals — both a quota burner and an
+  // information-disclosure surface for someone fingerprinting the scraper.
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
+
+  const ticker = normalizeTicker(req.nextUrl.searchParams.get("ticker")) ?? "MMM";
   const period1 = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
 
   const [edgar, qsum, ftsq, sd, segData, edgar8K, edgar8KDebug] = await Promise.all([

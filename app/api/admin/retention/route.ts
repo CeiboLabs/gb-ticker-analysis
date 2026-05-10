@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
+import { requireAdminToken } from "@/lib/adminAuth";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -7,22 +8,12 @@ export const dynamic = "force-dynamic";
 const DEFAULT_RETENTION_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function authorized(req: NextRequest): boolean {
-  const expected = process.env.ADMIN_TOKEN;
-  if (!expected) return false;
-  const got =
-    req.headers.get("x-admin-token") ??
-    req.nextUrl.searchParams.get("token");
-  return got === expected;
-}
-
 // Drop analyze_events older than ?days=N (default 90). Idempotent — safe to
 // hit on a daily cron from a separate Cloudflare Worker, an external scheduler,
 // or manually for spot cleanups.
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
 
   const db = getMetricsDb();
   if (!db) {

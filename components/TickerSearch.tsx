@@ -108,7 +108,12 @@ export function TickerSearch({
 
   const styles = variantStyles[variant];
 
+  // Defer portal rendering until after mount so we don't try to portal into
+  // a DOM that doesn't exist yet during SSR. The lint rule prefers derived
+  // state but the whole point is "is this paint client-side?" — only an
+  // effect can answer that without hydration mismatch.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPortalReady(true);
   }, []);
 
@@ -135,8 +140,11 @@ export function TickerSearch({
     };
   }, [isOpen, updateDropdownPos]);
 
-  // Load recents from localStorage on mount
+  // Load recents from localStorage on mount. Lazy useState init isn't safe
+  // here (server has no localStorage → hydration mismatch), so a one-shot
+  // mount effect is the right fit despite the lint rule.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecents(loadRecents());
   }, []);
 

@@ -128,7 +128,10 @@ function fmtAnnualCashFlow(d: StockData): string {
   }).join("\n");
 }
 
-function fmtSegmentData(sd: SegmentSankeyData | null | undefined): string {
+function fmtSegmentData(
+  sd: SegmentSankeyData | null | undefined,
+  latestReportedQuarter: string | null | undefined,
+): string {
   if (!sd) return "N/A — datos de segmentos SEC no disponibles para este ticker.";
 
   const u = sd.unit;
@@ -137,6 +140,30 @@ function fmtSegmentData(sd: SegmentSankeyData | null | undefined): string {
   const pct = (n: number | undefined) => n != null ? ` (margen: ${n}%)` : "";
 
   const lines: string[] = [];
+
+  // Freshness caveat: Yahoo's earningsHistory updates within hours of a press
+  // release; SEC EDGAR's 10-Q lags 1–3 days and the 8-K parser may miss the
+  // filing window. When the Sankey period is meaningfully behind the issuer's
+  // most recently reported quarter, tell GPT-4o explicitly so the
+  // recentEarnings narrative doesn't claim the older quarter is the latest
+  // reported. 14-day buffer absorbs 52/53-week fiscal drift.
+  if (sd.endDate && latestReportedQuarter) {
+    const segMs = Date.parse(sd.endDate);
+    const repMs = Date.parse(latestReportedQuarter);
+    if (isFinite(segMs) && isFinite(repMs) && (repMs - segMs) / 86_400_000 >= 14) {
+      lines.push(
+        `AVISO DE FRESCURA: La empresa ya reportó resultados para el trimestre que terminó ${latestReportedQuarter}, ` +
+        `pero el filing de SEC EDGAR con el desglose completo aún no está procesado. Las cifras del estado de ` +
+        `resultados a continuación corresponden al trimestre anterior (${sd.endDate}). ` +
+        `IMPORTANTE: en la sección "recentEarnings" referite al reporte de ${latestReportedQuarter} como el ` +
+        `MÁS RECIENTE (usando el HISTORIAL DE RESULTADOS / EPS para esa fecha) y trata el desglose del Sankey ` +
+        `como contexto del trimestre previo. NO escribas frases como "el próximo reporte será clave" si los ` +
+        `resultados ya fueron publicados.`,
+      );
+      lines.push("");
+    }
+  }
+
   const period = sd.segmentPeriod && sd.segmentPeriod !== sd.period
     ? `${sd.period} (segmentos: ${sd.segmentPeriod})`
     : sd.period;
@@ -250,7 +277,23 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   RECENT_NEWS:             fmtRecentNews,
   EARNINGS_HISTORY:      fmtEarningsHistory,
   FORWARD_ESTIMATES:     fmtForwardEstimates,
-  NEXT_EARNINGS_DATE:    (d) => d.nextEarningsDate ?? "N/A",
+  // Yahoo's calendar.earnings.earningsDate often keeps the just-passed date
+  // for hours/days after a release. Feeding GPT-4o a literal past date as
+  // "PRÓXIMOS RESULTADOS" makes it write boilerplate like "el próximo
+  // reporte será clave para confirmar..." referring to a phantom future event.
+  // Mark past dates explicitly so the model knows the report already
+  // happened and the next one's date is pending.
+  NEXT_EARNINGS_DATE:    (d) => {
+    const next = d.nextEarningsDate;
+    if (!next) return "N/A";
+    const nextMs = Date.parse(next);
+    if (!isFinite(nextMs)) return next;
+    // 1-day grace — an "earnings today" at 4:30pm ET is still "today" in UY.
+    if (nextMs <= Date.now() - 86_400_000) {
+      return `${next} (ya reportado — la próxima fecha aún no fue publicada por Yahoo)`;
+    }
+    return next;
+  },
   ANALYST_ACTIONS:       fmtAnalystActions,
   INSIDER_TRANSACTIONS:  fmtInsiderTransactions,
 
@@ -290,7 +333,7 @@ export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | n
       const fn = PLACEHOLDER_MAP[key];
       return fn ? fn(data) : match;
     })
-    .replace("{{SEGMENT_DATA}}", fmtSegmentData(segmentData));
+    .replace("{{SEGMENT_DATA}}", fmtSegmentData(segmentData, data.earningsHistory.at(-1)?.quarter ?? null));
 
   return {
     systemPrompt: ANALYSIS_SYSTEM_PROMPT,

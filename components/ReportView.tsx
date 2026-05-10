@@ -55,6 +55,7 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
 
   useEffect(() => {
     const prices = stockData.historicalPrices;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when input becomes invalid; the canvas-derived URL can't be computed in render
     if (!prices || prices.length < 2) { setPriceChartImageUrl(undefined); return; }
 
     const rev        = stockData.quarterlyRevenue;
@@ -218,6 +219,7 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
   }, [stockData.historicalPrices, stockData.quarterlyRevenue]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when segmentData clears; PNG snapshot can't be computed in render
     if (!report.segmentData) { setSankeyImageUrl(undefined); return; }
     let cancelled = false;
     const id = setTimeout(async () => {

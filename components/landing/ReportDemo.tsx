@@ -145,20 +145,25 @@ function useCounter(end: number, duration: number, trigger: boolean) {
 }
 
 /* ─── typewriter hook ─── */
+// State carries the (text|speed) key it was animating, so when those props
+// change we derive "" until the next animation cycle catches up — no need to
+// setState synchronously inside the effect just to reset.
 function useTypewriter(text: string, speed: number, trigger: boolean) {
-  const [displayed, setDisplayed] = useState("");
+  const [resolved, setResolved] = useState<{ key: string; value: string } | null>(null);
   useEffect(() => {
-    if (!trigger) { setDisplayed(""); return; }
+    if (!trigger) return;
+    const key = `${text}|${speed}`;
     let i = 0;
-    setDisplayed("");
     const id = setInterval(() => {
       i++;
-      setDisplayed(text.slice(0, i));
+      setResolved({ key, value: text.slice(0, i) });
       if (i >= text.length) clearInterval(id);
     }, speed);
     return () => clearInterval(id);
   }, [text, speed, trigger]);
-  return displayed;
+  if (!trigger) return "";
+  const expected = `${text}|${speed}`;
+  return resolved?.key === expected ? resolved.value : "";
 }
 
 /* ─── bold markdown renderer (minimal) ─── */

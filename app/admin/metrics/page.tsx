@@ -327,9 +327,13 @@ export default function MetricsDashboard() {
 
   const closeDrill = useCallback(() => setDrill(null), []);
 
-  // Re-hydrate token from sessionStorage on mount
+  // Re-hydrate token from sessionStorage on mount. sessionStorage isn't an
+  // observable store and we can't init useState lazily without a hydration
+  // mismatch (server render has no access to it), so a one-shot effect is the
+  // right fit despite the lint rule's preference for derived state.
   useEffect(() => {
     const saved = typeof window !== "undefined" ? sessionStorage.getItem(TOKEN_KEY) : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved) setToken(saved);
   }, []);
 
@@ -369,13 +373,16 @@ export default function MetricsDashboard() {
     return () => clearInterval(id);
   }, [data, token, load, feedScope]);
 
-  // Re-fetch when user toggles scope
+  // Re-fetch when user toggles scope. `load` flips `loading` synchronously,
+  // which the new lint rule flags — but the alternative (driving the fetch
+  // via a derived state machine) is more code for the same effect. `load` is
+  // stable via useCallback; including it would loop.
+  /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!data || !token) return;
     load(token, feedScope);
-    // load is stable via useCallback; intentionally NOT in deps to avoid loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedScope]);
+  /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
   if (!data) {
     return (

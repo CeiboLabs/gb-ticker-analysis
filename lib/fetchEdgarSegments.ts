@@ -101,7 +101,10 @@ export async function secFetch(url: string, ttl = 21600): Promise<Response> {
 // JSON is already cached by secFetch, so calling this after resolveCIK()
 // adds zero extra SEC traffic in practice.
 export async function fetchSicCode(cik: string): Promise<string | null> {
-  const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`);
+  // 30-min TTL kept consistent with the other submissions-JSON callsites.
+  // SIC code itself almost never changes, but the URL is shared so the
+  // shorter TTL keeps the discovery side (latest filings list) fresh.
+  const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`, 1800);
   if (!r.ok) return null;
   const d = await r.json() as { sic?: string | number };
   return d.sic ? String(d.sic) : null;
@@ -123,7 +126,10 @@ export async function resolveCIK(ticker: string): Promise<string | null> {
 async function latestFilingAccession(
   cik: string
 ): Promise<{ accession: string; isAnnual: boolean; isForeign: boolean; foreignFormType?: "20-F" | "40-F"; priorQuarterlyAccession?: string; primaryDocument?: string } | null> {
-  const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`);
+  // 30-min TTL — submissions JSON is the discovery endpoint for the latest
+  // 10-Q / 10-K / 20-F / 40-F. Default 6h would mean a freshly filed 10-Q
+  // isn't seen for hours after SEC indexes it.
+  const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`, 1800);
   if (!r.ok) return null;
   const d = await r.json();
   const recent = d.filings?.recent;
@@ -1530,10 +1536,24 @@ function extractISFromXbrl(
   const rentalIncomeEarly      = firstVal(IS_CONCEPTS.rentalIncome,      currentIds);
 
   let rev = firstVal(IS_CONCEPTS.revenue, currentIds);
+  // Bank revenue formula: (Interest Income − Interest Expense) + Noninterest
+  // Income. AXP-style case: the issuer DOES tag a generic revenue concept
+  // (RevenueFromContractWithCustomerExcludingAssessedTax = $10.5B for AXP
+  // Q1 FY2026) but it covers only a SUBSET of revenue (discount fees +
+  // card fees), missing the interest-income leg entirely. The bank formula
+  // gives $18.9B (matches AXP's tagged RevenuesNetOfInterestExpense). Apply
+  // the fallback whenever (a) standard rev is missing, OR (b) bank
+  // signature is present and the bank formula exceeds standard rev by a
+  // wide margin — the generic tag is undercounting.
+  const bankSignature = interestIncomeEarly > 0 && interestExpenseEarly > 0
+    && noninterestIncomeEarly > 0;
+  const bankRev = bankSignature
+    ? Math.max(0, interestIncomeEarly - interestExpenseEarly) + noninterestIncomeEarly
+    : 0;
   if (rev <= 0) {
     // Bank: Total Net Revenue = (Interest Income − Interest Expense) + Noninterest Income
-    if (interestIncomeEarly > 0 && noninterestIncomeEarly > 0) {
-      rev = Math.max(0, interestIncomeEarly - interestExpenseEarly) + noninterestIncomeEarly;
+    if (bankRev > 0) {
+      rev = bankRev;
     } else if (premiumsEarnedEarly > 0) {
       // Insurance: Premiums Earned alone is a usable revenue proxy. Investment
       // income, when tagged, would push the total higher — but Premiums-only
@@ -1558,6 +1578,18 @@ function extractISFromXbrl(
     // tagged as Revenues but premiums are the bulk of the top-line.
     if (premiumsEarnedEarly > rev * 2) {
       rev = rev + premiumsEarnedEarly;
+    }
+    // Bank split-revenue case: AXP tags RevenueFromContractWithCustomer
+    // ($10.5B = discount + card fees subset) but the issuer's actual top-
+    // line is RevenuesNetOfInterestExpense ($18.9B = NII + Noninterest
+    // Income). The generic tag undercounts because it excludes the
+    // interest-income leg. Switch to the bank formula whenever the bank
+    // signature is present AND the bank formula materially exceeds the
+    // generic tag (1.3× threshold avoids triggering for non-banks where a
+    // small treasury operation tags interest income/expense alongside a
+    // legitimate consolidated revenue total).
+    if (bankRev > rev * 1.3) {
+      rev = bankRev;
     }
   }
   // Pre-revenue issuers (NextDecade-style LNG developers, clinical-stage
@@ -1888,7 +1920,10 @@ export async function fetchEdgarQuarterlyRevenue(
 
     if (quarterly.size === 0) return null;
 
-    // Derive missing Q4 = annual − (Q1 + Q2 + Q3) for each fiscal year
+    // Derive missing Q4 = annual − (Q1 + Q2 + Q3) for each fiscal year.
+    // Runs BEFORE bank augmentation so the standard-concept arithmetic isn't
+    // poisoned by bank-substituted Q1/Q2/Q3 (which would make annual − sum
+    // go negative when annual is the contract-revenue subset).
     for (const [annualEnd, ann] of annual) {
       if (quarterly.has(annualEnd)) continue; // Q4 already present
       const annStartMs = Date.parse(ann.start);
@@ -1901,7 +1936,120 @@ export async function fetchEdgarQuarterlyRevenue(
       }
       if (qtdCount === 3) {
         const q4Val = ann.val - qtdSum;
-        if (q4Val > 0) quarterly.set(annualEnd, { val: q4Val, filed: "", start: "" });
+        if (q4Val > 0) quarterly.set(annualEnd, { val: q4Val, filed: "", start: ann.start });
+      }
+    }
+
+    // Bank-revenue augmentation: AXP / JPM / BAC / C / WFC and similar
+    // financial issuers tag `RevenueFromContractWithCustomer*` with only a
+    // SUBSET of revenue (discount fees + card fees + service fees), missing
+    // the interest-income leg entirely. AXP Q1 FY2026: contract revenue =
+    // $10.5B, but RevenuesNetOfInterestExpense (the issuer's own top-line)
+    // = $18.9B. Without this, the quarterly chart shows the contract-only
+    // subset while the Sankey (which already has the bank formula in
+    // fetchSegmentData) shows the full $18.9B — the two views disagreed.
+    //
+    // Approach: collect quarterly AND annual facts for each bank component,
+    // derive missing Q4 from bank-annual independently of the standard pass
+    // (otherwise quarters where AXP only tagged the FY context would lose
+    // their Q4 data point), then per-quarter substitute when bankRev is
+    // materially larger than the standard tag (1.3× threshold matches
+    // extractIncomeStatement).
+    interface ConceptFacts {
+      q: Map<string, { val: number; start: string }>;
+      a: Map<string, { val: number; start: string }>;
+    }
+    const fetchConceptFacts = async (concepts: string[]): Promise<ConceptFacts> => {
+      const q = new Map<string, { val: number; start: string }>();
+      const a = new Map<string, { val: number; start: string }>();
+      for (const c of concepts) {
+        for (const ns of NAMESPACES) {
+          const url = `${DATA_SEC}/api/xbrl/companyconcept/CIK${cikPadded}/${ns}/${c}.json`;
+          const r = await secFetch(url, 86400);
+          if (!r.ok) continue;
+          const data = (await r.json()) as { units?: ConceptUnits };
+          if (!data.units) { break; }
+          for (const [code, facts] of Object.entries(data.units)) {
+            const upper = code.toUpperCase();
+            if (!KNOWN_CCY.has(upper) || !Array.isArray(facts)) continue;
+            const rate = await getRate(upper);
+            if (!rate || rate <= 0) continue;
+            for (const f of facts) {
+              if (!f.start || !f.end || f.val === undefined) continue;
+              const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
+              const usd = f.val * rate;
+              if (days >= 75 && days <= 110) {
+                if (!q.has(f.end)) q.set(f.end, { val: usd, start: f.start });
+              } else if (days >= 340 && days <= 380) {
+                if (!a.has(f.end)) a.set(f.end, { val: usd, start: f.start });
+              }
+            }
+          }
+          break; // one namespace hit per concept is enough
+        }
+      }
+      return { q, a };
+    };
+    const intInc = await fetchConceptFacts([
+      "InterestAndDividendIncomeOperating", "InterestIncomeOperating",
+      "InvestmentIncomeInterest", "InterestAndSimilarIncome",
+    ]);
+    const noni = await fetchConceptFacts(["NoninterestIncome"]);
+    if (intInc.q.size > 0 && noni.q.size > 0) {
+      const intExp = await fetchConceptFacts([
+        "InterestExpense", "InterestExpenseOperating",
+        "InterestAndDebtExpense", "InterestAndSimilarExpense",
+      ]);
+      // Per-quarter bank revenue (only quarters where both legs exist).
+      const bankQ = new Map<string, { val: number; start: string }>();
+      for (const [end, ii] of intInc.q) {
+        const ni = noni.q.get(end);
+        if (ii.val <= 0 || !ni || ni.val <= 0) continue;
+        const ie = intExp.q.get(end)?.val ?? 0;
+        bankQ.set(end, {
+          val: Math.max(0, ii.val - ie) + ni.val,
+          start: ii.start,
+        });
+      }
+      // Per-year bank revenue, used to derive missing bank-Q4.
+      const bankA = new Map<string, { val: number; start: string }>();
+      for (const [end, ii] of intInc.a) {
+        const ni = noni.a.get(end);
+        if (ii.val <= 0 || !ni || ni.val <= 0) continue;
+        const ie = intExp.a.get(end)?.val ?? 0;
+        bankA.set(end, {
+          val: Math.max(0, ii.val - ie) + ni.val,
+          start: ii.start,
+        });
+      }
+      // Derive bank-Q4 = bank-annual − sum(bank-Q1+Q2+Q3) per fiscal year.
+      for (const [annEnd, ann] of bankA) {
+        if (bankQ.has(annEnd)) continue;
+        const annStartMs = Date.parse(ann.start);
+        const annEndMs   = Date.parse(annEnd);
+        let qtdSum = 0, qtdCount = 0;
+        for (const [qEnd, q] of bankQ) {
+          const qStartMs = Date.parse(q.start);
+          const qEndMs   = Date.parse(qEnd);
+          if (qStartMs >= annStartMs && qEndMs < annEndMs) { qtdSum += q.val; qtdCount++; }
+        }
+        if (qtdCount === 3) {
+          const q4Val = ann.val - qtdSum;
+          if (q4Val > 0) bankQ.set(annEnd, { val: q4Val, start: ann.start });
+        }
+      }
+      // Substitute bank revenue into the main quarterly map when materially
+      // larger. For quarters with no standard fact (rare but possible for
+      // some bank-only filers), the bank value populates the slot directly.
+      for (const [end, br] of bankQ) {
+        const existing = quarterly.get(end);
+        if (!existing || br.val > existing.val * 1.3) {
+          quarterly.set(end, {
+            val: br.val,
+            filed: existing?.filed ?? "",
+            start: existing?.start ?? br.start,
+          });
+        }
       }
     }
 

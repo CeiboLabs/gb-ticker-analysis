@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchChartRange, type ChartRange } from "@/lib/fetchChartRange";
+import { normalizeTicker } from "@/lib/validators";
+import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
 
@@ -15,11 +17,21 @@ const CACHE_SECONDS: Record<ChartRange, number> = {
   "3Y": 12 * 60 * 60,
 };
 
+const RATE_LIMIT_PER_HOUR = 300;
+
 export async function GET(req: NextRequest) {
-  const ticker = req.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
+  const gate = checkPublicGetLimit("chart-range", clientIpFrom(req), RATE_LIMIT_PER_HOUR);
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
+    );
+  }
+
+  const ticker = normalizeTicker(req.nextUrl.searchParams.get("ticker"));
   const rangeParam = req.nextUrl.searchParams.get("range")?.trim().toUpperCase() as ChartRange | undefined;
 
-  if (!ticker || !/^[A-Z0-9.\-\^]+$/.test(ticker) || ticker.length > 10) {
+  if (!ticker) {
     return NextResponse.json({ error: "Invalid ticker" }, { status: 400 });
   }
   if (!rangeParam || !VALID_RANGES.includes(rangeParam)) {

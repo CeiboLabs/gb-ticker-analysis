@@ -18,3 +18,21 @@ database_id   = "3cc6d984-1c52-437a-a45e-38fe1b3b54dd"
 # Retention: Pages no soporta crons nativos. Para limpiar eventos viejos
 # llamar a /api/admin/retention?days=90 desde un cron externo (Worker con
 # cron trigger, cron-job.org, etc.) con header x-admin-token: $ADMIN_TOKEN.
+
+# Variables de entorno usadas en runtime (configurar en Cloudflare Pages
+# Settings → Environment variables, o con `wrangler pages secret put`):
+#
+#   ADMIN_TOKEN                  — token largo y aleatorio (UUID o 32+ chars).
+#                                  Sin esto cualquier llamada a /api/admin/*
+#                                  es rechazada (fail-closed).
+#   OPENAI_API_KEY               — key de la cuenta que paga los análisis.
+#   LOGO_DEV_TOKEN               — opcional, mejora la calidad de logos.
+#
+# Rate-limit knobs (todos opcionales, defaults seguros):
+#   RATE_LIMIT_MAX               — 20 análisis/h por sesión-cookie.
+#   RATE_LIMIT_IP_MAX            — 40 análisis/h por IP (cubre rotación de
+#                                  cookie). Subir si tenés oficinas grandes
+#                                  detrás de un solo NAT.
+#   RATE_LIMIT_DAILY_FRESH_MAX   — 30 análisis frescos (cache miss) por IP/día.
+#                                  Cap durísimo sobre el costo OpenAI; cache
+#                                  hits no cuentan.

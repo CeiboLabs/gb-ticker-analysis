@@ -138,33 +138,23 @@ export function scoreSankey(
   }
 
   // — Source-level diagnostics —
+  // The TTM-margin synthesis path was retired (it fabricated a Sankey from
+  // average-of-averages with no real reporting period behind it). Any Yahoo
+  // source now means buildSankeyFromYahooQuarter — strict-real mode, all
+  // critical fields directly from Yahoo's quarterly feed.
   if (d.source === "Yahoo") {
-    if (d.period === "TTM") {
-      findings.push({
-        code: "using_yahoo_ttm",
-        severity: "error",
-        message:
-          `[${T}] El Sankey terminó en el stub Yahoo TTM (margenes anuales aplicados al revenue). ` +
-          `Esto significa que para ${T} fallaron *los tres* parsers: fetchEdgar8KIncomeStatement, ` +
-          `fetchSegmentData (XBRL) y buildSankeyFromYahooQuarter (Yahoo quarterly). ` +
-          `Investigá por qué — empezá por correr cada uno con ${T} en un script aislado y mirá los errores. ` +
-          `Probable: ticker recién listado, ADR sin XBRL, o issuer foreign sin Exhibit 99.1 en formato esperado.`,
-      });
-      score -= 25;
-    } else {
-      findings.push({
-        code: "using_yahoo_fallback",
-        severity: "warn",
-        message:
-          `[${T}] El Sankey se construyó desde el último trimestre de Yahoo, no desde EDGAR. ` +
-          `Esto solo dispara cuando el 8-K parser no devolvió datos válidos para ${T}. ` +
-          `Investigá fetchEdgar8KIncomeStatement (lib/fetchEdgar8K.ts): ` +
-          `1) abrí el filing index del snapshot (campo filingIndexUrl), ` +
-          `2) verificá si el Exhibit 99.1 existe y qué estructura tiene la tabla del IS, ` +
-          `3) chequeá si los regex/selectors del parser matchean los headers de ese filing.`,
-      });
-      score -= 10;
-    }
+    findings.push({
+      code: "using_yahoo_fallback",
+      severity: "warn",
+      message:
+        `[${T}] El Sankey se construyó desde el último trimestre de Yahoo, no desde EDGAR. ` +
+        `Esto solo dispara cuando el 8-K parser no devolvió datos válidos para ${T}. ` +
+        `Investigá fetchEdgar8KIncomeStatement (lib/fetchEdgar8K.ts): ` +
+        `1) abrí el filing index del snapshot (campo filingIndexUrl), ` +
+        `2) verificá si el Exhibit 99.1 existe y qué estructura tiene la tabla del IS, ` +
+        `3) chequeá si los regex/selectors del parser matchean los headers de ese filing.`,
+    });
+    score -= 10;
   }
 
   // — Period granularity —
@@ -210,7 +200,7 @@ export function scoreSankey(
       case "Yahoo":
         pathHint =
           `El source es Yahoo pero el período es anual — el fallback eligió un agregado FY en lugar de un quarter. ` +
-          `Revisá buildSankeyFromYahooQuarter / buildFallbackSegmentData en app/api/analyze/route.ts.`;
+          `Revisá buildSankeyFromYahooQuarter en app/api/analyze/route.ts.`;
         break;
       default:
         pathHint =
@@ -703,7 +693,6 @@ export interface SnapshotContext {
   overridePath?:
     | "8k_override"
     | "yahoo_fallback"
-    | "yahoo_ttm"
     | "segments_kept"
     | "stub"
     | "cache";

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
+import { requireAdminToken } from "@/lib/adminAuth";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -24,19 +25,6 @@ interface RecentErrorRow {
 }
 interface TimeseriesRow { bucket: number; status: string; n: number }
 
-function unauthorized() {
-  return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-}
-
-function checkToken(req: NextRequest): boolean {
-  const expected = process.env.ADMIN_TOKEN;
-  if (!expected) return false; // refuse if not configured — fail closed
-  const got =
-    req.headers.get("x-admin-token") ??
-    req.nextUrl.searchParams.get("token");
-  return got === expected;
-}
-
 function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -45,7 +33,8 @@ function percentile(values: number[], p: number): number | null {
 }
 
 export async function GET(req: NextRequest) {
-  if (!checkToken(req)) return unauthorized();
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
 
   const db = getMetricsDb();
   if (!db) {

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
 import { getTopTickers } from "@/lib/tickerStats";
+import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
 
 const FALLBACK = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"];
 const DEFAULT_LIMIT = 8;
 const LOOKBACK_DAYS = 7;
+const RATE_LIMIT_PER_HOUR = 200;
 
 function extractDomain(website: string | null | undefined): string | null {
   if (!website) return null;
@@ -18,6 +20,14 @@ function extractDomain(website: string | null | undefined): string | null {
 }
 
 export async function GET(req: NextRequest) {
+  const gate = checkPublicGetLimit("popular", clientIpFrom(req), RATE_LIMIT_PER_HOUR);
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
+    );
+  }
+
   const limitParam = Number(req.nextUrl.searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 20
     ? Math.floor(limitParam)

@@ -9,7 +9,7 @@ import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
-import { checkRateLimit } from "@/lib/rateLimiter";
+import { checkRateLimit, checkIpHourlyLimit, checkDailyFreshLimit } from "@/lib/rateLimiter";
 import {
   recordAnalyzeEvent,
   eventBaseFromRequest,
@@ -74,7 +74,9 @@ import type { StockData } from "@/types/StockData";
 // "segments" = original XBRL parse from fetchSegmentData, never overridden.
 // "8k"/"6k"  = override from the 8-K Exhibit 99.1 parser.
 // "yahoo_fallback" = built from Yahoo's latest quarterly IS when EDGAR is stale.
-// "yahoo_ttm" = built from TTM margins by buildFallbackSegmentData (stub path).
+// (the "yahoo_ttm" bucket — pure TTM-margin synthesis — was retired: it
+// fabricated a Sankey from average-of-averages with no real reporting period
+// behind it. Honest blanks beat fake data.)
 function classifySankeySource(
   d: SegmentSankeyData | null | undefined,
 ): SankeySource {
@@ -82,68 +84,98 @@ function classifySankeySource(
   switch (d.source) {
     case "8-K":   return "8k";
     case "6-K":   return "6k";
-    case "Yahoo": return d.period === "TTM" ? "yahoo_ttm" : "yahoo_fallback";
+    case "Yahoo": return "yahoo_fallback";
     default:      return "segments";
   }
 }
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
+// Hard ceiling on a single analysis. OpenAI calls can hang; this caps how long
+// a single request can hold a worker isolate before the runtime kills it.
+export const maxDuration = 60;
 
-// Build a minimal SegmentSankeyData from Yahoo Finance TTM margins
-function buildFallbackSegmentData(sd: StockData): SegmentSankeyData | null {
-  const rev = sd.totalRevenue;
-  if (!rev || rev <= 0) return null;
-
-  const gm = sd.grossMargins   ?? 0;
-  const om = sd.operatingMargins ?? 0;
-  const nm = sd.profitMargins  ?? 0;
-
-  // No margin data at all — nothing meaningful to show
-  if (gm <= 0 && om <= 0 && nm <= 0) return null;
-
-  const unit    = rev >= 1e12 ? "T" : rev >= 1e9 ? "B" : "M";
-  const divisor = rev >= 1e12 ? 1e12 : rev >= 1e9 ? 1e9 : 1e6;
-  const sc = (v: number) => parseFloat((Math.max(0, v) / divisor).toFixed(2));
-
-  const grossProfit      = rev * gm;
-  const operatingProfit  = rev * om;   // may be negative — sc() clamps to 0
-  const netProfit        = rev * nm;   // may be negative — sc() clamps to 0
-  const costOfRevenue    = rev - grossProfit;
-  const operatingExpenses = Math.max(0, grossProfit - Math.max(0, operatingProfit));
-
-  return {
-    currency: "USD",
-    period: "TTM",
-    source: "Yahoo",
-    unit,
-    segments: [],
-    totalRevenue: sc(rev),
-    grossProfit: sc(grossProfit),
-    grossMarginPct: parseFloat((gm * 100).toFixed(1)),
-    costOfRevenue: sc(costOfRevenue),
-    operatingProfit: sc(operatingProfit),
-    operatingMarginPct: parseFloat((om * 100).toFixed(1)),
-    netProfit: sc(netProfit),
-    netMarginPct: parseFloat((nm * 100).toFixed(1)),
-    operatingExpenses: sc(operatingExpenses),
-  };
-}
-
-// Yahoo updates earnings within minutes of a press release; SEC EDGAR only
-// reflects the quarter once the 10-Q is filed (typically 1–3 days later).
-// When Yahoo's most recent quarter end is materially newer than EDGAR's
-// period end, the Sankey/income-statement panel is showing a stale quarter.
-function isEdgarStale(stockData: StockData, segmentData: SegmentSankeyData | null): boolean {
+// Detects when the cached/just-fetched analysis is showing a Sankey from
+// before the issuer's most recent earnings event. Three independent signals,
+// any one fires:
+//
+//   (A) Yahoo latestQuarterIS — Yahoo's `incomeStatementHistoryQuarterly`
+//       end-date is ≥45d newer than `segmentData.endDate`. Yahoo updates this
+//       within minutes of a press release; SEC EDGAR's 10-Q lags 1–3 days.
+//       Original signal — catches the canonical US 8-K-then-10-Q gap.
+//
+//   (B) Calendar past — `nextEarningsDate` (Yahoo's `calendar.earnings`) has
+//       passed AND `segmentData.endDate` is ≥100 days before that calendar
+//       date. Yahoo's calendar feed flips a moment after the issuer issues
+//       the press release, even when `incomeStatementHistoryQuarterly`
+//       hasn't caught up yet (common for FPI tickers like MELI / BABA).
+//       The 100-day gate distinguishes "earnings event happened, segment
+//       is the just-reported quarter" (gap ≈ 30–90 days, NOT stale) from
+//       "earnings event happened, segment is a previous quarter" (gap
+//       ≥100 days, STALE). Earlier `nextMs > segMs` check always fired
+//       because earnings DATE is structurally always after quarter END
+//       date — false-positive on DASH and any same-day 10-Q + 8-K.
+//
+//   (C) earningsHistory shifted — `earningsHistory.at(-1).quarter` is ≥30d
+//       newer than `segmentData.endDate`. Yahoo's earnings-history API
+//       updates with EPS + estimates within hours of a release; if our
+//       income-statement layer is still on the prior quarter, the 8-K/6-K
+//       parse either hasn't caught up or the filing isn't on EDGAR yet.
+//
+// Returning true on a cache hit invalidates the entry and forces a re-fetch.
+// On cache write, it switches the TTL to SHORT_TTL so the next request inside
+// the hour re-fetches once the 8-K is indexed (instead of serving stale data
+// for 24h).
+function isAnalysisStale(
+  stockData: StockData,
+  segmentData: SegmentSankeyData | null,
+): boolean {
   if (!segmentData?.endDate) return false;
+  const segMs = Date.parse(segmentData.endDate);
+  if (!isFinite(segMs)) return false;
+  const day = 86_400_000;
+
+  // (A) Yahoo's latestQuarterIS post-dates EDGAR by half a quarter
   const yahooEnd = stockData.latestQuarterIS?.endDate;
-  if (!yahooEnd) return false;
-  const yahooMs = Date.parse(yahooEnd);
-  const edgarMs = Date.parse(segmentData.endDate);
-  if (!isFinite(yahooMs) || !isFinite(edgarMs)) return false;
-  // 45 days ≈ half a quarter — comfortably past any normal filing lag, so a
-  // gap this large means EDGAR is missing the most recent reported quarter.
-  return (yahooMs - edgarMs) / 86_400_000 >= 45;
+  if (yahooEnd) {
+    const yahooMs = Date.parse(yahooEnd);
+    if (isFinite(yahooMs) && (yahooMs - segMs) / day >= 45) return true;
+  }
+
+  // (B) Calendar's nextEarningsDate is in the past AND segmentData.endDate
+  //     is meaningfully OLDER than the implied quarter end of that earnings
+  //     event. 1-day grace so an "earnings today" date that's same-calendar-
+  //     day after market close in another timezone doesn't fire prematurely.
+  //
+  //     Threshold is 100 days because earnings DATE is structurally always
+  //     after quarter END date — typical lags:
+  //       • US 10-Q: 30–45 days after quarter end
+  //       • US 10-K: 60–90 days after FY end
+  //       • FPI 6-K (interim): up to ~90 days after period end
+  //     A naïve `nextMs > segMs` check (the earlier version) ALWAYS fires
+  //     for properly-up-to-date data — DASH's Q1 2026 10-Q lands on May 6
+  //     reporting endDate Mar 31, with the earnings call also May 6:
+  //     gap = 36 days, segmentData IS the just-reported quarter, NOT stale.
+  //     Anything ≥100 days indicates segmentData is at least one quarter
+  //     behind the earnings event (e.g. MELI May 7 earnings vs Dec 31 2025
+  //     XBRL = 127 days = stale). The 100-day cutoff cleanly separates
+  //     "current quarter just reported" from "we're a quarter behind".
+  const next = stockData.nextEarningsDate;
+  if (next) {
+    const nextMs = Date.parse(next);
+    if (isFinite(nextMs) && nextMs <= Date.now() - day && (nextMs - segMs) / day >= 100) return true;
+  }
+
+  // (C) Most recent reported quarter on Yahoo's earnings history is newer
+  //     than our Sankey period. 30-day buffer absorbs 52/53-week fiscal
+  //     drift so a Q4 ending Dec 28 vs Dec 31 doesn't trigger.
+  const lastReported = stockData.earningsHistory.at(-1)?.quarter;
+  if (lastReported) {
+    const lastMs = Date.parse(lastReported);
+    if (isFinite(lastMs) && (lastMs - segMs) / day >= 30) return true;
+  }
+
+  return false;
 }
 
 // Foreign issuers (NOK, ASML, ...) report in EUR/GBP/CHF; the parser tags
@@ -382,52 +414,51 @@ function buildSankeyFrom8K(
 // EDGAR's most recent 10-Q lags behind a reported quarter — segments are
 // empty (Yahoo doesn't break revenue down by business line) but headline
 // totals match what the chart's bars are showing.
+//
+// Strict-real mode: this function only emits a Sankey when ALL critical IS
+// fields come back populated (>0) directly from Yahoo's quarterly feed —
+// totalRevenue, grossProfit, operatingIncome, netIncome. The earlier
+// "hybrid" path that filled missing fields with TTM-margin × this-quarter-
+// revenue was retired: it produced numbers that looked precise but were
+// fabricated (an average margin applied to an exact revenue is not a real
+// breakdown of how that revenue actually flowed). When Yahoo's feed is
+// sparse (common for FPI tickers like MELI, BABA, NIO), we return null and
+// the caller falls back to keeping the prior real quarter's Sankey + the
+// freshness banner instead of synthesizing a number.
 function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
   const q = sd.latestQuarterIS;
   if (!q || q.totalRevenue <= 0) return null;
 
-  // Need at least one of GP/OpInc/NetInc to render a meaningful Sankey
-  // beyond a single revenue node — without that, the chart component drops
-  // it for having too few nodes/links and the user sees nothing.
-  const hasMeaningfulData =
-    (q.grossProfit ?? 0) > 0 ||
-    (q.operatingIncome ?? 0) > 0 ||
-    (q.netIncome ?? 0) > 0 ||
-    (q.costOfRevenue ?? 0) > 0;
-  if (!hasMeaningfulData) return null;
-
-  const rev = q.totalRevenue;
-  const ni  = q.netIncome ?? 0;
-
   // Yahoo zeroes out (not nullifies) IS items it doesn't have for a given
   // ticker — e.g. ABBV's Q1 2026 only has rev + ni populated, gp/op/cogs/opex
-  // all return 0. Treat 0 as "missing" so we can fall back to TTM-margin
-  // estimates applied to the actual quarter revenue. Net income is taken
-  // as-is since it's the most consequential headline number.
-  const yahooField = (v: number | null | undefined): number | null =>
+  // all return 0. We treat 0 as "missing" and require the field to be a real
+  // positive value. (Operating loss is exempt — a real loss is a number we
+  // genuinely have, but Yahoo zeroes losses too, so we can't tell a true
+  // break-even from "Yahoo didn't populate this field". Net loss case
+  // handled below via signed netIncome.)
+  const real = (v: number | null | undefined): number | null =>
     typeof v === "number" && v > 0 ? v : null;
 
-  const yahooGp   = yahooField(q.grossProfit);
-  const yahooCogs = yahooField(q.costOfRevenue);
-  const yahooOp   = yahooField(q.operatingIncome);
-  const yahooOpex = yahooField(q.totalOperatingExpenses);
-  const yahooTax  = yahooField(q.incomeTaxExpense);
+  const rev   = q.totalRevenue;
+  const gp    = real(q.grossProfit);
+  const opInc = real(q.operatingIncome);
+  // netIncome may legitimately be negative or zero; require non-null so we
+  // know Yahoo populated something for the field at all. Treat exact 0 as
+  // missing because Yahoo's "no data" path returns 0 not null.
+  const niRaw = q.netIncome;
+  const ni    = (typeof niRaw === "number" && niRaw !== 0) ? niRaw : null;
 
-  const tmGm = sd.grossMargins ?? 0;
-  const tmOm = sd.operatingMargins ?? 0;
+  // Strict gate: the four anchors of an income statement must all be real.
+  // Without any one of these we can't draw an honest Sankey — the chart's
+  // proportions would be partially fabricated.
+  if (gp === null || opInc === null || ni === null) return null;
 
-  // Hybrid: actual where Yahoo has it, TTM-margin estimate where Yahoo zeroes
-  const gp    = yahooGp ?? (tmGm > 0 ? rev * tmGm : Math.max(0, rev - (yahooCogs ?? 0)));
-  const opInc = yahooOp ?? (tmOm > 0 ? rev * tmOm : 0);
-  const opex  = yahooOpex ?? Math.max(0, gp - Math.max(0, opInc));
-
-  // The gap between op and ni is taxes + interest + other below-the-line.
-  // If Yahoo gave us tax explicitly, use it. Otherwise charge the entire
-  // gap to a "Tax & Other" bucket so the Sankey balances visually instead
-  // of leaving a dangling op-side height with no outflow.
-  const opNiGap = Math.max(0, Math.max(0, opInc) - Math.max(0, ni));
-  const tax     = yahooTax ?? opNiGap;
-  const ibt     = q.incomeBeforeTax ?? Math.max(0, ni + tax);
+  // OpEx and tax: prefer Yahoo's tagged values; derive from the real anchors
+  // when missing (gp − op for opex; op − ni for tax). These derivations are
+  // arithmetic on real fields, not TTM-margin synthesis, so they're honest.
+  const opex = real(q.totalOperatingExpenses) ?? Math.max(0, gp - Math.max(0, opInc));
+  const tax  = real(q.incomeTaxExpense)        ?? Math.max(0, Math.max(0, opInc) - Math.max(0, ni));
+  const ibt  = real(q.incomeBeforeTax)         ?? Math.max(0, ni + tax);
 
   const unit    = rev >= 1e12 ? "T" : rev >= 1e9 ? "B" : "M";
   const divisor = rev >= 1e12 ? 1e12 : rev >= 1e9 ? 1e9 : 1e6;
@@ -440,14 +471,14 @@ function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
   const d  = new Date(q.endDate);
   const qN = Math.floor(d.getUTCMonth() / 3) + 1;
   const yr = d.getUTCFullYear();
-  // Annotate when any of the breakdown items came from TTM-margin estimates
-  // rather than direct Yahoo fields, so the label reflects the data quality.
-  const usedEstimates = !yahooGp || !yahooOp || !yahooTax;
-  const period = `Q${qN} FY${yr}${usedEstimates ? " · pendiente 10-Q" : ""}`;
+  const period = `Q${qN} FY${yr}`;
 
-  const rd = q.researchDevelopment ?? 0;
-  const sga = q.sellingGeneralAdministrative ?? 0;
-  const knownOpex = (rd > 0 ? rd : 0) + (sga > 0 ? sga : 0);
+  // Opex breakdown — only populated when Yahoo tagged R&D / SG&A directly.
+  // No TTM synthesis here either; if buckets are missing the Sankey shows a
+  // single OpEx node rather than fake R&D / SG&A splits.
+  const rd  = real(q.researchDevelopment) ?? 0;
+  const sga = real(q.sellingGeneralAdministrative) ?? 0;
+  const knownOpex = rd + sga;
   const otherOpex = knownOpex > 0 ? Math.max(0, opex - knownOpex) : 0;
   const hasBreakdown = rd > 0 || sga > 0;
 
@@ -460,12 +491,13 @@ function buildSankeyFromYahooQuarter(sd: StockData): SegmentSankeyData | null {
     segments: [],
     totalRevenue: sc(rev),
     grossProfit: sc(gp),
-    grossMarginPct: gp > 0 ? pct(gp) : undefined,
+    grossMarginPct: pct(gp),
     costOfRevenue: sc(Math.max(0, rev - gp)),
     operatingProfit: sc(Math.max(0, opInc)),
     operatingMarginPct: opInc > 0 ? pct(opInc) : undefined,
     netProfit: sc(Math.max(0, ni)),
     netMarginPct: ni > 0 ? pct(ni) : undefined,
+    netLoss: ni < 0 ? sc(-ni) : undefined,
     operatingExpenses: sc(opex),
     opexBreakdown: hasBreakdown ? {
       rd:             rd > 0  ? sc(rd) : undefined,
@@ -676,23 +708,44 @@ export async function POST(req: NextRequest) {
     after(() => recordAnalyzeEvent(payload));
   };
 
-  // 0. Rate limiting — keyed by a per-browser session cookie rather than IP, so
-  // multiple users behind the same office NAT each get their own bucket.
-  // Cookie is httpOnly and lives for a year; missing/cleared cookie just mints
-  // a fresh session (acceptable trade-off vs locking out shared-IP offices).
+  // 0a. Origin / Referer guard — reject cross-site POSTs that could otherwise
+  // ride a victim's session to burn quota. Modern browsers always include
+  // Origin on POST; missing/mismatched is treated as hostile.
+  const reqHost = req.headers.get("host");
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  const checkOriginHost = (raw: string | null): boolean => {
+    if (!raw || !reqHost) return false;
+    try { return new URL(raw).host === reqHost; } catch { return false; }
+  };
+  if (!checkOriginHost(origin) && !checkOriginHost(referer)) {
+    fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: "origin mismatch" });
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  // 0b. Rate limiting — session cookie keeps shared-IP offices working, IP
+  // bucket caps cookie-rotation abuse. Either bucket trips → 429.
   const SESSION_COOKIE = "ticker_session";
   const existingSession = req.cookies.get(SESSION_COOKIE)?.value;
   const sessionId = existingSession ?? crypto.randomUUID();
   const setCookieHeader = existingSession
     ? null
-    : `${SESSION_COOKIE}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 365}`;
+    : `${SESSION_COOKIE}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=${60 * 60 * 24 * 365}`;
   const withSession = <T extends Response>(res: T): T => {
     if (setCookieHeader) res.headers.append("Set-Cookie", setCookieHeader);
     return res;
   };
 
-  const { allowed, retryAfter } = checkRateLimit(sessionId);
-  if (!allowed) {
+  const clientIp =
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    null;
+
+  const sessionGate = checkRateLimit(sessionId);
+  const ipGate = clientIp ? checkIpHourlyLimit(clientIp) : { allowed: true, retryAfter: 0 };
+  if (!sessionGate.allowed || !ipGate.allowed) {
+    const retryAfter = Math.max(sessionGate.retryAfter, ipGate.retryAfter);
     fireEvent({ ticker: "-", status: "rate_limited", errorStage: "rate_limit" });
     return withSession(NextResponse.json(
       {
@@ -727,7 +780,7 @@ export async function POST(req: NextRequest) {
     if (cached) {
       // If EDGAR data was already stale relative to Yahoo when this was
       // cached, treat as a miss so we re-fetch — the 10-Q may now be filed.
-      if (isEdgarStale(cached.stockData, cached.report.segmentData ?? null)) {
+      if (isAnalysisStale(cached.stockData, cached.report.segmentData ?? null)) {
         await cacheClear(ticker);
       } else {
         void recordTickerView(ticker).catch(() => {});
@@ -769,6 +822,22 @@ export async function POST(req: NextRequest) {
     await cacheClear(ticker);
   }
 
+  // 2b. Daily cost cap — only fresh paths count. Caches still serve freely.
+  // Keyed on IP (more durable than cookie) with session fallback. Once the
+  // daily ceiling is hit, the user can still browse cached analyses but can't
+  // burn more upstream/OpenAI quota for new ones.
+  const freshGate = checkDailyFreshLimit(clientIp ?? sessionId);
+  if (!freshGate.allowed) {
+    fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
+    return withSession(NextResponse.json(
+      {
+        error: "Límite diario de análisis nuevos alcanzado. Vuelva mañana o consulte tickers ya analizados.",
+        code: "daily_cap_reached",
+      },
+      { status: 429, headers: { "Retry-After": String(freshGate.retryAfter) } }
+    ));
+  }
+
   // 3. Fetch financial data
   let stockData;
   let segmentData;
@@ -779,7 +848,7 @@ export async function POST(req: NextRequest) {
   let segmentsOk: boolean | null = null;
   let edgar8K: Edgar8KIncomeStatement | null = null;
   let xbrlSegmentsRaw: SegmentSankeyData | null = null;
-  let overridePath: "8k_override" | "yahoo_fallback" | "yahoo_ttm" | "segments_kept" | "stub" | "cache" = "segments_kept";
+  let overridePath: "8k_override" | "yahoo_fallback" | "segments_kept" | "stub" | "cache" = "segments_kept";
   try {
     let peerComparison;
     [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
@@ -805,7 +874,7 @@ export async function POST(req: NextRequest) {
     //   2. Yahoo + TTM-margin estimates — partial actuals + interpolation
     //   3. Leave EDGAR Sankey as-is — older period but real and complete
     // Foreign private issuers (SKBL, BABA, ASML, ...) often have sparse Yahoo
-    // quarterly data, so isEdgarStale's Yahoo-vs-EDGAR comparison returns
+    // quarterly data, so isAnalysisStale's Yahoo-vs-EDGAR comparison returns
     // false and the override never fires — even when the 8-K/6-K reports a
     // strictly more recent period than the XBRL annual we just pulled. Add a
     // direct endDate comparison so an 8-K that ships a newer fiscal period
@@ -829,7 +898,7 @@ export async function POST(req: NextRequest) {
       segIsAnnual &&
       edgar8K.isAnnual !== true
     );
-    const needsOverride = !segmentData || isEdgarStale(stockData, segmentData)
+    const needsOverride = !segmentData || isAnalysisStale(stockData, segmentData)
       || eightKMoreRecent || eightKQuarterlyForAnnualClose;
     if (needsOverride) {
       let override: SegmentSankeyData | null = null;
@@ -888,22 +957,50 @@ export async function POST(req: NextRequest) {
         // already have a parsed annual XBRL with segments, keeping it gives
         // the user real segment breakdowns and accurate opex bucketing — at
         // the cost of a slightly older period (e.g. FY2025 vs Yahoo's Q1
-        // 2026). Yahoo's quarterly path produces empty segments and
-        // TTM-margin estimates, which for Canadian MJDS filers (CCJ, NTR,
-        // GOLD, SU, ...) is strictly worse than the 40-F XBRL we just
-        // parsed. Limited to FPI annuals (20-F / 40-F) so US 10-Q stale
-        // detection still routes to Yahoo when appropriate.
+        // 2026). For Canadian MJDS filers (CCJ, NTR, GOLD, SU, ...) the
+        // 40-F XBRL is strictly better than Yahoo's quarterly: real
+        // segments, real opex breakdown, real currency. Limited to FPI
+        // annuals (20-F / 40-F) so US 10-Q stale detection still routes
+        // to Yahoo when appropriate.
         const isFpiAnnualWithSegments = segmentData
           && (segmentData.source === "20-F" || segmentData.source === "40-F")
           && segmentData.totalRevenue > 0;
         if (!isFpiAnnualWithSegments) {
+          // buildSankeyFromYahooQuarter returns null when Yahoo's quarterly
+          // feed is sparse (rev + ni only, no GP / op / opex). When that
+          // happens we keep whatever segmentData we already had — which is
+          // the prior real quarter from XBRL, with the freshness banner in
+          // the UI explaining the lag. Honest old data > fabricated new data.
           override = buildSankeyFromYahooQuarter(stockData);
           if (override) pickedFrom = "yahoo_fallback";
         }
       }
       if (override) {
-        segmentData = override;
-        if (pickedFrom) overridePath = pickedFrom;
+        // Anti-downgrade guard: only swap segmentData for the override when
+        // the override is from a STRICTLY NEWER period (or when we never had
+        // a segmentData to begin with, or the existing one has no usable
+        // endDate). Without this, isAnalysisStale's "earnings recently
+        // happened" signal would force-overwrite a perfectly current 10-Q
+        // (with segments + detailed opex breakdown) using Yahoo's
+        // segmentless same-period quarterly — net effect: data quality
+        // downgrade for any ticker that filed 10-Q + 8-K on the same day
+        // (DASH May 2026 was the canonical case). The eightKQuarterly-
+        // ForAnnualClose branch above is the single accepted exception:
+        // when segmentData is a 10-K/20-F annual and the 8-K exposes the
+        // same fiscal close as a quarterly press release, swapping is
+        // strictly an upgrade (FY → Q4 granularity at the same endDate).
+        const sameDateQuarterlyOverAnnual =
+          eightKQuarterlyForAnnualClose && pickedFrom === "8k_override";
+        const overrideIsNewer = !!(
+          !segmentData ||
+          !segmentData.endDate ||
+          !override.endDate ||
+          override.endDate > segmentData.endDate
+        );
+        if (overrideIsNewer || sameDateQuarterlyOverAnnual) {
+          segmentData = override;
+          if (pickedFrom) overridePath = pickedFrom;
+        }
       }
     }
 
@@ -981,9 +1078,9 @@ export async function POST(req: NextRequest) {
       verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real." },
       bullCase: { narrative: "", priceTarget: "—" },
       bearCase: { narrative: "", priceTarget: "—" },
-      segmentData: segmentData ?? buildFallbackSegmentData(stockData),
+      segmentData: segmentData ?? null,
     };
-    const stubStale = isEdgarStale(stockData, stub.segmentData ?? null);
+    const stubStale = isAnalysisStale(stockData, stub.segmentData ?? null);
     const stubTtl = stubStale ? SHORT_TTL : undefined;
     cacheSet(ticker, stub, stockData, stubTtl);
     void recordTickerView(ticker).catch(() => {});
@@ -1073,8 +1170,11 @@ export async function POST(req: NextRequest) {
             }
           }
           report = raw as unknown as StructuredReport;
-          // Use EDGAR segment data; fall back to Yahoo Finance TTM margins
-          report.segmentData = segmentData ?? buildFallbackSegmentData(stockData);
+          // EDGAR XBRL / 8-K / Yahoo-quarter (real fields only). When none of
+          // those produce a Sankey we leave segmentData null — better than
+          // fabricating a TTM-margin chart that doesn't represent any real
+          // reporting period.
+          report.segmentData = segmentData ?? null;
         } catch (parseErr) {
           fireEvent({
             ticker,
@@ -1097,7 +1197,7 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const stale = isEdgarStale(stockData, report.segmentData ?? null);
+        const stale = isAnalysisStale(stockData, report.segmentData ?? null);
         const ttl = stale ? SHORT_TTL : undefined;
         await cacheSet(ticker, report, stockData, ttl);
         void recordTickerView(ticker).catch(() => {});

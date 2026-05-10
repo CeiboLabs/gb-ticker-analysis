@@ -105,14 +105,22 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
   const [error, setError] = useState<string | null>(null);
   const [pinned, setPinned] = useState<PinnedMarker[]>([]);
   const pinnedRef = useRef<PinnedMarker[]>([]);
-  pinnedRef.current = pinned;
+  // Keep ref in sync with state via effect — mutating refs during render is a
+  // React 19 violation. Callbacks that read pinnedRef.current see the value
+  // committed in the previous paint, which is fine for our use case (popup
+  // markers don't depend on the same-tick state).
+  useEffect(() => {
+    pinnedRef.current = pinned;
+  }, [pinned]);
   const primitiveRef = useRef<PinnedMarkersPrimitive | null>(null);
   const lineSeriesRef = useRef<LineSeriesApi>(null);
   const priceLinesRef = useRef<PriceLineApi[]>([]);
 
   // Reset cache + tab + pinned markers when the ticker changes (new analysis).
   // The freshly-arrived 3Y weekly closes seed the cache so the default tab
-  // renders without a network round-trip.
+  // renders without a network round-trip. Refactoring this to derived state
+  // (e.g. keying cache by ticker) would mean carrying stale entries for old
+  // tickers indefinitely; the reset is the lighter design.
   useEffect(() => {
     const initial = new Map<ChartRange, ChartRangePayload>();
     if (historicalPrices && historicalPrices.length > 0) {
@@ -123,19 +131,25 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
         prices: historicalPrices,
       });
     }
+    /* eslint-disable react-hooks/set-state-in-effect */
     setCache(initial);
     setRange("3Y");
     setPinned([]);
     setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [historicalPrices, ticker]);
 
-  // Lazy-fetch the active range when it isn't already cached.
+  // Lazy-fetch the active range when it isn't already cached. The synchronous
+  // setLoading/setError before the async fetch is intentional UX (spinner
+  // appears immediately), not a derivable value.
   useEffect(() => {
     if (cache.has(range)) return;
     if (!ticker) return;
     let cancelled = false;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true);
     setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     fetch(`/api/chart-range?ticker=${encodeURIComponent(ticker)}&range=${range}`)
       .then((r) => r.json())
       .then((data) => {
@@ -186,6 +200,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
   // pin against an intraday chart makes no sense, and the timestamps live in
   // different scales (string date vs Unix seconds).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on range change
     setPinned([]);
   }, [range]);
 

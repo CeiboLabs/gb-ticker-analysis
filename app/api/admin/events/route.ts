@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
+import { requireAdminToken } from "@/lib/adminAuth";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -31,21 +32,11 @@ interface EventRow {
   bear_target: string | null;
 }
 
-function authorized(req: NextRequest): boolean {
-  const expected = process.env.ADMIN_TOKEN;
-  if (!expected) return false;
-  const got =
-    req.headers.get("x-admin-token") ??
-    req.nextUrl.searchParams.get("token");
-  return got === expected;
-}
-
 // Returns the most recent N events for a ticker, with full diagnostic JSON
 // (findings + snapshot). Used by the dashboard's drill-down drawer.
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
   const db = getMetricsDb();
   if (!db) {
     return NextResponse.json({ error: "METRICS_DB binding missing" }, { status: 503 });

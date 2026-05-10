@@ -194,9 +194,20 @@ export function detectIndustryProfile(
     return "pre-revenue";
   }
 
-  // 6. Oil/gas — OperatingIncomeLoss not tagged but IBT > 0. SIC 1311/2911
-  //    confirms when the concept signature is ambiguous.
-  if (is.operatingIncome === 0 && is.incomeBeforeTax > 0 && is.revenue > 0 && is.costOfRevenue > 0) {
+  // 6. Oil/gas — OperatingIncomeLoss not tagged but IBT > 0. The "no op tag"
+  //    condition is necessary but NOT sufficient: pharma (BMY: SIC 2834, no
+  //    OperatingIncomeLoss tagged on the most recent 10-Q) and other
+  //    issuers that simply omit the tag would otherwise match too, and the
+  //    oil-gas branch downstream relabels the OpEx residual as "Purchases &
+  //    Prod" — wrong for non-oil-gas. Require a positive oil-gas signal:
+  //    either an oil-gas-specific cost line (TaxesOther / ExciseAndSalesTaxes
+  //    or ExplorationExpense — both tagged by CVX, XOM, COP) or an oil-gas
+  //    SIC code.
+  if (
+    is.operatingIncome === 0 && is.incomeBeforeTax > 0 &&
+    is.revenue > 0 && is.costOfRevenue > 0 &&
+    (is.taxesOther > 0 || is.explorationExpense > 0)
+  ) {
     return "oil-gas";
   }
   if (sicMatches(sicCode, SIC_OIL_GAS) && is.operatingIncome === 0 && is.incomeBeforeTax > 0) {
@@ -385,6 +396,15 @@ export async function fetchSegmentData(
     // surface G&A / D&A / Other buckets.
     const isSingleStepIS = gp === 0 && is.costOfRevenue === 0
       && is.operatingIncome > 0 && is.costsAndExpenses > 0;
+    // Standard branch uses SIGNED operatingIncome so loss periods don't
+    // understate opex (RYOJ FY2025 case described above). When the issuer
+    // didn't tag OperatingIncomeLoss at all (is.operatingIncome === 0), the
+    // signed formula collapses to `gp` and overstates opex by the missing
+    // op-income amount — BMY's Q1 FY2026 10-Q lacks the tag and produced an
+    // 8.07B opex bucket against a real ~4.83B (gp 8.07 − IBT-derived op
+    // 3.24). Fall back to the IBT-proxy `op` only when the tag is missing,
+    // preserving the signed-loss path for tagged issuers.
+    const opForOpex = is.operatingIncome !== 0 ? is.operatingIncome : op;
     const totalOpex = isAirline
       ? (is.costsAndExpenses > 0 ? is.costsAndExpenses : airlineBucketSumRaw)
       : isOilGas
@@ -395,7 +415,7 @@ export async function fetchSegmentData(
             ? is.costsAndExpenses
             : isSingleStepIS
               ? is.costsAndExpenses
-              : Math.max(0, gp - is.operatingIncome);
+              : Math.max(0, gp - opForOpex);
 
     const pct = (n: number) =>
       is.revenue ? parseFloat(((n / is.revenue) * 100).toFixed(1)) : undefined;
@@ -737,9 +757,18 @@ export async function fetchSegmentData(
       segments,
       totalRevenue:        sc(is.revenue),
       totalRevenueYoy:     is.revenueYoy,
-      grossProfit:         sc(gp),
-      grossMarginPct:      pct(gp),
-      costOfRevenue:       sc(gpInconsistent ? 0 : is.costOfRevenue),
+      // Oil-gas issuers (XOM, CVX, COP) report a single CostsAndExpenses
+      // total that already INCLUDES the CostOfRevenue line — surfacing
+      // GP / CoR separately while routing the full opex through a GP→OpEx
+      // ribbon overstates GP's outflow (CVX Q1 FY2026: GP=$20.3B but the
+      // GP→OpEx link asked for $44.7B, forcing d3-sankey to oversize the
+      // GP node and pull the OpEx / Op.Income rects downward by the
+      // layout's center-of-mass logic). Zero gp + cogs so the renderer
+      // takes the single-step "Op. Costs" path matching the issuer's
+      // actual P&L structure.
+      grossProfit:         sc(isOilGas ? 0 : gp),
+      grossMarginPct:      !isOilGas && gp > 0 ? pct(gp) : undefined,
+      costOfRevenue:       sc((isOilGas || gpInconsistent) ? 0 : is.costOfRevenue),
       operatingProfit:     sc(Math.max(0, op)),
       operatingMarginPct:  pct(Math.max(0, op)),
       // Operating LOSS: reported as a positive magnitude when the issuer's

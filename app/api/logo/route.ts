@@ -1,4 +1,13 @@
+import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { normalizeTicker } from "@/lib/validators";
+
 export const runtime = "edge";
+
+const RATE_LIMIT_PER_HOUR = 600;
+// FQDN-ish regex: labels of [a-zA-Z0-9-], length 1–63, separated by dots,
+// total length ≤253. Rejects schemes, paths, IPs in URL form, and anything
+// that could turn the upstream URL into an open-redirect-ish probe.
+const DOMAIN_RE = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
 
 // Logo lookup with fallback chain so every ticker resolves to a real brand mark
 // (or a clean 404 that lets the client render its initial-letter avatar).
@@ -85,15 +94,24 @@ function ok(
 }
 
 export async function GET(request: Request) {
+  const gate = checkPublicGetLimit("logo", clientIpFrom(request), RATE_LIMIT_PER_HOUR);
+  if (!gate.allowed) {
+    return new Response("rate_limited", { status: 429, headers: { "Retry-After": String(gate.retryAfter) } });
+  }
+
   const { searchParams } = new URL(request.url);
-  const ticker = searchParams.get("ticker");
-  const domain = searchParams.get("domain");
+  // Only accept inputs that look like real tickers/domains so the upstream
+  // logo providers never receive arbitrary user-controlled strings as part
+  // of an outbound request URL.
+  const ticker = normalizeTicker(searchParams.get("ticker"));
+  const rawDomain = searchParams.get("domain")?.trim().toLowerCase() ?? null;
+  const domain = rawDomain && DOMAIN_RE.test(rawDomain) ? rawDomain : null;
   if (!ticker && !domain) {
-    return new Response("Missing ticker or domain", { status: 400 });
+    return new Response("Missing or invalid ticker/domain", { status: 400 });
   }
 
   if (ticker) {
-    const fmp = await tryFetch(FMP(ticker.toUpperCase()), 500);
+    const fmp = await tryFetch(FMP(ticker), 500);
     if (fmp) return ok(fmp);
   }
 

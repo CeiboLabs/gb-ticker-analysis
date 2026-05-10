@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
 import { resolveLogoDomain } from "@/lib/logoDomain";
+import { normalizeTicker } from "@/lib/validators";
+import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
 
 const MAX_SYMBOLS = 12;
+const RATE_LIMIT_PER_HOUR = 300;
 
 function extractDomain(website: string | null | undefined): string | null {
   if (!website) return null;
@@ -16,11 +19,21 @@ function extractDomain(website: string | null | undefined): string | null {
 }
 
 export async function GET(req: NextRequest) {
+  const gate = checkPublicGetLimit("quotes", clientIpFrom(req), RATE_LIMIT_PER_HOUR);
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
+    );
+  }
+
   const raw = req.nextUrl.searchParams.get("symbols")?.trim();
   if (!raw) return NextResponse.json({ quotes: [] });
 
+  // Validate every symbol; drop anything that doesn't pass so we never pass
+  // unsanitized strings to the upstream Yahoo client. Cap fan-out at MAX_SYMBOLS.
   const symbols = [...new Set(
-    raw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean),
+    raw.split(",").map((s) => normalizeTicker(s)).filter((s): s is string => s != null),
   )].slice(0, MAX_SYMBOLS);
 
   if (symbols.length === 0) return NextResponse.json({ quotes: [] });

@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject } from "react";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import { sankey as d3Sankey, sankeyCenter, sankeyJustify } from "d3-sankey";
 import type { SegmentSankeyData } from "@/types/Report";
 import { currencyPrefix } from "@/lib/currencyPrefix";
@@ -379,14 +379,19 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         }
         const bucketSum = bankBuckets.reduce((s, b) => s + b.value, 0);
         if (bucketSum > 0 && bucketSum <= nonExp * 1.02) {
+          // Fold the unallocated residual into the existing "Other" bucket
+          // when the issuer tagged `OtherNoninterestExpense`, so the chart
+          // doesn't render two sibling "Other" nodes under Noninterest Exp.
+          const neResidual = nonExp - bucketSum;
+          const otherBucket = bankBuckets.find((b) => b.id === "neOther");
+          if (otherBucket && neResidual > nonExp * 0.02) {
+            otherBucket.value += neResidual;
+          }
           for (const b of bankBuckets) {
             addNode({ id: b.id, name: b.name, displayValue: fmt(b.value, unit), color: b.color });
             addLink({ source: "nonExp", target: b.id, value: b.value, color: b.color });
           }
-          // Residual within Noninterest Exp. (when sum < total) shown as
-          // "Other Noninterest" so the parent's outflow sums to its inflow.
-          const neResidual = nonExp - bucketSum;
-          if (neResidual > nonExp * 0.02) {
+          if (!otherBucket && neResidual > nonExp * 0.02) {
             addNode({ id: "neResidual", name: "Other", displayValue: fmt(neResidual, unit), color: "#C09050" });
             addLink({ source: "nonExp", target: "neResidual", value: neResidual, color: "#C09050" });
           }
@@ -1083,6 +1088,23 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     return ai - bi;
   };
 
+  // Bank profile col-2 ordering. Without this, d3-sankey leaves the small
+  // residual nodes (otherBank, provision) at the top and pushes the dominant
+  // nonExp into the middle of the column. nonExp non-top means its label
+  // renders BELOW its rect (y1 + LABEL_GAP) and lands directly on the next
+  // node down (tax) because PAD=6 leaves no room. Pin nonExp at the top so
+  // its label uses the empty TOP_PAD area; sinks below get right-side labels
+  // (handled in the render path).
+  const bankOrder = ["revenue", "nonExp", "provision", "otherBank", "tax", "np"];
+  const bankSort = (a: SNode, b: SNode) => {
+    const ai = bankOrder.indexOf(a.id);
+    const bi = bankOrder.indexOf(b.id);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  };
+
   // Airline-mode column ordering. The col-3 sinks are pinned in this order:
   //   • cost buckets first (TOP — children of Op. Costs)
   //   • tax + np/below at the END (BOTTOM — children of Op. Income)
@@ -1131,6 +1153,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     // Leave 70 SVG units at the bottom so BELOW-node labels have room.
     .extent([[layoutLeft, TOP_PAD], [VW - 180, VH - 70]]);
   if (airlineNoGp) layout.nodeSort(airlineSort);
+  else if (industryProfile === "bank") layout.nodeSort(bankSort);
   else if (!customProfileBuilt && !lossHandled) layout.nodeSort(standardSort);
 
   const graph = layout({ nodes: nodes.map(n => ({ ...n })), links: links.map(l => ({ ...l })) });
@@ -1465,6 +1488,12 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
 
   // ── Pre-compute last-column label positions (greedy anti-overlap) ──────────
   // Same collapse-to-single-line logic as segments when nodes are thin.
+  // Nodes with `lh < LABEL_MIN_H` don't render a label (see `showLabel` in
+  // the renderer), so they must NOT advance `prevBottom` — otherwise their
+  // phantom label space cascades down and pushes the next visible label past
+  // its own rect (Citi: 3 sub-$0.5B noninterest sinks between Tech & Comm.
+  // and Other made "Other" land below its own bar).
+  const LABEL_MIN_H = 12;
   interface LastColState { topY: number; singleLine: boolean; showSub: boolean; }
   const lastColLabelState = new Map<string, LastColState>();
   {
@@ -1474,6 +1503,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     let prevBottom = -Infinity;
     for (const ln of sorted) {
       const lh       = Math.max(1, (ln.y1 ?? 0) - (ln.y0 ?? 0));
+      if (lh < LABEL_MIN_H) continue;
       const lcy      = (ln.y0 ?? 0) + lh / 2;
       const singleLine = lh < 1.5 * LINE_H;
       const showSub    = !singleLine && lh >= 2.5 * LINE_H && !!ln.subLabel;
@@ -1492,7 +1522,112 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   // anti-overlap they collide because the rects themselves are nearly touching.
   // Push each subsequent label down past the previous label's bottom; collapse
   // to a single line when the available gap is tighter than the multi-line block.
-  interface MidColState { topY: number; nLines: number; showSub: boolean; singleLine: boolean; }
+  // For pure-sink nodes (no outflow) where the room below is tighter than even
+  // a single-line label, switch to RIGHT-side placement: the right edge of a
+  // sink is empty (no outgoing ribbons) so the label sits in clear space
+  // instead of overlapping the rect of the next node down (GS bank case where
+  // tax sits between nonExp and np with PAD=6 leaving no room below).
+  // Right-side mid-col labels share horizontal real estate with the next
+  // column's rects. Find the nearest rect to the right of `n` whose y-band
+  // overlaps `n`'s y-band; the renderer (RightSideMidColLabel) measures the
+  // actual rendered text width post-render via getComputedTextLength and
+  // degrades the label content if it would cross into the neighbor rect.
+  // RIGHT_LABEL_MARGIN is a small visual buffer to keep the label and the
+  // neighbor rect from touching at the pixel level.
+  const RIGHT_LABEL_MARGIN = 6;
+  function nearestRightRectX(n: SNode): number {
+    const x1 = n.x1 ?? 0;
+    const ny0 = n.y0 ?? 0;
+    const ny1 = n.y1 ?? 0;
+    // Slack matches the label band: a single-line right-side label sits at
+    // n.cy ± LINE_H/2 and may extend past the rect's own height when the
+    // rect is thinner than the label. Use LINE_H so any rect whose y-band
+    // overlaps the label's vertical span counts as a neighbor.
+    const slack = LINE_H;
+    let best = Infinity;
+    for (const o of graph.nodes as SNode[]) {
+      if (o === n) continue;
+      const ox0 = o.x0 ?? 0;
+      if (ox0 <= x1) continue;
+      const oy0 = o.y0 ?? 0;
+      const oy1 = o.y1 ?? 0;
+      if (oy1 < ny0 - slack || oy0 > ny1 + slack) continue;
+      if (ox0 < best) best = ox0;
+    }
+    // Fallback: if no rect is in the label's y-band (rare — happens when
+    // last-col rects are positioned outside the slack window), still cap at
+    // the last column's left edge. A mid-col label should never cross into
+    // the last column's horizontal lane, regardless of whether a specific
+    // rect lies in its y-row — ribbons and other visual elements live in
+    // that lane and the label would clutter the destination side of the
+    // chart. WFC case: provision's nearest neighbor at exact y-band could
+    // be far enough away that slack doesn't catch it, but lastColX is
+    // always a valid hard cap.
+    if (best === Infinity && Number.isFinite(lastColX) && lastColX > x1) {
+      best = lastColX;
+    }
+    return best;
+  }
+
+  // True if any link's ribbon passes through the label's y-band somewhere
+  // in [rx, rx + estimatedWidth]. Right-side mid-col labels live in the
+  // inter-column lane that is mostly filled with outgoing ribbons from
+  // upstream nodes (e.g. nonExp → its children in bank profile). Even when
+  // the label fits horizontally between rects, it can still cross through
+  // a ribbon, which the eye reads as overlap. This check lets us suppress
+  // the label entirely in that case.
+  //
+  // Approach: for each link whose horizontal x-range covers any sample x,
+  // linearly interpolate the link's y center between source and target,
+  // expand by ±link.width/2, and test for y-band overlap with the label.
+  // d3-sankey ribbons are smooth Bézier curves but the linear interpolation
+  // is a tight enough approximation in the middle of the span (the curves
+  // ease at the endpoints, not the middle).
+  function ribbonBlocksLabel(rx: number, cy: number, endX: number): boolean {
+    const labelTop = cy - LINE_H / 2;
+    const labelBot = cy + LINE_H / 2;
+    // Sample at multiple x positions across the label's projected span so
+    // we catch ribbons that cross diagonally even if they don't sit at the
+    // label's start/end.
+    const samples: number[] = [];
+    const step = Math.max(20, (endX - rx) / 6);
+    for (let xp = rx; xp <= endX; xp += step) samples.push(xp);
+    if (samples[samples.length - 1] !== endX) samples.push(endX);
+    for (const link of graph.links) {
+      const src = link.source as SNode;
+      const tgt = link.target as SNode;
+      const srcX1 = src.x1 ?? 0;
+      const tgtX0 = tgt.x0 ?? 0;
+      if (tgtX0 <= srcX1) continue;
+      const linkY0 = link.y0 ?? 0; // ribbon center y at source side
+      const linkY1 = link.y1 ?? 0; // ribbon center y at target side
+      const lw     = link.width ?? 0;
+      if (lw <= 0) continue;
+      for (const xp of samples) {
+        if (xp < srcX1 || xp > tgtX0) continue;
+        const t  = (xp - srcX1) / (tgtX0 - srcX1);
+        const ly = linkY0 + (linkY1 - linkY0) * t;
+        const linkTop = ly - lw / 2;
+        const linkBot = ly + lw / 2;
+        if (linkBot >= labelTop && linkTop <= labelBot) return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Pre-compute mid-col label positions (greedy push-down) ─────────────────
+  // When a mid-column stacks multiple short nodes vertically (RYOJ FY2025: GP
+  // node sits adjacent to the synthetic "Tax & Non-Op" source in the same
+  // column), each non-top node's label sits BELOW its own rect — and without
+  // anti-overlap they collide because the rects themselves are nearly touching.
+  // Push each subsequent label down past the previous label's bottom; collapse
+  // to a single line when the available gap is tighter than the multi-line block.
+  // For pure-sink nodes (no outflow) where the room below is tighter than even
+  // a single-line label, switch to RIGHT-side placement: the right edge of a
+  // sink is empty (no outgoing ribbons) so the label sits in clear space
+  // instead of overlapping the rect of the next node down (GS bank case where
+  // tax sits between nonExp and np with PAD=6 leaving no room below).
+  interface MidColState { topY: number; nLines: number; showSub: boolean; singleLine: boolean; side: "above" | "below" | "right"; maxRightX?: number; ribbonBlocked?: boolean }
   const midColLabelState = new Map<string, MidColState>();
   {
     for (const [colX, colNodes] of byCol) {
@@ -1505,12 +1640,13 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         const y0 = n.y0 ?? 0;
         const y1 = n.y1 ?? 0;
         const h  = Math.max(1, y1 - y0);
+        if (h < LABEL_MIN_H) continue;
         const isTop   = i === 0 && colTopId.has(n.id);
         const showSub = h >= 60 && !!n.subLabel;
         const nLinesFull = 1 + (n.displayValue ? 1 : 0) + (showSub ? 1 : 0);
         if (isTop) {
           const topY = y0 - LABEL_GAP - nLinesFull * LINE_H;
-          midColLabelState.set(n.id, { topY, nLines: nLinesFull, showSub, singleLine: false });
+          midColLabelState.set(n.id, { topY, nLines: nLinesFull, showSub, singleLine: false, side: "above" });
           // Top label lives ABOVE the column; doesn't constrain push-down chain.
           prevBottom = -Infinity;
           continue;
@@ -1534,7 +1670,45 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           singleLine = true;
           nLines = 1;
         }
-        midColLabelState.set(n.id, { topY, nLines, showSub: finalShowSub, singleLine });
+        // If even the single-line block won't fit below the node without
+        // landing on the next node's rect, and this node is a pure sink (no
+        // outgoing ribbon to the right), switch to RIGHT-side placement.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const outCount = ((n as any).sourceLinks?.length ?? 0) as number;
+        if (room < nLines * LINE_H && outCount === 0) {
+          const cy = y0 + h / 2;
+          const rightSingle = h < 1.5 * LINE_H;
+          const rightShowSub = !rightSingle && h >= 2.5 * LINE_H && !!n.subLabel;
+          const rightLines   = rightSingle ? 1 : 1 + (n.displayValue ? 1 : 0) + (rightShowSub ? 1 : 0);
+          const rightTopY    = cy - (rightLines * LINE_H) / 2;
+          // Cap horizontally at the nearest right-side rect (with margin) so
+          // tightly-packed downstream nodes (small last-col residuals at
+          // overlapping y) don't get clipped or visually touched.
+          const neighborX = nearestRightRectX(n);
+          const maxRightX = neighborX - RIGHT_LABEL_MARGIN;
+          // Check whether ANY ribbon crosses the label's projected band.
+          // If a ribbon overlaps, the label would visually sit on top of
+          // it (reading as collision) — suppress the label entirely in
+          // that case rather than show a clean-but-occluded label.
+          const rxProj    = (n.x1 ?? 0) + 10;
+          const cyProj    = y0 + h / 2;
+          const endXProj  = Number.isFinite(maxRightX) ? maxRightX : (n.x1 ?? 0) + 200;
+          const ribbonBlocked = ribbonBlocksLabel(rxProj, cyProj, endXProj);
+          midColLabelState.set(n.id, {
+            topY: rightTopY,
+            nLines: rightLines,
+            showSub: rightShowSub,
+            singleLine: rightSingle,
+            side: "right",
+            maxRightX: Number.isFinite(maxRightX) ? maxRightX : undefined,
+            ribbonBlocked,
+          });
+          // Right-side labels live next to the node, not in the below-stack:
+          // don't update prevBottom so subsequent below-labels in the chain
+          // are not pushed further down by labels that aren't even there.
+          continue;
+        }
+        midColLabelState.set(n.id, { topY, nLines, showSub: finalShowSub, singleLine, side: "below" });
         prevBottom = topY + nLines * LINE_H;
       }
     }
@@ -1552,6 +1726,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     let prevBottom = -Infinity;
     for (const sn of sorted) {
       const lh       = Math.max(1, (sn.y1 ?? 0) - (sn.y0 ?? 0));
+      if (lh < LABEL_MIN_H) continue;
       const lcy      = (sn.y0 ?? 0) + lh / 2;
       const singleLine = lh < 1.5 * LINE_H;
       const showSub    = !singleLine && lh >= 2.5 * LINE_H && !!sn.subLabel;
@@ -1624,7 +1799,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           const isSegment = segNodeIds.has(n.id);
           const isLastCol = Math.round(x0) === lastColX;
           const isMidCol  = !isSegment && !isLastCol;
-          const showLabel = h >= 12;
+          const showLabel = h >= LABEL_MIN_H;
 
           return (
             <g key={n.id}>
@@ -1646,6 +1821,41 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
                   // populates the column.
                   const mid = midColLabelState.get(n.id);
                   if (mid) {
+                    if (mid.side === "right") {
+                      // Pure sink with no room below: anchor label to the
+                      // right of the rect. Width must not cross into the
+                      // nearest right-side neighbor — measured post-render
+                      // by RightSideMidColLabel.
+                      // If a ribbon already covers the projected label band
+                      // (e.g. nonExp → its children pass through provision's
+                      // y in the bank profile), suppress the label entirely
+                      // — the rect's color and height carry the row meaning.
+                      if (mid.ribbonBlocked) return null;
+                      const rx = x0 + NODE_W + 10;
+                      const ty = mid.topY + LINE_H / 2;
+                      // Key derived from inputs: when any change, the label
+                      // remounts and re-measures from scratch instead of
+                      // carrying over a stale degraded mode.
+                      const lblKey = `${n.id}|${n.name}|${n.displayValue ?? ""}|${rx}|${mid.maxRightX ?? "inf"}`;
+                      if (mid.singleLine) {
+                        return [
+                          <RightSideMidColLabel key={lblKey}
+                            x={rx} y={ty} maxX={mid.maxRightX ?? Infinity}
+                            name={n.name} value={n.displayValue} color={n.color} />,
+                        ];
+                      }
+                      // Multi-line block (rect tall enough): also constrain
+                      // each line. The block layout reuses LINE_H stacking
+                      // and mirrors the singleLine fallback by hiding lines
+                      // that would overflow.
+                      return [
+                        <RightSideMidColLabel key={lblKey}
+                          x={rx} y={ty} maxX={mid.maxRightX ?? Infinity}
+                          name={n.name} value={n.displayValue} color={n.color}
+                          subLabel={mid.showSub ? n.subLabel : undefined}
+                          stacked />,
+                      ];
+                    }
                     if (mid.singleLine) {
                       return [
                         <text key="sl" x={cx} y={mid.topY + LINE_H / 2}
@@ -1730,5 +1940,71 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         </div>
       )}
     </div>
+  );
+}
+
+// ── Right-side mid-col label: full "Name  $value" or nothing ────────────────
+// Mid-col sinks (provision/tax/otherBank in bank profile) live in a
+// horizontal lane filled with ribbons. Renders the full "Name  $value" only
+// when it fits cleanly in the available channel [x, maxX]; otherwise hides
+// the label entirely (the rect itself remains and conveys the value via its
+// height — better than a half-readable label that overlaps neighbors).
+//
+// One offscreen probe measures the full string post-render via SVG's
+// getComputedTextLength so the decision uses real font metrics. SSR-safe
+// initial state is "hidden" — first paint shows nothing, hydration reveals
+// the label only if measurement confirms it fits. A brief flash of "no
+// label" is acceptable; a flash of "overlapping label" is not.
+function RightSideMidColLabel({
+  x, y, maxX, name, value, color,
+}: {
+  x: number;
+  y: number;
+  maxX: number;
+  name: string;
+  value?: string;
+  color: string;
+  subLabel?: string;
+  stacked?: boolean;
+}) {
+  const probeRef = useRef<SVGTextElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useLayoutEffect(() => {
+    if (!Number.isFinite(maxX)) {
+      // Unconstrained channel: always show.
+      setVisible(true);
+      return;
+    }
+    const w = probeRef.current?.getComputedTextLength() ?? Infinity;
+    const FIT_BUFFER = 8; // visual gap to neighbor rect / ribbon edge
+    setVisible(x + w + FIT_BUFFER <= maxX);
+  }, [x, maxX, name, value]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Offscreen probe rendered always (when constraint exists) so the
+  // measurement can run on every mount/update.
+  const probe = Number.isFinite(maxX) ? (
+    <text ref={probeRef} x={-99999} y={-99999}
+      fontSize={11} aria-hidden="true" pointerEvents="none">
+      <tspan fontWeight="800">{name}</tspan>
+      {value && <tspan fontWeight="600">{"  " + value}</tspan>}
+    </text>
+  ) : null;
+
+  if (!visible) return probe;
+
+  return (
+    <>
+      {probe}
+      <text x={x} y={y}
+        fontSize={11} textAnchor="start" dominantBaseline="middle">
+        <tspan fontWeight="800" fill={color}>{name}</tspan>
+        {value && (
+          <tspan fontWeight="600" fill={color}>{"  " + value}</tspan>
+        )}
+      </text>
+    </>
   );
 }

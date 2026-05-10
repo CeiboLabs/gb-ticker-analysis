@@ -178,6 +178,49 @@ const VERDICT_COLORS = {
   AVOID: { bg: "#fef2f2", border: "#ef4444", badge: "#991b1b", sub: "#dc2626", text: "#7f1d1d" },
 } as const;
 
+// Hoisted out of ReportDocument so the component identity is stable across
+// renders — declaring components inside another component violates the
+// react-hooks/refs rule and recreates the component on every render.
+
+// Clean markdown but preserve **bold** markers for rendering
+function cleanMd(value: unknown): string {
+  const md = typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+  return md
+    .replace(/#{1,6}\s+(.*)/g, "$1")
+    .replace(/`(.*?)`/g, "$1")
+    .replace(/^- /gm, "• ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Parse text into bold/normal segments
+function parseBold(text: string): Array<{ t: string; bold: boolean }> {
+  const parts: Array<{ t: string; bold: boolean }> = [];
+  const re = /\*\*(.*?)\*\*/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > last) parts.push({ t: text.slice(last, m.index), bold: false });
+    parts.push({ t: m[1], bold: true });
+    last = m.index! + m[0].length;
+  }
+  if (last < text.length) parts.push({ t: text.slice(last), bold: false });
+  return parts;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function PdfText({ content, style }: { content: unknown; style: any }) {
+  const parts = parseBold(cleanMd(content));
+  return (
+    <Text style={style}>
+      {parts.map((p, i) =>
+        p.bold
+          ? <Text key={i} style={{ fontFamily: "Helvetica-Bold" }}>{p.t}</Text>
+          : p.t
+      )}
+    </Text>
+  );
+}
+
 function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageUrl }: ReportDocProps) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -219,45 +262,6 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
     ["Escenario Alcista — $" + report.bullCase.priceTarget, report.bullCase.narrative],
     ["Escenario Bajista — $" + report.bearCase.priceTarget, report.bearCase.narrative],
   ];
-
-  // Clean markdown but preserve **bold** markers for rendering
-  function cleanMd(value: unknown): string {
-    const md = typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
-    return md
-      .replace(/#{1,6}\s+(.*)/g, "$1")
-      .replace(/`(.*?)`/g, "$1")
-      .replace(/^- /gm, "• ")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-  }
-
-  // Parse text into bold/normal segments
-  function parseBold(text: string): Array<{ t: string; bold: boolean }> {
-    const parts: Array<{ t: string; bold: boolean }> = [];
-    const re = /\*\*(.*?)\*\*/g;
-    let last = 0;
-    for (const m of text.matchAll(re)) {
-      if (m.index! > last) parts.push({ t: text.slice(last, m.index), bold: false });
-      parts.push({ t: m[1], bold: true });
-      last = m.index! + m[0].length;
-    }
-    if (last < text.length) parts.push({ t: text.slice(last), bold: false });
-    return parts;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function PdfText({ content, style }: { content: unknown; style: any }) {
-    const parts = parseBold(cleanMd(content));
-    return (
-      <Text style={style}>
-        {parts.map((p, i) =>
-          p.bold
-            ? <Text key={i} style={{ fontFamily: "Helvetica-Bold" }}>{p.t}</Text>
-            : p.t
-        )}
-      </Text>
-    );
-  }
 
   return (
     <Document>
@@ -490,6 +494,7 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
   // handler synchronous so user activation is preserved.
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset; the new blob is async, can't be derived in render
     setPdfBlob(null);
     pdf(
       <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />

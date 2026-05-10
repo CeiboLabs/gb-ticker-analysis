@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 // wordmarks on transparent backgrounds, which disappear on a white card.
 // Sample the rendered image, compute mean luminance of opaque pixels, and
 // surface "light" so the caller can swap to a dark backdrop.
+//
+// State carries the src it was computed for, so when `src` prop changes we
+// derive `null` until the new computation lands — no need to setState inside
+// the effect just to reset.
 export function useLogoBrightness(src: string | null): "light" | "dark" | null {
-  const [brightness, setBrightness] = useState<"light" | "dark" | null>(null);
+  const [resolved, setResolved] = useState<{ src: string; brightness: "light" | "dark" } | null>(null);
 
   useEffect(() => {
-    setBrightness(null);
     if (!src) return;
     let cancelled = false;
 
@@ -46,7 +49,7 @@ export function useLogoBrightness(src: string | null): "light" | "dark" | null {
         const transparentRatio = transparentCount / total;
         const meanLum = opaqueLumSum / opaqueCount;
         const isLight = transparentRatio > 0.3 && meanLum > 200;
-        setBrightness(isLight ? "light" : "dark");
+        setResolved({ src, brightness: isLight ? "light" : "dark" });
       } catch {
         // Tainted canvas or other read failure — leave neutral.
       }
@@ -58,5 +61,5 @@ export function useLogoBrightness(src: string | null): "light" | "dark" | null {
     };
   }, [src]);
 
-  return brightness;
+  return resolved?.src === src ? resolved.brightness : null;
 }

@@ -93,6 +93,29 @@ function truncate(s: string | null | undefined, max: number): string | null {
   return s.length > max ? s.slice(0, max) : s;
 }
 
+// Strip filesystem paths, URL credentials, and stack-frame noise from error
+// strings before they hit the metrics DB. Keeps just enough signal to debug
+// without leaking server layout, secrets baked into URLs, or PII passed
+// through upstream errors.
+function sanitizeErrorMsg(s: string | null | undefined, max: number): string | null {
+  if (!s) return null;
+  let out = s
+    // Drop "at fn (path:line:col)" stack frames entirely.
+    .replace(/\s+at\s+[^\n]*?(?:\([^)]*\))?(?=\n|$)/g, "")
+    // POSIX absolute paths with at least 2 segments → [path].
+    .replace(/(?:\/[A-Za-z0-9._-]+){2,}/g, "[path]")
+    // Windows absolute paths.
+    .replace(/[A-Za-z]:\\(?:[^\s\\]+\\?){2,}/g, "[path]")
+    // user:pass@ in URLs.
+    .replace(/\/\/[^/\s:@]+:[^/\s@]+@/g, "//[redacted]@")
+    // Bearer / token query params.
+    .replace(/([?&](?:token|api[_-]?key|key|secret|password)=)[^&\s]+/gi, "$1[redacted]")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (out.length > max) out = out.slice(0, max);
+  return out || null;
+}
+
 function bool01(v: boolean | null | undefined): number | null {
   return v === true ? 1 : v === false ? 0 : null;
 }
@@ -139,7 +162,7 @@ export async function writeAnalyzeEvent(
       bool01(e.edgar8kOk),
       bool01(e.segmentsOk),
       e.errorStage ?? null,
-      truncate(e.errorMsg, 500),
+      sanitizeErrorMsg(e.errorMsg, 500),
       truncate(e.userAgent, 200),
       e.country ?? null,
       e.ipHash ?? null,
