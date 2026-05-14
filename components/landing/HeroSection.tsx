@@ -16,7 +16,7 @@ export function HeroSection({ onSearch }: Props) {
   }, []);
 
   return (
-    <section className="min-h-screen flex flex-col items-center justify-center bg-[#03065E] text-white px-6 py-20 relative overflow-hidden">
+    <section className="min-h-screen flex flex-col items-center justify-center bg-[#03065E] text-white px-5 sm:px-6 py-16 sm:py-20 relative overflow-hidden">
       {/* Subtle grid background */}
       <div
         className="absolute inset-0 opacity-[0.03]"
@@ -29,11 +29,10 @@ export function HeroSection({ onSearch }: Props) {
       {/* Logo */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo-bengochea.svg"
+        src="/logo-bengochea.svg?v=2"
         alt="Gastón Bengochea"
-        className="h-8 sm:h-10 w-auto mb-12 relative"
+        className="h-8 sm:h-10 w-auto mb-8 sm:mb-12 relative"
         style={{
-          filter: "brightness(0) invert(1)",
           opacity: mounted ? 1 : 0,
           transform: mounted ? "translateY(0)" : "translateY(-16px)",
           transition: "all 0.8s ease-out 0.1s",
@@ -42,7 +41,7 @@ export function HeroSection({ onSearch }: Props) {
 
       {/* Headline */}
       <h1
-        className="text-3xl md:text-4xl lg:text-5xl font-bold text-center max-w-2xl leading-tight mb-5 relative"
+        className="text-[28px] leading-[1.15] sm:text-4xl lg:text-5xl font-bold text-center max-w-2xl mb-4 sm:mb-5 relative"
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? "translateY(0)" : "translateY(20px)",
@@ -54,7 +53,7 @@ export function HeroSection({ onSearch }: Props) {
 
       {/* Subheadline */}
       <p
-        className="text-base sm:text-lg text-white/60 text-center max-w-xl mb-12 relative pointer-events-none"
+        className="text-sm sm:text-lg text-white/60 text-center max-w-xl mb-8 sm:mb-12 relative pointer-events-none"
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? "translateY(0)" : "translateY(16px)",
@@ -89,7 +88,7 @@ export function HeroSection({ onSearch }: Props) {
 
       {/* Scroll indicator */}
       <div
-        className="absolute bottom-8 flex flex-col items-center text-white/20 animate-bounce"
+        className="hidden sm:flex absolute bottom-8 flex-col items-center text-white/20 animate-bounce"
         style={{
           opacity: mounted ? 1 : 0,
           transition: "opacity 1s ease-out 1.2s",

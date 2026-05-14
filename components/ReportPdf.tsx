@@ -1,12 +1,13 @@
 "use client";
 
-import { Fragment, useState, useCallback } from "react";
+import { Fragment, useState, useCallback, useEffect } from "react";
 import {
   Document,
   Page,
   Text,
   View,
   Image,
+  Link,
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
@@ -35,7 +36,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 138,
-    height: 24,
+    height: 28,
     objectFit: "contain",
   },
 
@@ -177,6 +178,49 @@ const VERDICT_COLORS = {
   AVOID: { bg: "#fef2f2", border: "#ef4444", badge: "#991b1b", sub: "#dc2626", text: "#7f1d1d" },
 } as const;
 
+// Hoisted out of ReportDocument so the component identity is stable across
+// renders — declaring components inside another component violates the
+// react-hooks/refs rule and recreates the component on every render.
+
+// Clean markdown but preserve **bold** markers for rendering
+function cleanMd(value: unknown): string {
+  const md = typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+  return md
+    .replace(/#{1,6}\s+(.*)/g, "$1")
+    .replace(/`(.*?)`/g, "$1")
+    .replace(/^- /gm, "• ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Parse text into bold/normal segments
+function parseBold(text: string): Array<{ t: string; bold: boolean }> {
+  const parts: Array<{ t: string; bold: boolean }> = [];
+  const re = /\*\*(.*?)\*\*/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > last) parts.push({ t: text.slice(last, m.index), bold: false });
+    parts.push({ t: m[1], bold: true });
+    last = m.index! + m[0].length;
+  }
+  if (last < text.length) parts.push({ t: text.slice(last), bold: false });
+  return parts;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function PdfText({ content, style }: { content: unknown; style: any }) {
+  const parts = parseBold(cleanMd(content));
+  return (
+    <Text style={style}>
+      {parts.map((p, i) =>
+        p.bold
+          ? <Text key={i} style={{ fontFamily: "Helvetica-Bold" }}>{p.t}</Text>
+          : p.t
+      )}
+    </Text>
+  );
+}
+
 function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageUrl }: ReportDocProps) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -218,45 +262,6 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
     ["Escenario Alcista — $" + report.bullCase.priceTarget, report.bullCase.narrative],
     ["Escenario Bajista — $" + report.bearCase.priceTarget, report.bearCase.narrative],
   ];
-
-  // Clean markdown but preserve **bold** markers for rendering
-  function cleanMd(value: unknown): string {
-    const md = typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
-    return md
-      .replace(/#{1,6}\s+(.*)/g, "$1")
-      .replace(/`(.*?)`/g, "$1")
-      .replace(/^- /gm, "• ")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-  }
-
-  // Parse text into bold/normal segments
-  function parseBold(text: string): Array<{ t: string; bold: boolean }> {
-    const parts: Array<{ t: string; bold: boolean }> = [];
-    const re = /\*\*(.*?)\*\*/g;
-    let last = 0;
-    for (const m of text.matchAll(re)) {
-      if (m.index! > last) parts.push({ t: text.slice(last, m.index), bold: false });
-      parts.push({ t: m[1], bold: true });
-      last = m.index! + m[0].length;
-    }
-    if (last < text.length) parts.push({ t: text.slice(last), bold: false });
-    return parts;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function PdfText({ content, style }: { content: unknown; style: any }) {
-    const parts = parseBold(cleanMd(content));
-    return (
-      <Text style={style}>
-        {parts.map((p, i) =>
-          p.bold
-            ? <Text key={i} style={{ fontFamily: "Helvetica-Bold" }}>{p.t}</Text>
-            : p.t
-        )}
-      </Text>
-    );
-  }
 
   return (
     <Document>
@@ -303,6 +308,75 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
             )}
           </View>
         )}
+
+        {/* Analyst Consensus */}
+        {(() => {
+          const total =
+            d.analystStrongBuy + d.analystBuy + d.analystHold + d.analystSell + d.analystStrongSell;
+          if (total === 0 && d.targetMeanPrice == null) return null;
+          const bullish = d.analystStrongBuy + d.analystBuy;
+          const bearish = d.analystSell + d.analystStrongSell;
+          const upside =
+            d.targetMeanPrice != null && d.currentPrice != null
+              ? ((d.targetMeanPrice - d.currentPrice) / d.currentPrice) * 100
+              : null;
+          const bars = [
+            { label: "Compra Fuerte", count: d.analystStrongBuy, color: "#10b981" },
+            { label: "Compra", count: d.analystBuy, color: "#34d399" },
+            { label: "Mantener", count: d.analystHold, color: "#facc15" },
+            { label: "Vender", count: d.analystSell, color: "#f87171" },
+            { label: "Venta Fuerte", count: d.analystStrongSell, color: "#dc2626" },
+          ];
+          return (
+            <View style={{ marginBottom: 16, borderWidth: 0.5, borderColor: "#e5e7eb", borderRadius: 4, padding: 10 }}>
+              <Text style={{ fontSize: 7, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
+                Consenso de Analistas
+              </Text>
+              <View style={{ flexDirection: "row", gap: 16 }}>
+                {d.targetMeanPrice != null && (
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 7, color: "#6b7280", marginBottom: 2 }}>Precio Objetivo Medio</Text>
+                    <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", color: "#03065E" }}>
+                      {fmtPrice(d.targetMeanPrice)}
+                    </Text>
+                    {upside != null && (
+                      <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: upside >= 0 ? "#16a34a" : "#dc2626", marginTop: 1 }}>
+                        {upside >= 0 ? "+" : ""}{upside.toFixed(1)}% potencial
+                      </Text>
+                    )}
+                    {d.targetLowPrice != null && d.targetHighPrice != null && (
+                      <Text style={{ fontSize: 7, color: "#6b7280", marginTop: 2 }}>
+                        Rango: {fmtPrice(d.targetLowPrice)} – {fmtPrice(d.targetHighPrice)}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {total > 0 && (
+                  <View style={{ flex: 2 }}>
+                    <Text style={{ fontSize: 7, color: "#6b7280", marginBottom: 4 }}>
+                      {total} analistas · {bullish} alcistas · {d.analystHold} neutros · {bearish} bajistas
+                    </Text>
+                    <View style={{ flexDirection: "row", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                      {bars.map((b) =>
+                        b.count > 0 ? (
+                          <View key={b.label} style={{ backgroundColor: b.color, width: `${(b.count / total) * 100}%` }} />
+                        ) : null
+                      )}
+                    </View>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                      {bars.map((b) => (
+                        <View key={b.label} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                          <View style={{ width: 5, height: 5, backgroundColor: b.color, borderRadius: 1 }} />
+                          <Text style={{ fontSize: 7, color: "#6b7280" }}>{b.label}: {b.count}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Verdict */}
         <View style={[styles.verdictBox, { backgroundColor: vc.bg, borderLeftColor: vc.border }]}>
@@ -352,9 +426,24 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
                     (report.segmentData.segmentPeriod && report.segmentData.segmentPeriod !== report.segmentData.period
                       ? " · Segmentos: " + report.segmentData.segmentPeriod
                       : "") +
-                    " · en " + report.segmentData.currency + ", " + report.segmentData.unit}
+                    " · en " + report.segmentData.currency}
                 </Text>
                 <Image src={sankeyImageUrl} style={{ width: "100%", borderRadius: 4 }} />
+                {report.segmentData.source && (
+                  <Text style={{ fontSize: 6.5, color: "#9ca3af", marginTop: 3, textAlign: "right" }}>
+                    Fuente:{" "}
+                    {report.segmentData.sourceUrl ? (
+                      <Link
+                        src={report.segmentData.sourceUrl}
+                        style={{ color: "#6b7280", textDecoration: "underline" }}
+                      >
+                        SEC EDGAR · {report.segmentData.source}
+                      </Link>
+                    ) : (
+                      report.segmentData.source
+                    )}
+                  </Text>
+                )}
               </View>
             )}
           </Fragment>
@@ -395,33 +484,95 @@ interface DownloadProps {
 }
 
 export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChartImageUrl }: DownloadProps) {
-  const [generating, setGenerating] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [justDownloaded, setJustDownloaded] = useState(false);
 
-  const handleDownload = useCallback(async () => {
-    setGenerating(true);
-    try {
-      const blob = await pdf(
-        <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
-      ).toBlob();
-      const today = new Date().toISOString().split("T")[0];
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${stockData.ticker}-analysis-${today}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setGenerating(false);
-    }
+  // Pre-generate the PDF as soon as the report is ready. iOS Safari requires
+  // navigator.share() to run inside the user-activation window (~5s after
+  // click); if we generate on click, react-pdf's async work eats that window
+  // and share() throws NotAllowedError. Pre-generating keeps the click
+  // handler synchronous so user activation is preserved.
+  useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset; the new blob is async, can't be derived in render
+    setPdfBlob(null);
+    pdf(
+      <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
+    )
+      .toBlob()
+      .then((blob) => {
+        if (!cancelled) setPdfBlob(blob);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [report, stockData, sankeyImageUrl, priceChartImageUrl]);
+
+  useEffect(() => {
+    if (!justDownloaded) return;
+    const t = setTimeout(() => setJustDownloaded(false), 3000);
+    return () => clearTimeout(t);
+  }, [justDownloaded]);
+
+  const handleClick = useCallback(() => {
+    if (!pdfBlob || justDownloaded) return;
+    const today = new Date().toISOString().split("T")[0];
+    const filename = `${stockData.ticker}-analysis-${today}.pdf`;
+    const file = new File([pdfBlob], filename, { type: "application/pdf" });
+
+    // Mobile/tablet: share sheet. Desktop: direct download.
+    // matchMedia("pointer: coarse") is true on touch-primary devices.
+    const isTouchDevice =
+      typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+    if (isTouchDevice && typeof navigator.share === "function") {
+      navigator.share({ files: [file], title: `${stockData.ticker} — Análisis` })
+        .then(() => setJustDownloaded(true))
+        .catch((err) => {
+          if ((err as DOMException)?.name === "AbortError") return;
+          downloadFallback(pdfBlob, filename);
+          setJustDownloaded(true);
+        });
+      return;
+    }
+
+    downloadFallback(pdfBlob, filename);
+    setJustDownloaded(true);
+  }, [pdfBlob, justDownloaded, stockData.ticker]);
+
+  const ready = pdfBlob !== null;
 
   return (
     <button
-      onClick={handleDownload}
-      disabled={generating}
-      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+      onClick={handleClick}
+      disabled={!ready || justDownloaded}
+      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
     >
-      {generating ? "Generando PDF…" : "Exportar PDF"}
+      {justDownloaded ? (
+        <>
+          <span className="sm:hidden">Descargado ✓</span>
+          <span className="hidden sm:inline">Descargado ✓</span>
+        </>
+      ) : ready ? (
+        <>
+          <span className="sm:hidden">PDF</span>
+          <span className="hidden sm:inline">Exportar PDF</span>
+        </>
+      ) : (
+        <>
+          <span className="sm:hidden">PDF…</span>
+          <span className="hidden sm:inline">Preparando PDF…</span>
+        </>
+      )}
     </button>
   );
+}
+
+function downloadFallback(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

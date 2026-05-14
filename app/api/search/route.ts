@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
+import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
+
+const RATE_LIMIT_PER_HOUR = 300;
+const MAX_QUERY_LEN = 64;
 
 // Yahoo Finance exchange codes for US equity markets
 const US_EXCHANGES = new Set([
@@ -15,7 +19,15 @@ const US_EXCHANGES = new Set([
 ]);
 
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q")?.trim();
+  const gate = checkPublicGetLimit("search", clientIpFrom(req), RATE_LIMIT_PER_HOUR);
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
+    );
+  }
+
+  const q = req.nextUrl.searchParams.get("q")?.trim().slice(0, MAX_QUERY_LEN);
   if (!q || q.length < 2) {
     return NextResponse.json({ results: [] });
   }

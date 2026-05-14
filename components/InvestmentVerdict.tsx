@@ -45,7 +45,7 @@ export function InvestmentVerdict({ verdict }: Props) {
 
   return (
     <div className={`rounded-xl border p-4 mb-6 ${cfg.bg} ${cfg.border}`}>
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex items-center gap-3 mb-2 flex-wrap">
         <span className={`px-3 py-1 rounded-full text-sm font-bold tracking-wide ${cfg.badge}`}>
           {ratingLabel[verdict.rating] ?? verdict.rating}
         </span>

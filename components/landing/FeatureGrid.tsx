@@ -67,24 +67,24 @@ const FEATURES = [
 
 export function FeatureGrid() {
   return (
-    <section className="bg-[#03065E] py-20 sm:py-28 px-6">
+    <section className="bg-[#03065E] py-16 sm:py-28 px-5 sm:px-6">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-white/35 text-center mb-3">
+        <h2 className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.3em] text-white/35 text-center mb-3">
           Funcionalidades
         </h2>
-        <p className="text-2xl sm:text-3xl font-bold text-white text-center mb-14">
+        <p className="text-xl sm:text-3xl font-bold text-white text-center mb-10 sm:mb-14">
           Qué Incluye Cada Reporte
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="bg-white/10 border border-white/10 rounded-xl p-6"
+              className="bg-white/10 border border-white/10 rounded-xl p-5 sm:p-6"
             >
-              <div className="text-white/60 mb-4">{f.icon}</div>
-              <h3 className="text-sm font-semibold text-white mb-2">{f.title}</h3>
-              <p className="text-sm text-white/50 leading-relaxed">{f.description}</p>
+              <div className="text-white/60 mb-3 sm:mb-4">{f.icon}</div>
+              <h3 className="text-sm font-semibold text-white mb-1.5 sm:mb-2">{f.title}</h3>
+              <p className="text-[13px] sm:text-sm text-white/50 leading-relaxed">{f.description}</p>
             </div>
           ))}
         </div>

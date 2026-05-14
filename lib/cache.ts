@@ -5,14 +5,29 @@ interface CacheEntry {
   report: StructuredReport;
   stockData: StockData;
   createdAt: number;
+  ttlSeconds?: number;
 }
 
 const CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
+const SHORT_TTL = 60 * 60;      // 1 hour — used when EDGAR data is detected stale
 const CACHE_NAME = "ticker-analysis";
 
+// Bump when the shape of cached data changes (new fields, gap-fill logic, etc.)
+// so old entries are invalidated immediately rather than waiting for the daily
+// rollover. Append-only — never reuse a previous version.
+const CACHE_VERSION = "v29";
+
+export { SHORT_TTL };
+
 function cacheKey(ticker: string): string {
-  const date = new Date().toISOString().split("T")[0];
-  return `${ticker.toUpperCase()}-${date}`;
+  // Uruguay date (America/Montevideo, UTC-3, no DST) — cache rolls over at local midnight
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Montevideo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return `${ticker.toUpperCase()}-${CACHE_VERSION}-${date}`;
 }
 
 // Internal URL used as cache key for the Cache API (doesn't need to be a real URL)
@@ -39,6 +54,14 @@ function isValidEntry(entry: unknown): entry is CacheEntry {
   );
 }
 
+// Returns null when expired per the entry's own TTL (in addition to the
+// per-day cacheKey rollover). Lets us cache stale-EDGAR results with a
+// shorter window so the next request re-fetches once 10-Q is filed.
+function isFreshEntry(entry: CacheEntry): boolean {
+  const ttl = (entry.ttlSeconds ?? CACHE_TTL) * 1000;
+  return Date.now() - entry.createdAt < ttl;
+}
+
 export async function cacheGet(ticker: string): Promise<CacheEntry | null> {
   const key = cacheKey(ticker);
 
@@ -49,19 +72,25 @@ export async function cacheGet(ticker: string): Promise<CacheEntry | null> {
       const res = await store.match(new Request(cacheUrl(key)));
       if (res) {
         const entry = await res.json() as unknown;
-        if (isValidEntry(entry)) return entry;
+        if (isValidEntry(entry) && isFreshEntry(entry)) return entry;
       }
     } catch { /* fall through */ }
   }
 
   // In-memory fallback (local dev)
   const hit = memCache.get(key);
-  return hit && isValidEntry(hit) ? hit : null;
+  return hit && isValidEntry(hit) && isFreshEntry(hit) ? hit : null;
 }
 
-export async function cacheSet(ticker: string, report: StructuredReport, stockData: StockData): Promise<void> {
+export async function cacheSet(
+  ticker: string,
+  report: StructuredReport,
+  stockData: StockData,
+  ttlSeconds?: number,
+): Promise<void> {
   const key = cacheKey(ticker);
-  const entry: CacheEntry = { report, stockData, createdAt: Date.now() };
+  const effectiveTtl = ttlSeconds ?? CACHE_TTL;
+  const entry: CacheEntry = { report, stockData, createdAt: Date.now(), ttlSeconds: effectiveTtl };
 
   // Cloudflare Cache API
   if (typeof caches !== "undefined") {
@@ -72,7 +101,7 @@ export async function cacheSet(ticker: string, report: StructuredReport, stockDa
         new Response(JSON.stringify(entry), {
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": `public, max-age=${CACHE_TTL}`,
+            "Cache-Control": `public, max-age=${effectiveTtl}`,
           },
         })
       );

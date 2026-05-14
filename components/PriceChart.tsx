@@ -1,24 +1,69 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { RevenueQuarter } from "@/types/StockData";
+import type { ChartRange, ChartRangePayload } from "@/lib/fetchChartRange";
 import { QuarterBarSeries } from "@/components/QuarterBarSeries";
+import { PinnedMarkersPrimitive } from "@/components/PinnedMarkersPrimitive";
+import { SessionShadingPrimitive, type SessionBounds } from "@/components/SessionShadingPrimitive";
 
-interface PricePoint {
-  time: string;
-  value: number;
+interface PinnedMarker {
+  time: string | number;
+  price: number;
 }
 
 interface Props {
-  historicalPrices: PricePoint[] | null;
+  /** Required for lazy-fetching ranges other than 3Y. */
   ticker: string;
+  /** 3Y weekly closes prefetched by the analyze response. Used as initial cache for the 3Y tab. */
+  historicalPrices: { time: string; value: number }[] | null;
   quarterlyRevenue?: RevenueQuarter[] | null;
 }
 
-function getCurrencyLabel(ticker: string): string {
-  const suffix = ticker.split(".").pop() ?? "";
-  if (suffix === "BA") return "ARS";
-  return "";
+const RANGES: { id: ChartRange; label: string; header: string }[] = [
+  { id: "1D", label: "1D", header: "Última sesión" },
+  { id: "1M", label: "1M", header: "Último mes" },
+  { id: "1Y", label: "1A", header: "Último año" },
+  { id: "3Y", label: "3A", header: "Últimos 3 años" },
+];
+
+const MARKER_COLORS = ["#5EEAD4", "#FDBA74"] as const;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LineSeriesApi = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PriceLineApi = any;
+
+function syncPinnedVisuals(
+  points: PinnedMarker[],
+  series: LineSeriesApi,
+  primitive: PinnedMarkersPrimitive,
+  dashedStyle: number,
+  existingPriceLines: PriceLineApi[],
+): PriceLineApi[] {
+  for (const pl of existingPriceLines) series.removePriceLine(pl);
+
+  primitive.setMarkers(
+    points.map((p, i) => ({
+      time: p.time as unknown as import("lightweight-charts").Time,
+      price: p.price,
+      color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
+    })),
+  );
+
+  return points.map((p, i) => {
+    const color = MARKER_COLORS[i] ?? MARKER_COLORS[0];
+    return series.createPriceLine({
+      price: p.price,
+      color,
+      lineWidth: 1,
+      lineStyle: dashedStyle,
+      axisLabelVisible: true,
+      axisLabelColor: color,
+      axisLabelTextColor: "#0B1B5C",
+      title: "",
+    });
+  });
 }
 
 function fmtRevenue(value: number): string {
@@ -28,22 +73,240 @@ function fmtRevenue(value: number): string {
   return value.toFixed(0);
 }
 
+function fmtPrice(value: number): string {
+  return value.toLocaleString("es-AR", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+}
 
-export function PriceChart({ historicalPrices, ticker, quarterlyRevenue }: Props) {
-  const currencyLabel = getCurrencyLabel(ticker);
+function fmtTime(time: string | number): string {
+  if (typeof time === "number") {
+    const d = new Date(time * 1000);
+    if (isNaN(d.getTime())) return String(time);
+    const fmt = new Intl.DateTimeFormat("es-AR", {
+      timeZone: "America/Montevideo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    return `${fmt.format(d)} UY`;
+  }
+  const d = new Date(time);
+  if (isNaN(d.getTime())) return time;
+  const day = d.getDate();
+  const month = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day} ${month} '${year}`;
+}
+
+export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [range, setRange] = useState<ChartRange>("3Y");
+  const [cache, setCache] = useState<Map<ChartRange, ChartRangePayload>>(() => new Map());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<PinnedMarker[]>([]);
+  const pinnedRef = useRef<PinnedMarker[]>([]);
+  // Keep ref in sync with state via effect — mutating refs during render is a
+  // React 19 violation. Callbacks that read pinnedRef.current see the value
+  // committed in the previous paint, which is fine for our use case (popup
+  // markers don't depend on the same-tick state).
+  useEffect(() => {
+    pinnedRef.current = pinned;
+  }, [pinned]);
+  const primitiveRef = useRef<PinnedMarkersPrimitive | null>(null);
+  const lineSeriesRef = useRef<LineSeriesApi>(null);
+  const priceLinesRef = useRef<PriceLineApi[]>([]);
+
+  // Reset cache + tab + pinned markers when the ticker changes (new analysis).
+  // The freshly-arrived 3Y weekly closes seed the cache so the default tab
+  // renders without a network round-trip. Refactoring this to derived state
+  // (e.g. keying cache by ticker) would mean carrying stale entries for old
+  // tickers indefinitely; the reset is the lighter design.
+  useEffect(() => {
+    const initial = new Map<ChartRange, ChartRangePayload>();
+    if (historicalPrices && historicalPrices.length > 0) {
+      initial.set("3Y", {
+        range: "3Y",
+        hasPrePost: false,
+        regularSession: null,
+        prices: historicalPrices,
+      });
+    }
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setCache(initial);
+    setRange("3Y");
+    setPinned([]);
+    setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [historicalPrices, ticker]);
+
+  // Lazy-fetch the active range when it isn't already cached. The synchronous
+  // setLoading/setError before the async fetch is intentional UX (spinner
+  // appears immediately), not a derivable value.
+  useEffect(() => {
+    if (cache.has(range)) return;
+    if (!ticker) return;
+    let cancelled = false;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setLoading(true);
+    setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    fetch(`/api/chart-range?ticker=${encodeURIComponent(ticker)}&range=${range}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.error || !Array.isArray(data?.prices)) {
+          setError(data?.error ?? "No se pudo cargar la cotización");
+          return;
+        }
+        setCache((prev) => {
+          const next = new Map(prev);
+          next.set(range, data as ChartRangePayload);
+          return next;
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Error de red");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      // If the cache populates (e.g. the analyze response seeds 3Y) while
+      // this fetch is still in flight, the .finally above is no-op'd by the
+      // cancelled guard — without this reset, the spinner sticks on until
+      // the user switches tabs.
+      setLoading(false);
+    };
+  }, [range, ticker, cache]);
+
+  const payload = cache.get(range) ?? null;
+  const prices = payload?.prices ?? null;
+  const isIntraday = range === "1D";
+  // Any range whose timestamps are Unix seconds (vs. "YYYY-MM-DD" strings) —
+  // i.e. uses sub-daily bars. Drives time-axis visibility + UY-localized
+  // tick formatting. Currently 1D and 1M.
+  const hasIntradayTimes =
+    !!prices && prices.length > 0 && typeof prices[0].time === "number";
+
+  const effectiveRevenue = useMemo(() => {
+    if (range !== "3Y" || !quarterlyRevenue || quarterlyRevenue.length === 0) {
+      return null;
+    }
+    // Determine the price series' actual span — used both to drop revenue
+    // points that precede the listing (S-1 historicals for recently-IPO'd
+    // issuers like INGM expose 2023 quarterly data, but Yahoo's prices only
+    // start at the IPO date; those points get squished against the chart's
+    // left edge by lightweight-charts) and to clamp filler placeholders.
+    const earliestPrice = prices && prices.length > 0 ? prices[0].time : null;
+    const earliestPriceMs = (() => {
+      if (earliestPrice == null) return null;
+      if (typeof earliestPrice === "string") return Date.parse(earliestPrice);
+      // Intraday timestamps are seconds since epoch; for the 3Y range we
+      // expect string dates, but defend against the Unix-seconds shape too.
+      return Number(earliestPrice) * 1000;
+    })();
+
+    // Drop revenue entries before the listing date — they have no x slot to
+    // anchor to and the chart collapses them on the left margin.
+    const inRange = earliestPriceMs != null
+      ? quarterlyRevenue.filter((q) => Date.parse(q.time) >= earliestPriceMs)
+      : quarterlyRevenue;
+    if (inRange.length === 0) return null;
+
+    // Pad sparse series with $0-valued quarter-end placeholders. Pre-revenue
+    // tickers (SOC, NextDecade-style biotechs, etc.) have only one or two
+    // populated quarters in the chart range and the upstream pipeline drops
+    // the zero-revenue quarters. Without filler entries the lone populated
+    // bar has no neighbors → QuarterBarSeries falls back to one-trading-day
+    // width (~4–8px). With fillers, the gap between the populated bar and
+    // adjacent zero-bars gives the true quarter pixel width, and the renderer
+    // skips drawing zero bars (height < 1) so the chart still looks clean.
+    const sorted = [...inRange].sort((a, b) => a.time.localeCompare(b.time));
+    const gaps: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      gaps.push((Date.parse(sorted[i].time) - Date.parse(sorted[i - 1].time)) / 86_400_000);
+    }
+    gaps.sort((a, b) => a - b);
+    const cadenceDays = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 91;
+
+    const earliestMs = Date.parse(sorted[0].time);
+    const latestMs = Date.parse(sorted[sorted.length - 1].time);
+    const threeYearsBack = latestMs - 3 * 365 * 86_400_000;
+    const minMs = earliestPriceMs != null
+      ? Math.max(earliestPriceMs, threeYearsBack)
+      : threeYearsBack;
+    const existingTimes = new Set(sorted.map((q) => q.time));
+    // Tolerance for "this filler date is the same quarter as an existing
+    // entry" — fiscal calendars can drift a few days (UGRO restated; INGM
+    // 4-4-5 weeks). Half a cadence catches near-misses without overlapping
+    // adjacent quarters.
+    const sameQuarterMs = (cadenceDays / 2) * 86_400_000;
+    const existingTimesMs = sorted.map((q) => Date.parse(q.time));
+    const isSameQuarter = (t: number) =>
+      existingTimesMs.some((existing) => Math.abs(existing - t) < sameQuarterMs);
+    const stepMs = cadenceDays * 86_400_000;
+    const fillers: typeof sorted = [];
+    // (a) Walk backward from the earliest entry to fill the leading edge
+    //     (SOC-style: only one populated quarter, prior quarters missing).
+    for (let t = earliestMs - stepMs; t >= minMs; t -= stepMs) {
+      if (isSameQuarter(t)) continue;
+      const date = new Date(t).toISOString().slice(0, 10);
+      if (!existingTimes.has(date)) {
+        fillers.push({ time: date, value: 0 });
+        existingTimes.add(date);
+      }
+    }
+    // (b) Walk forward filling internal gaps (UGRO-style: Q4 dropped because
+    //     the restated annual was less than the sum of unrestated quarterlies,
+    //     so Q4 derivation went negative and was skipped). Without internal
+    //     fillers the QuarterBarSeries draws a bar spanning two quarters
+    //     between the surviving neighbors, leaving a visual gap.
+    for (let t = earliestMs + stepMs; t < latestMs; t += stepMs) {
+      if (isSameQuarter(t)) continue;
+      const date = new Date(t).toISOString().slice(0, 10);
+      if (!existingTimes.has(date)) {
+        fillers.push({ time: date, value: 0 });
+        existingTimes.add(date);
+      }
+    }
+    return [...sorted, ...fillers].sort((a, b) => a.time.localeCompare(b.time));
+  }, [quarterlyRevenue, range, prices]);
+  const showRevenue = !!effectiveRevenue && effectiveRevenue.length > 0;
+
+  // Reset pinned markers when the displayed range changes — comparing a 3Y
+  // pin against an intraday chart makes no sense, and the timestamps live in
+  // different scales (string date vs Unix seconds).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on range change
+    setPinned([]);
+  }, [range]);
 
   useEffect(() => {
-    if (!containerRef.current || !historicalPrices || historicalPrices.length === 0) return;
+    if (!containerRef.current || !prices || prices.length === 0) return;
 
     let destroyed = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let chartInstance: { remove: () => void } | null = null;
     let observerInstance: ResizeObserver | null = null;
 
-    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode }) => {
+    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle }) => {
       if (destroyed || !containerRef.current) return;
 
+      // Format intraday timestamps in Uruguay local time so the axis and
+      // crosshair labels match the rest of the app's UY-anchored copy
+      // (MarketStatus badge, etc.) regardless of the visitor's browser TZ.
+      const uyHourMinute = new Intl.DateTimeFormat("es-AR", {
+        timeZone: "America/Montevideo",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      });
+      const uyDayMonth = new Intl.DateTimeFormat("es-AR", {
+        timeZone: "America/Montevideo",
+        day: "2-digit",
+        month: "short",
+      });
       const container = containerRef.current;
       const chart = createChart(container, {
         width: container.clientWidth,
@@ -52,6 +315,16 @@ export function PriceChart({ historicalPrices, ticker, quarterlyRevenue }: Props
           background: { color: "#0B1B5C" },
           textColor: "rgba(255,255,255,0.6)",
           attributionLogo: false,
+        },
+        localization: {
+          locale: "es-AR",
+          timeFormatter: (time: import("lightweight-charts").Time) => {
+            if (typeof time === "number") {
+              const d = new Date(time * 1000);
+              return `${uyDayMonth.format(d)} ${uyHourMinute.format(d)}`;
+            }
+            return typeof time === "string" ? time : String(time);
+          },
         },
         grid: {
           vertLines: { color: "rgba(255,255,255,0.05)" },
@@ -63,27 +336,52 @@ export function PriceChart({ historicalPrices, ticker, quarterlyRevenue }: Props
           horzLine: { color: "rgba(255,255,255,0.25)", labelBackgroundColor: "#0B1B5C" },
         },
         leftPriceScale: {
-          visible: !!(quarterlyRevenue && quarterlyRevenue.length > 0),
+          visible: showRevenue,
           borderColor: "rgba(255,255,255,0.1)",
           textColor: "rgba(255,255,255,0.4)",
           scaleMargins: { top: 0.1, bottom: 0.0 },
         },
         rightPriceScale: {
           borderColor: "rgba(255,255,255,0.1)",
-          scaleMargins: { top: 0.1, bottom: 0.35 },
+          scaleMargins: { top: 0.1, bottom: showRevenue ? 0.35 : 0.05 },
         },
         timeScale: {
           borderColor: "rgba(255,255,255,0.1)",
-          timeVisible: false,
+          timeVisible: hasIntradayTimes,
+          secondsVisible: false,
+          ...(hasIntradayTimes && {
+            tickMarkFormatter: (
+              time: import("lightweight-charts").Time,
+              tickMarkType: number,
+            ) => {
+              if (typeof time === "number") {
+                const d = new Date(time * 1000);
+                // tickMarkType 0=Year, 1=Month, 2=DayOfMonth, 3=Time, 4=TimeWithSeconds.
+                // For day-level ticks (1M view zooms out across multiple days)
+                // show "30 abr"; for hour-level ticks (1D zoomed in) show "14:30".
+                return tickMarkType <= 2 ? uyDayMonth.format(d) : uyHourMinute.format(d);
+              }
+              return typeof time === "string" ? time : String(time);
+            },
+          }),
         },
         handleScroll: false,
-        handleScale: false,
+        // Disable every interaction explicitly. Passing `handleScale: false`
+        // alone leaves `axisDoubleClickReset` active in some builds — a
+        // double-click on the right price axis (or near it) then resets the
+        // scale to autoFit and, combined with our custom scaleMargins + dual
+        // price scales, blanks the trace until the chart is recreated.
+        handleScale: {
+          mouseWheel: false,
+          pinch: false,
+          axisPressedMouseMove: false,
+          axisDoubleClickReset: false,
+        },
       });
 
       chartInstance = chart;
 
-      // Revenue bars — custom series so each bar spans the full quarter width
-      if (quarterlyRevenue && quarterlyRevenue.length > 0) {
+      if (showRevenue && effectiveRevenue && effectiveRevenue.length > 0) {
         const revSeries = chart.addCustomSeries(new QuarterBarSeries(), {
           color: "rgba(99, 179, 237, 0.4)",
           priceScaleId: "left",
@@ -94,10 +392,53 @@ export function PriceChart({ historicalPrices, ticker, quarterlyRevenue }: Props
             formatter: fmtRevenue,
           },
         });
-        revSeries.setData(quarterlyRevenue);
+        revSeries.setData(effectiveRevenue);
       }
 
-      const lineSeries = chart.addSeries(LineSeries, {
+      // Defensive dedupe: lightweight-charts asserts strictly ascending,
+      // unique times. Yahoo occasionally returns repeats around session
+      // boundaries; cached payloads from older builds may also drift.
+      const seen = new Set<string | number>();
+      const sortedAll = [...prices]
+        .sort((a, b) => {
+          if (typeof a.time === "number" && typeof b.time === "number") return a.time - b.time;
+          return String(a.time).localeCompare(String(b.time));
+        })
+        .filter((p) => {
+          if (seen.has(p.time)) return false;
+          seen.add(p.time);
+          return true;
+        });
+
+      const reg = payload?.regularSession ?? null;
+      const renderSplit = isIntraday && reg !== null;
+
+      // Drop after-hours points entirely — only pre-market and regular session
+      // are rendered.
+      const sorted = renderSplit
+        ? sortedAll.filter((p) => typeof p.time === "number" && p.time <= reg!.end)
+        : sortedAll;
+
+      // Split data into pre / regular when rendering the intraday tab so the
+      // pre-market section can use a dashed, dimmer line. Boundary points are
+      // duplicated into both sides so the dashed and solid segments visually
+      // meet without a 5-minute gap.
+      const preData = renderSplit
+        ? sorted.filter((p) => typeof p.time === "number" && p.time <= reg!.start)
+        : [];
+      const regularData = renderSplit
+        ? sorted.filter(
+            (p) => typeof p.time === "number" && p.time >= reg!.start && p.time <= reg!.end,
+          )
+        : sorted;
+
+      const toLwPoints = (arr: typeof sorted) =>
+        arr.map((p) => ({
+          time: p.time as unknown as import("lightweight-charts").Time,
+          value: p.value,
+        }));
+
+      const regularSeries = chart.addSeries(LineSeries, {
         color: "#ffffff",
         lineWidth: 2,
         priceScaleId: "right",
@@ -108,10 +449,105 @@ export function PriceChart({ historicalPrices, ticker, quarterlyRevenue }: Props
         crosshairMarkerBorderColor: "#0B1B5C",
         crosshairMarkerBackgroundColor: "#ffffff",
       });
+      regularSeries.setData(toLwPoints(regularData));
+      lineSeriesRef.current = regularSeries;
 
-      lineSeries.setData(historicalPrices);
+      // Pre-market series shares the right price scale but renders dashed
+      // and dimmer.
+      const extendedOpts = {
+        color: "rgba(255,255,255,0.55)",
+        lineWidth: 2 as const,
+        lineStyle: LineStyle.Dashed,
+        priceScaleId: "right",
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 3,
+        crosshairMarkerBorderColor: "#0B1B5C",
+        crosshairMarkerBackgroundColor: "rgba(255,255,255,0.7)",
+      };
+      const preSeries = preData.length > 0 ? chart.addSeries(LineSeries, extendedOpts) : null;
+      if (preSeries) preSeries.setData(toLwPoints(preData));
+
+      // Pre-market background shading + boundary hairlines. After-hours is
+      // hidden, so cap lastTime at regularEnd to suppress the AFTER band.
+      if (isIntraday && reg && sorted.length > 0) {
+        const shading = new SessionShadingPrimitive();
+        regularSeries.attachPrimitive(shading);
+        const bounds: SessionBounds = {
+          firstTime: sorted[0].time as unknown as import("lightweight-charts").Time,
+          regularStart: reg.start as unknown as import("lightweight-charts").Time,
+          regularEnd: reg.end as unknown as import("lightweight-charts").Time,
+          lastTime: reg.end as unknown as import("lightweight-charts").Time,
+        };
+        shading.setBounds(bounds);
+      }
 
       chart.timeScale().fitContent();
+
+      // Force the 3Y range button to actually show 3 years of horizontal
+      // span, even when the issuer's price history is shorter (recent IPOs
+      // like INGM/SOC). Without this, fitContent() collapses the scale to
+      // the actual data span (~1.5Y for INGM) and the revenue quarter bars
+      // render at 1/6 of chart width instead of the 1/12 a user expects.
+      // The price line remains anchored to its real dates — empty left-side
+      // space is acceptable for a "ÚLTIMOS 3 AÑOS" button on a young issuer.
+      if (range === "3Y" && sorted.length > 0) {
+        const latestT = sorted[sorted.length - 1].time;
+        if (typeof latestT === "string") {
+          const latestMs = Date.parse(latestT);
+          if (Number.isFinite(latestMs)) {
+            const fromStr = new Date(latestMs - 3 * 365 * 86_400_000)
+              .toISOString()
+              .slice(0, 10);
+            try {
+              chart.timeScale().setVisibleRange({
+                from: fromStr as unknown as import("lightweight-charts").Time,
+                to: latestT as unknown as import("lightweight-charts").Time,
+              });
+            } catch { /* lightweight-charts throws if range invalid — keep fitContent fallback */ }
+          }
+        }
+      }
+
+      const primitive = new PinnedMarkersPrimitive();
+      regularSeries.attachPrimitive(primitive);
+      primitiveRef.current = primitive;
+
+      priceLinesRef.current = syncPinnedVisuals(
+        pinnedRef.current,
+        regularSeries,
+        primitive,
+        LineStyle.Dashed,
+        priceLinesRef.current,
+      );
+
+      chart.subscribeClick((param) => {
+        if (!param.point) return;
+        const candidates = [regularSeries, preSeries].filter(Boolean) as LineSeriesApi[];
+        let data: { time?: string | number; value?: number } | undefined;
+        for (const s of candidates) {
+          const d = param.seriesData.get(s) as
+            | { time?: string | number; value?: number }
+            | undefined;
+          if (d && typeof d.value === "number" && d.time != null) {
+            data = d;
+            break;
+          }
+        }
+        if (!data || typeof data.value !== "number" || data.time == null) return;
+        const time = data.time;
+        const price = data.value;
+
+        setPinned((prev) => {
+          const existingIdx = prev.findIndex((p) => p.time === time);
+          if (existingIdx >= 0) {
+            return prev.filter((_, i) => i !== existingIdx);
+          }
+          const next = [...prev, { time, price }];
+          return next.length > 2 ? next.slice(next.length - 2) : next;
+        });
+      });
 
       observerInstance = new ResizeObserver(() => {
         if (containerRef.current) {
@@ -125,25 +561,158 @@ export function PriceChart({ historicalPrices, ticker, quarterlyRevenue }: Props
       destroyed = true;
       observerInstance?.disconnect();
       chartInstance?.remove();
+      primitiveRef.current = null;
+      lineSeriesRef.current = null;
+      priceLinesRef.current = [];
     };
-  }, [historicalPrices, quarterlyRevenue]);
+  }, [prices, payload, showRevenue, isIntraday, hasIntradayTimes, effectiveRevenue]);
+
+  useEffect(() => {
+    const series = lineSeriesRef.current;
+    const primitive = primitiveRef.current;
+    if (!series || !primitive) return;
+
+    let cancelled = false;
+    import("lightweight-charts").then(({ LineStyle }) => {
+      if (cancelled) return;
+      priceLinesRef.current = syncPinnedVisuals(
+        pinned,
+        series,
+        primitive,
+        LineStyle.Dashed,
+        priceLinesRef.current,
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pinned]);
+
+  const onSelectRange = useCallback((next: ChartRange) => {
+    setRange(next);
+  }, []);
 
   if (!historicalPrices || historicalPrices.length === 0) return null;
 
+  const headerLabel = RANGES.find((r) => r.id === range)?.header ?? "";
+  const noData = !loading && payload && payload.prices.length === 0;
+
+  const diff =
+    pinned.length === 2
+      ? {
+          abs: pinned[1].price - pinned[0].price,
+          pct: ((pinned[1].price - pinned[0].price) / pinned[0].price) * 100,
+        }
+      : null;
+
   return (
     <div className="mt-4 rounded-xl overflow-hidden border border-[#03065E]/30">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 bg-[#0B1B5C]">
-        <span className="text-xs font-semibold uppercase tracking-widest text-white/50">
-          Precio{currencyLabel ? ` en ${currencyLabel}` : ""} — Últimos 3 años
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 pt-3 pb-2 bg-[#0B1B5C]">
+        <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-white/75">
+          {headerLabel}
         </span>
-        {quarterlyRevenue && quarterlyRevenue.length > 0 && (
-          <span className="text-xs text-white/30 flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-[rgba(99,179,237,0.5)]" />
+        {showRevenue && (
+          <span className="text-[11px] sm:text-xs text-white/75 flex items-center gap-1.5 shrink-0">
+            <span className="inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm bg-[rgba(99,179,237,0.7)]" />
             Revenue trimestral
           </span>
         )}
       </div>
-      <div ref={containerRef} style={{ background: "#0B1B5C" }} />
+
+      <div className="flex items-center gap-1 px-3 sm:px-4 pb-2 bg-[#0B1B5C] select-none" role="tablist" aria-label="Rango temporal">
+        {RANGES.map((r) => {
+          const active = r.id === range;
+          return (
+            <button
+              key={r.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onSelectRange(r.id)}
+              className={`
+                px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-widest uppercase transition-colors
+                ${active
+                  ? "bg-white/10 text-white"
+                  : "text-white/65 hover:text-white/90 hover:bg-white/[0.04]"}
+              `}
+            >
+              {r.label}
+            </button>
+          );
+        })}
+        {loading && (
+          <span className="ml-2 text-[10px] text-white/65 tracking-widest uppercase">Cargando…</span>
+        )}
+      </div>
+
+      <div className="relative" style={{ background: "#0B1B5C" }}>
+        <div ref={containerRef} style={{ height: 280 }} />
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[11px] text-rose-300/80 tracking-wide">{error}</span>
+          </div>
+        )}
+        {noData && !error && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[11px] text-white/65 tracking-wide">Sin datos para este rango.</span>
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 py-3 bg-[#0B1B5C] border-t border-white/[0.06]">
+        {pinned.length === 0 ? (
+          <p className="text-[11px] text-white/35 tracking-wide">
+            Tocá el gráfico para marcar y comparar hasta 2 puntos.
+          </p>
+        ) : (
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-x-2.5 sm:gap-x-3 gap-y-1 flex-wrap min-w-0">
+              {pinned.map((p, i) => (
+                <div key={`${p.time}-${i}`} className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: MARKER_COLORS[i] }}
+                  />
+                  <span className="text-[11px] text-white/70 tabular-nums tracking-wide">
+                    {fmtTime(p.time)}
+                  </span>
+                  {i < pinned.length - 1 && (
+                    <span className="text-white/25 text-[11px] ml-1.5">→</span>
+                  )}
+                </div>
+              ))}
+              {diff && (
+                <div className="flex items-baseline gap-2 pl-2.5 sm:pl-3 sm:ml-1 border-l border-white/[0.08]">
+                  <span
+                    className={`text-[13px] font-semibold tabular-nums ${
+                      diff.abs >= 0 ? "text-emerald-300" : "text-rose-300"
+                    }`}
+                  >
+                    {diff.pct >= 0 ? "+" : ""}
+                    {diff.pct.toFixed(1)}%
+                  </span>
+                  <span
+                    className={`text-[10px] tabular-nums ${
+                      diff.abs >= 0 ? "text-emerald-300/50" : "text-rose-300/50"
+                    }`}
+                  >
+                    {diff.abs >= 0 ? "+" : ""}
+                    {fmtPrice(diff.abs)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPinned([])}
+              className="text-[10px] uppercase tracking-[0.15em] text-white/60 hover:text-white/90 transition-colors shrink-0"
+            >
+              Limpiar
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

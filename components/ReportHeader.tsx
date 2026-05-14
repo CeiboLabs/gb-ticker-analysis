@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { StockData } from "@/types/StockData";
 import { currencyPrefix } from "@/lib/currencyPrefix";
+import { useLogoBrightness } from "@/lib/useLogoBrightness";
 
 interface Props {
   stockData: StockData;
@@ -17,9 +18,11 @@ export function ReportHeader({ stockData }: Props) {
   const [logoFailed, setLogoFailed] = useState(false);
   const initial = stockData.ticker.charAt(0);
 
-  const logoUrl = !logoFailed && stockData.domain
-    ? `https://www.google.com/s2/favicons?domain=${stockData.domain}&sz=128`
+  const logoUrl = !logoFailed
+    ? `/api/logo?ticker=${encodeURIComponent(stockData.ticker)}${stockData.domain ? `&domain=${encodeURIComponent(stockData.domain)}` : ""}`
     : null;
+  const logoBrightness = useLogoBrightness(logoUrl);
+  const logoBgClass = logoBrightness === "light" ? "bg-[#03065E]" : "bg-white";
 
   const changeSign = (stockData.priceChangePercent ?? 0) >= 0 ? "+" : "";
   const changePct =
@@ -28,7 +31,7 @@ export function ReportHeader({ stockData }: Props) {
       : null;
 
   return (
-    <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex items-center gap-3 mb-6 sm:gap-4">
       {logoUrl ? (
         <img
           src={logoUrl}
@@ -36,36 +39,36 @@ export function ReportHeader({ stockData }: Props) {
           width={48}
           height={48}
           style={{ imageRendering: "auto" }}
-          className="rounded-xl object-contain bg-white p-1 shadow-sm border border-[#03065E]/10"
+          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-contain p-1 shrink-0 border-0 outline-none transition-colors ${logoBgClass}`}
           onError={() => setLogoFailed(true)}
         />
       ) : (
-        <div className="w-12 h-12 rounded-xl bg-[#03065E] flex items-center justify-center text-white font-bold text-lg shadow-sm">
+        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#03065E] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
           {initial}
         </div>
       )}
 
-      <div className="flex-1 min-w-0 w-full">
+      <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <h1 className="text-xl font-bold text-[#03065E] truncate sm:text-2xl">{stockData.companyName}</h1>
-          <span className="text-sm font-mono text-white bg-[#03065E] px-2 py-0.5 rounded">
+          <h1 className="text-base sm:text-2xl font-bold text-[#03065E] truncate max-w-full">{stockData.companyName}</h1>
+          <span className="text-[11px] sm:text-sm font-mono text-white bg-[#03065E] px-1.5 sm:px-2 py-0.5 rounded shrink-0">
             {stockData.ticker}
           </span>
         </div>
         {stockData.sector && (
-          <p className="text-sm text-[#707070] mt-0.5">
+          <p className="text-xs sm:text-sm text-[#707070] mt-0.5 truncate">
             {stockData.sector} · {stockData.industry}
           </p>
         )}
       </div>
 
       {stockData.currentPrice != null && (
-        <div className="text-left shrink-0 sm:text-right sm:ml-auto">
-          <div className="text-2xl font-mono font-bold text-[#03065E]">
+        <div className="text-right shrink-0 sm:ml-auto">
+          <div className="text-lg sm:text-2xl font-mono font-bold text-[#03065E] tabular-nums">
             {currencyPrefix(stockData.currency)}{stockData.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           {changePct && (
-            <div className={`text-sm font-mono font-medium ${priceColor(stockData.priceChangePercent)}`}>
+            <div className={`text-xs sm:text-sm font-mono font-medium tabular-nums ${priceColor(stockData.priceChangePercent)}`}>
               {changePct}
             </div>
           )}

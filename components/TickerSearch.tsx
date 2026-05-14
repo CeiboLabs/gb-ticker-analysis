@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface SearchResult {
   symbol: string;
@@ -14,6 +15,39 @@ interface TickerSearchProps {
   disabled?: boolean;
   defaultValue?: string;
   variant: "hero" | "footer" | "header";
+}
+
+const RECENTS_KEY = "ticker:recent-searches";
+const RECENTS_MAX = 5;
+
+function loadRecents(): SearchResult[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (r): r is SearchResult =>
+          r &&
+          typeof r.symbol === "string" &&
+          typeof r.name === "string" &&
+          typeof r.exchange === "string"
+      )
+      .slice(0, RECENTS_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecents(items: SearchResult[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(items));
+  } catch {
+    // Storage full or unavailable — ignore
+  }
 }
 
 const variantStyles = {
@@ -67,8 +101,71 @@ export function TickerSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [noResults, setNoResults] = useState(false);
+  const [recents, setRecents] = useState<SearchResult[]>([]);
+  const [showRecents, setShowRecents] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
 
   const styles = variantStyles[variant];
+
+  // Defer portal rendering until after mount so we don't try to portal into
+  // a DOM that doesn't exist yet during SSR. The lint rule prefers derived
+  // state but the whole point is "is this paint client-side?" — only an
+  // effect can answer that without hydration mismatch.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPortalReady(true);
+  }, []);
+
+  const updateDropdownPos = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setDropdownPos({
+      left: rect.left,
+      top: rect.bottom + 4,
+      width: rect.width,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updateDropdownPos();
+    const handler = () => updateDropdownPos();
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("scroll", handler, true);
+      window.removeEventListener("resize", handler);
+    };
+  }, [isOpen, updateDropdownPos]);
+
+  // Load recents from localStorage on mount. Lazy useState init isn't safe
+  // here (server has no localStorage → hydration mismatch), so a one-shot
+  // mount effect is the right fit despite the lint rule.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRecents(loadRecents());
+  }, []);
+
+  const addRecent = useCallback((item: SearchResult) => {
+    setRecents((prev) => {
+      const next = [item, ...prev.filter((r) => r.symbol !== item.symbol)].slice(
+        0,
+        RECENTS_MAX
+      );
+      saveRecents(next);
+      return next;
+    });
+  }, []);
+
+  const removeRecent = useCallback((symbol: string) => {
+    setRecents((prev) => {
+      const next = prev.filter((r) => r.symbol !== symbol);
+      saveRecents(next);
+      return next;
+    });
+  }, []);
 
   // Set default value when it changes (for URL-param initialization)
   useEffect(() => {
@@ -107,18 +204,23 @@ export function TickerSearch({
 
     if (val.length < 2) {
       setResults([]);
-      setIsOpen(false);
+      // Keep recents visible if input is empty
+      setShowRecents(val.length === 0 && recents.length > 0);
+      setIsOpen(val.length === 0 && recents.length > 0);
       return;
     }
 
+    setShowRecents(false);
     debounceRef.current = setTimeout(() => search(val), 300);
   }
 
-  function selectResult(symbol: string) {
-    if (inputRef.current) inputRef.current.value = symbol;
+  function selectResult(item: SearchResult) {
+    if (inputRef.current) inputRef.current.value = item.symbol;
     setIsOpen(false);
+    setShowRecents(false);
     setResults([]);
-    onSubmit(symbol);
+    addRecent(item);
+    onSubmit(item.symbol);
   }
 
   async function resolveAndSubmit(query: string) {
@@ -131,9 +233,9 @@ export function TickerSearch({
         (r) => r.symbol.toUpperCase() === query.toUpperCase()
       );
       if (exact) {
-        selectResult(exact.symbol);
+        selectResult(exact);
       } else if (items.length > 0) {
-        selectResult(items[0].symbol);
+        selectResult(items[0]);
       } else {
         // No results — show "not found" instead of submitting
         setResults([]);
@@ -147,6 +249,13 @@ export function TickerSearch({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // If a recent is highlighted, allow submitting even with empty input
+    if (isOpen && showRecents && activeIndex >= 0 && recents[activeIndex]) {
+      selectResult(recents[activeIndex]);
+      return;
+    }
+
     const val = inputRef.current?.value.trim();
     if (!val) return;
 
@@ -155,7 +264,7 @@ export function TickerSearch({
 
     // If an item is highlighted in the dropdown, select it
     if (isOpen && activeIndex >= 0 && results[activeIndex]) {
-      selectResult(results[activeIndex].symbol);
+      selectResult(results[activeIndex]);
       return;
     }
 
@@ -164,7 +273,7 @@ export function TickerSearch({
       const exact = results.find(
         (r) => r.symbol.toUpperCase() === val.toUpperCase()
       );
-      selectResult(exact ? exact.symbol : results[0].symbol);
+      selectResult(exact ?? results[0]);
       return;
     }
 
@@ -175,14 +284,15 @@ export function TickerSearch({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (!isOpen || results.length === 0) return;
+    const list = showRecents ? recents : results;
+    if (!isOpen || list.length === 0) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+      setActiveIndex((prev) => (prev < list.length - 1 ? prev + 1 : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : list.length - 1));
     } else if (e.key === "Escape") {
       setIsOpen(false);
       setActiveIndex(-1);
@@ -208,7 +318,7 @@ export function TickerSearch({
         <input
           ref={inputRef}
           type="text"
-          placeholder="Buscar empresa o ticker…"
+          placeholder="Buscar ticker o empresa…"
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
@@ -217,18 +327,79 @@ export function TickerSearch({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           onFocus={() => {
-            if (results.length > 0) setIsOpen(true);
+            const val = inputRef.current?.value.trim() ?? "";
+            if (val.length === 0 && recents.length > 0) {
+              setShowRecents(true);
+              setIsOpen(true);
+              setActiveIndex(-1);
+            } else if (results.length > 0) {
+              setIsOpen(true);
+            }
           }}
-          className={`w-full rounded-xl px-5 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:border-transparent ${styles.input}`}
+          className={`w-full rounded-xl px-4 sm:px-5 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:border-transparent ${styles.input}`}
         />
 
-        {/* Dropdown */}
-        {isOpen && (results.length > 0 || noResults) && (
+        {/* Dropdown — portaled to body so it escapes any ancestor `overflow-hidden` */}
+        {portalReady && isOpen && dropdownPos && (results.length > 0 || noResults || (showRecents && recents.length > 0)) && createPortal(
           <div
             ref={dropdownRef}
-            className={`absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-50 ${styles.dropdown}`}
+            style={{
+              position: "fixed",
+              left: dropdownPos.left,
+              top: dropdownPos.top,
+              width: dropdownPos.width,
+            }}
+            className={`rounded-xl overflow-hidden z-[100] ${styles.dropdown}`}
           >
-            {noResults && results.length === 0 ? (
+            {showRecents && results.length === 0 && !noResults ? (
+              <>
+                <div className="px-4 pt-3 pb-2 text-xs font-semibold uppercase tracking-widest text-[#03065E]/50">
+                  Búsquedas recientes
+                </div>
+                {recents.map((item, i) => (
+                  <div
+                    key={item.symbol}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    className={`group w-full flex items-center text-sm transition-colors ${
+                      i === activeIndex ? styles.itemActive : styles.item
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        selectResult(item);
+                      }}
+                      className="flex-1 min-w-0 text-left px-4 py-3 flex items-center gap-3 cursor-pointer"
+                    >
+                      <span className={`font-mono text-xs ${styles.symbol}`}>
+                        {item.symbol}
+                      </span>
+                      <span className={`truncate ${styles.meta}`}>
+                        {item.name}
+                      </span>
+                      <span className={`ml-auto text-xs shrink-0 ${styles.meta}`}>
+                        {item.exchange}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Quitar ${item.symbol} de recientes`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        removeRecent(item.symbol);
+                      }}
+                      className="px-3 py-3 text-[#03065E]/30 hover:text-[#03065E]/70 cursor-pointer transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M2 2l8 8M10 2l-8 8" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </>
+            ) : noResults && results.length === 0 ? (
               <div className="px-4 py-3 text-sm text-[#03065E]/40 text-center">
                 No se encontraron resultados
               </div>
@@ -239,7 +410,7 @@ export function TickerSearch({
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    selectResult(item.symbol);
+                    selectResult(item);
                   }}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={`w-full text-left px-4 py-3 flex items-center gap-3 text-sm transition-colors cursor-pointer ${
@@ -258,16 +429,33 @@ export function TickerSearch({
                 </button>
               ))
             )}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 
       <button
         type="submit"
         disabled={disabled}
-        className={`px-6 py-3 font-semibold rounded-xl text-sm transition-colors ${styles.button}`}
+        aria-label="Analizar"
+        className={`px-4 sm:px-6 py-3 font-semibold rounded-xl text-sm transition-colors shrink-0 ${styles.button}`}
       >
-        Analizar
+        <span className="hidden sm:inline">Analizar</span>
+        <svg
+          className="sm:hidden"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
       </button>
     </form>
   );

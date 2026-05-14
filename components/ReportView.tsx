@@ -11,13 +11,13 @@ import { PriceChart } from "@/components/PriceChart";
 import { PdfExportButton } from "@/components/PdfExportButton";
 import ReactMarkdown from "react-markdown";
 import { currencyPrefix } from "@/lib/currencyPrefix";
+import { getMontserratFontFaceCss } from "@/lib/embedFonts";
 import type { StructuredReport } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
 interface Props {
   report: StructuredReport;
   stockData: StockData;
-  cached?: boolean;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -47,7 +47,7 @@ function fmtCompact(n: number): string {
   return `${sign}$${abs.toLocaleString("en-US")}`;
 }
 
-export function ReportView({ report, stockData, cached, onRefresh, isRefreshing }: Props) {
+export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props) {
   const pfx = currencyPrefix(stockData.currency);
   const svgRef = useRef<SVGSVGElement>(null);
   const [sankeyImageUrl, setSankeyImageUrl] = useState<string | undefined>();
@@ -55,6 +55,7 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
 
   useEffect(() => {
     const prices = stockData.historicalPrices;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when input becomes invalid; the canvas-derived URL can't be computed in render
     if (!prices || prices.length < 2) { setPriceChartImageUrl(undefined); return; }
 
     const rev        = stockData.quarterlyRevenue;
@@ -218,14 +219,26 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
   }, [stockData.historicalPrices, stockData.quarterlyRevenue]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when segmentData clears; PNG snapshot can't be computed in render
     if (!report.segmentData) { setSankeyImageUrl(undefined); return; }
-    const id = setTimeout(() => {
+    let cancelled = false;
+    const id = setTimeout(async () => {
       const el = svgRef.current;
       if (!el) return;
+      const fontCss = await getMontserratFontFaceCss();
+      if (cancelled) return;
       const vb = el.viewBox.baseVal;
       const W = vb.width || 1800;
       const H = vb.height || 1000;
-      const svgString = new XMLSerializer().serializeToString(el);
+      const clone = el.cloneNode(true) as SVGSVGElement;
+      clone.setAttribute("font-family", "'Montserrat', Arial, Helvetica, sans-serif");
+      if (fontCss) {
+        const ns = "http://www.w3.org/2000/svg";
+        const styleEl = document.createElementNS(ns, "style");
+        styleEl.textContent = fontCss;
+        clone.insertBefore(styleEl, clone.firstChild);
+      }
+      const svgString = new XMLSerializer().serializeToString(clone);
       const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const img = new window.Image();
@@ -238,18 +251,21 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
         ctx.fillRect(0, 0, W, H);
         ctx.drawImage(img, 0, 0, W, H);
         URL.revokeObjectURL(url);
-        setSankeyImageUrl(canvas.toDataURL("image/png"));
+        if (!cancelled) setSankeyImageUrl(canvas.toDataURL("image/png"));
       };
       img.onerror = () => URL.revokeObjectURL(url);
       img.src = url;
     }, 150);
-    return () => clearTimeout(id);
+    return () => { cancelled = true; clearTimeout(id); };
   }, [report]);
 
-  const today = new Date().toLocaleDateString("es-UY", {
-    month: "short",
+  const today = new Date().toLocaleString("es-UY", {
     day: "numeric",
+    month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   });
 
   return (
@@ -257,8 +273,7 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-6">
         <div className="text-xs text-[#707070]">
-          {cached ? "En caché · " : ""}
-          {today}
+          Análisis realizado el {today}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -266,7 +281,14 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
             disabled={isRefreshing}
             className="text-xs px-3 py-1.5 rounded-lg border border-[#03065E]/20 text-[#03065E] hover:bg-[#03065E] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isRefreshing ? "Actualizando…" : "Actualizar Análisis"}
+            {isRefreshing ? (
+              "Actualizando…"
+            ) : (
+              <>
+                <span className="sm:hidden">Actualizar</span>
+                <span className="hidden sm:inline">Actualizar Análisis</span>
+              </>
+            )}
           </button>
           {report.verdict && <PdfExportButton report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />}
         </div>
@@ -275,8 +297,8 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
       <ReportHeader stockData={stockData} />
       <MetricsDashboard stockData={stockData} />
       <PriceChart
-        historicalPrices={stockData.historicalPrices}
         ticker={stockData.ticker}
+        historicalPrices={stockData.historicalPrices}
         quarterlyRevenue={stockData.quarterlyRevenue}
       />
       <div className="mt-6" />
@@ -288,9 +310,12 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
         </div>
       )}
 
-      <div className="space-y-6 divide-y divide-[#03065E]/10">
-        {SECTIONS.map(({ key, title }) => (
-          <div key={key} className="pt-6 first:pt-0">
+      <div className="space-y-6">
+        {SECTIONS.map(({ key, title }, idx) => {
+          const prev = SECTIONS[idx - 1];
+          const skipBorder = idx === 0 || (prev?.key === "revenueStreams" && !!report.segmentData);
+          return (
+          <div key={key} className={`pt-6 ${skipBorder ? "" : "border-t border-[#03065E]/10"}`}>
             <ReportSection title={title} content={report[key] as string} />
             {key === "capitalExpenditure" && stockData.annualCashFlow && stockData.annualCashFlow.length > 0 && (
               <div className="mt-4 overflow-x-auto">
@@ -341,7 +366,8 @@ export function ReportView({ report, stockData, cached, onRefresh, isRefreshing 
             )}
 
           </div>
-        ))}
+          );
+        })}
 
         {/* Bull / Bear cases */}
         {report.bullCase && report.bearCase && (

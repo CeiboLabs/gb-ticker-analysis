@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "pages:build": "npx @cloudflare/next-on-pages",
-    "pages:deploy": "npm run pages:build && wrangler pages deploy",
-    "pages:preview": "npm run pages:build && wrangler pages dev"
+    "pages:deploy": "npm run pages:build && npx wrangler pages deploy",
+    "pages:preview": "npm run pages:build && npx wrangler pages dev"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
@@ -17,7 +17,7 @@
     "@types/d3-sankey": "^0.12.5",
     "d3-sankey": "^0.12.3",
     "lightweight-charts": "^5.1.0",
-    "next": "16.2.1",
+    "next": "^16.2.6",
     "openai": "^6.33.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -36,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

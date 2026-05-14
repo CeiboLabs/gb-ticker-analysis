@@ -40,6 +40,23 @@ export interface CashFlowYear {
   freeCashFlow: number | null;
 }
 
+// Latest quarterly income statement from Yahoo's fundamentalsTimeSeries
+// (quarterly). Used as a fallback Sankey source when EDGAR's 10-Q lags
+// behind the press release for the same quarter.
+export interface QuarterIncomeStatement {
+  endDate: string; // YYYY-MM-DD
+  totalRevenue: number;
+  costOfRevenue: number | null;
+  grossProfit: number | null;
+  researchDevelopment: number | null;
+  sellingGeneralAdministrative: number | null;
+  totalOperatingExpenses: number | null;
+  operatingIncome: number | null;
+  incomeBeforeTax: number | null;
+  incomeTaxExpense: number | null;
+  netIncome: number | null;
+}
+
 export interface NewsItem {
   title: string;
   publisher: string;
@@ -122,6 +139,10 @@ export interface StockData {
 
   // Earnings history (last 4 quarters)
   earningsHistory: EarningsQuarter[];
+
+  // Most recent quarterly income statement from Yahoo (used to fill the
+  // Sankey when EDGAR's latest 10-Q is behind the press-released quarter).
+  latestQuarterIS: QuarterIncomeStatement | null;
 
   // Forward estimates
   forwardEstimates: ForwardEstimate[];
