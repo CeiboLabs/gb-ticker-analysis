@@ -269,26 +269,29 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
   });
 
   return (
-    <div className="space-y-0">
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-6">
-        <div className="text-xs text-[#707070]">
-          Análisis realizado el {today}
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      {/* Top bar — meta-row editorial */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          borderBottom: "1px solid var(--rule)",
+          paddingBottom: "var(--space-3)",
+          marginBottom: "var(--space-5)",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span className="cap mono" style={{ color: "var(--ink-3)" }}>{today}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="text-xs px-3 py-1.5 rounded-lg border border-[#03065E]/20 text-[#03065E] hover:bg-[#03065E] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn btn-ghost"
+            style={{ padding: "8px 14px", fontSize: 12 }}
           >
-            {isRefreshing ? (
-              "Actualizando…"
-            ) : (
-              <>
-                <span className="sm:hidden">Actualizar</span>
-                <span className="hidden sm:inline">Actualizar Análisis</span>
-              </>
-            )}
+            {isRefreshing ? "Actualizando…" : "Actualizar"}
           </button>
           {report.verdict && <PdfExportButton report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />}
         </div>
@@ -304,53 +307,40 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
       <div className="mt-6" />
       <AnalystConsensus stockData={stockData} />
 
-      {report.verdict && (
-        <div className="border-t border-[#03065E]/10 pt-6 mb-6">
-          <InvestmentVerdict verdict={report.verdict} />
-        </div>
-      )}
+      {report.verdict && <InvestmentVerdict verdict={report.verdict} />}
 
-      <div className="space-y-6">
-        {SECTIONS.map(({ key, title }, idx) => {
-          const prev = SECTIONS[idx - 1];
-          const skipBorder = idx === 0 || (prev?.key === "revenueStreams" && !!report.segmentData);
-          return (
-          <div key={key} className={`pt-6 ${skipBorder ? "" : "border-t border-[#03065E]/10"}`}>
+      <div>
+        {SECTIONS.map(({ key, title }) => (
+          <div key={key}>
             <ReportSection title={title} content={report[key] as string} />
             {key === "capitalExpenditure" && stockData.annualCashFlow && stockData.annualCashFlow.length > 0 && (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
+              <div style={{ overflowX: "auto", marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                <table className="fin-table">
                   <thead>
-                    <tr className="border-b border-[#03065E]/20">
-                      <th className="text-left py-2 pr-4 font-semibold text-[#03065E]/50 uppercase tracking-widest">Año Fiscal</th>
+                    <tr>
+                      <th>Año fiscal</th>
                       {stockData.annualCashFlow.map((y) => (
-                        <th key={y.year} className="text-right py-2 px-3 font-semibold text-[#03065E]/70">FY{y.year}</th>
+                        <th key={y.year}>FY {y.year}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-[#03065E]/5">
-                      <td className="py-2 pr-4 text-[#2A2A2A]/60">CAPEX</td>
+                    <tr>
+                      <td>CAPEX</td>
                       {stockData.annualCashFlow.map((y) => (
-                        <td key={y.year} className="text-right py-2 px-3 font-medium text-[#03065E]">
-                          {y.capitalExpenditure != null ? fmtCompact(Math.abs(y.capitalExpenditure)) : "—"}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b border-[#03065E]/5">
-                      <td className="py-2 pr-4 text-[#2A2A2A]/60">OCF</td>
-                      {stockData.annualCashFlow.map((y) => (
-                        <td key={y.year} className="text-right py-2 px-3 text-[#2A2A2A]">
-                          {y.operatingCashFlow != null ? fmtCompact(y.operatingCashFlow) : "—"}
-                        </td>
+                        <td key={y.year}>{y.capitalExpenditure != null ? fmtCompact(Math.abs(y.capitalExpenditure)) : "—"}</td>
                       ))}
                     </tr>
                     <tr>
-                      <td className="py-2 pr-4 text-[#2A2A2A]/60">FCF</td>
+                      <td>OCF</td>
                       {stockData.annualCashFlow.map((y) => (
-                        <td key={y.year} className="text-right py-2 px-3 text-[#2A2A2A]">
-                          {y.freeCashFlow != null ? fmtCompact(y.freeCashFlow) : "—"}
-                        </td>
+                        <td key={y.year}>{y.operatingCashFlow != null ? fmtCompact(y.operatingCashFlow) : "—"}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td>FCF</td>
+                      {stockData.annualCashFlow.map((y) => (
+                        <td key={y.year}>{y.freeCashFlow != null ? fmtCompact(y.freeCashFlow) : "—"}</td>
                       ))}
                     </tr>
                   </tbody>
@@ -358,50 +348,91 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
               </div>
             )}
             {key === "revenueStreams" && report.segmentData && (
-              // Break out of the max-w-3xl page container so the chart
-              // uses the full viewport width with a small side gutter.
-              <div className="mt-6 w-screen relative left-1/2 -translate-x-1/2 max-w-4xl px-6">
+              <div style={{ marginTop: "var(--space-4)", marginBottom: "var(--space-4)", overflowX: "auto" }}>
                 <SankeyChart data={report.segmentData} svgRef={svgRef} />
               </div>
             )}
-
           </div>
-          );
-        })}
+        ))}
 
-        {/* Bull / Bear cases */}
+        {/* Escenarios alcista / bajista */}
         {report.bullCase && report.bearCase && (
-          <div className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-700">Escenario Alcista</span>
-                <span className="text-sm font-bold text-emerald-700">{pfx}{report.bullCase.priceTarget}</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 0,
+              borderTop: "1px solid var(--ink)",
+              borderBottom: "1px solid var(--rule)",
+              marginTop: "var(--space-5)",
+            }}
+            className="scenarios-grid"
+          >
+            <article style={{ padding: "var(--space-5)", borderRight: "1px solid var(--rule)" }}>
+              <div className="cap-gold" style={{ color: "var(--pos)" }}>Escenario alcista</div>
+              <div
+                className="serif"
+                style={{
+                  fontWeight: 400,
+                  fontSize: 36,
+                  lineHeight: 1.1,
+                  margin: "var(--space-2) 0 var(--space-3)",
+                  letterSpacing: "-0.015em",
+                  color: "var(--pos)",
+                }}
+              >
+                {pfx}{report.bullCase.priceTarget}
               </div>
-              <div className="text-sm text-emerald-800/80 leading-relaxed prose prose-sm max-w-none prose-strong:text-current prose-p:my-0 prose-p:text-emerald-800/80">
+              <div className="body-base prose prose-sm" style={{ color: "var(--ink-2)", maxWidth: "32em" }}>
                 <ReactMarkdown>{report.bullCase.narrative}</ReactMarkdown>
               </div>
-            </div>
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-red-700">Escenario Bajista</span>
-                <span className="text-sm font-bold text-red-700">{pfx}{report.bearCase.priceTarget}</span>
+            </article>
+            <article style={{ padding: "var(--space-5)" }}>
+              <div className="cap-gold" style={{ color: "var(--neg)" }}>Escenario bajista</div>
+              <div
+                className="serif"
+                style={{
+                  fontWeight: 400,
+                  fontSize: 36,
+                  lineHeight: 1.1,
+                  margin: "var(--space-2) 0 var(--space-3)",
+                  letterSpacing: "-0.015em",
+                  color: "var(--neg)",
+                }}
+              >
+                {pfx}{report.bearCase.priceTarget}
               </div>
-              <div className="text-sm text-red-800/80 leading-relaxed prose prose-sm max-w-none prose-strong:text-current prose-p:my-0 prose-p:text-red-800/80">
+              <div className="body-base prose prose-sm" style={{ color: "var(--ink-2)", maxWidth: "32em" }}>
                 <ReactMarkdown>{report.bearCase.narrative}</ReactMarkdown>
               </div>
-            </div>
+            </article>
+            <style>{`
+              @media (max-width: 760px) {
+                .scenarios-grid { grid-template-columns: 1fr !important; }
+                .scenarios-grid article:first-child { border-right: 0 !important; border-bottom: 1px solid var(--rule); }
+              }
+            `}</style>
           </div>
         )}
       </div>
 
       {/* Disclosure */}
-      <div className="text-[10px] leading-relaxed text-[#707070]/70 mt-8 pt-4 border-t border-[#03065E]/10 space-y-2">
-        <p>Esta herramienta analiza únicamente acciones listadas en bolsas de valores de Estados Unidos. Este reporte ha sido generado mediante inteligencia artificial (OpenAI GPT-4o) con fines exclusivamente informativos y educativos. El contenido aquí presentado no constituye asesoramiento financiero, de inversión, legal o fiscal, ni debe interpretarse como una recomendación de compra, venta o mantenimiento de ningún valor o instrumento financiero.</p>
-        <p>La información contenida en este documento proviene de fuentes consideradas confiables (Yahoo Finance, SEC EDGAR), pero no se garantiza su exactitud, integridad o vigencia. Las proyecciones, estimaciones y opiniones expresadas reflejan el criterio del autor a la fecha de publicación y están sujetas a cambios sin previo aviso.</p>
-        <p>Los modelos de lenguaje pueden producir información inexacta o desactualizada. El contenido generado no ha sido verificado por un analista humano.</p>
-        <p>Gastón Bengochea es un corredor de bolsa regulado por el Banco Central del Uruguay (BCU) conforme a la Ley N° 18.627 de Mercado de Valores. No obstante, esta herramienta de análisis automatizado no constituye un servicio de asesoramiento de inversión regulado. El contenido generado no ha sido revisado ni aprobado por el BCU y su distribución no implica respaldo regulatorio alguno.</p>
-        <p>Cada inversor debe realizar su propio análisis independiente y consultar con un asesor de inversión habilitado antes de tomar cualquier decisión. El autor no asume responsabilidad alguna por pérdidas o daños derivados del uso de esta información.</p>
-        <p className="mt-1">© {new Date().getFullYear()} Gastón Bengochea</p>
+      <div
+        style={{
+          marginTop: "var(--space-7)",
+          paddingTop: "var(--space-4)",
+          borderTop: "1px solid var(--ink)",
+        }}
+      >
+        <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Disclosure</div>
+        <div className="body-small" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: "52em" }}>
+          <p>Esta herramienta analiza únicamente acciones listadas en bolsas de valores de Estados Unidos. El reporte ha sido generado mediante inteligencia artificial (OpenAI GPT-4o) con fines exclusivamente informativos y educativos. El contenido aquí presentado no constituye asesoramiento financiero, de inversión, legal o fiscal, ni debe interpretarse como una recomendación de compra, venta o mantenimiento de ningún valor.</p>
+          <p>La información proviene de fuentes consideradas confiables (Yahoo Finance, SEC EDGAR), pero no se garantiza su exactitud, integridad o vigencia. Las proyecciones, estimaciones y opiniones reflejan el criterio del autor a la fecha de publicación y están sujetas a cambios sin previo aviso.</p>
+          <p>Los modelos de lenguaje pueden producir información inexacta o desactualizada. El contenido generado no ha sido verificado por un analista humano.</p>
+          <p>Bengochea &amp; Cía. es una sociedad de bolsa regulada por el Banco Central del Uruguay conforme a la Ley N° 18.627 de Mercado de Valores. Esta herramienta de análisis automatizado no constituye un servicio de asesoramiento de inversión regulado. El contenido generado no ha sido revisado ni aprobado por el BCU y su distribución no implica respaldo regulatorio alguno.</p>
+          <p>Cada inversor debe realizar su propio análisis independiente y consultar con un asesor habilitado antes de tomar cualquier decisión. El autor no asume responsabilidad por pérdidas o daños derivados del uso de esta información.</p>
+          <p className="mono" style={{ color: "var(--ink-3)", marginTop: 6 }}>© {new Date().getFullYear()} Bengochea &amp; Cía. Sociedad de Bolsa</p>
+        </div>
       </div>
     </div>
   );

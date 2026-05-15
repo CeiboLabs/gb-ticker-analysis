@@ -23,70 +23,104 @@ export function AnalystConsensus({ stockData: d }: Props) {
       : null;
 
   const upsideStr =
-    upside != null ? `${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%` : null;
+    upside != null ? `${upside >= 0 ? "+" : "−"}${Math.abs(upside).toFixed(1).replace(".", ",")} %` : null;
 
   const bars: { label: string; count: number; color: string }[] = [
-    { label: "Compra Fuerte", count: d.analystStrongBuy, color: "bg-emerald-500" },
-    { label: "Compra", count: d.analystBuy, color: "bg-emerald-400" },
-    { label: "Mantener", count: d.analystHold, color: "bg-yellow-400" },
-    { label: "Vender", count: d.analystSell, color: "bg-red-400" },
-    { label: "Venta Fuerte", count: d.analystStrongSell, color: "bg-red-600" },
+    { label: "Compra fuerte", count: d.analystStrongBuy, color: "var(--pos)" },
+    { label: "Compra", count: d.analystBuy, color: "#3F8B66" },
+    { label: "Mantener", count: d.analystHold, color: "var(--neu)" },
+    { label: "Vender", count: d.analystSell, color: "#B05050" },
+    { label: "Venta fuerte", count: d.analystStrongSell, color: "var(--neg)" },
   ];
 
   return (
-    <div className="bg-white border border-[#03065E]/10 rounded-xl p-4 mb-6 shadow-sm">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-[#03065E]/50 mb-3 sm:mb-4">
-        Consenso de Analistas
-      </h2>
-
-      <div className="flex gap-4 sm:gap-6 flex-wrap">
+    <div
+      style={{
+        borderTop: "1px solid var(--ink)",
+        borderBottom: "1px solid var(--rule)",
+        padding: "var(--space-5) 0",
+        marginBottom: "var(--space-5)",
+      }}
+    >
+      <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Consenso de Wall Street</div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)",
+          gap: "var(--space-6)",
+          alignItems: "start",
+        }}
+        className="consensus-grid"
+      >
         {d.targetMeanPrice != null && (
-          <div className="flex-1 min-w-[120px]">
-            <div className="text-xs text-[#707070] mb-1">Precio Objetivo Medio</div>
-            <div className="font-mono font-bold text-[#03065E] text-xl">
-              {pfx}{d.targetMeanPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div>
+            <div className="cap" style={{ marginBottom: 4 }}>Precio objetivo · medio</div>
+            <div
+              className="mono"
+              style={{
+                fontSize: 32,
+                color: "var(--ink)",
+                letterSpacing: "-0.01em",
+                fontWeight: 500,
+              }}
+            >
+              {pfx}{d.targetMeanPrice.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             {upsideStr && (
-              <div className={`text-sm font-mono font-medium mt-0.5 ${(upside ?? 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 14,
+                  color: (upside ?? 0) >= 0 ? "var(--pos)" : "var(--neg)",
+                  marginTop: 4,
+                }}
+              >
                 {upsideStr} potencial
               </div>
             )}
             {d.targetLowPrice != null && d.targetHighPrice != null && (
-              <div className="text-xs text-[#707070] mt-1 whitespace-nowrap">
-                Rango: {pfx}{d.targetLowPrice.toFixed(2)} – {pfx}{d.targetHighPrice.toFixed(2)}
+              <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
+                Rango {pfx}{d.targetLowPrice.toFixed(2).replace(".", ",")} – {pfx}{d.targetHighPrice.toFixed(2).replace(".", ",")}
               </div>
             )}
           </div>
         )}
 
         {total > 0 && (
-          <div className="flex-[2] basis-full sm:basis-auto sm:min-w-[200px]">
-            <div className="text-xs text-[#707070] mb-2">
+          <div>
+            <div className="cap" style={{ marginBottom: "var(--space-2)" }}>
               {total} analistas · {bullish} alcistas · {d.analystHold} neutros · {bearish} bajistas
             </div>
-            <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
+            <div style={{ display: "flex", height: 10, marginBottom: "var(--space-3)", border: "1px solid var(--rule)" }}>
               {bars.map((b) =>
                 b.count > 0 ? (
                   <div
                     key={b.label}
-                    className={b.color}
-                    style={{ width: `${(b.count / total) * 100}%` }}
+                    style={{ background: b.color, width: `${(b.count / total) * 100}%` }}
                     title={`${b.label}: ${b.count}`}
                   />
                 ) : null
               )}
             </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 18px" }}>
               {bars.map((b) => (
-                <div key={b.label} className="flex items-center gap-1 text-xs text-[#707070]">
-                  <div className={`w-2 h-2 rounded-sm ${b.color}`} />
-                  {b.label}: {b.count}
+                <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 10, height: 10, background: b.color, display: "inline-block" }} />
+                  <span className="cap" style={{ color: "var(--ink-2)" }}>
+                    {b.label} <span className="mono" style={{ marginLeft: 6, color: "var(--ink)" }}>{b.count}</span>
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         )}
       </div>
+
+      <style>{`
+        @media (max-width: 760px) {
+          .consensus-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,21 +1,33 @@
 import type { Metadata } from "next";
-import { Montserrat, Geist_Mono } from "next/font/google";
+import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
+const newsreader = Newsreader({
+  variable: "--font-serif",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Gastón Bengochea | Corredor de Bolsa",
-  description: "Tu puerta local al mercado financiero internacional. Corredor de Bolsa miembro de la Bolsa de Valores de Montevideo desde 1967.",
+  title: "Gastón Bengochea & Cía. — Sociedad de Bolsa",
+  description:
+    "Sociedad de bolsa uruguaya desde 1967. Acceso a mercados globales con asesoramiento de la casa, cuentas segregadas y regulación del BCU.",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -33,9 +45,9 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="es"
+      lang="es-UY"
       data-scroll-behavior="smooth"
-      className={`${montserrat.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

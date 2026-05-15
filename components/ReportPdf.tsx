@@ -546,7 +546,8 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
     <button
       onClick={handleClick}
       disabled={!ready || justDownloaded}
-      className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white text-[#03065E] hover:bg-[#E8ECFF] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+      className="btn btn-primary"
+      style={{ padding: "8px 14px", fontSize: 12 }}
     >
       {justDownloaded ? (
         <>

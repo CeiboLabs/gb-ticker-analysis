@@ -7,55 +7,82 @@ interface Props {
   verdict: Verdict;
 }
 
-const ratingConfig = {
-  BUY: {
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    text: "text-emerald-800",
-    badge: "bg-emerald-600 text-white",
-  },
-  HOLD: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-800",
-    badge: "bg-amber-500 text-white",
-  },
-  AVOID: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    text: "text-red-800",
-    badge: "bg-red-600 text-white",
-  },
-} as const;
+const ratingConfig: Record<VerdictRating, { color: string; label: string }> = {
+  BUY: { color: "var(--pos)", label: "buy." },
+  HOLD: { color: "var(--neu)", label: "hold." },
+  AVOID: { color: "var(--neg)", label: "avoid." },
+};
 
-const ratingLabel: Record<VerdictRating, string> = {
-  BUY: "COMPRAR",
-  HOLD: "MANTENER",
-  AVOID: "EVITAR",
+const ratingHeader: Record<VerdictRating, string> = {
+  BUY: "Comprar",
+  HOLD: "Mantener",
+  AVOID: "Evitar",
 };
 
 const convictionLabel: Record<VerdictConviction, string> = {
-  HIGH: "ALTA",
-  MEDIUM: "MEDIA",
-  LOW: "BAJA",
+  HIGH: "Alta",
+  MEDIUM: "Media",
+  LOW: "Baja",
 };
 
 export function InvestmentVerdict({ verdict }: Props) {
-  const cfg = ratingConfig[verdict.rating as keyof typeof ratingConfig] ?? ratingConfig.HOLD;
+  const cfg = ratingConfig[verdict.rating as VerdictRating] ?? ratingConfig.HOLD;
 
   return (
-    <div className={`rounded-xl border p-4 mb-6 ${cfg.bg} ${cfg.border}`}>
-      <div className="flex items-center gap-3 mb-2 flex-wrap">
-        <span className={`px-3 py-1 rounded-full text-sm font-bold tracking-wide ${cfg.badge}`}>
-          {ratingLabel[verdict.rating] ?? verdict.rating}
-        </span>
-        <span className={`text-xs font-semibold uppercase tracking-widest ${cfg.text}`}>
-          Convicción {convictionLabel[verdict.conviction] ?? verdict.conviction}
-        </span>
+    <div
+      style={{
+        borderTop: "1px solid var(--ink)",
+        borderBottom: "1px solid var(--rule)",
+        padding: "var(--space-5) 0",
+        marginBottom: "var(--space-5)",
+      }}
+    >
+      <div className="cap-gold" style={{ marginBottom: "var(--space-2)" }}>Veredicto</div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 260px) 1fr",
+          gap: "var(--space-6)",
+          alignItems: "start",
+        }}
+        className="verdict-grid"
+      >
+        <div>
+          <div
+            className="serif"
+            style={{
+              fontWeight: 400,
+              fontSize: 56,
+              lineHeight: 1,
+              color: "var(--ink)",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            {ratingHeader[verdict.rating as VerdictRating] ?? verdict.rating}{" "}
+            <span className="serif-i" style={{ color: cfg.color, fontStyle: "italic", fontWeight: 300 }}>
+              {cfg.label}
+            </span>
+          </div>
+          <div className="cap" style={{ marginTop: "var(--space-3)", color: "var(--ink-2)" }}>
+            Convicción · {convictionLabel[verdict.conviction] ?? verdict.conviction}
+          </div>
+        </div>
+        <div
+          className="body-base prose prose-sm"
+          style={{
+            maxWidth: "44em",
+            color: "var(--ink-2)",
+          }}
+        >
+          <ReactMarkdown>{verdict.rationale}</ReactMarkdown>
+        </div>
       </div>
-      <div className={`text-sm leading-relaxed prose prose-sm max-w-none prose-strong:text-current prose-p:my-0 ${cfg.text}`}>
-        <ReactMarkdown>{verdict.rationale}</ReactMarkdown>
-      </div>
+
+      <style>{`
+        @media (max-width: 760px) {
+          .verdict-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -53,36 +53,36 @@ function saveRecents(items: SearchResult[]) {
 const variantStyles = {
   hero: {
     input:
-      "bg-white/10 border border-white/20 text-white placeholder-white/35 focus:ring-white/40",
-    dropdown: "bg-white border border-white/20 shadow-2xl",
-    item: "hover:bg-[#F0F2FF]",
-    itemActive: "bg-[#F0F2FF]",
-    symbol: "text-[#03065E] font-semibold",
-    meta: "text-[#03065E]/60",
+      "bg-transparent border-0 border-b border-white/30 rounded-none text-white placeholder-white/45 focus:border-white",
+    dropdown: "bg-[var(--ivory)] border border-[var(--ink)]",
+    item: "hover:bg-[var(--navy-050)]",
+    itemActive: "bg-[var(--navy-050)]",
+    symbol: "text-[var(--ink)] font-medium font-mono",
+    meta: "text-[var(--ink-3)]",
     button:
-      "bg-white text-[#03065E] hover:bg-[#E8ECFF]",
+      "bg-[var(--gold)] text-[var(--ink)] hover:bg-[var(--gold-soft)] rounded-none",
   },
   header: {
     input:
-      "bg-white/15 border border-white/25 text-white placeholder-white/40 focus:ring-white/40 disabled:opacity-50 disabled:cursor-not-allowed",
-    dropdown: "bg-white border border-white/20 shadow-2xl",
-    item: "hover:bg-[#F0F2FF]",
-    itemActive: "bg-[#F0F2FF]",
-    symbol: "text-[#03065E] font-semibold",
-    meta: "text-[#03065E]/60",
+      "bg-transparent border-0 border-b border-white/30 rounded-none text-white placeholder-white/45 focus:border-white disabled:opacity-50 disabled:cursor-not-allowed",
+    dropdown: "bg-[var(--ivory)] border border-[var(--ink)]",
+    item: "hover:bg-[var(--navy-050)]",
+    itemActive: "bg-[var(--navy-050)]",
+    symbol: "text-[var(--ink)] font-medium font-mono",
+    meta: "text-[var(--ink-3)]",
     button:
-      "bg-white text-[#03065E] hover:bg-[#E8ECFF] disabled:opacity-50 disabled:cursor-not-allowed",
+      "bg-[var(--gold)] text-[var(--ink)] hover:bg-[var(--gold-soft)] rounded-none disabled:opacity-50 disabled:cursor-not-allowed",
   },
   footer: {
     input:
-      "bg-white border border-[#03065E]/15 text-[#03065E] placeholder-[#03065E]/30 focus:ring-[#03065E]/20",
-    dropdown: "bg-white border border-[#03065E]/15 text-[#03065E] shadow-lg",
-    item: "hover:bg-[#F8F9FF]",
-    itemActive: "bg-[#F8F9FF]",
-    symbol: "text-[#03065E] font-semibold",
-    meta: "text-[#03065E]/50",
+      "bg-transparent border-0 border-b border-[var(--ink)] rounded-none text-[var(--ink)] placeholder-[var(--ink-3)] focus:border-[var(--ink)]",
+    dropdown: "bg-[var(--ivory)] border border-[var(--ink)]",
+    item: "hover:bg-[var(--navy-050)]",
+    itemActive: "bg-[var(--navy-050)]",
+    symbol: "text-[var(--ink)] font-medium font-mono",
+    meta: "text-[var(--ink-3)]",
     button:
-      "bg-[#03065E] text-white hover:bg-[#03065E]/90",
+      "bg-[var(--navy)] text-[var(--ivory)] hover:bg-[var(--navy-700)] rounded-none",
   },
 };
 
@@ -336,7 +336,8 @@ export function TickerSearch({
               setIsOpen(true);
             }
           }}
-          className={`w-full rounded-xl px-4 sm:px-5 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:border-transparent ${styles.input}`}
+          className={`w-full px-0 py-3 font-mono text-sm focus:outline-none uppercase tracking-[0.04em] ${styles.input}`}
+          style={{ fontFamily: "var(--font-mono)" }}
         />
 
         {/* Dropdown — portaled to body so it escapes any ancestor `overflow-hidden` */}
@@ -349,7 +350,7 @@ export function TickerSearch({
               top: dropdownPos.top,
               width: dropdownPos.width,
             }}
-            className={`rounded-xl overflow-hidden z-[100] ${styles.dropdown}`}
+            className={`overflow-hidden z-[100] ${styles.dropdown}`}
           >
             {showRecents && results.length === 0 && !noResults ? (
               <>
@@ -438,7 +439,8 @@ export function TickerSearch({
         type="submit"
         disabled={disabled}
         aria-label="Analizar"
-        className={`px-4 sm:px-6 py-3 font-semibold rounded-xl text-sm transition-colors shrink-0 ${styles.button}`}
+        className={`px-5 sm:px-7 py-3 font-medium text-sm transition-colors shrink-0 uppercase tracking-[0.08em] ${styles.button}`}
+        style={{ fontFamily: "var(--font-sans)" }}
       >
         <span className="hidden sm:inline">Analizar</span>
         <svg

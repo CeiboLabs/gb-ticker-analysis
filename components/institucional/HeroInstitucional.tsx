@@ -1,218 +1,143 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 
-const STATS = [
-  { value: 57, suffix: "+", label: "Años de experiencia" },
-  { value: 1967, suffix: "", label: "Miembros de la BVM" },
-  { value: 100, suffix: "%", label: "Regulado por BCU" },
-  { value: 6, suffix: "", label: "Productos de inversión" },
+const LEDGER = [
+  { cap: "Fundada", value: "1967", mono: true },
+  { cap: "Trayectoria", value: "57 + años", mono: false },
+  { cap: "Regulada por", value: "BCU", mono: false },
+  { cap: "Plaza", value: "Montevideo · BVM", mono: false },
 ];
 
-function AnimatedCounter({
-  value,
-  suffix,
-  duration = 2000,
-  started,
-}: {
-  value: number;
-  suffix: string;
-  duration?: number;
-  started: boolean;
-}) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (!started) return;
-    let start = 0;
-    const end = value;
-    const stepTime = Math.max(Math.floor(duration / end), 16);
-    const increment = Math.max(1, Math.floor(end / (duration / stepTime)));
-
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(start);
-      }
-    }, stepTime);
-
-    return () => clearInterval(timer);
-  }, [value, duration, started]);
-
-  return (
-    <span>
-      {started ? count.toLocaleString() : 0}
-      {suffix}
-    </span>
-  );
-}
-
 export function HeroInstitucional() {
-  const [mounted, setMounted] = useState(false);
-  const statsRef = useRef<HTMLDivElement>(null);
-  const [statsVisible, setStatsVisible] = useState(false);
-
-  useEffect(() => {
-    requestAnimationFrame(() => setMounted(true));
-  }, []);
-
-  useEffect(() => {
-    const el = statsRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setStatsVisible(true);
-          observer.unobserve(el);
-        }
-      },
-      { threshold: 0.3 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section className="min-h-screen flex flex-col items-center justify-center bg-[#03065E] text-white px-6 pt-24 pb-0 relative overflow-hidden">
-      {/* Gradient orbs */}
+    <header className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
+      {/* Halo dorado discreto */}
       <div
-        className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full animate-float-slow"
+        aria-hidden
         style={{
-          background: "radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-      />
-      <div
-        className="absolute bottom-[-10%] left-[-15%] w-[500px] h-[500px] rounded-full animate-float-slow"
-        style={{
-          background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)",
-          filter: "blur(80px)",
-          animationDelay: "-5s",
-        }}
-      />
-      <div
-        className="absolute top-[30%] left-[60%] w-[300px] h-[300px] rounded-full animate-pulse-glow"
-        style={{
-          background: "radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%)",
-          filter: "blur(40px)",
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(60% 80% at 85% 10%, rgba(201,168,76,0.10), transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.0), rgba(0,0,0,0.15))",
+          pointerEvents: "none",
         }}
       />
 
-      {/* Subtle grid background */}
       <div
-        className="absolute inset-0 opacity-[0.03]"
+        className="wrap"
         style={{
-          backgroundImage:
-            "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      {/* Decorative lines */}
-      <svg
-        className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-[0.04]"
-        viewBox="0 0 1200 800"
-        fill="none"
-      >
-        <path d="M0 400 Q300 350 600 400 T1200 380" stroke="#C9A84C" strokeWidth="1" />
-        <path d="M0 450 Q400 400 800 450 T1200 430" stroke="#fff" strokeWidth="0.5" />
-        <path d="M0 500 Q350 460 700 500 T1200 480" stroke="#C9A84C" strokeWidth="0.5" />
-      </svg>
-
-      {/* Headline */}
-      <h1
-        className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-center max-w-4xl leading-[1.1] mb-6 relative z-10"
-        style={{
-          opacity: mounted ? 1 : 0,
-          transform: mounted ? "translateY(0)" : "translateY(20px)",
-          transition: "all 0.8s ease-out 0.3s",
+          paddingTop: "calc(var(--nav-h) + var(--space-7))",
+          paddingBottom: "var(--space-8)",
+          position: "relative",
+          zIndex: 1,
         }}
       >
-        Tu puerta local al mercado financiero{" "}
-        <span className="gradient-text">internacional</span>
-      </h1>
-
-      {/* Subheadline */}
-      <p
-        className="text-base sm:text-lg text-white/55 text-center max-w-xl mb-10 relative z-10"
-        style={{
-          opacity: mounted ? 1 : 0,
-          transform: mounted ? "translateY(0)" : "translateY(16px)",
-          transition: "all 0.8s ease-out 0.5s",
-        }}
-      >
-        Un amplio ecosistema de inversión con casi seis décadas gestionando
-        activos financieros para miles de uruguayos y extranjeros.
-      </p>
-
-      {/* CTA buttons */}
-      <div
-        className="flex flex-col sm:flex-row gap-4 relative z-10"
-        style={{
-          opacity: mounted ? 1 : 0,
-          transform: mounted ? "translateY(0)" : "translateY(16px)",
-          transition: "all 0.8s ease-out 0.7s",
-        }}
-      >
-        <a
-          href="/servicios"
-          className="group bg-gradient-to-r from-[#C9A84C] to-[#d4b65e] text-[#03065E] font-semibold px-8 py-3.5 rounded-xl text-sm hover:shadow-[0_0_30px_rgba(201,168,76,0.3)] transition-all duration-300 text-center"
+        {/* Meta-row */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            borderBottom: "1px solid rgba(255,255,255,0.18)",
+            paddingBottom: "var(--space-3)",
+            marginBottom: "var(--space-7)",
+            color: "rgba(255,255,255,0.7)",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
         >
-          Conocer Más
-          <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">&rarr;</span>
-        </a>
-        <a
-          href="/contacto"
-          className="glass border-white/15 text-white font-medium px-8 py-3.5 rounded-xl text-sm hover:bg-white/10 hover:border-white/25 transition-all duration-300 text-center"
+          <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>
+            Sociedad de Bolsa · Montevideo
+          </span>
+          <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>
+            EST. 1967
+          </span>
+        </div>
+
+        {/* Headline serif */}
+        <h1
+          className="serif fade-up"
+          style={{
+            fontWeight: 300,
+            fontSize: "clamp(48px, 8vw, 112px)",
+            lineHeight: 0.98,
+            letterSpacing: "-0.025em",
+            margin: 0,
+            color: "var(--ivory)",
+            maxWidth: "16ch",
+          }}
         >
-          Contactanos
-        </a>
-      </div>
+          Acceso a los mercados del mundo,{" "}
+          <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
+            desde Uruguay.
+          </em>
+        </h1>
 
-      {/* Scroll indicator */}
-      <div
-        className="absolute bottom-28 sm:bottom-32 flex flex-col items-center text-white/15 animate-bounce z-10"
-        style={{
-          opacity: mounted ? 1 : 0,
-          transition: "opacity 1s ease-out 1.2s",
-        }}
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M5 8l5 5 5-5" />
-        </svg>
-      </div>
+        {/* Lede */}
+        <p
+          className="lede fade-up delay-1"
+          style={{
+            color: "rgba(255,255,255,0.85)",
+            maxWidth: "38em",
+            margin: "var(--space-5) 0 0",
+          }}
+        >
+          Una casa de bolsa uruguaya con cincuenta y siete años de oficio. Acompañamos a inversores con cuentas segregadas a nombre del cliente, asesoramiento de la casa y la mirada de quienes vienen leyendo los mercados desde 1967.
+        </p>
 
-      {/* Stats bar */}
-      <div
-        ref={statsRef}
-        className="w-full mt-auto relative z-10"
-        style={{
-          opacity: mounted ? 1 : 0,
-          transition: "opacity 1s ease-out 0.9s",
-        }}
-      >
-        <div className="glass border-t border-white/10 border-b-0 border-l-0 border-r-0">
-          <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/10">
-            {STATS.map((stat) => (
-              <div key={stat.label} className="text-center py-7 sm:py-9 px-4">
-                <div className="text-2xl sm:text-3xl font-bold gradient-text mb-1">
-                  <AnimatedCounter
-                    value={stat.value}
-                    suffix={stat.suffix}
-                    started={statsVisible}
-                  />
-                </div>
-                <div className="text-[10px] sm:text-xs text-white/35 uppercase tracking-wider">
-                  {stat.label}
-                </div>
+        {/* CTAs */}
+        <div
+          className="fade-up delay-2"
+          style={{ display: "flex", gap: 12, marginTop: "var(--space-6)", flexWrap: "wrap" }}
+        >
+          <Link href="/contacto" className="btn btn-on-navy-primary">
+            Agendá una reunión <span className="arrow" />
+          </Link>
+          <Link href="/analisis" className="btn btn-on-navy-secondary">
+            Analizar una acción
+          </Link>
+        </div>
+
+        {/* Ledger */}
+        <div
+          className="hero-ledger fade-up delay-3"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "var(--space-5)",
+            marginTop: "var(--space-7)",
+            paddingTop: "var(--space-5)",
+            borderTop: "1px solid rgba(255,255,255,0.18)",
+          }}
+        >
+          {LEDGER.map((cell) => (
+            <div key={cell.cap}>
+              <div className="cap" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {cell.cap}
               </div>
-            ))}
-          </div>
+              <div
+                className={cell.mono ? "mono" : "serif"}
+                style={{
+                  fontWeight: 400,
+                  fontSize: cell.mono ? 26 : 32,
+                  marginTop: "var(--space-2)",
+                  color: "var(--ivory)",
+                  letterSpacing: cell.mono ? 0 : "-0.01em",
+                }}
+              >
+                {cell.value}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-    </section>
+
+      <style>{`
+        @media (max-width: 720px) {
+          .hero-ledger { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+    </header>
   );
 }

@@ -11,8 +11,17 @@ interface Props {
   stockData?: StockData | null;
 }
 
-function Skeleton({ className }: { className: string }) {
-  return <div className={`bg-[#03065E]/8 rounded-lg animate-pulse ${className}`} />;
+function Skeleton({ height, width = "100%" }: { height: number; width?: string | number }) {
+  return (
+    <div
+      style={{
+        height,
+        width,
+        background: "var(--navy-050)",
+        animation: "shimmer 1.6s ease-in-out infinite",
+      }}
+    />
+  );
 }
 
 const SECTION_NAMES = [
@@ -26,13 +35,31 @@ function ReportSkeleton() {
   return (
     <>
       {SECTION_NAMES.map((s) => (
-        <div key={s} className="space-y-2 pt-4 border-t border-[#03065E]/10 first:border-t-0">
-          <div className="h-3 w-36 bg-[#03065E]/8 rounded-lg animate-pulse" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-4/5" />
+        <div
+          key={s}
+          style={{
+            padding: "var(--space-5) 0",
+            borderTop: "1px solid var(--rule)",
+            display: "grid",
+            gridTemplateColumns: "200px 1fr",
+            gap: "var(--space-5)",
+          }}
+          className="report-section-grid"
+        >
+          <div className="cap-gold">{s}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: "44em" }}>
+            <Skeleton height={12} />
+            <Skeleton height={12} />
+            <Skeleton height={12} width="80%" />
+          </div>
         </div>
       ))}
+      <style>{`
+        @keyframes shimmer { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+        @media (max-width: 760px) {
+          .report-section-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </>
   );
 }
@@ -40,70 +67,90 @@ function ReportSkeleton() {
 export function LoadingState({ ticker, stockData }: Props) {
   if (stockData) {
     return (
-      <div className="space-y-0">
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-xs text-[#707070]">Analizando…</div>
-          <div className="flex items-center gap-2 text-xs text-[#03065E] font-medium">
-            <span className="inline-block w-2 h-2 rounded-full bg-[#03065E] animate-ping" />
-            Generando análisis IA
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+          <div className="cap">Analizando · datos en streaming</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 6, height: 6, background: "var(--gold)", display: "inline-block", animation: "shimmer 1.2s ease-in-out infinite" }} />
+            <span className="cap-gold">Generando análisis IA</span>
           </div>
         </div>
 
         <ReportHeader stockData={stockData} />
         <MetricsDashboard stockData={stockData} />
-        <PriceChart ticker={stockData.ticker} historicalPrices={stockData.historicalPrices} quarterlyRevenue={stockData.quarterlyRevenue} />
-        <div className="mt-6" />
+        <PriceChart
+          ticker={stockData.ticker}
+          historicalPrices={stockData.historicalPrices}
+          quarterlyRevenue={stockData.quarterlyRevenue}
+        />
+        <div style={{ marginTop: "var(--space-5)" }} />
         <AnalystConsensus stockData={stockData} />
 
-        {/* Verdict skeleton */}
-        <div className="border-t border-[#03065E]/10 pt-6 mb-6">
-          <Skeleton className="h-20 rounded-xl" />
+        <div style={{ borderTop: "1px solid var(--ink)", padding: "var(--space-5) 0" }}>
+          <Skeleton height={80} />
         </div>
 
-        {/* Report sections skeleton */}
-        <div className="space-y-2">
-          <ReportSkeleton />
-        </div>
+        <ReportSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Skeleton className="w-12 h-12 rounded-xl" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-32" />
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center", paddingTop: "var(--space-4)" }}>
+        <Skeleton height={56} width={56} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Skeleton height={20} width={200} />
+          <Skeleton height={12} width={140} />
         </div>
-        <div className="text-right space-y-2">
-          <Skeleton className="h-7 w-24 ml-auto" />
-          <Skeleton className="h-4 w-16 ml-auto" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+          <Skeleton height={26} width={120} />
+          <Skeleton height={12} width={70} />
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-[#03065E] font-medium">
-        <span className="inline-block w-2 h-2 rounded-full bg-[#03065E] animate-ping" />
-        Analizando {ticker}…
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 6, height: 6, background: "var(--gold)", display: "inline-block", animation: "shimmer 1.2s ease-in-out infinite" }} />
+        <span className="cap-gold">Analizando {ticker}…</span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          borderTop: "1px solid var(--ink)",
+          borderLeft: "1px solid var(--rule)",
+        }}
+        className="metrics-grid"
+      >
         {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 rounded-xl" />
+          <div
+            key={i}
+            style={{
+              padding: "var(--space-3)",
+              borderRight: "1px solid var(--rule)",
+              borderBottom: "1px solid var(--rule)",
+              background: "var(--paper)",
+            }}
+          >
+            <Skeleton height={10} width="60%" />
+            <div style={{ height: 8 }} />
+            <Skeleton height={18} />
+          </div>
         ))}
       </div>
 
-      <Skeleton className="h-28 rounded-xl" />
-      <Skeleton className="h-20 rounded-xl" />
+      <Skeleton height={240} />
+      <Skeleton height={80} />
 
-      {SECTION_NAMES.map((s) => (
-        <div key={s} className="space-y-2">
-          <Skeleton className="h-3 w-32" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      ))}
+      <ReportSkeleton />
+
+      <style>{`
+        @keyframes shimmer { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+        @media (max-width: 720px) {
+          .metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -3,15 +3,14 @@
 import { useState } from "react";
 import type { StockData } from "@/types/StockData";
 import { currencyPrefix } from "@/lib/currencyPrefix";
-import { useLogoBrightness } from "@/lib/useLogoBrightness";
 
 interface Props {
   stockData: StockData;
 }
 
 function priceColor(change: number | null): string {
-  if (change == null) return "text-[#707070]";
-  return change >= 0 ? "text-emerald-600" : "text-red-600";
+  if (change == null) return "var(--ink-3)";
+  return change >= 0 ? "var(--pos)" : "var(--neg)";
 }
 
 export function ReportHeader({ stockData }: Props) {
@@ -21,54 +20,96 @@ export function ReportHeader({ stockData }: Props) {
   const logoUrl = !logoFailed
     ? `/api/logo?ticker=${encodeURIComponent(stockData.ticker)}${stockData.domain ? `&domain=${encodeURIComponent(stockData.domain)}` : ""}`
     : null;
-  const logoBrightness = useLogoBrightness(logoUrl);
-  const logoBgClass = logoBrightness === "light" ? "bg-[#03065E]" : "bg-white";
 
   const changeSign = (stockData.priceChangePercent ?? 0) >= 0 ? "+" : "";
   const changePct =
     stockData.priceChangePercent != null
-      ? `${changeSign}${(stockData.priceChangePercent * 100).toFixed(2)}%`
+      ? `${changeSign}${(stockData.priceChangePercent * 100).toFixed(2).replace(".", ",")} %`
       : null;
 
   return (
-    <div className="flex items-center gap-3 mb-6 sm:gap-4">
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "auto 1fr auto",
+        gap: "var(--space-4)",
+        alignItems: "center",
+        paddingTop: "var(--space-5)",
+        paddingBottom: "var(--space-4)",
+        borderTop: "1px solid var(--ink)",
+        borderBottom: "1px solid var(--rule)",
+        marginBottom: "var(--space-5)",
+      }}
+    >
       {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt={stockData.companyName}
           width={48}
           height={48}
-          style={{ imageRendering: "auto" }}
-          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-contain p-1 shrink-0 border-0 outline-none transition-colors ${logoBgClass}`}
+          style={{
+            width: 56,
+            height: 56,
+            objectFit: "contain",
+            padding: 6,
+            background: "var(--paper)",
+            border: "1px solid var(--rule)",
+          }}
           onError={() => setLogoFailed(true)}
         />
       ) : (
-        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#03065E] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
-          {initial}
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            background: "var(--navy)",
+            color: "var(--ivory)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          className="serif"
+        >
+          <span style={{ fontSize: 28, fontWeight: 400 }}>{initial}</span>
         </div>
       )}
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <h1 className="text-base sm:text-2xl font-bold text-[#03065E] truncate max-w-full">{stockData.companyName}</h1>
-          <span className="text-[11px] sm:text-sm font-mono text-white bg-[#03065E] px-1.5 sm:px-2 py-0.5 rounded shrink-0">
-            {stockData.ticker}
-          </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="cap-gold" style={{ marginBottom: 4 }}>
+          {stockData.ticker}
+          {stockData.sector && <span style={{ marginLeft: 10, color: "var(--ink-3)" }}>· {stockData.sector}</span>}
         </div>
-        {stockData.sector && (
-          <p className="text-xs sm:text-sm text-[#707070] mt-0.5 truncate">
-            {stockData.sector} · {stockData.industry}
-          </p>
+        <h1
+          className="serif"
+          style={{
+            fontWeight: 400,
+            fontSize: "clamp(24px, 3vw, 36px)",
+            lineHeight: 1.1,
+            margin: 0,
+            letterSpacing: "-0.015em",
+            color: "var(--ink)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {stockData.companyName}
+        </h1>
+        {stockData.industry && (
+          <div className="body-small" style={{ marginTop: 4 }}>{stockData.industry}</div>
         )}
       </div>
 
       {stockData.currentPrice != null && (
-        <div className="text-right shrink-0 sm:ml-auto">
-          <div className="text-lg sm:text-2xl font-mono font-bold text-[#03065E] tabular-nums">
-            {currencyPrefix(stockData.currency)}{stockData.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <div style={{ textAlign: "right" }}>
+          <div className="cap" style={{ marginBottom: 4 }}>Última</div>
+          <div className="mono" style={{ fontSize: 26, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+            {currencyPrefix(stockData.currency)}
+            {stockData.currentPrice.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           {changePct && (
-            <div className={`text-xs sm:text-sm font-mono font-medium tabular-nums ${priceColor(stockData.priceChangePercent)}`}>
+            <div className="mono" style={{ fontSize: 13, color: priceColor(stockData.priceChangePercent), marginTop: 2 }}>
               {changePct}
             </div>
           )}

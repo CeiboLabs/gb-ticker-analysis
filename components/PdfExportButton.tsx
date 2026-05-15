@@ -10,10 +10,7 @@ const ReportPdfDownload = dynamic(
   {
     ssr: false,
     loading: () => (
-      <button
-        disabled
-        className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-[#03065E]/20 text-[#03065E]/40 cursor-not-allowed"
-      >
+      <button disabled className="btn btn-ghost" style={{ padding: "8px 14px", fontSize: 12, opacity: 0.5, cursor: "not-allowed" }}>
         Preparando PDF…
       </button>
     ),

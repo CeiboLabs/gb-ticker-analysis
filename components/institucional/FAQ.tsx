@@ -4,112 +4,158 @@ import { useState } from "react";
 
 const FAQ_ITEMS = [
   {
-    question: "¿Cómo puedo abrir una cuenta?",
+    question: "¿Cómo se abre una cuenta?",
     answer:
-      "El proceso es sencillo. Podés contactarnos por teléfono, email o visitarnos en nuestras oficinas en el World Trade Center. Te guiamos paso a paso en la apertura de cuenta, que incluye la documentación requerida por las normas del Banco Central del Uruguay.",
+      "La apertura se inicia con una reunión presencial o por videollamada. Recolectamos la documentación que exige la normativa del Banco Central del Uruguay, completamos el KYC y, una vez aprobada, la cuenta queda operativa a nombre del cliente.",
   },
   {
     question: "¿Cuál es la inversión mínima?",
     answer:
-      "Los montos mínimos varían según el tipo de producto. Contamos con alternativas para distintos perfiles y capacidades de inversión. Contactanos para conocer las opciones que mejor se adapten a tus posibilidades.",
+      "Varía por producto y por mercado. Tenemos alternativas para perfiles distintos. En la primera conversación dimensionamos lo que tenga sentido para tu situación específica.",
   },
   {
     question: "¿Están regulados?",
     answer:
-      "Sí. Gastón Bengochea CB opera bajo la supervisión del Banco Central del Uruguay (BCU) y es miembro de la Bolsa de Valores de Montevideo desde 1967. Cumplimos con todas las normativas vigentes del mercado financiero.",
+      "Sí. Operamos bajo regulación y supervisión del Banco Central del Uruguay, y somos miembros de la Bolsa de Valores de Montevideo desde 1967.",
   },
   {
-    question: "¿Mis fondos están seguros?",
+    question: "¿Cómo se custodia mi patrimonio?",
     answer:
-      "Absolutamente. Trabajamos con cuentas segregadas, lo que significa que tus activos siempre están bajo tu titularidad legal. Tu patrimonio nunca se mezcla con los fondos de la empresa, garantizando la máxima protección.",
+      "En cuentas segregadas a nombre del cliente, separadas del patrimonio de la firma. Eso significa que tus activos no se mezclan con el balance de Bengochea & Cía. en ningún momento.",
   },
   {
-    question: "¿A qué mercados puedo acceder?",
+    question: "¿A qué mercados se accede?",
     answer:
-      "A través de nuestra plataforma tenés acceso a mercados internacionales incluyendo Estados Unidos, Europa y Latinoamérica. Ofrecemos bonos, acciones, fondos de inversión y fideicomisos tanto nacionales como internacionales.",
+      "NYSE, NASDAQ, LSE, Euronext, XETRA, BVM, BYMA y B3. Renta fija, renta variable, ETFs, fondos y productos estructurados, en USD, EUR y monedas locales según el instrumento.",
   },
   {
-    question: "¿Ofrecen asesoramiento personalizado?",
+    question: "¿Hay asesoramiento personalizado?",
     answer:
-      "Sí, es uno de nuestros pilares. Cada cliente recibe atención personalizada de nuestro equipo de asesores. Escuchamos tus necesidades, evaluamos tu perfil de riesgo y diseñamos una estrategia de inversión acorde a tus objetivos.",
+      "Es el modo en el que trabajamos. Cada cliente tiene un asesor principal de la casa con quien discute la estrategia y de quien recibe ejecución y reporte.",
   },
   {
-    question: "¿Cómo puedo seguir mis inversiones?",
+    question: "¿Cómo sigo mis inversiones?",
     answer:
-      "Te brindamos herramientas y reportes periódicos para que puedas monitorear el desempeño de tu portafolio. Además, nuestro equipo está disponible para consultas en cualquier momento.",
+      "Reportes periódicos consolidados y acceso a la mesa para consultas puntuales. La forma exacta del reporting se acuerda al inicio de la relación.",
   },
 ];
 
 export function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="bg-[#F8F9FF] py-20 sm:py-28 px-6 relative overflow-hidden">
-      <div
-        className="absolute bottom-[10%] right-[-5%] w-[400px] h-[400px] rounded-full pointer-events-none"
-        style={{
-          background: "radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-      />
-      <div className="max-w-3xl mx-auto relative">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[#03065E]/40 text-center mb-3">
-          Preguntas Frecuentes
-        </h2>
-        <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#03065E] text-center mb-14">
-          Respuestas a tus Consultas
-        </p>
+    <section className="section">
+      <div className="wrap">
+        <div className="sec-head">
+          <div>
+            <div className="sec-num">03 / 03</div>
+            <div className="cap-gold" style={{ marginTop: 8 }}>Preguntas frecuentes</div>
+          </div>
+          <div>
+            <h2>Respuestas a lo que más nos consultan.</h2>
+            <p className="dek">
+              Si tu pregunta no está acá, escribinos. La mejor respuesta sigue siendo una conversación.
+            </p>
+          </div>
+        </div>
 
-        <div className="space-y-3">
+        <ol style={{ listStyle: "none", padding: 0, margin: 0, borderTop: "1px solid var(--ink)" }}>
           {FAQ_ITEMS.map((item, i) => {
             const isOpen = openIndex === i;
             return (
-              <div
+              <li
                 key={i}
-                className={`glass-light rounded-2xl overflow-hidden transition-all duration-300 ${isOpen ? "glow-gold" : ""}`}
+                style={{
+                  borderBottom: "1px solid var(--rule)",
+                }}
               >
                 <button
-                  className="w-full flex items-center justify-between p-5 sm:p-6 text-left group"
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   aria-expanded={isOpen}
+                  style={{
+                    width: "100%",
+                    background: "none",
+                    border: 0,
+                    padding: "var(--space-4) 0",
+                    display: "grid",
+                    gridTemplateColumns: "60px 1fr 32px",
+                    gap: "var(--space-4)",
+                    alignItems: "baseline",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
                 >
-                  <span className="text-sm font-medium text-[#03065E] pr-4 group-hover:text-[#C9A84C] transition-colors">
+                  <span
+                    className="mono"
+                    style={{
+                      fontSize: 13,
+                      color: isOpen ? "var(--gold-deep)" : "var(--ink-3)",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    className="serif"
+                    style={{
+                      fontWeight: 400,
+                      fontSize: 22,
+                      lineHeight: 1.25,
+                      color: "var(--ink)",
+                      letterSpacing: "-0.015em",
+                    }}
+                  >
                     {item.question}
                   </span>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? "bg-gradient-to-br from-[#C9A84C] to-[#d4b65e] text-[#03065E]" : "bg-[#03065E]/5 text-[#03065E]/30"}`}>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      className="transition-transform duration-300"
-                      style={{
-                        transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      }}
-                    >
-                      <path d="M5 8l5 5 5-5" />
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 24,
+                      height: 24,
+                      color: "var(--ink-2)",
+                      transition: "transform 200ms ease",
+                      transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M7 1v12M1 7h12" />
                     </svg>
-                  </div>
+                  </span>
                 </button>
 
                 <div
-                  className="overflow-hidden transition-all duration-300"
                   style={{
-                    maxHeight: isOpen ? "200px" : "0",
+                    overflow: "hidden",
+                    maxHeight: isOpen ? 320 : 0,
                     opacity: isOpen ? 1 : 0,
+                    transition: "max-height 260ms ease, opacity 200ms ease",
                   }}
                 >
-                  <p className="text-sm text-[#03065E]/50 leading-relaxed px-5 sm:px-6 pb-5 sm:pb-6">
+                  <p
+                    className="body-base"
+                    style={{
+                      margin: 0,
+                      padding: "0 0 var(--space-5) 60px",
+                      maxWidth: "44em",
+                    }}
+                  >
                     {item.answer}
                   </p>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </div>
+
+      <style>{`
+        @media (max-width: 640px) {
+          button[aria-expanded] { grid-template-columns: 40px 1fr 24px !important; }
+          .body-base[style*="60px"] { padding-left: 40px !important; }
+        }
+      `}</style>
     </section>
   );
 }

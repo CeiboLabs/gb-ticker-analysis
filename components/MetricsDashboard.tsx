@@ -9,27 +9,27 @@ interface Props {
 }
 
 function fmt(n: number | null | undefined, decimals = 2): string {
-  return n != null ? n.toFixed(decimals) : "—";
+  return n != null ? n.toFixed(decimals).replace(".", ",") : "—";
 }
 
 function fmtPct(n: number | null | undefined): string {
   if (n == null) return "—";
-  return `${(n * 100).toFixed(1)}%`;
+  return `${(n * 100).toFixed(1).replace(".", ",")} %`;
 }
 
 function fmtLarge(n: number | null | undefined, pfx: string): string {
   if (n == null) return "—";
-  const sign = n < 0 ? "-" : "";
+  const sign = n < 0 ? "−" : "";
   const abs = Math.abs(n);
-  if (abs >= 1e12) return `${sign}${pfx}${(abs / 1e12).toFixed(2)}T`;
-  if (abs >= 1e9) return `${sign}${pfx}${(abs / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${sign}${pfx}${(abs / 1e6).toFixed(2)}M`;
-  return `${sign}${pfx}${abs.toLocaleString("en-US")}`;
+  if (abs >= 1e12) return `${sign}${pfx}${(abs / 1e12).toFixed(2).replace(".", ",")} T`;
+  if (abs >= 1e9) return `${sign}${pfx}${(abs / 1e9).toFixed(2).replace(".", ",")} B`;
+  if (abs >= 1e6) return `${sign}${pfx}${(abs / 1e6).toFixed(2).replace(".", ",")} M`;
+  return `${sign}${pfx}${abs.toLocaleString("de-DE")}`;
 }
 
 function fmtPrice(n: number | null | undefined, pfx: string): string {
   if (n == null) return "—";
-  return `${pfx}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${pfx}${n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 interface MetricItem {
@@ -68,7 +68,15 @@ function Metric({
   return (
     <div
       ref={ref}
-      className="relative bg-white border border-[#03065E]/10 rounded-xl p-3 min-w-0 shadow-sm"
+      style={{
+        position: "relative",
+        padding: "var(--space-3) var(--space-3) var(--space-4)",
+        background: "var(--paper)",
+        borderRight: "1px solid var(--rule)",
+        borderBottom: "1px solid var(--rule)",
+        minWidth: 0,
+      }}
+      className="metric-cell"
     >
       {info && (
         <button
@@ -79,22 +87,55 @@ function Metric({
           }}
           aria-label={`Información sobre ${label}`}
           aria-expanded={isOpen}
-          className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full border border-[#03065E]/25 text-[#03065E]/55 hover:text-[#03065E] hover:border-[#03065E]/60 hover:bg-[#03065E]/5 flex items-center justify-center text-[10px] font-mono font-bold leading-none transition-colors"
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            width: 16,
+            height: 16,
+            border: "1px solid var(--rule-strong)",
+            background: "transparent",
+            color: "var(--ink-3)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 500,
+            lineHeight: 1,
+            cursor: "pointer",
+          }}
         >
           i
         </button>
       )}
-      <div className={`text-xs text-[#707070] mb-1 uppercase tracking-wide ${info ? "pr-5" : ""}`}>
+      <div className="cap" style={{ marginBottom: 6, paddingRight: info ? 22 : 0 }}>
         {label}
       </div>
-      <div className="font-mono font-semibold text-[#03065E] text-sm truncate">
+      <div className="mono" style={{ fontSize: 18, color: "var(--ink)", fontWeight: 500, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {value}
       </div>
-      {sub && <div className="text-[10px] text-[#707070] mt-0.5 truncate">{sub}</div>}
+      {sub && (
+        <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {sub}
+        </div>
+      )}
       {isOpen && info && (
         <div
           role="tooltip"
-          className="absolute top-7 right-1.5 left-1.5 sm:left-auto sm:w-56 z-20 bg-[#03065E] text-white text-[11px] leading-snug rounded-xl shadow-lg p-3 normal-case tracking-normal font-normal"
+          style={{
+            position: "absolute",
+            top: 30,
+            left: 8,
+            right: 8,
+            zIndex: 30,
+            background: "var(--navy)",
+            color: "var(--ivory)",
+            fontSize: 11,
+            lineHeight: 1.5,
+            padding: "10px 12px",
+            border: "1px solid var(--navy-700)",
+          }}
         >
           {info}
         </div>
@@ -109,69 +150,54 @@ export function MetricsDashboard({ stockData: d }: Props) {
   const [openLabel, setOpenLabel] = useState<string | null>(null);
 
   const metrics: MetricItem[] = [
-    {
-      label: "Cap. Bursátil",
-      value: fmtLarge(d.marketCap, pfx),
-    },
+    { label: "Cap. Bursátil", value: fmtLarge(d.marketCap, pfx) },
     {
       label: "P/E Forward",
-      value: d.forwardPE != null ? `${fmt(d.forwardPE)}x` : "—",
-      sub: pc?.avgForwardPE != null ? `Peers: ${fmt(pc.avgForwardPE)}x` : undefined,
-      info: "Precio sobre ganancias proyectadas a 12 meses. Indica cuántos años de ganancias futuras estimadas se pagan por una acción. Menor suele ser más barato.",
+      value: d.forwardPE != null ? `${fmt(d.forwardPE)} ×` : "—",
+      sub: pc?.avgForwardPE != null ? `Peers · ${fmt(pc.avgForwardPE)} ×` : undefined,
+      info: "Precio sobre ganancias proyectadas a 12 meses. Indica cuántos años de ganancias futuras estimadas se pagan por una acción.",
     },
     {
-      label: "CAPE (Shiller P/E)",
-      value: d.capeRatio != null ? `${fmt(d.capeRatio)}x` : "—",
+      label: "CAPE (Shiller)",
+      value: d.capeRatio != null ? `${fmt(d.capeRatio)} ×` : "—",
       sub: d.capeYears != null ? `Prom. ${d.capeYears} años` : undefined,
-      info: "Cyclically Adjusted P/E de Shiller: precio dividido por la ganancia promedio de los últimos 10 años ajustada por inflación. Suaviza los ciclos económicos.",
+      info: "Cyclically Adjusted P/E: precio dividido por la ganancia promedio de 10 años ajustada por inflación.",
     },
     {
       label: "EPS (TTM)",
       value: d.trailingEps != null ? `${pfx}${fmt(d.trailingEps)}` : "—",
       info: "Earnings Per Share (Trailing Twelve Months): ganancia neta por acción de los últimos 12 meses.",
     },
-    {
-      label: "Ingresos (TTM)",
-      value: fmtLarge(d.totalRevenue, pfx),
-    },
-    {
-      label: "Crec. Ingresos",
-      value: fmtPct(d.revenueGrowth),
-    },
-    {
-      label: "Margen Bruto",
-      value: fmtPct(d.grossMargins),
-    },
-    {
-      label: "Margen Neto",
-      value: fmtPct(d.profitMargins),
-    },
+    { label: "Ingresos (TTM)", value: fmtLarge(d.totalRevenue, pfx) },
+    { label: "Crec. Ingresos", value: fmtPct(d.revenueGrowth) },
+    { label: "Margen Bruto", value: fmtPct(d.grossMargins) },
+    { label: "Margen Neto", value: fmtPct(d.profitMargins) },
     {
       label: "FCF (TTM)",
       value: fmtLarge(d.freeCashflow, pfx),
-      info: "Free Cash Flow: efectivo generado por las operaciones menos inversiones de capital, en los últimos 12 meses. Mide el dinero realmente disponible.",
+      info: "Free Cash Flow: efectivo generado por las operaciones menos inversiones de capital en los últimos 12 meses.",
     },
-    {
-      label: "Máx. 52 sem.",
-      value: fmtPrice(d.fiftyTwoWeekHigh, pfx),
-    },
-    {
-      label: "Mín. 52 sem.",
-      value: fmtPrice(d.fiftyTwoWeekLow, pfx),
-    },
+    { label: "Máx. 52 sem.", value: fmtPrice(d.fiftyTwoWeekHigh, pfx) },
+    { label: "Mín. 52 sem.", value: fmtPrice(d.fiftyTwoWeekLow, pfx) },
     {
       label: "Beta",
       value: d.beta != null ? fmt(d.beta) : "—",
-      info: "Mide la volatilidad de la acción frente al mercado. Beta > 1 implica mayor volatilidad que el mercado; < 1, menor.",
+      info: "Volatilidad de la acción frente al mercado. Beta > 1 implica mayor volatilidad que el mercado; < 1, menor.",
     },
   ];
 
   return (
-    <div className="mb-6">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-[#03065E]/50 mb-3">
-        Métricas Clave
-      </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+    <div style={{ marginBottom: "var(--space-5)" }}>
+      <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Métricas clave</div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          borderTop: "1px solid var(--ink)",
+          borderLeft: "1px solid var(--rule)",
+        }}
+        className="metrics-grid"
+      >
         {metrics.map((m) => (
           <Metric
             key={m.label}
@@ -184,6 +210,12 @@ export function MetricsDashboard({ stockData: d }: Props) {
           />
         ))}
       </div>
+
+      <style>{`
+        @media (max-width: 720px) {
+          .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+      `}</style>
     </div>
   );
 }
