@@ -14,8 +14,40 @@ import type {
   QuarterIncomeStatement,
 } from "@/types/StockData";
 
+// Leaky-bucket gate for every outbound request to Yahoo Finance. Yahoo
+// publishes no official limit; the maintainer of the `yfinance` Python
+// library — the de-facto authority on Yahoo Finance reverse-engineering —
+// recommends ≤ 1 req/s sustained (ranaroussi/yfinance#2125). Going faster
+// triggers 429s in batches of ~100 calls and risks IP bans of minutes to
+// weeks. We run on Cloudflare's pool of egress IPs, so the aggregate
+// throughput across many isolates is higher, but any single worker
+// holding a hot IP must stay under that ceiling.
+const YAHOO_RATE_LIMIT_PER_SECOND = parseInt(process.env.YAHOO_RATE_LIMIT_PER_SECOND ?? "1", 10);
+const YAHOO_MIN_INTERVAL_MS = 1000 / YAHOO_RATE_LIMIT_PER_SECOND;
+let yahooLastRequestAt = 0;
+let yahooQueueTail: Promise<void> = Promise.resolve();
+
+async function acquireYahooToken(): Promise<void> {
+  const job = yahooQueueTail.then(async () => {
+    const now = Date.now();
+    const elapsed = now - yahooLastRequestAt;
+    if (elapsed < YAHOO_MIN_INTERVAL_MS) {
+      await new Promise((r) => setTimeout(r, YAHOO_MIN_INTERVAL_MS - elapsed));
+    }
+    yahooLastRequestAt = Date.now();
+  });
+  yahooQueueTail = job.catch(() => {});
+  return job;
+}
+
+const throttledYahooFetch: typeof fetch = async (input, init) => {
+  await acquireYahooToken();
+  return fetch(input, init);
+};
+
 export const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
+  fetch: throttledYahooFetch,
   logger: {
     ...console,
     // Suppress the "Unsupported runtime" warning that fires in Next.js Edge
@@ -419,10 +451,10 @@ let cachedAuth: { crumb: string; cookie: string; expiresAt: number } | null = nu
 
 async function fetchYahooCrumb(): Promise<{ crumb: string; cookie: string } | null> {
   try {
-    const initRes = await fetch("https://fc.yahoo.com", { redirect: "manual" });
+    const initRes = await throttledYahooFetch("https://fc.yahoo.com", { redirect: "manual" });
     const setCookies = initRes.headers.getSetCookie?.() ?? [];
     const cookie = setCookies.map((c) => c.split(";")[0]).join("; ");
-    const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+    const crumbRes = await throttledYahooFetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
       headers: { Cookie: cookie, "User-Agent": "Mozilla/5.0" },
     });
     const crumb = await crumbRes.text();
@@ -470,7 +502,7 @@ async function screenByIndustry(
   };
 
   const url = `https://query2.finance.yahoo.com/v1/finance/screener?crumb=${encodeURIComponent(auth.crumb)}&formatted=false&lang=en-US&region=US`;
-  const res = await fetch(url, {
+  const res = await throttledYahooFetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -489,11 +521,20 @@ async function screenByIndustry(
   return (data.finance?.result?.[0]?.quotes as AnyRecord[]) ?? [];
 }
 
-export async function fetchPeerComparison(ticker: string): Promise<PeerComparison | null> {
+export async function fetchPeerComparison(
+  ticker: string,
+  knownIndustry?: string | null,
+): Promise<PeerComparison | null> {
   try {
-    // Quick quote to get industry — runs in parallel with fetchStockData in the route
-    const quote = await yahooFinance.quote(ticker) as AnyRecord;
-    const industry = (quote.industry as string | undefined) ?? null;
+    // Industry is also returned by quoteSummary.assetProfile (already fetched
+    // by fetchStockData). The caller passes it in to avoid a duplicate Yahoo
+    // call; we only fall back to yahooFinance.quote when the caller doesn't
+    // have it (e.g. stand-alone use or stockData.industry came back null).
+    let industry = knownIndustry ?? null;
+    if (!industry) {
+      const quote = await yahooFinance.quote(ticker) as AnyRecord;
+      industry = (quote.industry as string | undefined) ?? null;
+    }
     if (!industry) return null;
 
     const auth = await getYahooCrumb();

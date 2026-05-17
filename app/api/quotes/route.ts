@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
 import { resolveLogoDomain } from "@/lib/logoDomain";
 import { normalizeTicker } from "@/lib/validators";
-import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
 
 const MAX_SYMBOLS = 12;
-const RATE_LIMIT_PER_HOUR = 300;
 
 function extractDomain(website: string | null | undefined): string | null {
   if (!website) return null;
@@ -19,7 +18,7 @@ function extractDomain(website: string | null | undefined): string | null {
 }
 
 export async function GET(req: NextRequest) {
-  const gate = checkPublicGetLimit("quotes", clientIpFrom(req), RATE_LIMIT_PER_HOUR);
+  const gate = checkPublicGetLimit("quotes", clientIpFrom(req), PUBLIC_LIMIT_DEFAULT);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },

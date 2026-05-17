@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
-import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
 
-const RATE_LIMIT_PER_HOUR = 300;
 const MAX_QUERY_LEN = 64;
 
 // Yahoo Finance exchange codes for US equity markets
@@ -19,7 +18,7 @@ const US_EXCHANGES = new Set([
 ]);
 
 export async function GET(req: NextRequest) {
-  const gate = checkPublicGetLimit("search", clientIpFrom(req), RATE_LIMIT_PER_HOUR);
+  const gate = checkPublicGetLimit("search", clientIpFrom(req), PUBLIC_LIMIT_DEFAULT);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },

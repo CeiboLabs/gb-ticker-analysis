@@ -9,7 +9,7 @@ import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
-import { checkRateLimit, checkIpHourlyLimit, checkDailyFreshLimit } from "@/lib/rateLimiter";
+import { checkRateLimit, checkIpHourlyLimit, checkDailyFreshLimit, isIpAllowlisted } from "@/lib/rateLimiter";
 import {
   recordAnalyzeEvent,
   eventBaseFromRequest,
@@ -742,20 +742,6 @@ export async function POST(req: NextRequest) {
     req.headers.get("x-real-ip") ??
     null;
 
-  const sessionGate = checkRateLimit(sessionId);
-  const ipGate = clientIp ? checkIpHourlyLimit(clientIp) : { allowed: true, retryAfter: 0 };
-  if (!sessionGate.allowed || !ipGate.allowed) {
-    const retryAfter = Math.max(sessionGate.retryAfter, ipGate.retryAfter);
-    fireEvent({ ticker: "-", status: "rate_limited", errorStage: "rate_limit" });
-    return withSession(NextResponse.json(
-      {
-        error: "Análisis no disponible por el momento. Intente en unos minutos.",
-        code: "analysis_unavailable",
-      },
-      { status: 429, headers: { "Retry-After": String(retryAfter) } }
-    ));
-  }
-
   // 1. Parse + validate
   let body: unknown;
   try {
@@ -822,11 +808,26 @@ export async function POST(req: NextRequest) {
     await cacheClear(ticker);
   }
 
-  // 2b. Daily cost cap — only fresh paths count. Caches still serve freely.
-  // Keyed on IP (more durable than cookie) with session fallback. Once the
-  // daily ceiling is hit, the user can still browse cached analyses but can't
-  // burn more upstream/OpenAI quota for new ones.
-  const freshGate = checkDailyFreshLimit(clientIp ?? sessionId);
+  // 2b. Rate-limit gates — only fresh paths count. Cache hits served above
+  // never touch upstream APIs, so they don't consume quota and don't count.
+  // Order: session (cookie) → IP (NAT-aware allowlist) → daily fresh.
+  const sessionGate = checkRateLimit(sessionId);
+  const ipGate = clientIp && !isIpAllowlisted(clientIp)
+    ? checkIpHourlyLimit(clientIp)
+    : { allowed: true, retryAfter: 0 };
+  if (!sessionGate.allowed || !ipGate.allowed) {
+    const retryAfter = Math.max(sessionGate.retryAfter, ipGate.retryAfter);
+    fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit" });
+    return withSession(NextResponse.json(
+      {
+        error: "Análisis no disponible por el momento. Intente en unos minutos.",
+        code: "analysis_unavailable",
+      },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    ));
+  }
+
+  const freshGate = checkDailyFreshLimit(sessionId);
   if (!freshGate.allowed) {
     fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
     return withSession(NextResponse.json(
@@ -851,13 +852,20 @@ export async function POST(req: NextRequest) {
   let overridePath: "8k_override" | "yahoo_fallback" | "segments_kept" | "stub" | "cache" = "segments_kept";
   try {
     let peerComparison;
+    // Chain peer comparison off stockData so it can reuse the industry from
+    // quoteSummary.assetProfile instead of making its own yahooFinance.quote
+    // call. Segments and 8-K stay in parallel with stockData.
+    const stockDataPromise = fetchStockData(ticker);
+    const peersPromise = stockDataPromise.then((sd) =>
+      fetchPeerComparison(ticker, sd.industry),
+    );
     [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
-      fetchStockData(ticker),
+      stockDataPromise,
       fetchSegmentData(ticker).then(
         (r) => { segmentsOk = r != null; return r; },
         (e) => { segmentsOk = false; throw e; },
       ),
-      fetchPeerComparison(ticker),
+      peersPromise,
       fetchEdgar8KIncomeStatement(ticker).then(
         (r) => { edgar8kOk = r != null; return r; },
         (e) => { edgar8kOk = false; throw e; },

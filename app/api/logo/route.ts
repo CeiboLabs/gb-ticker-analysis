@@ -1,9 +1,8 @@
-import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_LOGO } from "@/lib/rateLimiter";
 import { normalizeTicker } from "@/lib/validators";
 
 export const runtime = "edge";
 
-const RATE_LIMIT_PER_HOUR = 600;
 // FQDN-ish regex: labels of [a-zA-Z0-9-], length 1–63, separated by dots,
 // total length ≤253. Rejects schemes, paths, IPs in URL form, and anything
 // that could turn the upstream URL into an open-redirect-ish probe.
@@ -94,7 +93,7 @@ function ok(
 }
 
 export async function GET(request: Request) {
-  const gate = checkPublicGetLimit("logo", clientIpFrom(request), RATE_LIMIT_PER_HOUR);
+  const gate = checkPublicGetLimit("logo", clientIpFrom(request), PUBLIC_LIMIT_LOGO);
   if (!gate.allowed) {
     return new Response("rate_limited", { status: 429, headers: { "Retry-After": String(gate.retryAfter) } });
   }
