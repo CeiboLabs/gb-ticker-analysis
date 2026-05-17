@@ -14,18 +14,27 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// Brute-force cap: even with a strong, timing-safe-checked token, every IP
-// that touches /api/admin/* gets one shared bucket. 30/h is way over what the
-// dashboard does in normal use, but cuts off any kind of credential-spray.
+// Brute-force cap on FAILED auth attempts only. A valid token bypasses the
+// gate entirely so the dashboard's 60s auto-refresh can run indefinitely.
+// 30 failed attempts/h per IP still cuts off credential-spray cold.
 const ADMIN_HOURLY_MAX = 30;
 
 // Verifies the admin token exclusively from the `x-admin-token` header. We
 // deliberately do NOT accept the token via querystring — querystrings end up in
-// access logs, browser history, and Referer headers. Also enforces a per-IP
-// hourly cap so unauthenticated callers can't hammer the endpoint.
+// access logs, browser history, and Referer headers.
 //
 // Fail-closed: if ADMIN_TOKEN is unset in env, every request is rejected.
 export function requireAdminToken(req: NextRequest): NextResponse | null {
+  const expected = process.env.ADMIN_TOKEN;
+  if (!expected) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const got = req.headers.get("x-admin-token") ?? "";
+  if (timingSafeEqual(got, expected)) return null;
+
+  // Failed auth — consume from the brute-force bucket. Once exhausted, even
+  // a request with a valid token (above) still gets in; only attackers
+  // guessing tokens hit this branch.
   const gate = checkPublicGetLimit("admin", clientIpFrom(req), ADMIN_HOURLY_MAX);
   if (!gate.allowed) {
     return NextResponse.json(
@@ -33,13 +42,5 @@ export function requireAdminToken(req: NextRequest): NextResponse | null {
       { status: 429, headers: { "Retry-After": String(gate.retryAfter) } },
     );
   }
-  const expected = process.env.ADMIN_TOKEN;
-  if (!expected) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const got = req.headers.get("x-admin-token") ?? "";
-  if (!timingSafeEqual(got, expected)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  return null;
+  return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }

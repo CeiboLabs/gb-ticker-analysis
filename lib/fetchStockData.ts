@@ -521,11 +521,20 @@ async function screenByIndustry(
   return (data.finance?.result?.[0]?.quotes as AnyRecord[]) ?? [];
 }
 
-export async function fetchPeerComparison(ticker: string): Promise<PeerComparison | null> {
+export async function fetchPeerComparison(
+  ticker: string,
+  knownIndustry?: string | null,
+): Promise<PeerComparison | null> {
   try {
-    // Quick quote to get industry — runs in parallel with fetchStockData in the route
-    const quote = await yahooFinance.quote(ticker) as AnyRecord;
-    const industry = (quote.industry as string | undefined) ?? null;
+    // Industry is also returned by quoteSummary.assetProfile (already fetched
+    // by fetchStockData). The caller passes it in to avoid a duplicate Yahoo
+    // call; we only fall back to yahooFinance.quote when the caller doesn't
+    // have it (e.g. stand-alone use or stockData.industry came back null).
+    let industry = knownIndustry ?? null;
+    if (!industry) {
+      const quote = await yahooFinance.quote(ticker) as AnyRecord;
+      industry = (quote.industry as string | undefined) ?? null;
+    }
     if (!industry) return null;
 
     const auth = await getYahooCrumb();

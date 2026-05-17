@@ -852,13 +852,20 @@ export async function POST(req: NextRequest) {
   let overridePath: "8k_override" | "yahoo_fallback" | "segments_kept" | "stub" | "cache" = "segments_kept";
   try {
     let peerComparison;
+    // Chain peer comparison off stockData so it can reuse the industry from
+    // quoteSummary.assetProfile instead of making its own yahooFinance.quote
+    // call. Segments and 8-K stay in parallel with stockData.
+    const stockDataPromise = fetchStockData(ticker);
+    const peersPromise = stockDataPromise.then((sd) =>
+      fetchPeerComparison(ticker, sd.industry),
+    );
     [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
-      fetchStockData(ticker),
+      stockDataPromise,
       fetchSegmentData(ticker).then(
         (r) => { segmentsOk = r != null; return r; },
         (e) => { segmentsOk = false; throw e; },
       ),
-      fetchPeerComparison(ticker),
+      peersPromise,
       fetchEdgar8KIncomeStatement(ticker).then(
         (r) => { edgar8kOk = r != null; return r; },
         (e) => { edgar8kOk = false; throw e; },
