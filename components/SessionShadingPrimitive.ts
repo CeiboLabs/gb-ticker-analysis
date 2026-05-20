@@ -35,6 +35,21 @@ export interface SessionBounds {
   lastTime: Time | null;
 }
 
+export interface SessionShadingTheme {
+  /** Fill for the pre/after-hours band tint. */
+  bandFill: string;
+  /** Stroke for session-boundary hairlines. */
+  hairline: string;
+  /** Text color for PRE/REGULAR/AFTER labels. */
+  labelText: string;
+}
+
+const DEFAULT_THEME: SessionShadingTheme = {
+  bandFill: "rgba(0, 0, 0, 0.10)",
+  hairline: "rgba(255, 255, 255, 0.12)",
+  labelText: "rgba(255, 255, 255, 0.32)",
+};
+
 interface ResolvedBand {
   x0: number;
   x1: number;
@@ -50,17 +65,20 @@ class SessionShadingRenderer implements IPrimitivePaneRenderer {
   private _hairlines: number[] = [];
   private _labels: ResolvedLabel[] = [];
   private _paneHeight = 0;
+  private _theme: SessionShadingTheme = DEFAULT_THEME;
 
   setData(
     bands: ResolvedBand[],
     hairlines: number[],
     labels: ResolvedLabel[],
     paneHeight: number,
+    theme: SessionShadingTheme,
   ) {
     this._bands = bands;
     this._hairlines = hairlines;
     this._labels = labels;
     this._paneHeight = paneHeight;
+    this._theme = theme;
   }
 
   draw(target: CanvasRenderingTarget2D): void {
@@ -75,7 +93,7 @@ class SessionShadingRenderer implements IPrimitivePaneRenderer {
 
         // 1. Background tint over extended-hours bands.
         if (this._bands.length > 0) {
-          ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
+          ctx.fillStyle = this._theme.bandFill;
           for (const b of this._bands) {
             const x0 = Math.round(b.x0 * hpr);
             const x1 = Math.round(b.x1 * hpr);
@@ -86,7 +104,7 @@ class SessionShadingRenderer implements IPrimitivePaneRenderer {
 
         // 2. Vertical hairlines at session boundaries.
         if (this._hairlines.length > 0) {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+          ctx.strokeStyle = this._theme.hairline;
           ctx.lineWidth = Math.max(1, Math.floor(hpr));
           for (const x of this._hairlines) {
             const px = Math.round(x * hpr) + 0.5;
@@ -99,7 +117,7 @@ class SessionShadingRenderer implements IPrimitivePaneRenderer {
 
         // 3. Session labels at top of pane.
         if (this._labels.length > 0) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
+          ctx.fillStyle = this._theme.labelText;
           ctx.font = `600 ${9 * vpr}px Helvetica, Arial, sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
@@ -128,8 +146,9 @@ class SessionShadingPaneView implements IPrimitivePaneView {
     const chart = this._source.chart;
     const series = this._source.series;
     const bounds = this._source.bounds;
+    const theme = this._source.theme;
     if (!chart || !series || !bounds) {
-      this._renderer.setData([], [], [], 0);
+      this._renderer.setData([], [], [], 0, theme);
       return;
     }
 
@@ -174,7 +193,7 @@ class SessionShadingPaneView implements IPrimitivePaneView {
     }
 
     const paneHeight = chart.paneSize?.().height ?? 280;
-    this._renderer.setData(bands, hairlines, labels, paneHeight);
+    this._renderer.setData(bands, hairlines, labels, paneHeight, theme);
   }
 
   renderer() {
@@ -187,8 +206,13 @@ export class SessionShadingPrimitive implements ISeriesPrimitive<Time> {
   private _chart: IChartApiBase<Time> | null = null;
   private _series: ISeriesApi<"Line", Time> | null = null;
   private _requestUpdate: (() => void) | null = null;
+  private readonly _theme: SessionShadingTheme;
   private readonly _paneView = new SessionShadingPaneView(this);
   private readonly _paneViews = [this._paneView];
+
+  constructor(theme?: Partial<SessionShadingTheme>) {
+    this._theme = { ...DEFAULT_THEME, ...(theme ?? {}) };
+  }
 
   attached(param: SeriesAttachedParameter<Time>): void {
     this._chart = param.chart;
@@ -223,5 +247,8 @@ export class SessionShadingPrimitive implements ISeriesPrimitive<Time> {
   }
   get series() {
     return this._series;
+  }
+  get theme(): SessionShadingTheme {
+    return this._theme;
   }
 }

@@ -1,26 +1,60 @@
 import { HeroInstitucional } from "@/components/institucional/HeroInstitucional";
 import Link from "next/link";
 
-const SERVICIOS = [
+const PILARES = [
   {
     n: "i.",
-    title: "Renta fija",
-    desc: "Bonos soberanos y corporativos, locales y globales. Estructura de cartera con horizonte definido y cupones predecibles.",
-    tag: "Bonos · Letras · Obligaciones",
+    title: "Presencia y experiencia",
+    body: "Gestionamos el patrimonio financiero de miles de uruguayos y extranjeros por casi seis décadas. Somos miembros de la Bolsa de Valores de Montevideo desde 1967.",
   },
   {
     n: "ii.",
-    title: "Renta variable",
-    desc: "Acceso a NYSE, NASDAQ, LSE, Euronext, XETRA, BVM, BYMA y B3. Operativa con ejecución directa y custodia regulada.",
-    tag: "Acciones · ETFs",
+    title: "Una mirada global",
+    body: "Somos locales pero con foco global. Invertimos en los mercados del mundo desde Uruguay, con acceso directo a las principales plazas internacionales.",
   },
   {
     n: "iii.",
-    title: "Fondos y gestión",
-    desc: "Fondos de inversión y carteras gestionadas por terceros seleccionados. Acceso institucional al universo global de managers.",
-    tag: "Fondos · Productos estructurados",
+    title: "Regulación",
+    body: "Operamos como compañía regulada por el Banco Central del Uruguay y como miembros activos de la Bolsa de Valores de Montevideo.",
+  },
+  {
+    n: "iv.",
+    title: "Seguridad",
+    body: "Cuentas segregadas a nombre del cliente. El inversor es el propietario legal de los activos en su cuenta, separados del patrimonio de la firma.",
+  },
+  {
+    n: "v.",
+    title: "Escucha activa",
+    body: "Te escuchamos antes de hablar. Proponemos una cartera individual que cumple con los objetivos y restricciones de cada inversor.",
+  },
+  {
+    n: "vi.",
+    title: "Dedicación",
+    body: "Dedicamos tiempo a explicar el funcionamiento del mercado y de cada activo en el que invertirás, y por qué creemos que debe formar parte de tu cartera.",
+  },
+  {
+    n: "vii.",
+    title: "Somos tu aliado",
+    body: "No exigimos mínimos para la apertura de cuenta. Cuando comiences a invertir, el tiempo será tu mejor aliado. Nosotros también.",
   },
 ];
+
+const ECOSISTEMA = {
+  local: [
+    ["Bonos Globales uruguayos", "Operativa en bonos globales denominados en dólares y pesos."],
+    ["Notas del Tesoro en UI", "Mercado primario y secundario en Notas en Unidades Indexadas."],
+    ["Fideicomisos Financieros", "Vehículos de inversión para el financiamiento privado y obras."],
+    ["Letras de Regulación Monetaria", "Mercado primario y secundario de LRM en pesos."],
+    ["Obligaciones Negociables", "Deuda corporativa emitida bajo jurisdicción local."],
+  ] as [string, string][],
+  internacional: [
+    ["Bonos soberanos y corporativos", "Renta fija global: tesoros, investment-grade y high-yield."],
+    ["Acciones comunes y preferidas", "Acceso a NYSE, NASDAQ, LSE, Euronext, XETRA y plazas regionales."],
+    ["Fondos de Inversión", "Vehículos gestionados por managers globales seleccionados."],
+    ["Instrumentos derivados", "Cobertura y exposición direccional según el mandato del cliente."],
+    ["Apertura de cuenta internacional", "Custodia con counterparties globales bajo cuenta segregada."],
+  ] as [string, string][],
+};
 
 const MERCADOS = [
   ["NYSE", "Estados Unidos"],
@@ -33,67 +67,124 @@ const MERCADOS = [
   ["B3", "Brasil"],
 ];
 
-const PRINCIPIOS = [
-  {
-    n: "i.",
-    title: "Asesoramiento de la casa.",
-    desc: "No vendemos producto: leemos al cliente. Cada portafolio se construye con la cabeza puesta en el horizonte y el riesgo asumible, no en la comisión.",
-  },
-  {
-    n: "ii.",
-    title: "Cuentas a nombre del cliente.",
-    desc: "El patrimonio queda segregado bajo titularidad del inversor, custodiado conforme a la regulación del Banco Central del Uruguay.",
-  },
-  {
-    n: "iii.",
-    title: "Cincuenta y siete años en la plaza.",
-    desc: "Atravesamos ciclos, regímenes y crisis. La trayectoria no se cuenta como adjetivo: es la base de nuestra capacidad para no improvisar.",
-  },
-];
-
 export default function HomePage() {
   return (
     <main>
       <HeroInstitucional />
 
-      {/* 01 · Manifiesto */}
+      {/* Pull quote breakaway */}
+      <section style={{ background: "var(--ivory)", borderTop: "1px solid var(--ink)" }}>
+        <div
+          className="wrap-narrow pullquote-wrap"
+          style={{
+            paddingTop: "var(--space-7)",
+            paddingBottom: "var(--space-7)",
+            display: "grid",
+            gridTemplateColumns: "120px 1fr",
+            gap: "var(--space-5)",
+            alignItems: "start",
+          }}
+        >
+          <div>
+            <div
+              className="serif-i"
+              style={{
+                fontSize: 96,
+                lineHeight: 0.8,
+                color: "var(--gold-deep)",
+                letterSpacing: "-0.04em",
+              }}
+              aria-hidden
+            >
+              &ldquo;
+            </div>
+          </div>
+          <div>
+            <p
+              className="serif"
+              style={{
+                fontWeight: 300,
+                fontSize: "clamp(24px, 3vw, 36px)",
+                lineHeight: 1.25,
+                letterSpacing: "-0.012em",
+                color: "var(--ink)",
+                margin: 0,
+              }}
+            >
+              Desde 1967 monitoreamos el mercado en búsqueda de las mejores oportunidades de inversión.{" "}
+              <em className="serif-i" style={{ color: "var(--gold-deep)" }}>
+                La confianza de nuestros clientes siempre fue nuestro norte.
+              </em>
+            </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                marginTop: "var(--space-5)",
+              }}
+            >
+              <span style={{ width: 28, height: 1, background: "var(--ink)" }} />
+              <span className="cap" style={{ color: "var(--ink-2)" }}>
+                Gastón Bengochea & Cía. · Sociedad de Bolsa
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @media (max-width: 720px) {
+            .pullquote-wrap { grid-template-columns: 1fr !important; gap: var(--space-3) !important; }
+          }
+        `}</style>
+      </section>
+
+      {/* 01 · ¿Por qué GB? — 7 pilares */}
       <section className="section">
         <div className="wrap">
           <div className="sec-head">
             <div>
               <div className="sec-num">01 / 04</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>La casa</div>
+              <div className="cap-gold" style={{ marginTop: 8 }}>¿Por qué GB?</div>
             </div>
             <div>
-              <h2>Una sociedad de bolsa uruguaya con oficio de banca privada.</h2>
+              <h2>
+                Siete maneras de leer la confianza{" "}
+                <em className="serif-i" style={{ color: "var(--gold-deep)" }}>
+                  que nos dieron casi seis décadas.
+                </em>
+              </h2>
               <p className="dek">
-                Operamos desde Montevideo desde 1967. El cliente trabaja con la casa, no con un canal: la conversación que abrís el lunes es la misma que cerrás en seis meses.
+                Los atributos no se proclaman: se ejecutan. Estos son los siete que sostienen la relación con cada cliente.
               </p>
             </div>
           </div>
 
-          <div
+          <ol
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
               borderTop: "1px solid var(--ink)",
-              borderBottom: "1px solid var(--rule)",
             }}
-            className="principios-grid"
           >
-            {PRINCIPIOS.map((p, i) => (
-              <article
+            {PILARES.map((p) => (
+              <li
                 key={p.n}
                 style={{
-                  padding: "var(--space-6) var(--space-5) var(--space-5)",
-                  borderRight: i < PRINCIPIOS.length - 1 ? "1px solid var(--rule)" : "none",
-                  minHeight: 280,
+                  display: "grid",
+                  gridTemplateColumns: "60px 260px 1fr",
+                  gap: "var(--space-5)",
+                  padding: "var(--space-5) 0",
+                  borderBottom: "1px solid var(--rule)",
+                  alignItems: "baseline",
                 }}
+                className="pilar-row"
               >
                 <div
                   className="serif-i"
                   style={{
-                    fontSize: 56,
+                    fontSize: 32,
                     color: "var(--gold-deep)",
                     lineHeight: 1,
                     letterSpacing: "-0.02em",
@@ -105,105 +196,140 @@ export default function HomePage() {
                   className="serif"
                   style={{
                     fontWeight: 400,
-                    fontSize: 26,
-                    lineHeight: 1.15,
-                    margin: "var(--space-4) 0 var(--space-3)",
+                    fontSize: 24,
+                    lineHeight: 1.2,
+                    margin: 0,
                     letterSpacing: "-0.015em",
                   }}
                 >
                   {p.title}
                 </h3>
-                <p className="body-base" style={{ margin: 0 }}>{p.desc}</p>
-              </article>
+                <p className="body-base" style={{ margin: 0, maxWidth: "44em" }}>
+                  {p.body}
+                </p>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
 
         <style>{`
           @media (max-width: 900px) {
-            .principios-grid { grid-template-columns: 1fr !important; }
-            .principios-grid article { border-right: 0 !important; border-bottom: 1px solid var(--rule); }
+            .pilar-row { grid-template-columns: 48px 1fr !important; }
+            .pilar-row > p { grid-column: 2 / -1; }
+          }
+          @media (max-width: 560px) {
+            .pilar-row { grid-template-columns: 1fr !important; gap: 6px !important; }
+            .pilar-row > p { grid-column: 1; }
           }
         `}</style>
       </section>
 
-      {/* 02 · Servicios */}
+      {/* 02 · Ecosistema */}
       <section className="section">
         <div className="wrap">
           <div className="sec-head">
             <div>
               <div className="sec-num">02 / 04</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Servicios</div>
+              <div className="cap-gold" style={{ marginTop: 8 }}>Ecosistema</div>
             </div>
             <div>
-              <h2>Tres familias de instrumentos. Una sola mesa.</h2>
+              <h2>Accedé a nuestro amplio ecosistema de inversiones.</h2>
               <p className="dek">
-                Renta fija, renta variable y vehículos gestionados. La asignación se discute en la mesa; la ejecución la hacemos nosotros.
+                Operativa local con la plaza uruguaya y operativa internacional con las principales bolsas del mundo. Una sola mesa para ambas.
               </p>
             </div>
           </div>
 
-          <div className="servicios-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid var(--rule)" }}>
-            {SERVICIOS.map((s, i) => (
-              <article
-                key={s.title}
-                style={{
-                  padding: "var(--space-6) var(--space-5)",
-                  borderRight: i < SERVICIOS.length - 1 ? "1px solid var(--rule)" : "none",
-                  borderBottom: "1px solid var(--rule)",
-                  display: "flex",
-                  flexDirection: "column",
-                  minHeight: 280,
-                }}
-              >
-                <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>{s.n}</div>
-                <h3
-                  className="serif"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: 28,
-                    lineHeight: 1.15,
-                    margin: 0,
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  {s.title}
-                </h3>
-                <p className="body-base" style={{ margin: "var(--space-3) 0 var(--space-4)", flex: 1 }}>
-                  {s.desc}
-                </p>
-                <div
-                  className="mono"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--ink-3)",
-                    paddingTop: "var(--space-3)",
-                    borderTop: "1px dashed var(--rule)",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {s.tag}
-                </div>
-              </article>
-            ))}
+          <div className="ecosistema-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, borderTop: "1px solid var(--ink)" }}>
+            {/* Mercado Local */}
+            <div
+              style={{
+                padding: "var(--space-5) var(--space-5) var(--space-5) 0",
+                borderRight: "1px solid var(--rule)",
+              }}
+              className="ecosistema-col"
+            >
+              <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Mercado Local</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {ECOSISTEMA.local.map(([t, b], i) => (
+                  <li
+                    key={t}
+                    style={{
+                      padding: "var(--space-3) 0",
+                      borderBottom: i < ECOSISTEMA.local.length - 1 ? "1px solid var(--rule)" : "none",
+                    }}
+                  >
+                    <h3
+                      className="serif"
+                      style={{
+                        fontWeight: 400,
+                        fontSize: 19,
+                        lineHeight: 1.25,
+                        margin: 0,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {t}
+                    </h3>
+                    <p className="body-base" style={{ margin: "6px 0 0", fontSize: 14 }}>{b}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Mercado Internacional */}
+            <div
+              style={{
+                padding: "var(--space-5) 0 var(--space-5) var(--space-5)",
+              }}
+              className="ecosistema-col"
+            >
+              <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Mercado Internacional</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {ECOSISTEMA.internacional.map(([t, b], i) => (
+                  <li
+                    key={t}
+                    style={{
+                      padding: "var(--space-3) 0",
+                      borderBottom: i < ECOSISTEMA.internacional.length - 1 ? "1px solid var(--rule)" : "none",
+                    }}
+                  >
+                    <h3
+                      className="serif"
+                      style={{
+                        fontWeight: 400,
+                        fontSize: 19,
+                        lineHeight: 1.25,
+                        margin: 0,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {t}
+                    </h3>
+                    <p className="body-base" style={{ margin: "6px 0 0", fontSize: 14 }}>{b}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-5)" }}>
             <Link href="/servicios" className="btn btn-secondary">
-              Ver todos los servicios <span className="arrow" />
+              Ver el ecosistema completo <span className="arrow" />
             </Link>
           </div>
         </div>
 
         <style>{`
-          @media (max-width: 900px) {
-            .servicios-grid { grid-template-columns: 1fr !important; }
-            .servicios-grid article { border-right: 0 !important; }
+          @media (max-width: 760px) {
+            .ecosistema-grid { grid-template-columns: 1fr !important; }
+            .ecosistema-col { padding: var(--space-4) 0 !important; border-right: 0 !important; border-bottom: 1px solid var(--rule); }
+            .ecosistema-col:last-child { border-bottom: 0; }
           }
         `}</style>
       </section>
 
-      {/* 03 · Mercados */}
+      {/* 03 · Plazas */}
       <section className="section-navy">
         <div className="wrap">
           <div className="sec-head">
@@ -213,7 +339,10 @@ export default function HomePage() {
             </div>
             <div>
               <h2 style={{ color: "var(--ivory)" }}>
-                Ocho mercados, una mesa de operaciones.
+                Una puerta local al mercado{" "}
+                <em className="serif-i" style={{ color: "var(--gold-soft)", fontWeight: 300 }}>
+                  internacional.
+                </em>
               </h2>
               <p className="dek" style={{ color: "rgba(255,255,255,0.78)" }}>
                 Desde Montevideo operamos las principales bolsas globales y la plaza local con ejecución directa.
@@ -263,6 +392,10 @@ export default function HomePage() {
             .mercados-grid > div:nth-child(4n) { border-right: 1px solid rgba(255,255,255,0.18) !important; }
             .mercados-grid > div:nth-child(2n) { border-right: 0 !important; }
           }
+          @media (max-width: 420px) {
+            .mercados-grid { grid-template-columns: 1fr !important; }
+            .mercados-grid > div { border-right: 0 !important; }
+          }
         `}</style>
       </section>
 
@@ -297,6 +430,7 @@ export default function HomePage() {
                 ].map(([k, v], i) => (
                   <li
                     key={k}
+                    className="analisis-row"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "180px 1fr",
@@ -354,7 +488,7 @@ export default function HomePage() {
                 AAPL <span className="serif-i" style={{ color: "var(--gold-soft)" }}>buy.</span>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-4)", paddingTop: "var(--space-3)", borderTop: "1px solid rgba(255,255,255,0.18)" }}>
+              <div className="analisis-mock-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-4)", paddingTop: "var(--space-3)", borderTop: "1px solid rgba(255,255,255,0.18)" }}>
                 {[
                   ["P/E", "28,4×"],
                   ["Market Cap", "USD 3,4 T"],
@@ -385,6 +519,10 @@ export default function HomePage() {
         <style>{`
           @media (max-width: 900px) {
             .analisis-grid { grid-template-columns: 1fr !important; }
+          }
+          @media (max-width: 520px) {
+            .analisis-row { grid-template-columns: 1fr !important; gap: 4px !important; }
+            .analisis-mock-stats { grid-template-columns: 1fr 1fr !important; gap: var(--space-3) !important; }
           }
         `}</style>
       </section>

@@ -162,7 +162,7 @@ export function Calculadora() {
 
   const final = data[data.length - 1];
   const maxTotal = final.total;
-  const gainsPct = final.total > 0 ? Math.round((final.gains / final.total) * 100) : 0;
+  const gainsPct = final.invested > 0 ? Math.round((final.gains / final.invested) * 100) : 0;
 
   return (
     <div className="wrap">
@@ -191,12 +191,11 @@ export function Calculadora() {
         className="calc-figures"
       >
         {[
-          ["Valor final", formatUSD(final.total), "gold"],
-          ["Ganancia compuesta", formatUSD(final.gains), "pos"],
-          ["Total aportado", formatUSD(final.invested), "ink"],
-          ["Rendimiento", `${gainsPct} %`, "gold"],
-        ].map(([cap, , kind], i) => {
-          const v = i === 0 ? final.total : i === 1 ? final.gains : i === 2 ? final.invested : null;
+          ["Valor final", final.total, formatUSD, "gold"] as const,
+          ["Ganancia compuesta", final.gains, formatUSD, "pos"] as const,
+          ["Total aportado", final.invested, formatUSD, "ink"] as const,
+          ["Rendimiento", gainsPct, (n: number) => `${n} %`, "gold"] as const,
+        ].map(([cap, value, format, kind], i) => {
           const color =
             kind === "gold" ? "var(--gold-deep)" : kind === "pos" ? "var(--pos)" : "var(--ink)";
           return (
@@ -209,8 +208,8 @@ export function Calculadora() {
               }}
             >
               <div className="cap" style={{ marginBottom: 8 }}>{cap}</div>
-              <div className="mono" style={{ fontSize: 28, color, letterSpacing: "-0.01em" }}>
-                {v !== null ? <AnimatedValue value={v} format={formatUSD} /> : `${gainsPct} %`}
+              <div className="mono calc-figure-value" style={{ fontSize: 28, color, letterSpacing: "-0.01em" }}>
+                <AnimatedValue value={value} format={format} />
               </div>
             </div>
           );
@@ -376,7 +375,8 @@ export function Calculadora() {
           </div>
 
           {/* Tabla de hitos */}
-          <table className="fin-table" style={{ marginTop: "var(--space-5)" }}>
+          <div style={{ marginTop: "var(--space-5)", overflowX: "auto" }}>
+          <table className="fin-table" style={{ minWidth: 420 }}>
             <thead>
               <tr>
                 <th>Año</th>
@@ -400,6 +400,7 @@ export function Calculadora() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -414,10 +415,12 @@ export function Calculadora() {
           .calc-figures > div:nth-child(2) { border-right: 0 !important; }
           .calc-figures > div:nth-child(3) { padding-left: 0 !important; }
           .calc-figures > div { border-bottom: 1px solid var(--rule); }
+          .calc-figure-value { font-size: 22px !important; }
         }
         @media (max-width: 600px) {
           .calc-figures { grid-template-columns: 1fr !important; }
           .calc-figures > div { border-right: 0 !important; padding-left: 0 !important; }
+          .calc-figure-value { font-size: 20px !important; }
         }
       `}</style>
     </div>

@@ -1,6 +1,7 @@
-import type { StockData } from "@/types/StockData";
+import type { StockData, CashFlowYear } from "@/types/StockData";
 import type { StructuredReport } from "@/types/Report";
 import type { SankeyData } from "@/components/analyze/charts";
+import { classifyPublisher, type PublisherTier } from "@/lib/publisherTiers";
 
 export type Tone = "pos" | "neg" | null;
 
@@ -14,26 +15,43 @@ export interface WorkstationData {
   industry: string;
 
   // Price snapshot
-  price: number;
-  change1d: number;       // signed absolute change in currency units
-  change1dPct: number;    // signed percentage (e.g. -2.17 for -2.17%)
+  price: number | null;
+  change1d: number | null;       // signed absolute change in currency units
+  change1dPct: number | null;    // signed percentage (e.g. -2.17 for -2.17%)
   changeYtdPct: number | null;
   marketCap: string;
   week52Low: number | null;
   week52High: number | null;
 
-  // Tape extras (may be "—")
-  volume: string;
-  dayLow: string;
-  dayHigh: string;
-  avgVolume: string;
-
   // Verdict (only present once the report finishes streaming)
   verdict: "BUY" | "HOLD" | "AVOID" | null;
   conviction: "Alta" | "Media" | "Baja" | null;
-  convictionChange: "Mantenido" | "Subido" | "Bajado";
   target: number | null;
   targetUpside: number | null;
+  sizing: string;
+
+  // Scenario probabilities & derived metrics (Tier 1)
+  bullProbability: number | null;     // 0-100
+  baseProbability: number | null;     // 0-100, derived = 100 - bull - bear
+  bearProbability: number | null;     // 0-100
+  expectedValue: number | null;       // USD, weighted across scenarios
+  expectedValueUpside: number | null; // % vs current price
+  riskReward: string | null;          // "1.9 : 1" formatted
+
+  // Key debate & capital allocation prose (Tier 1)
+  keyDebateMd: string;
+  capitalAllocationMd: string;
+
+  // Recent news with publisher tier classification (Tier 1-4).
+  // Shown in a dedicated panel and also feed the prompt with weighted instruction.
+  recentNews: Array<{
+    title: string;
+    publisher: string;
+    publishedAt: string;
+    link: string;
+    description?: string;
+    tier: PublisherTier;
+  }>;
 
   // KPIs · 16 tiles
   kpis: Array<[label: string, value: string, tone: Tone, info?: string]>;
@@ -75,21 +93,35 @@ export interface WorkstationData {
     toGrade: string;
   }>;
 
-  peers: Array<{ t: string; pe: string; chg: number | null }>;
+  peers: Array<{ t: string; pe: string }>;
 
   // Markdown prose blocks (from report; "" if not yet streamed)
-  thesisMd: string;
-  businessSummaryMd: string;
-  driversMd: string;
-  incomeNarrativeMd: string;
-  consensusNarrativeMd: string;
+  thesisMd: string;              // verdict.rationale
+  businessSummaryMd: string;     // businessModel
+  competitiveAdvantagesMd: string;
+  revenueStreamsMd: string;
+  driversMd: string;             // recentEarnings
+  incomeNarrativeMd: string;     // profitabilityAnalysis
+  balanceSheetMd: string;
+  freeCashFlowMd: string;
+  capitalExpenditureMd: string;
+  industryContextMd: string;
+  managementQualityMd: string;
+  consensusNarrativeMd: string;  // valuationSnapshot
   conclusionMd: string;
   risksMd: string;
   catalystsMd: string;
 
+  // Bull / Bear scenarios
+  bullCase: { narrative: string; priceTarget: string } | null;
+  bearCase: { narrative: string; priceTarget: string } | null;
+
+  // Annual cash flow (5 fiscal years: CAPEX / OCF / FCF)
+  annualCashFlow: CashFlowYear[];
+
   // Meta
-  asOf: string;
-  filingRef: string;
+  asOf: string | null;
+  filingRef: string | null;
   lastUpdated: string;
 }
 
@@ -148,12 +180,15 @@ export function buildWorkstation(
   report: StructuredReport | null,
 ): WorkstationData {
   const pfx = stockData.currency === "USD" ? "USD " : (stockData.currency ?? "") + " ";
-  const price = stockData.currentPrice ?? 0;
-  const pctRaw = stockData.priceChangePercent ?? 0; // already a decimal (e.g. 0.0124)
-  const change1dPct = pctRaw * 100;
+  const price = stockData.currentPrice ?? null;
+  const pctRaw = stockData.priceChangePercent ?? null; // already a decimal (e.g. 0.0124)
+  const change1dPct = pctRaw != null ? pctRaw * 100 : null;
   // change USD = price - price/(1+pct)
-  const denom = 1 + pctRaw;
-  const change1d = denom !== 0 ? price - price / denom : 0;
+  let change1d: number | null = null;
+  if (price != null && pctRaw != null) {
+    const denom = 1 + pctRaw;
+    change1d = denom !== 0 ? price - price / denom : 0;
+  }
   const ytd = deriveYtdPct(stockData.historicalPrices ?? null, price);
   const changeYtdPct = ytd != null ? ytd * 100 : null;
 
@@ -233,7 +268,7 @@ export function buildWorkstation(
       eps: epsRow?.epsActual ?? null,
       consEps: epsRow?.epsEstimate ?? null,
       surprisePct: epsRow?.surprisePct ?? null,
-      beat: epsRow ? (epsRow.surprisePct ?? 0) >= 0 : null,
+      beat: epsRow && epsRow.surprisePct != null ? epsRow.surprisePct >= 0 : null,
     };
   });
 
@@ -242,20 +277,55 @@ export function buildWorkstation(
   let segments: WorkstationData["segments"] = [];
 
   const seg = report?.segmentData;
+  const toB = (n: number | null | undefined) => (n ?? 0) / 1e9;
+  // The Sankey chart visualizes a flow and only renders correctly when every leg is non-negative.
+  // For a loss-making period any leg can flip negative; we then refuse to render rather than clamp.
+  const buildSankey = (raw: SankeyData): SankeyData | null => {
+    const legs = [raw.revenue, raw.costOfRevenue, raw.grossProfit, raw.opex, raw.operatingIncome, raw.otherAndTax, raw.netIncome];
+    if (raw.revenue <= 0) return null;
+    if (legs.some((v) => v < 0)) return null;
+    return raw;
+  };
+
   if (seg && seg.totalRevenue > 0) {
-    const totalB = seg.totalRevenue / Math.max(1, seg.totalRevenue) > 0 ? seg.totalRevenue : seg.totalRevenue;
-    // Workstation Sankey expects all values in same unit; convert raw → billions for display
-    const toB = (n: number | undefined | null) => (n ?? 0) / 1e9;
-    sankey = {
-      revenue: toB(seg.totalRevenue),
-      costOfRevenue: toB(seg.costOfRevenue),
-      grossProfit: toB(seg.grossProfit),
-      opex: toB(seg.operatingExpenses),
-      operatingIncome: Math.max(0, toB(seg.operatingProfit)),
-      otherAndTax: Math.max(0, toB(seg.operatingProfit) - toB(seg.netProfit)),
-      netIncome: Math.max(0, toB(seg.netProfit)),
-    };
-    void totalB;
+    // segmentData numbers are pre-scaled by seg.unit (autoScale in fetchSegmentData.ts):
+    // a "M"-unit issuer has totalRevenue stored as raw_$/1e6. Undo that scale first
+    // so the cascade table and downstream consumers see the same magnitude no matter
+    // the issuer size.
+    const segMul =
+      seg.unit === "T" ? 1e12 :
+      seg.unit === "B" ? 1e9 :
+      seg.unit === "M" ? 1e6 :
+      seg.unit === "K" ? 1e3 : 1;
+    const segB = (n: number | null | undefined) => ((n ?? 0) * segMul) / 1e9;
+    const revenue = segB(seg.totalRevenue);
+    const opex = segB(seg.operatingExpenses);
+    const operatingIncome = segB(seg.operatingProfit);
+    const netIncome = segB(seg.netProfit);
+    // EDGAR sometimes lacks an explicit GrossProfit / CostOfRevenue tag
+    // (issuers like AAPL whose CoR is filed as CostOfGoodsAndServicesSold get
+    // zeroed when `gpInconsistent` triggers; oil-gas single-step issuers leave
+    // both at 0 by design). Fall back to the cascade identity so the table
+    // stays consistent with the Sankey's "Total Costs" branch.
+    let grossProfit = segB(seg.grossProfit);
+    let costOfRevenue = segB(seg.costOfRevenue);
+    if (grossProfit <= 0 && costOfRevenue <= 0 && opex > 0 && operatingIncome > 0) {
+      grossProfit = opex + operatingIncome;
+      costOfRevenue = Math.max(0, revenue - grossProfit);
+    } else if (grossProfit <= 0 && costOfRevenue > 0) {
+      grossProfit = Math.max(0, revenue - costOfRevenue);
+    } else if (costOfRevenue <= 0 && grossProfit > 0) {
+      costOfRevenue = Math.max(0, revenue - grossProfit);
+    }
+    sankey = buildSankey({
+      revenue,
+      costOfRevenue,
+      grossProfit,
+      opex,
+      operatingIncome,
+      otherAndTax: operatingIncome - netIncome,
+      netIncome,
+    });
     const segSum = seg.segments.reduce((s, x) => s + x.value, 0);
     segments = seg.segments
       .slice(0, 6)
@@ -267,17 +337,16 @@ export function buildWorkstation(
       .filter((s) => s.share > 0);
   } else if (stockData.latestQuarterIS) {
     const q = stockData.latestQuarterIS;
-    const toB = (n: number | null | undefined) => (n ?? 0) / 1e9;
     if (q.totalRevenue > 0) {
-      sankey = {
+      sankey = buildSankey({
         revenue: toB(q.totalRevenue),
         costOfRevenue: toB(q.costOfRevenue),
         grossProfit: toB(q.grossProfit),
         opex: toB(q.totalOperatingExpenses),
-        operatingIncome: Math.max(0, toB(q.operatingIncome)),
-        otherAndTax: Math.max(0, toB(q.operatingIncome) - toB(q.netIncome)),
-        netIncome: Math.max(0, toB(q.netIncome)),
-      };
+        operatingIncome: toB(q.operatingIncome),
+        otherAndTax: toB(q.operatingIncome) - toB(q.netIncome),
+        netIncome: toB(q.netIncome),
+      });
     }
   }
 
@@ -309,7 +378,6 @@ export function buildWorkstation(
   const peers = (pc?.peers ?? []).slice(0, 4).map((p) => ({
     t: p.symbol,
     pe: fmtRatio(p.trailingPE),
-    chg: null as number | null,
   }));
 
   /* Verdict */
@@ -325,30 +393,113 @@ export function buildWorkstation(
       report.verdict.conviction === "LOW" ? "Baja" : "Media";
   }
 
-  // Target = mean target price (real data); upside = (target - price)/price
-  if (stockData.targetMeanPrice != null) {
+  // PRIMARY target: the model's own 12-month price target (the casa's research
+  // view), derived from financials + multiples + forward estimates. Falls back
+  // to analyst consensus mean only if the model didn't emit one (e.g. while the
+  // report is still streaming). The hero displays this as "Target Bengochea".
+  // Yahoo's analyst consensus stays available via stockData.targetMeanPrice
+  // for the Wall Street panel.
+  const modelTargetStr = report?.verdict?.priceTarget;
+  const modelTarget = modelTargetStr != null ? parseFloat(modelTargetStr) : NaN;
+  if (isFinite(modelTarget) && modelTarget > 0) {
+    target = modelTarget;
+  } else if (stockData.targetMeanPrice != null) {
     target = stockData.targetMeanPrice;
-    if (price > 0) targetUpside = ((stockData.targetMeanPrice - price) / price) * 100;
   }
+  if (target != null && price != null && price > 0) {
+    targetUpside = ((target - price) / price) * 100;
+  }
+
+  /* Scenario probabilities & expected value (Tier 1) */
+  let bullProb: number | null = null;
+  let bearProb: number | null = null;
+  let baseProb: number | null = null;
+  let expectedValue: number | null = null;
+  let expectedValueUpside: number | null = null;
+  let riskReward: string | null = null;
+
+  const bullCase = report?.bullCase;
+  const bearCase = report?.bearCase;
+
+  if (bullCase && bearCase) {
+    const bp = parseInt(bullCase.probability ?? "", 10);
+    const xp = parseInt(bearCase.probability ?? "", 10);
+    const bullTgt = parseFloat(bullCase.priceTarget ?? "");
+    const bearTgt = parseFloat(bearCase.priceTarget ?? "");
+
+    if (Number.isFinite(bp) && Number.isFinite(xp) && bp + xp <= 100) {
+      bullProb = bp;
+      bearProb = xp;
+      baseProb = Math.max(0, 100 - bp - xp);
+    }
+
+    // Risk/reward: ratio (bull − price) : (price − bear). Asymmetry sense.
+    if (Number.isFinite(bullTgt) && Number.isFinite(bearTgt) && price != null && price > 0) {
+      const upside = bullTgt - price;
+      const downside = price - bearTgt;
+      if (upside > 0 && downside > 0) {
+        const ratio = upside / downside;
+        riskReward = `${ratio.toFixed(1)} : 1`;
+      } else if (upside > 0 && downside <= 0) {
+        riskReward = "asimétrico a favor (bear ≥ precio)";
+      } else if (upside <= 0 && downside > 0) {
+        riskReward = "asimétrico en contra (bull ≤ precio)";
+      }
+    }
+
+    // Expected value: probability-weighted average of bull, base, bear.
+    if (
+      bullProb != null && bearProb != null && baseProb != null &&
+      Number.isFinite(bullTgt) && Number.isFinite(bearTgt) && target != null
+    ) {
+      const ev = (bullTgt * bullProb + target * baseProb + bearTgt * bearProb) / 100;
+      expectedValue = ev;
+      if (price != null && price > 0) expectedValueUpside = ((ev - price) / price) * 100;
+    }
+  }
+
+  const sizing = report?.verdict?.sizing ?? "";
 
   /* Markdown blocks (empty when report not yet ready) */
   const thesisMd = report?.verdict?.rationale ?? "";
   const businessSummaryMd = report?.businessModel ?? "";
+  const competitiveAdvantagesMd = report?.competitiveAdvantages ?? "";
+  const revenueStreamsMd = report?.revenueStreams ?? "";
   const driversMd = report?.recentEarnings ?? "";
   const incomeNarrativeMd = report?.profitabilityAnalysis ?? "";
+  const balanceSheetMd = report?.balanceSheetHealth ?? "";
+  const freeCashFlowMd = report?.freeCashFlow ?? "";
+  const capitalExpenditureMd = report?.capitalExpenditure ?? "";
+  const capitalAllocationMd = report?.capitalAllocation ?? "";
+  const industryContextMd = report?.industryContext ?? "";
+  const keyDebateMd = report?.keyDebate ?? "";
+
+  /* Recent news with tier classification */
+  const recentNews = (stockData.recentNews ?? []).slice(0, 7).map((n) => ({
+    title: n.title,
+    publisher: n.publisher,
+    publishedAt: n.publishedAt,
+    link: n.link,
+    description: n.description,
+    tier: classifyPublisher(n.publisher),
+  }));
+  const managementQualityMd = report?.managementQuality ?? "";
   const consensusNarrativeMd = report?.valuationSnapshot ?? "";
   const conclusionMd =
     report ? [report.verdict?.rationale, report.valuationSnapshot].filter(Boolean).join("\n\n") : "";
   const risksMd = report?.riskFactors ?? "";
   const catalystsMd = report?.catalysts ?? "";
+  const bullCaseObj = report?.bullCase ?? null;
+  const bearCaseObj = report?.bearCase ?? null;
+  const annualCashFlow = stockData.annualCashFlow ?? [];
 
   /* Meta */
   const segSource = report?.segmentData;
-  const asOf = segSource?.endDate ?? new Date().toISOString().slice(0, 10);
-  const filingRef =
+  const asOf: string | null = segSource?.endDate ?? null;
+  const filingRef: string | null =
     segSource?.source && segSource?.period
       ? `${segSource.source} · ${segSource.period}`
-      : segSource?.source ?? "Yahoo Finance";
+      : segSource?.source ?? null;
   const now = new Date();
   const lastUpdated = `${now.toLocaleDateString("es-UY", { day: "2-digit", month: "short" })} ${now.getFullYear()} · ${now.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit", hour12: false })} UY`;
 
@@ -366,15 +517,17 @@ export function buildWorkstation(
     marketCap: stockData.marketCap != null ? `${pfx}${fmtLarge(stockData.marketCap)}` : "—",
     week52Low: stockData.fiftyTwoWeekLow,
     week52High: stockData.fiftyTwoWeekHigh,
-    volume: "—",
-    dayLow: "—",
-    dayHigh: "—",
-    avgVolume: "—",
     verdict,
     conviction,
-    convictionChange: "Mantenido",
     target,
     targetUpside,
+    sizing,
+    bullProbability: bullProb,
+    baseProbability: baseProb,
+    bearProbability: bearProb,
+    expectedValue,
+    expectedValueUpside,
+    riskReward,
     kpis,
     spark,
     pricePath,
@@ -386,12 +539,25 @@ export function buildWorkstation(
     peers,
     thesisMd,
     businessSummaryMd,
+    competitiveAdvantagesMd,
+    revenueStreamsMd,
     driversMd,
     incomeNarrativeMd,
+    balanceSheetMd,
+    freeCashFlowMd,
+    capitalExpenditureMd,
+    capitalAllocationMd,
+    keyDebateMd,
+    recentNews,
+    industryContextMd,
+    managementQualityMd,
     consensusNarrativeMd,
     conclusionMd,
     risksMd,
     catalystsMd,
+    bullCase: bullCaseObj,
+    bearCase: bearCaseObj,
+    annualCashFlow,
     asOf,
     filingRef,
     lastUpdated,

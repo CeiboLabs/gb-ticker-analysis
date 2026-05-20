@@ -5,11 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import type { StockData } from "@/types/StockData";
 import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
-import { LineChart, BarChart, Spark, DonutChart, type SankeyData } from "@/components/analyze/charts";
+import { Spark, DonutChart, type SankeyData } from "@/components/analyze/charts";
 import { SankeyChart } from "@/components/SankeyChart";
+import { PriceChartInstitucional } from "@/components/analyze/PriceChartInstitucional";
 import { buildWorkstation, type WorkstationData } from "@/components/analyze/adapter";
-
-const TAPE_CHIPS = ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN"];
 
 const NAV_SECTIONS = [
   ["p01", "Tesis de inversión"],
@@ -17,13 +16,13 @@ const NAV_SECTIONS = [
   ["p03", "Métricas y KPIs"],
   ["p04", "Precio y trimestrales"],
   ["p05", "Income statement"],
-  ["p06", "Wall Street"],
-  ["p07", "Riesgos · catalizadores"],
-  ["p08", "Conclusión"],
+  ["p06", "Balance y caja"],
+  ["p07", "Industria y gestión"],
+  ["p08", "Wall Street"],
+  ["p09", "Escenarios bull / bear"],
+  ["p10", "Riesgos · catalizadores"],
+  ["p11", "Conclusión"],
 ] as const;
-
-const PERIODS = ["1M", "6M", "1Y", "3Y", "5Y"] as const;
-type Period = (typeof PERIODS)[number];
 
 type Status = "idle" | "loading" | "partial" | "done" | "error";
 type ErrorKind = "generic" | "analysis_unavailable";
@@ -32,7 +31,8 @@ type ErrorKind = "generic" | "analysis_unavailable";
    Helpers
    ────────────────────────────────────────────────────────────── */
 
-function fmtNum(n: number, dec = 2): string {
+function fmtNum(n: number | null | undefined, dec = 2): string {
+  if (n == null || !Number.isFinite(n)) return "—";
   const fixed = n.toFixed(dec);
   const [whole, frac] = fixed.split(".");
   const withSep = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -43,12 +43,6 @@ function fmtPct(n: number | null | undefined, dec = 2): string {
   const sign = n >= 0 ? "+" : "−";
   return `${sign}${fmtNum(Math.abs(n), dec)} %`;
 }
-function fmtSigned(n: number | null | undefined, dec = 2): string {
-  if (n == null) return "—";
-  const sign = n >= 0 ? "+" : "−";
-  return `${sign}${fmtNum(Math.abs(n), dec)}`;
-}
-
 /* ──────────────────────────────────────────────────────────────
    Icons
    ────────────────────────────────────────────────────────────── */
@@ -60,11 +54,27 @@ function Icon({ d, size = 14, fill }: { d: string; size?: number; fill?: boolean
     </svg>
   );
 }
-const ICON_PDF = "M8 3h7l4 4v14H8z|14 3v4h5|9 13h6|9 17h4";
-const ICON_DOWNLOAD = "M12 4v12|7 11l5 5 5-5|4 20h16";
+const ICON_PDF = "M7 3h7l3 3v14H7z|14 3v3h3|12 10v8|9 15l3 3 3-3";
 const ICON_REFRESH = "M3 12a9 9 0 0 1 15.5-6.3L21 8|21 4v4h-4|21 12a9 9 0 0 1-15.5 6.3L3 16|3 20v-4h4";
-const ICON_STAR = "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z";
 const ICON_SHIELD = "M12 3l8 3v7c0 4.5-3.5 7.5-8 8-4.5-.5-8-3.5-8-8V6z|9 12l2 2 4-4";
+
+const CONVICTION_COPY: Record<"BUY" | "HOLD" | "AVOID", Record<"Alta" | "Media" | "Baja", string>> = {
+  BUY: {
+    Alta: "Datos cuantitativos y cualitativos alineados. Tesis apta para posición core.",
+    Media: "Tesis razonable con 1–2 factores en conflicto. Sizing satélite y revisar próximo earnings.",
+    Baja: "Tesis dependiente de supuestos no verificables. Exposición mínima o esperar más data.",
+  },
+  HOLD: {
+    Alta: "Equilibrio claro entre catalizadores y riesgos. Mantener si ya hay posición; no añadir.",
+    Media: "Señales mixtas que no justifican comprar ni vender. Mantener con monitoreo activo.",
+    Baja: "Datos insuficientes para una recomendación direccional. Mantener tamaño actual.",
+  },
+  AVOID: {
+    Alta: "Riesgos materiales claramente identificados. Exit gradual si hay exposición.",
+    Media: "Factores negativos dominan pero con incertidumbre. No iniciar; reducir si ya hay posición.",
+    Baja: "Datos insuficientes o supuestos frágiles. Preferible evitar hasta tener mayor claridad.",
+  },
+};
 
 /* ──────────────────────────────────────────────────────────────
    Page
@@ -90,6 +100,12 @@ function AnalyzePageInner() {
   const [errorKind, setErrorKind] = useState<ErrorKind>("generic");
   const [input, setInput] = useState("");
   const [activeSection, setActiveSection] = useState<string>("p01");
+  // Timestamp in ms hasta cuándo el botón "Regenerar" queda bloqueado.
+  // GPT-4o a temperature=0 no es determinístico — sin cooldown, regenerar puede
+  // devolver HOLD y luego AVOID para el mismo input. El server impone el límite;
+  // acá solo lo reflejamos en la UI.
+  const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+  const [now, setNow] = useState<number>(() => Date.now());
 
   const activeTicker = useRef<string>("");
   const controllerRef = useRef<AbortController | null>(null);
@@ -125,6 +141,8 @@ function AnalyzePageInner() {
     setStockData(null);
     setReport(null);
     setActiveSection("p01");
+    // Reset del cooldown — el server decide el nuevo valor según el cache de este ticker.
+    setCooldownUntil(0);
 
     try {
       const res = await fetch("/api/analyze", {
@@ -145,6 +163,10 @@ function AnalyzePageInner() {
         setStockData(json.stockData);
         setReport(json.report);
         setStatus("done");
+        // Server signals cuándo se desbloquea la regeneración (cooldown anti-flap).
+        const remaining = typeof json.cooldownRemainingSeconds === "number" ? json.cooldownRemainingSeconds : 0;
+        if (remaining > 0) setCooldownUntil(Date.now() + remaining * 1000);
+        else setCooldownUntil(0);
         return;
       }
 
@@ -179,10 +201,20 @@ function AnalyzePageInner() {
             setStockData(msg.stockData as StockData);
             setReport(msg.report as StructuredReport);
             setStatus("done");
+            // Análisis fresco recién cacheado → arranca el cooldown de 1 h.
+            setCooldownUntil(Date.now() + 60 * 60 * 1000);
+          } else if (msg.partial && typeof msg.partial === "object") {
+            // Partial report fragment emitted by a specialist completing. Merge
+            // into the current report state so panels fill in progressively.
+            const partial = msg.partial as Partial<StructuredReport>;
+            setReport((prev) => ({ ...(prev ?? {}), ...partial } as StructuredReport));
+            setStatus("partial");
           } else if (msg.stockData) {
             setStockData(msg.stockData as StockData);
             setStatus("partial");
           }
+          // Stage events (msg.stage / msg.status) are ignored here but could
+          // drive a progress indicator in the sidebar if desired.
         }
       }
 
@@ -264,15 +296,25 @@ function AnalyzePageInner() {
   }
 
   function handleRefresh() {
-    if (activeTicker.current) analyze(activeTicker.current, true);
+    if (!activeTicker.current) return;
+    if (Date.now() < cooldownUntil) return; // bloqueado por cooldown
+    analyze(activeTicker.current, true);
   }
+
+  // Tick cada segundo solo mientras el cooldown está activo, para refrescar
+  // el countdown que muestra el sidebar.
+  useEffect(() => {
+    if (cooldownUntil <= now) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [cooldownUntil, now]);
 
   return (
     <main className="analyze-root" style={{ background: "var(--ivory)", color: "var(--ink)", paddingTop: "var(--nav-h)" }}>
       {data ? (
-        <TickerTape data={data} chips={TAPE_CHIPS} current={ticker} onSelect={selectTicker} input={input} setInput={setInput} onSubmit={handleSubmit} />
+        <TickerTape data={data} current={ticker} input={input} setInput={setInput} onSubmit={handleSubmit} />
       ) : (
-        <EmptyTape chips={TAPE_CHIPS} current={ticker} onSelect={selectTicker} input={input} setInput={setInput} onSubmit={handleSubmit} />
+        <EmptyTape input={input} setInput={setInput} onSubmit={handleSubmit} />
       )}
 
       <div
@@ -291,21 +333,27 @@ function AnalyzePageInner() {
           current={ticker}
           status={status}
           onRefresh={handleRefresh}
+          cooldownRemainingMs={Math.max(0, cooldownUntil - now)}
         />
         <div className="analyze-main" style={{ borderLeft: "1px solid var(--rule)", background: "var(--paper)", minWidth: 0 }}>
           {status === "idle" && <IdleHero />}
           {status === "error" && <ErrorPanel kind={errorKind} message={errorMsg} onRetry={handleRefresh} />}
           {(status === "loading" || status === "partial" || status === "done") && data && (
             <>
-              <Panel01Tesis data={data} ticker={ticker} hasReport={!!report} />
+              <Panel01Tesis data={data} ticker={ticker} hasReport={!!report} onSelectTicker={selectTicker} />
+              <PanelKeyDebate data={data} hasReport={!!report} />
               <Panel02Business data={data} hasReport={!!report} />
               <Panel03KPIs data={data} />
-              <Panel04PriceQuarters data={data} ticker={ticker} />
+              <Panel04PriceQuarters data={data} ticker={ticker} hasReport={!!report} stockData={stockData} />
               <Panel05Income data={data} hasReport={!!report} segmentData={report?.segmentData ?? null} />
-              <Panel06WallStreet data={data} ticker={ticker} hasReport={!!report} />
-              <Panel07RisksCatalysts data={data} hasReport={!!report} />
-              <Panel08Conclusion data={data} hasReport={!!report} />
-              <Panel09Disclaimer />
+              <Panel06BalanceCash data={data} hasReport={!!report} />
+              <Panel07IndustryManagement data={data} hasReport={!!report} />
+              <Panel08WallStreet data={data} ticker={ticker} hasReport={!!report} />
+              <PanelRecentNews data={data} />
+              <Panel09Scenarios data={data} hasReport={!!report} />
+              <Panel10RisksCatalysts data={data} hasReport={!!report} />
+              <Panel11Conclusion data={data} hasReport={!!report} />
+              <Panel12Disclaimer />
             </>
           )}
           {status === "loading" && !data && <LoadingShell ticker={ticker || input || "..."} />}
@@ -317,9 +365,11 @@ function AnalyzePageInner() {
           .analyze-shell { grid-template-columns: 1fr !important; }
           .analyze-sidebar { display: none !important; }
           .analyze-main { border-left: 0 !important; }
+          .analyze-panel { padding: 24px 20px !important; }
+          .twocol, .twocol-rev, .balance-grid, .threecol-scenarios { grid-template-columns: 1fr !important; gap: 24px !important; }
         }
-        @media (max-width: 1100px) {
-          .tape-strip { display: none !important; }
+        @media (max-width: 640px) {
+          .analyze-panel { padding: 20px 16px !important; }
         }
       `}</style>
     </main>
@@ -342,93 +392,58 @@ function tapeShellStyle(): React.CSSProperties {
 }
 
 function TapeForm({
-  chips,
-  current,
-  onSelect,
   input,
   setInput,
   onSubmit,
 }: {
-  chips: string[];
-  current: string;
-  onSelect: (s: string) => void;
   input: string;
   setInput: (s: string) => void;
   onSubmit: (e: React.FormEvent) => void;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <form onSubmit={onSubmit} style={{ display: "flex", gap: 0 }}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="TICKER"
-          autoCapitalize="characters"
-          autoComplete="off"
-          spellCheck={false}
-          style={{
-            background: "transparent",
-            border: "1px solid rgba(255,255,255,0.25)",
-            color: "var(--ivory)",
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            padding: "8px 12px",
-            outline: "none",
-            width: 96,
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            background: "var(--gold)",
-            color: "var(--ink)",
-            fontFamily: "var(--font-sans)",
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            padding: "8px 14px",
-            border: "1px solid var(--gold)",
-            cursor: "pointer",
-          }}
-        >
-          Run
-        </button>
-      </form>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {chips.map((c) => {
-          const active = c === current;
-          return (
-            <button
-              key={c}
-              onClick={() => onSelect(c)}
-              style={{
-                background: active ? "var(--gold)" : "transparent",
-                color: active ? "var(--ink)" : "rgba(255,255,255,0.72)",
-                border: `1px solid ${active ? "var(--gold)" : "rgba(255,255,255,0.18)"}`,
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                padding: "5px 9px",
-                letterSpacing: "0.04em",
-                cursor: "pointer",
-                transition: "background 160ms ease, color 160ms ease, border-color 160ms ease",
-              }}
-            >
-              {c}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <form onSubmit={onSubmit} style={{ display: "flex", gap: 0 }}>
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="TICKER"
+        autoCapitalize="characters"
+        autoComplete="off"
+        spellCheck={false}
+        style={{
+          background: "transparent",
+          border: "1px solid rgba(255,255,255,0.25)",
+          color: "var(--ivory)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 12,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          padding: "8px 12px",
+          outline: "none",
+          width: 112,
+        }}
+      />
+      <button
+        type="submit"
+        style={{
+          background: "var(--gold)",
+          color: "var(--ink)",
+          fontFamily: "var(--font-sans)",
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          padding: "8px 14px",
+          border: "1px solid var(--gold)",
+          cursor: "pointer",
+        }}
+      >
+        Analizar
+      </button>
+    </form>
   );
 }
 
 function EmptyTape(props: {
-  chips: string[];
-  current: string;
-  onSelect: (s: string) => void;
   input: string;
   setInput: (s: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -437,27 +452,21 @@ function EmptyTape(props: {
     <header className="ticker-tape" style={tapeShellStyle()}>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto",
-          gap: 16,
+          display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
+          gap: 16,
           maxWidth: 1440,
           margin: "0 auto",
-          padding: "10px 20px",
+          padding: "12px 20px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className="pulse-dot" />
-          <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--gold-soft)", letterSpacing: "0.02em", lineHeight: 1 }}>
-              —
-            </div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 4 }}>
-              Sin ticker activo
-            </div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
+            Sin ticker activo
           </div>
         </div>
-        <div />
         <TapeForm {...props} />
       </div>
     </header>
@@ -466,87 +475,53 @@ function EmptyTape(props: {
 
 function TickerTape({
   data,
-  chips,
   current,
-  onSelect,
   input,
   setInput,
   onSubmit,
 }: {
   data: WorkstationData;
-  chips: string[];
   current: string;
-  onSelect: (s: string) => void;
   input: string;
   setInput: (s: string) => void;
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const chg = data.change1dPct;
-  const ytd = data.changeYtdPct;
-
-  const cells: Array<[string, React.ReactNode, "ivory" | "pos" | "neg"]> = [
-    ["Last", <span key="l">{fmtNum(data.price)}</span>, "ivory"],
-    ["Chg", <span key="c">{fmtSigned(data.change1d)}</span>, chg >= 0 ? "pos" : "neg"],
-    ["% Chg", <span key="cp">{fmtPct(chg)}</span>, chg >= 0 ? "pos" : "neg"],
-    ["YTD", <span key="y">{fmtPct(ytd)}</span>, (ytd ?? 0) >= 0 ? "pos" : "neg"],
-    ["Mkt Cap", <span key="mc">{data.marketCap}</span>, "ivory"],
-    ["52w Rng", <span key="wr">{data.week52Low != null && data.week52High != null ? `${fmtNum(data.week52Low)} – ${fmtNum(data.week52High)}` : "—"}</span>, "ivory"],
-  ];
+  const chgColor = chg == null ? "var(--ivory)" : chg >= 0 ? "#7BC9A0" : "#E9999A";
 
   return (
     <header className="ticker-tape" style={tapeShellStyle()}>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto",
-          gap: 16,
+          display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
+          gap: 24,
           maxWidth: 1440,
           margin: "0 auto",
-          padding: "10px 20px",
+          padding: "12px 20px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
           <span className="pulse-dot" />
-          <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--gold-soft)", letterSpacing: "0.02em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-              {current}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--gold-soft)", letterSpacing: "0.02em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                {current}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--ivory)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                {fmtNum(data.price)}
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: chgColor, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                {fmtPct(chg)}
+              </span>
             </div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 4 }}>
-              {data.exchange} · {data.currency}
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 5, letterSpacing: "0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {data.name} · <span style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>{data.exchange} · {data.currency}</span>
             </div>
           </div>
         </div>
-        <div className="tape-strip" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-          <div style={{ display: "flex", minWidth: "max-content" }}>
-            {cells.map(([label, node, tone], i) => (
-              <div
-                key={i}
-                style={{
-                  borderRight: i < cells.length - 1 ? "1px solid rgba(255,255,255,0.14)" : "none",
-                  padding: "4px 16px",
-                  minWidth: 110,
-                }}
-              >
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "rgba(255,255,255,0.55)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
-                  {label}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: label === "Last" ? 16 : 13,
-                    color: tone === "pos" ? "#7BC9A0" : tone === "neg" ? "#E9999A" : "var(--ivory)",
-                    marginTop: 4,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {node}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <TapeForm chips={chips} current={current} onSelect={onSelect} input={input} setInput={setInput} onSubmit={onSubmit} />
+        <TapeForm input={input} setInput={setInput} onSubmit={onSubmit} />
       </div>
     </header>
   );
@@ -563,6 +538,7 @@ function Sidebar({
   current,
   status,
   onRefresh,
+  cooldownRemainingMs,
 }: {
   data: WorkstationData | null;
   activeSection: string;
@@ -570,9 +546,26 @@ function Sidebar({
   current: string;
   status: Status;
   onRefresh: () => void;
+  cooldownRemainingMs: number;
 }) {
-  const tone = data && data.change1dPct >= 0 ? "var(--pos)" : "var(--neg)";
+  const tone =
+    data && data.change1dPct != null
+      ? data.change1dPct >= 0 ? "var(--pos)" : "var(--neg)"
+      : "var(--ink-3)";
   const isWorking = status === "loading" || status === "partial";
+  const inCooldown = cooldownRemainingMs > 0;
+  const refreshDisabled = isWorking || inCooldown;
+  const cooldownLabel = inCooldown
+    ? (() => {
+        const totalSec = Math.ceil(cooldownRemainingMs / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        return m > 0 ? `Regenerar en ${m}m ${String(s).padStart(2, "0")}s` : `Regenerar en ${s}s`;
+      })()
+    : null;
+  const refreshLabel = isWorking
+    ? "Regenerando…"
+    : cooldownLabel ?? "Regenerar reporte";
 
   return (
     <aside
@@ -606,13 +599,25 @@ function Sidebar({
                 {fmtPct(data.change1dPct)}
               </span>
             </div>
-            <div style={{ marginBottom: 10 }}>
+            <div style={{ marginBottom: 12 }}>
               <Spark
                 data={data.spark}
                 width={204}
                 height={32}
                 color={tone}
               />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: 5, columnGap: 12, marginBottom: 12, fontFamily: "var(--font-mono)", fontSize: 10.5, fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 9.5 }}>YTD</span>
+              <span style={{ color: data.changeYtdPct == null ? "var(--ink-2)" : data.changeYtdPct >= 0 ? "var(--pos)" : "var(--neg)" }}>
+                {fmtPct(data.changeYtdPct)}
+              </span>
+              <span style={{ color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 9.5 }}>Mkt Cap</span>
+              <span style={{ color: "var(--ink-2)" }}>{data.marketCap}</span>
+              <span style={{ color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 9.5 }}>52w Rng</span>
+              <span style={{ color: "var(--ink-2)" }}>
+                {data.week52Low != null && data.week52High != null ? `${fmtNum(data.week52Low)} – ${fmtNum(data.week52High)}` : "—"}
+              </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="pulse-dot" style={{ width: 5, height: 5 }} />
@@ -673,28 +678,27 @@ function Sidebar({
         <div className="eyebrow-plain" style={{ marginBottom: 12 }}>Acciones</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {([
-            { icon: <Icon d={ICON_PDF} />, label: "Exportar PDF", onClick: () => window.print() },
-            { icon: <Icon d={ICON_DOWNLOAD} />, label: "Descargar CSV", onClick: () => {} },
-            { icon: <Icon d={ICON_STAR} />, label: "Agregar a watchlist", onClick: () => {} },
-            { icon: <Icon d={ICON_REFRESH} />, label: isWorking ? "Regenerando…" : "Regenerar reporte", onClick: onRefresh },
+            { icon: <Icon d={ICON_PDF} />, label: "Exportar PDF", onClick: () => window.print(), disabled: false },
+            { icon: <Icon d={ICON_REFRESH} />, label: refreshLabel, onClick: onRefresh, disabled: refreshDisabled },
           ] as const).map((item, i) => (
             <button
               key={i}
               onClick={item.onClick}
-              disabled={isWorking && i === 3}
+              disabled={item.disabled}
+              title={i === 1 && inCooldown ? "Bloqueado para evitar regeneraciones que devuelvan veredictos inconsistentes para el mismo input" : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
                 background: "none",
                 border: 0,
-                cursor: isWorking && i === 3 ? "not-allowed" : "pointer",
+                cursor: item.disabled ? "not-allowed" : "pointer",
                 padding: 0,
                 fontFamily: "var(--font-sans)",
                 fontSize: 12.5,
                 color: "var(--ink-2)",
                 textAlign: "left",
-                opacity: isWorking && i === 3 ? 0.5 : 1,
+                opacity: item.disabled ? 0.5 : 1,
               }}
             >
               <span style={{ color: "var(--ink-3)", display: "inline-flex" }}>{item.icon}</span>
@@ -706,9 +710,9 @@ function Sidebar({
 
       {/* Fuentes */}
       <div style={{ padding: "20px 18px" }}>
-        <div className="eyebrow-plain" style={{ marginBottom: 10 }}>Fuentes · as of {data?.asOf ?? "—"}</div>
+        <div className="eyebrow-plain" style={{ marginBottom: 10 }}>Fuentes{data?.asOf ? ` · as of ${data.asOf}` : ""}</div>
         <ul style={{ listStyle: "none", padding: 0, margin: 0, fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--ink-3)", lineHeight: 1.7 }}>
-          <li>SEC EDGAR · {data?.filingRef ?? "—"}</li>
+          {data?.filingRef && <li>{data.filingRef}</li>}
           <li>Yahoo Finance (delayed 15m)</li>
           <li>OpenAI GPT-4o · análisis</li>
         </ul>
@@ -792,11 +796,14 @@ function LoadingShell({ ticker }: { ticker: string }) {
         <span>Cargando · {ticker.toUpperCase()}</span>
       </div>
       <div className="skeleton-block" style={{ height: 200, marginBottom: 18 }} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
+      <div className="loading-skel-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="skeleton-block" style={{ height: 80 }} />
         ))}
       </div>
+      <style>{`
+        @media (max-width: 720px) { .loading-skel-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+      `}</style>
       <div className="skeleton-block" style={{ height: 280, marginBottom: 18 }} />
       <div className="skeleton-block" style={{ height: 120 }} />
     </div>
@@ -840,11 +847,14 @@ function ProseSkeleton({ lines = 3 }: { lines?: number }) {
    Panel 01 · Tesis
    ────────────────────────────────────────────────────────────── */
 
-function Panel01Tesis({ data, ticker, hasReport }: { data: WorkstationData; ticker: string; hasReport: boolean }) {
+function Panel01Tesis({ data, ticker, hasReport, onSelectTicker }: { data: WorkstationData; ticker: string; hasReport: boolean; onSelectTicker: (t: string) => void }) {
   const verdictColor =
     data.verdict === "BUY" ? "var(--pos)" : data.verdict === "AVOID" ? "var(--neg)" : "var(--neu)";
   const verdictItalic = data.verdict ? data.verdict.toLowerCase() + "." : "—";
-  const reportId = `BGC-${ticker}-${new Date().getFullYear()}-Q4-${Math.floor(Math.random() * 99).toString().padStart(2, "0")}`;
+  // Deterministic id derived from ticker + filing period; falls back to ticker-only when no filing is loaded.
+  const reportId = data.asOf
+    ? `BGC-${ticker}-${data.asOf.replace(/-/g, "")}`
+    : `BGC-${ticker}`;
 
   return (
     <section id="p01" className="analyze-panel" style={panelStyle()}>
@@ -873,32 +883,61 @@ function Panel01Tesis({ data, ticker, hasReport }: { data: WorkstationData; tick
 
       <div className="tesis-grid" style={{ display: "grid", gridTemplateColumns: "280px 1fr 220px", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
         {/* Veredicto */}
-        <div style={{ background: verdictColor, color: "var(--ivory)", padding: 24, borderRight: "1px solid var(--rule)" }}>
+        <div className="tesis-verdict" style={{ background: verdictColor, color: "var(--ivory)", padding: 24, borderRight: "1px solid var(--rule)" }}>
           <div className="eyebrow-bar" style={{ color: "rgba(255,255,255,0.78)" }}>
             <span style={{ background: "rgba(255,255,255,0.6)" }} />
             <span style={{ color: "rgba(255,255,255,0.78)" }}>Veredicto · Bengochea</span>
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 56, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.01em", marginTop: 12, marginBottom: 18 }}>
+          <div className="tesis-verdict-value" style={{ fontFamily: "var(--font-mono)", fontSize: 56, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.01em", marginTop: 12, marginBottom: 18 }}>
             {data.verdict ?? "···"}
           </div>
           <div style={{ height: 1, background: "rgba(255,255,255,0.25)", marginBottom: 14 }} />
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Target 12m</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
+            {hasReport ? "Target casa · 12m" : "Target consenso · 12m"}
+          </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 500, color: "var(--ivory)", marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
             {data.target != null ? `USD ${fmtNum(data.target, 0)}` : "—"}
           </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(255,255,255,0.78)", marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
             {data.targetUpside != null ? `Upside ${fmtPct(data.targetUpside)} desde USD ${fmtNum(data.price)}` : "Upside no disponible"}
           </div>
+
+          {/* Expected value + risk/reward — Tier 1 */}
+          {(data.expectedValue != null || data.riskReward) && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.18)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {data.expectedValue != null && (
+                <div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "rgba(255,255,255,0.6)", letterSpacing: "0.14em", textTransform: "uppercase" }}>EV ponderado</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ivory)", marginTop: 3, fontVariantNumeric: "tabular-nums" }}>
+                    USD {fmtNum(data.expectedValue, 0)}
+                  </div>
+                  {data.expectedValueUpside != null && (
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: data.expectedValueUpside >= 0 ? "#7BC9A0" : "#E9999A", marginTop: 2 }}>
+                      {fmtPct(data.expectedValueUpside)}
+                    </div>
+                  )}
+                </div>
+              )}
+              {data.riskReward && (
+                <div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "rgba(255,255,255,0.6)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Risk / reward</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ivory)", marginTop: 3, fontVariantNumeric: "tabular-nums" }}>
+                    {data.riskReward}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ height: 1, background: "rgba(255,255,255,0.25)", margin: "16px 0 14px" }} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Conviction</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--ivory)", marginTop: 4 }}>{data.conviction ?? "—"}</div>
-            </div>
-            <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Δ vs Q3</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--ivory)", marginTop: 4 }}>{data.convictionChange}</div>
-            </div>
+          <div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Convicción</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--ivory)", marginTop: 4 }}>{data.conviction ?? "—"}</div>
+            {data.verdict && data.conviction && CONVICTION_COPY[data.verdict]?.[data.conviction] && (
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 12, lineHeight: 1.5, color: "rgba(255,255,255,0.78)", marginTop: 8, maxWidth: "26em" }}>
+                {CONVICTION_COPY[data.verdict][data.conviction]}
+              </div>
+            )}
           </div>
         </div>
 
@@ -936,7 +975,23 @@ function Panel01Tesis({ data, ticker, hasReport }: { data: WorkstationData; tick
           {data.peers.length > 0 && (
             <>
               <div style={{ height: 1, background: "var(--rule)", margin: "12px 0" }} />
-              <div className="eyebrow-plain" style={{ marginBottom: 8 }}>Comparables</div>
+              <div className="eyebrow-plain" style={{ marginBottom: 8 }}>Comparables · P/E TTM</div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "60px 1fr",
+                  gap: 8,
+                  padding: "5px 0",
+                  borderTop: "1px solid var(--rule)",
+                  alignItems: "baseline",
+                  background: "var(--rule-soft, transparent)",
+                }}
+              >
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--navy)", fontWeight: 700 }}>{ticker}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--navy)", fontWeight: 700, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {data.kpis.find(k => k[0] === "P/E TTM")?.[1] ?? "—"}
+                </span>
+              </div>
               {data.peers.map((p, i) => (
                 <div
                   key={p.t}
@@ -945,11 +1000,31 @@ function Panel01Tesis({ data, ticker, hasReport }: { data: WorkstationData; tick
                     gridTemplateColumns: "60px 1fr",
                     gap: 8,
                     padding: "5px 0",
-                    borderTop: i === 0 ? "1px solid var(--rule)" : "1px dashed var(--rule-soft)",
+                    borderTop: "1px dashed var(--rule-soft)",
                     alignItems: "baseline",
                   }}
                 >
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--navy)", fontWeight: 500 }}>{p.t}</span>
+                  <button
+                    type="button"
+                    onClick={() => onSelectTicker(p.t)}
+                    title={`Analizar ${p.t}`}
+                    style={{
+                      all: "unset",
+                      cursor: "pointer",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--navy)",
+                      fontWeight: 500,
+                      textDecoration: "underline",
+                      textDecorationStyle: "dotted",
+                      textDecorationColor: "var(--rule)",
+                      textUnderlineOffset: 3,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.textDecorationColor = "var(--navy)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.textDecorationColor = "var(--rule)"; }}
+                  >
+                    {p.t}
+                  </button>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.pe}</span>
                 </div>
               ))}
@@ -962,6 +1037,13 @@ function Panel01Tesis({ data, ticker, hasReport }: { data: WorkstationData; tick
         @media (max-width: 1100px) {
           .tesis-grid { grid-template-columns: 1fr !important; }
           .tesis-grid > div { border-right: 0 !important; border-bottom: 1px solid var(--rule); }
+        }
+        @media (max-width: 640px) {
+          .tesis-verdict { padding: 20px 16px !important; }
+          .tesis-verdict-value { font-size: 44px !important; margin-top: 8px !important; margin-bottom: 14px !important; }
+          #p01 .hairline-row { grid-template-columns: repeat(2, 1fr) !important; }
+          #p01 .hairline-row > .cell { border-right: 1px solid var(--rule) !important; }
+          #p01 .hairline-row > .cell:nth-child(2n) { border-right: 0 !important; }
         }
       `}</style>
     </section>
@@ -978,6 +1060,42 @@ function SnapshotRow({ label, value }: { label: string; value: string }) {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   Key Debate · mini panel entre Tesis y Business
+   ────────────────────────────────────────────────────────────── */
+
+function PanelKeyDebate({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+  if (!hasReport && !data.keyDebateMd) {
+    return null;
+  }
+  return (
+    <section id="key-debate" className="analyze-panel" style={panelStyle({ background: "var(--ivory-warm)" })}>
+      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 32, alignItems: "start" }} className="kd-grid">
+        <div>
+          <div className="eyebrow-bar"><span>Key debate</span></div>
+          <div className="mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", marginTop: 8 }}>
+            DÓNDE ESTÁ EL DESACUERDO
+          </div>
+        </div>
+        <div>
+          {hasReport && data.keyDebateMd ? (
+            <div className="drop-cap" style={{ fontFamily: "var(--font-serif)", fontSize: 17, lineHeight: 1.6, color: "var(--ink)", maxWidth: "68ch" }}>
+              <ReactMarkdown>{data.keyDebateMd}</ReactMarkdown>
+            </div>
+          ) : (
+            <ProseSkeleton lines={5} />
+          )}
+        </div>
+      </div>
+      <style>{`
+        @media (max-width: 760px) {
+          #key-debate .kd-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
    Panel 02 · Business
    ────────────────────────────────────────────────────────────── */
 
@@ -986,62 +1104,73 @@ function Panel02Business({ data, hasReport }: { data: WorkstationData; hasReport
     <section id="p02" className="analyze-panel" style={panelStyle()}>
       <PanelHead num="02" eyebrow="Resumen del negocio" title="Qué hace la compañía y cómo gana plata." meta={`As of ${data.asOf} · ${data.filingRef}`} />
 
-      <div className="twocol-rev" style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 32 }}>
+      {/* Bloque principal: businessModel */}
+      <div style={{ marginBottom: 28 }}>
+        {hasReport && data.businessSummaryMd ? (
+          <div className="drop-cap" style={{ fontFamily: "var(--font-serif)", fontSize: 17, lineHeight: 1.65, color: "var(--ink)", maxWidth: "72ch" }}>
+            <ReactMarkdown>{data.businessSummaryMd}</ReactMarkdown>
+          </div>
+        ) : (
+          <ProseSkeleton lines={6} />
+        )}
+      </div>
+
+      {/* Ventajas competitivas + Fuentes de ingresos */}
+      <div className="twocol" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, paddingTop: 24, borderTop: "1px solid var(--rule)" }}>
         <div>
-          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Drivers recientes</span></div>
-          {hasReport && data.driversMd ? (
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "44ch" }}>
-              <ReactMarkdown>{data.driversMd}</ReactMarkdown>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Ventajas competitivas</span></div>
+          {hasReport && data.competitiveAdvantagesMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "52ch" }}>
+              <ReactMarkdown>{data.competitiveAdvantagesMd}</ReactMarkdown>
             </div>
           ) : (
-            <ProseSkeleton lines={5} />
+            <ProseSkeleton lines={6} />
           )}
         </div>
-
         <div>
-          {hasReport && data.businessSummaryMd ? (
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: 17, lineHeight: 1.6, color: "var(--ink)", marginBottom: 20, maxWidth: "70ch" }}>
-              <ReactMarkdown>{data.businessSummaryMd}</ReactMarkdown>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Fuentes de ingresos</span></div>
+          {hasReport && data.revenueStreamsMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "52ch" }}>
+              <ReactMarkdown>{data.revenueStreamsMd}</ReactMarkdown>
             </div>
           ) : (
-            <div style={{ marginBottom: 20 }}>
-              <ProseSkeleton lines={6} />
-            </div>
-          )}
-
-          {data.segments.length > 0 && (
-            <>
-              <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Mix de revenue por segmento</span></div>
-              <div style={{ display: "flex", height: 22, width: "100%", border: "1px solid var(--rule)", marginBottom: 12 }}>
-                {data.segments.map((s, i) => (
-                  <div
-                    key={s.name}
-                    style={{
-                      width: `${s.share}%`,
-                      background: s.color,
-                      borderRight: i < data.segments.length - 1 ? "1px solid rgba(255,255,255,0.15)" : "none",
-                    }}
-                    title={`${s.name} · ${s.share} %`}
-                  />
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "8px 16px" }}>
-                {data.segments.map((s) => (
-                  <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 10, height: 10, background: s.color, display: "inline-block", flexShrink: 0 }} />
-                    <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--ink-2)", flex: 1 }}>{s.name}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{s.share} %</span>
-                  </div>
-                ))}
-              </div>
-            </>
+            <ProseSkeleton lines={6} />
           )}
         </div>
       </div>
 
+      {/* Mix de revenue */}
+      {data.segments.length > 0 && (
+        <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--rule)" }}>
+          <div className="eyebrow-bar" style={{ marginBottom: 12 }}><span>Mix de revenue por segmento</span></div>
+          <div style={{ display: "flex", height: 22, width: "100%", border: "1px solid var(--rule)", marginBottom: 12 }}>
+            {data.segments.map((s, i) => (
+              <div
+                key={s.name}
+                style={{
+                  width: `${s.share}%`,
+                  background: s.color,
+                  borderRight: i < data.segments.length - 1 ? "1px solid rgba(255,255,255,0.15)" : "none",
+                }}
+                title={`${s.name} · ${s.share} %`}
+              />
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "8px 16px" }}>
+            {data.segments.map((s) => (
+              <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 10, height: 10, background: s.color, display: "inline-block", flexShrink: 0 }} />
+                <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--ink-2)", flex: 1 }}>{s.name}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{s.share} %</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <style>{`
         @media (max-width: 980px) {
-          .twocol-rev { grid-template-columns: 1fr !important; }
+          #p02 .twocol { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </section>
@@ -1067,7 +1196,6 @@ function Panel03KPIs({ data }: { data: WorkstationData }) {
             value={value}
             tone={t}
             info={info}
-            spark={data.spark}
             isOpen={openLabel === label}
             onToggle={() => setOpenLabel(openLabel === label ? null : label)}
             onClose={() => setOpenLabel(null)}
@@ -1078,7 +1206,6 @@ function Panel03KPIs({ data }: { data: WorkstationData }) {
       <div className="iline" style={{ marginTop: 14 }}>
         <strong>Notas:</strong>
         <span className="sep">·</span>TTM = trailing twelve months
-        <span className="sep">·</span>Sparklines: precio 52 semanas
       </div>
     </section>
   );
@@ -1089,7 +1216,6 @@ function KpiTile({
   value,
   tone,
   info,
-  spark,
   isOpen,
   onToggle,
   onClose,
@@ -1098,7 +1224,6 @@ function KpiTile({
   value: string;
   tone: "pos" | "neg" | null;
   info?: string;
-  spark: number[];
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
@@ -1120,8 +1245,6 @@ function KpiTile({
       document.removeEventListener("keydown", onEsc);
     };
   }, [isOpen, onClose]);
-
-  const sparkColor = tone === "pos" ? "var(--pos)" : tone === "neg" ? "var(--neg)" : "var(--navy-300)";
 
   return (
     <div
@@ -1177,7 +1300,6 @@ function KpiTile({
       <div className="label" style={{ paddingRight: info ? 22 : 0 }}>{label}</div>
       <div className="row">
         <div className="v">{value}</div>
-        <Spark data={spark} color={sparkColor} />
       </div>
       {isOpen && info && (
         <div
@@ -1209,93 +1331,29 @@ function KpiTile({
    Panel 04 · Precio y trimestrales
    ────────────────────────────────────────────────────────────── */
 
-function Panel04PriceQuarters({ data, ticker }: { data: WorkstationData; ticker: string }) {
-  const [period, setPeriod] = useState<Period>("1Y");
-
-  const sliceLen: Record<Period, number> = { "1M": 5, "6M": 26, "1Y": 52, "3Y": 156, "5Y": 156 };
-  const len = sliceLen[period];
-  const pts = data.pricePath.slice(-len).map((p) => ({ y: p.y, time: p.time }));
-
+function Panel04PriceQuarters({ data, ticker, hasReport, stockData }: { data: WorkstationData; ticker: string; hasReport: boolean; stockData: StockData | null }) {
   const haveEps = data.quarters.some((q) => q.eps != null);
+  const historicalPrices = stockData?.historicalPrices ?? null;
+  const quarterlyRevenue = stockData?.quarterlyRevenue ?? null;
 
   return (
     <section id="p04" className="analyze-panel" style={panelStyle()}>
-      <PanelHead num="04" eyebrow="Precio y trimestrales" title={<>Precio histórico y resultados, <em>juntos en pantalla.</em></>}>
-        <div style={{ display: "flex", border: "1px solid var(--rule)" }}>
-          {PERIODS.map((p) => {
-            const active = p === period;
-            return (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                style={{
-                  background: active ? "var(--navy)" : "transparent",
-                  color: active ? "var(--ivory)" : "var(--ink-2)",
-                  border: 0,
-                  padding: "6px 12px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.06em",
-                  cursor: "pointer",
-                }}
-              >
-                {p}
-              </button>
-            );
-          })}
-        </div>
-      </PanelHead>
+      <PanelHead num="04" eyebrow="Precio y trimestrales" title={<>Precio histórico y resultados, <em>juntos en pantalla.</em></>} />
 
-      <div className="twocol" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24 }}>
-        <div style={{ background: "var(--paper)", border: "1px solid var(--rule)", padding: "16px 18px" }}>
-          <div className="iline" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-            <span><strong>{ticker}</strong><span className="sep">·</span>{period}</span>
-            <span>Live · Yahoo Finance</span>
-          </div>
-          {pts.length > 1 ? (
-            <LineChart
-              height={280}
-              formatY={(n) => fmtNum(n, 0)}
-              showLastValue
-              series={[{ points: pts, color: "var(--navy)", area: true, label: ticker }]}
-            />
-          ) : (
-            <div className="skeleton-block" style={{ height: 280 }} />
-          )}
+      <div style={{ background: "var(--paper)", border: "1px solid var(--rule)", padding: "16px 18px" }}>
+        <div className="iline" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+          <span><strong>{ticker}</strong><span className="sep">·</span>Precio histórico</span>
+          <span>Live · Yahoo Finance</span>
         </div>
-
-        <div style={{ background: "var(--paper)", border: "1px solid var(--rule)", padding: "16px 18px" }}>
-          <div className="iline" style={{ marginBottom: 10, display: "flex", justifyContent: "space-between" }}>
-            <span><strong>Quarterly results</strong><span className="sep">·</span>Últimos {data.quarters.length} trim.</span>
-            <span style={{ display: "inline-flex", gap: 12, alignItems: "center" }}>
-              <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                <span style={{ width: 8, height: 8, background: "var(--navy)", display: "inline-block" }} />Rev (B)
-              </span>
-              {haveEps && (
-                <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ width: 8, height: 8, background: "var(--gold)", display: "inline-block" }} />EPS × 10
-                </span>
-              )}
-            </span>
-          </div>
-          {data.quarters.length > 0 ? (
-            <BarChart
-              height={220}
-              formatY={(n) => fmtNum(n, 0)}
-              groups={data.quarters.map((q) => ({
-                label: q.q,
-                bars: haveEps
-                  ? [
-                      { value: q.rev ?? 0, color: q.beat === false ? "var(--navy-300)" : "var(--navy)" },
-                      { value: (q.eps ?? 0) * 10, color: q.beat === false ? "var(--gold-soft)" : "var(--gold)" },
-                    ]
-                  : [{ value: q.rev ?? 0, color: "var(--navy)" }],
-              }))}
-            />
-          ) : (
-            <div className="skeleton-block" style={{ height: 220 }} />
-          )}
-        </div>
+        {historicalPrices && historicalPrices.length > 1 ? (
+          <PriceChartInstitucional
+            ticker={ticker}
+            historicalPrices={historicalPrices}
+            quarterlyRevenue={quarterlyRevenue}
+          />
+        ) : (
+          <div className="skeleton-block" style={{ height: 280 }} />
+        )}
       </div>
 
       {/* Beat/miss table — only if we have eps data */}
@@ -1341,11 +1399,17 @@ function Panel04PriceQuarters({ data, ticker }: { data: WorkstationData; ticker:
         </div>
       )}
 
-      <style>{`
-        @media (max-width: 980px) {
-          .twocol { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      {/* Lectura del último trimestre */}
+      <div style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid var(--rule)" }}>
+        <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Lectura del último trimestre</span></div>
+        {hasReport && data.driversMd ? (
+          <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "72ch" }}>
+            <ReactMarkdown>{data.driversMd}</ReactMarkdown>
+          </div>
+        ) : (
+          <ProseSkeleton lines={5} />
+        )}
+      </div>
     </section>
   );
 }
@@ -1401,6 +1465,12 @@ function Panel05Income({ data, hasReport, segmentData }: { data: WorkstationData
 
 function CascadeTable({ s }: { s: SankeyData }) {
   const pct = (v: number) => (s.revenue > 0 ? `${fmtNum((v / s.revenue) * 100, 1)} %` : "—");
+  // Values arrive in billions (raw $ / 1e9). For sub-billion issuers that
+  // rounds every leg to "0,0", so we pick the unit from the revenue magnitude.
+  const unit: "B" | "M" | "K" =
+    s.revenue >= 1 ? "B" : s.revenue >= 0.001 ? "M" : "K";
+  const scale = unit === "B" ? 1 : unit === "M" ? 1_000 : 1_000_000;
+  const dec = unit === "B" ? 1 : 0;
   const rows: Array<[string, number, string, "neg" | "highlight" | null]> = [
     ["Revenue", s.revenue, "100,0 %", "highlight"],
     ["Cost of revenue", s.costOfRevenue, pct(s.costOfRevenue), "neg"],
@@ -1415,7 +1485,7 @@ function CascadeTable({ s }: { s: SankeyData }) {
       <thead>
         <tr>
           <th>Línea</th>
-          <th>Valor (B)</th>
+          <th>Valor ({unit})</th>
           <th>% Rev</th>
         </tr>
       </thead>
@@ -1427,7 +1497,7 @@ function CascadeTable({ s }: { s: SankeyData }) {
           return (
             <tr key={label}>
               <td style={{ background: bg, fontWeight: weight, color: "var(--ink)" }}>{label}</td>
-              <td style={{ background: bg, fontWeight: weight, color }}>{fmtNum(v, 1)}</td>
+              <td style={{ background: bg, fontWeight: weight, color }}>{fmtNum(v * scale, dec)}</td>
               <td style={{ background: bg, fontWeight: weight, color }}>{pctText}</td>
             </tr>
           );
@@ -1438,22 +1508,160 @@ function CascadeTable({ s }: { s: SankeyData }) {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Panel 06 · Wall Street
+   Panel 06 · Balance y caja
    ────────────────────────────────────────────────────────────── */
 
-function Panel06WallStreet({ data, ticker, hasReport }: { data: WorkstationData; ticker: string; hasReport: boolean }) {
+function Panel06BalanceCash({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+  const acf = data.annualCashFlow;
+  return (
+    <section id="p06" className="analyze-panel" style={panelStyle()}>
+      <PanelHead num="06" eyebrow="Balance y caja" title={<>De los pasivos al track record, <em>cuatro lecturas.</em></>} meta="Yahoo Finance · annual 10-K" />
+
+      <div className="balance-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28, marginBottom: 28 }}>
+        <div>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Salud del balance</span></div>
+          {hasReport && data.balanceSheetMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "56ch" }}>
+              <ReactMarkdown>{data.balanceSheetMd}</ReactMarkdown>
+            </div>
+          ) : <ProseSkeleton lines={6} />}
+        </div>
+        <div>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Free cash flow</span></div>
+          {hasReport && data.freeCashFlowMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "56ch" }}>
+              <ReactMarkdown>{data.freeCashFlowMd}</ReactMarkdown>
+            </div>
+          ) : <ProseSkeleton lines={6} />}
+        </div>
+        <div>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Inversión de capital · CAPEX</span></div>
+          {hasReport && data.capitalExpenditureMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "56ch" }}>
+              <ReactMarkdown>{data.capitalExpenditureMd}</ReactMarkdown>
+            </div>
+          ) : <ProseSkeleton lines={6} />}
+        </div>
+        <div>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Asignación de capital · track record</span></div>
+          {hasReport && data.capitalAllocationMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "56ch" }}>
+              <ReactMarkdown>{data.capitalAllocationMd}</ReactMarkdown>
+            </div>
+          ) : <ProseSkeleton lines={6} />}
+        </div>
+      </div>
+
+      {acf.length > 0 && (
+        <div style={{ paddingTop: 24, borderTop: "1px solid var(--rule)" }}>
+          <div className="eyebrow-bar" style={{ marginBottom: 12 }}><span>CAPEX · OCF · FCF · últimos {acf.length} ejercicios</span></div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="ctbl">
+              <thead>
+                <tr>
+                  <th>Línea</th>
+                  {acf.map((y) => (<th key={y.year}>FY {y.year}</th>))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>CAPEX</td>
+                  {acf.map((y) => (
+                    <td key={y.year} className="neg-fg">{y.capitalExpenditure != null ? fmtCompactB(Math.abs(y.capitalExpenditure)) : "—"}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <td>OCF</td>
+                  {acf.map((y) => (
+                    <td key={y.year}>{y.operatingCashFlow != null ? fmtCompactB(y.operatingCashFlow) : "—"}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <td>FCF</td>
+                  {acf.map((y) => (
+                    <td key={y.year} className={(y.freeCashFlow ?? 0) >= 0 ? "pos-fg" : "neg-fg"}>
+                      {y.freeCashFlow != null ? fmtCompactB(y.freeCashFlow) : "—"}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @media (max-width: 760px) {
+          #p06 .balance-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+function fmtCompactB(n: number): string {
+  const sign = n < 0 ? "−" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1e12) return `${sign}${fmtNum(abs / 1e12, 2)} T`;
+  if (abs >= 1e9) return `${sign}${fmtNum(abs / 1e9, 1)} B`;
+  if (abs >= 1e6) return `${sign}${fmtNum(abs / 1e6, 0)} M`;
+  return sign + fmtNum(abs, 0);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Panel 07 · Industria y gestión
+   ────────────────────────────────────────────────────────────── */
+
+function Panel07IndustryManagement({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+  return (
+    <section id="p07" className="analyze-panel" style={panelStyle()}>
+      <PanelHead num="07" eyebrow="Industria y gestión" title="Dónde compite, quiénes la dirigen." meta="Contexto sectorial · 10-K · Proxy" />
+
+      <div className="twocol" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+        <div>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Contexto de industria</span></div>
+          {hasReport && data.industryContextMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "60ch" }}>
+              <ReactMarkdown>{data.industryContextMd}</ReactMarkdown>
+            </div>
+          ) : <ProseSkeleton lines={8} />}
+        </div>
+        <div>
+          <div className="eyebrow-bar" style={{ marginBottom: 10 }}><span>Calidad de la gestión</span></div>
+          {hasReport && data.managementQualityMd ? (
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.6, color: "var(--ink-2)", maxWidth: "60ch" }}>
+              <ReactMarkdown>{data.managementQualityMd}</ReactMarkdown>
+            </div>
+          ) : <ProseSkeleton lines={8} />}
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 980px) {
+          #p07 .twocol { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Panel 08 · Wall Street
+   ────────────────────────────────────────────────────────────── */
+
+function Panel08WallStreet({ data, ticker, hasReport }: { data: WorkstationData; ticker: string; hasReport: boolean }) {
   const c = data.consensus;
   const total = c.buy + c.hold + c.sell;
   const hasTargets = c.targetLow != null && c.targetHigh != null && c.targetAvg != null;
   const range = hasTargets ? c.targetHigh! - c.targetLow! : 0;
-  const hoyPos = range > 0 ? ((data.price - c.targetLow!) / range) * 100 : 50;
+  const hoyPos = range > 0 && data.price != null ? ((data.price - c.targetLow!) / range) * 100 : null;
   const avgPos = range > 0 ? ((c.targetAvg! - c.targetLow!) / range) * 100 : 50;
-  const upside = c.targetAvg != null && data.price > 0 ? ((c.targetAvg - data.price) / data.price) * 100 : null;
+  const upside = c.targetAvg != null && data.price != null && data.price > 0 ? ((c.targetAvg - data.price) / data.price) * 100 : null;
 
   if (total === 0 && !hasTargets && data.analystActions.length === 0) {
     return (
-      <section id="p06" className="analyze-panel" style={panelStyle()}>
-        <PanelHead num="06" eyebrow="Wall Street" title={`Sin cobertura disponible para ${ticker}.`} />
+      <section id="p08" className="analyze-panel" style={panelStyle()}>
+        <PanelHead num="08" eyebrow="Wall Street" title={`Sin cobertura disponible para ${ticker}.`} />
         <p className="body-base" style={{ color: "var(--ink-3)" }}>
           Yahoo Finance no reporta consenso de analistas ni acciones recientes para este ticker.
         </p>
@@ -1462,8 +1670,8 @@ function Panel06WallStreet({ data, ticker, hasReport }: { data: WorkstationData;
   }
 
   return (
-    <section id="p06" className="analyze-panel" style={panelStyle()}>
-      <PanelHead num="06" eyebrow="Wall Street" title={`${total} analistas siguen ${ticker}.`} meta="Yahoo Finance consensus" />
+    <section id="p08" className="analyze-panel" style={panelStyle()}>
+      <PanelHead num="08" eyebrow="Wall Street" title={`${total} analistas siguen ${ticker}.`} meta="Yahoo Finance consensus" />
 
       <div className="twocol-rev" style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 24 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1499,11 +1707,13 @@ function Panel06WallStreet({ data, ticker, hasReport }: { data: WorkstationData;
             <div style={{ background: "var(--paper)", border: "1px solid var(--rule)", padding: 18 }}>
               <div className="eyebrow-bar" style={{ marginBottom: 14 }}><span>Target price · rango</span></div>
               <div style={{ position: "relative", height: 4, background: "linear-gradient(to right, var(--navy-050), var(--gold), var(--navy-050))", margin: "26px 0 22px" }}>
-                <div style={{ position: "absolute", left: `calc(${Math.max(0, Math.min(100, hoyPos))}% - 1px)`, top: -10, bottom: -10, width: 2, background: "var(--ink)" }}>
-                  <span style={{ position: "absolute", left: "50%", top: -16, transform: "translateX(-50%)", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink)", whiteSpace: "nowrap" }}>
-                    Hoy {fmtNum(data.price, 0)}
-                  </span>
-                </div>
+                {hoyPos != null && (
+                  <div style={{ position: "absolute", left: `calc(${Math.max(0, Math.min(100, hoyPos))}% - 1px)`, top: -10, bottom: -10, width: 2, background: "var(--ink)" }}>
+                    <span style={{ position: "absolute", left: "50%", top: -16, transform: "translateX(-50%)", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink)", whiteSpace: "nowrap" }}>
+                      Hoy {fmtNum(data.price, 0)}
+                    </span>
+                  </div>
+                )}
                 <div style={{ position: "absolute", left: `calc(${Math.max(0, Math.min(100, avgPos))}% - 1px)`, top: -10, bottom: -10, width: 2, background: "var(--gold-deep)" }}>
                   <span style={{ position: "absolute", left: "50%", bottom: -18, transform: "translateX(-50%)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 500, color: "var(--gold-deep)", whiteSpace: "nowrap" }}>
                     Avg {fmtNum(c.targetAvg!, 0)}
@@ -1549,7 +1759,7 @@ function Panel06WallStreet({ data, ticker, hasReport }: { data: WorkstationData;
         <div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
             <div className="eyebrow-bar"><span>Acciones recientes de analistas</span></div>
-            <div className="meta-row">{data.analystActions.length} de {data.analystActions.length} mostradas</div>
+            <div className="meta-row">{data.analystActions.length} {data.analystActions.length === 1 ? "acción" : "acciones"}</div>
           </div>
           {data.analystActions.length > 0 ? (
             <div style={{ border: "1px solid var(--rule)", background: "var(--paper)", overflowX: "auto" }}>
@@ -1588,7 +1798,7 @@ function Panel06WallStreet({ data, ticker, hasReport }: { data: WorkstationData;
 
       <style>{`
         @media (max-width: 1100px) {
-          #p06 .twocol-rev { grid-template-columns: 1fr !important; }
+          #p08 .twocol-rev { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </section>
@@ -1615,13 +1825,265 @@ function ConsensusLegendRow({ label, count, color, total }: { label: string; cou
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Panel 07 · Risks / Catalysts
+   Recent News · mini panel entre Wall Street y Escenarios
    ────────────────────────────────────────────────────────────── */
 
-function Panel07RisksCatalysts({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+function PanelRecentNews({ data }: { data: WorkstationData }) {
+  if (!data.recentNews || data.recentNews.length === 0) return null;
+
+  // Order items by source tier ascending (wire coverage first), then by date
+  // descending (most recent within tier). This puts the most credible sources
+  // at the top of the panel without exposing the tier classification to the
+  // reader — the same logic that institutional terminals apply.
+  const news = [...data.recentNews].sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    return b.publishedAt.localeCompare(a.publishedAt);
+  });
+
+  // Publisher names get progressively muted as tier degrades. This is the
+  // only visual signal of source credibility in the UI — no labels, no
+  // numbers. The reader recognizes Reuters/Bloomberg by name; everything
+  // else fades into the background.
+  const publisherColor = (tier: 1 | 2 | 3 | 4): string =>
+    tier === 1 ? "var(--ink)" :
+    tier === 2 ? "var(--ink-2)" :
+    "var(--ink-3)";
+
   return (
-    <section id="p07" className="analyze-panel" style={panelStyle()}>
-      <PanelHead num="07" eyebrow="Riesgos · catalizadores" title="Lo que puede ir mal. Lo que puede ir mejor." />
+    <section id="recent-news" className="analyze-panel" style={panelStyle({ background: "var(--ivory-warm)" })}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, marginBottom: 20, flexWrap: "wrap" }}>
+        <div>
+          <div className="eyebrow-bar"><span>Noticias recientes</span></div>
+          <h2 className="panel-h2" style={{ marginTop: 8 }}>
+            Flujo de información <em>relevante.</em>
+          </h2>
+        </div>
+        <div className="meta-row">{news.length} items · ordenados por relevancia y fecha</div>
+      </div>
+
+      <ol style={{ listStyle: "none", padding: 0, margin: 0, borderTop: "1px solid var(--rule)" }}>
+        {news.map((n, i) => (
+          <li
+            key={`${n.publishedAt}-${i}`}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "86px 1fr",
+              gap: 18,
+              padding: "14px 0",
+              borderBottom: "1px solid var(--rule)",
+              alignItems: "baseline",
+            }}
+          >
+            <span
+              className="mono"
+              style={{
+                fontSize: 11,
+                color: "var(--ink-3)",
+                fontVariantNumeric: "tabular-nums",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {n.publishedAt}
+            </span>
+            <div>
+              {n.link ? (
+                <a
+                  href={n.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="serif news-title-link"
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 400,
+                    color: "var(--ink)",
+                    letterSpacing: "-0.01em",
+                    lineHeight: 1.35,
+                    textDecoration: "none",
+                    borderBottom: "1px solid transparent",
+                    transition: "border-color 160ms ease",
+                  }}
+                >
+                  {n.title}
+                </a>
+              ) : (
+                <span className="serif" style={{ fontSize: 16, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                  {n.title}
+                </span>
+              )}
+              {n.description && (
+                <div
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                    color: "var(--ink-2)",
+                    marginTop: 6,
+                    maxWidth: "70ch",
+                  }}
+                >
+                  {n.description}
+                </div>
+              )}
+              <div
+                className="mono"
+                style={{
+                  fontSize: 11,
+                  color: publisherColor(n.tier),
+                  marginTop: n.description ? 8 : 4,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {n.publisher}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <style>{`
+        #recent-news .news-title-link:hover {
+          border-bottom-color: var(--gold-deep) !important;
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Panel 09 · Escenarios bull / bear
+   ────────────────────────────────────────────────────────────── */
+
+function Panel09Scenarios({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+  const bull = data.bullCase;
+  const bear = data.bearCase;
+  const hasProbs = data.bullProbability != null && data.bearProbability != null;
+
+  return (
+    <section id="p09" className="analyze-panel" style={panelStyle()}>
+      <PanelHead num="09" eyebrow="Escenarios bull · base · bear" title={<>Tres lecturas, <em>tres precios.</em></>} meta="Modelo Bengochea · probabilidad y EV ponderado" />
+
+      {hasReport && (bull || bear) ? (
+        <>
+          <div className="threecol-scenarios" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            {bull && (
+              <article style={{ background: "var(--paper)", border: "1px solid var(--rule)", borderTop: "3px solid var(--pos)", padding: "20px 24px" }}>
+                <div className="eyebrow-bar" style={{ marginBottom: 6, color: "var(--pos)" }}>
+                  <span style={{ background: "var(--pos)" }} />
+                  <span style={{ color: "var(--pos)" }}>Escenario alcista</span>
+                </div>
+                <div className="mono" style={{ fontSize: 28, fontWeight: 500, color: "var(--pos)", letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums", marginTop: 8 }}>
+                  USD {bull.priceTarget}
+                </div>
+                {hasProbs && (
+                  <div className="mono" style={{ fontSize: 12, color: "var(--pos)", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                    Probabilidad {data.bullProbability} %
+                  </div>
+                )}
+                <div style={{ fontFamily: "var(--font-serif)", fontSize: 15, lineHeight: 1.55, color: "var(--ink-2)", maxWidth: "44ch", marginTop: 12 }}>
+                  <ReactMarkdown>{bull.narrative}</ReactMarkdown>
+                </div>
+              </article>
+            )}
+
+            {/* Base case — derivado del verdict.priceTarget */}
+            {data.target != null && (
+              <article style={{ background: "var(--paper)", border: "1px solid var(--rule)", borderTop: "3px solid var(--gold-deep)", padding: "20px 24px" }}>
+                <div className="eyebrow-bar" style={{ marginBottom: 6, color: "var(--gold-deep)" }}>
+                  <span style={{ background: "var(--gold-deep)" }} />
+                  <span style={{ color: "var(--gold-deep)" }}>Caso base · target casa</span>
+                </div>
+                <div className="mono" style={{ fontSize: 28, fontWeight: 500, color: "var(--ink)", letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums", marginTop: 8 }}>
+                  USD {fmtNum(data.target, 0)}
+                </div>
+                {hasProbs && data.baseProbability != null && (
+                  <div className="mono" style={{ fontSize: 12, color: "var(--gold-deep)", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                    Probabilidad {data.baseProbability} %
+                  </div>
+                )}
+                <div className="body-base" style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-2)", marginTop: 12, maxWidth: "44ch" }}>
+                  Escenario más probable según la lectura cuantitativa del modelo. {data.targetUpside != null && (
+                    <>Upside {fmtPct(data.targetUpside)} vs precio actual.</>
+                  )}
+                </div>
+              </article>
+            )}
+
+            {bear && (
+              <article style={{ background: "var(--paper)", border: "1px solid var(--rule)", borderTop: "3px solid var(--neg)", padding: "20px 24px" }}>
+                <div className="eyebrow-bar" style={{ marginBottom: 6, color: "var(--neg)" }}>
+                  <span style={{ background: "var(--neg)" }} />
+                  <span style={{ color: "var(--neg)" }}>Escenario bajista</span>
+                </div>
+                <div className="mono" style={{ fontSize: 28, fontWeight: 500, color: "var(--neg)", letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums", marginTop: 8 }}>
+                  USD {bear.priceTarget}
+                </div>
+                {hasProbs && (
+                  <div className="mono" style={{ fontSize: 12, color: "var(--neg)", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                    Probabilidad {data.bearProbability} %
+                  </div>
+                )}
+                <div style={{ fontFamily: "var(--font-serif)", fontSize: 15, lineHeight: 1.55, color: "var(--ink-2)", maxWidth: "44ch", marginTop: 12 }}>
+                  <ReactMarkdown>{bear.narrative}</ReactMarkdown>
+                </div>
+              </article>
+            )}
+          </div>
+
+          {/* Footer: expected value + risk/reward */}
+          {(data.expectedValue != null || data.riskReward) && (
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--rule)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              {data.expectedValue != null && (
+                <div>
+                  <div className="eyebrow-plain">Valor esperado ponderado</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 6 }}>
+                    <div className="mono" style={{ fontSize: 22, color: "var(--ink)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
+                      USD {fmtNum(data.expectedValue, 0)}
+                    </div>
+                    {data.expectedValueUpside != null && (
+                      <div className="mono" style={{ fontSize: 13, color: data.expectedValueUpside >= 0 ? "var(--pos)" : "var(--neg)", fontVariantNumeric: "tabular-nums" }}>
+                        {fmtPct(data.expectedValueUpside)} vs USD {fmtNum(data.price)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {data.riskReward && (
+                <div>
+                  <div className="eyebrow-plain">Risk / reward asimetría</div>
+                  <div className="mono" style={{ fontSize: 22, color: "var(--ink)", fontWeight: 500, marginTop: 6, fontVariantNumeric: "tabular-nums" }}>
+                    {data.riskReward}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="threecol-scenarios" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          <ProseSkeleton lines={6} />
+          <ProseSkeleton lines={6} />
+          <ProseSkeleton lines={6} />
+        </div>
+      )}
+
+      <style>{`
+        @media (max-width: 1100px) {
+          #p09 .threecol-scenarios { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Panel 10 · Riesgos · Catalizadores
+   ────────────────────────────────────────────────────────────── */
+
+function Panel10RisksCatalysts({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+  return (
+    <section id="p10" className="analyze-panel" style={panelStyle()}>
+      <PanelHead num="10" eyebrow="Riesgos · catalizadores" title="Lo que puede ir mal. Lo que puede ir mejor." />
 
       <div className="twocol" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
         <div>
@@ -1648,7 +2110,7 @@ function Panel07RisksCatalysts({ data, hasReport }: { data: WorkstationData; has
 
       <style>{`
         @media (max-width: 980px) {
-          #p07 .twocol { grid-template-columns: 1fr !important; }
+          #p10 .twocol { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </section>
@@ -1656,16 +2118,16 @@ function Panel07RisksCatalysts({ data, hasReport }: { data: WorkstationData; has
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Panel 08 · Conclusión
+   Panel 11 · Conclusión
    ────────────────────────────────────────────────────────────── */
 
-function Panel08Conclusion({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
+function Panel11Conclusion({ data, hasReport }: { data: WorkstationData; hasReport: boolean }) {
   const verdictColor =
-    data.verdict === "BUY" ? "var(--pos)" : data.verdict === "AVOID" ? "var(--neg)" : "var(--neu)";
+    data.verdict === "BUY" ? "#7BC9A0" : data.verdict === "AVOID" ? "#E9999A" : "var(--gold-soft)";
 
   return (
-    <section id="p08" className="analyze-panel" style={panelStyle()}>
-      <PanelHead num="08" eyebrow="Conclusión" title="Lo que se llevan de este reporte." />
+    <section id="p11" className="analyze-panel" style={panelStyle()}>
+      <PanelHead num="11" eyebrow="Conclusión" title="Lo que se llevan de este reporte." />
 
       <div style={{ maxWidth: "70ch", marginBottom: 32 }}>
         {hasReport && data.conclusionMd ? (
@@ -1678,21 +2140,37 @@ function Panel08Conclusion({ data, hasReport }: { data: WorkstationData; hasRepo
       </div>
 
       {data.verdict && (
-        <div style={{ background: "var(--ivory-warm)", padding: 32, border: "1px solid var(--rule)" }}>
-          <div className="eyebrow-bar" style={{ marginBottom: 14 }}><span>Veredicto final</span></div>
+        <div style={{ background: "var(--ink)", color: "var(--ivory)", padding: 32, border: "1px solid var(--ink)" }}>
+          <div className="eyebrow-bar" style={{ marginBottom: 14, color: "rgba(255,255,255,0.78)" }}>
+            <span style={{ background: "rgba(255,255,255,0.6)" }} />
+            <span style={{ color: "rgba(255,255,255,0.78)" }}>Veredicto final</span>
+          </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 32, fontWeight: 500, color: verdictColor, letterSpacing: "-0.01em" }}>
               {data.verdict}
             </span>
-            <span style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: 16 }}>—</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)", fontSize: 16 }}>—</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--ivory)", fontVariantNumeric: "tabular-nums" }}>
               {data.target != null
-                ? `Target USD ${fmtNum(data.target, 0)}${data.targetUpside != null ? ` (${fmtPct(data.targetUpside)})` : ""}`
+                ? `${hasReport ? "Target casa" : "Target consenso"} USD ${fmtNum(data.target, 0)}${data.targetUpside != null ? ` (${fmtPct(data.targetUpside)})` : ""}`
                 : "Target no disponible"}
             </span>
-            <span style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: 16 }}>·</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--ink-2)" }}>Horizonte 12 meses</span>
+            <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)", fontSize: 16 }}>·</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>Horizonte 12 meses</span>
           </div>
+
+          {/* Position sizing recommendation — Tier 1 */}
+          {hasReport && data.sizing && (
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.18)" }}>
+              <div className="eyebrow-bar" style={{ marginBottom: 10, color: "rgba(255,255,255,0.78)" }}>
+                <span style={{ background: "rgba(255,255,255,0.6)" }} />
+                <span style={{ color: "rgba(255,255,255,0.78)" }}>Posicionamiento sugerido</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.55, color: "var(--ivory)", maxWidth: "62ch" }}>
+                <ReactMarkdown>{data.sizing}</ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -1700,10 +2178,10 @@ function Panel08Conclusion({ data, hasReport }: { data: WorkstationData; hasRepo
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Panel 09 · Disclaimer
+   Panel 12 · Disclaimer
    ────────────────────────────────────────────────────────────── */
 
-function Panel09Disclaimer() {
+function Panel12Disclaimer() {
   return (
     <section className="analyze-panel" style={panelStyle({ background: "var(--ivory-warm)", borderBottom: "none" })}>
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, alignItems: "start", padding: "12px 0", maxWidth: 900 }}>

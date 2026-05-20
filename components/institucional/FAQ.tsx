@@ -72,6 +72,7 @@ export function FAQ() {
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   aria-expanded={isOpen}
+                  className="faq-row"
                   style={{
                     width: "100%",
                     background: "none",
@@ -96,7 +97,7 @@ export function FAQ() {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span
-                    className="serif"
+                    className="serif faq-question"
                     style={{
                       fontWeight: 400,
                       fontSize: 22,
@@ -128,13 +129,13 @@ export function FAQ() {
                 <div
                   style={{
                     overflow: "hidden",
-                    maxHeight: isOpen ? 320 : 0,
+                    maxHeight: isOpen ? 400 : 0,
                     opacity: isOpen ? 1 : 0,
                     transition: "max-height 260ms ease, opacity 200ms ease",
                   }}
                 >
                   <p
-                    className="body-base"
+                    className="body-base faq-answer"
                     style={{
                       margin: 0,
                       padding: "0 0 var(--space-5) 60px",
@@ -152,8 +153,9 @@ export function FAQ() {
 
       <style>{`
         @media (max-width: 640px) {
-          button[aria-expanded] { grid-template-columns: 40px 1fr 24px !important; }
-          .body-base[style*="60px"] { padding-left: 40px !important; }
+          .faq-row { grid-template-columns: 32px 1fr 24px !important; gap: var(--space-2) !important; }
+          .faq-question { font-size: 18px !important; }
+          .faq-answer { padding-left: 0 !important; }
         }
       `}</style>
     </section>

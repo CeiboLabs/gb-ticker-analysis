@@ -7,16 +7,16 @@ import { currencyPrefix } from "@/lib/currencyPrefix";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const SEG_COLORS = [
-  "#9C7F2E", "#C9A84C", "#0A0E78", "#2C3194",
-  "#6B70B8", "#9FA2C0", "#E8D8A4", "#3A3E5C",
+  "#4E86C8", "#5AAF6E", "#E8952A", "#D95050",
+  "#8E67C4", "#38A8A8", "#C47A40", "#6E9E3C",
 ];
-const C_GP   = "#2C3194";
-const C_COGS = "#8E2A2A";
-const C_OP   = "#0A0E78";
-const C_OPEX = "#9C7F2E";
-const C_NP   = "#1F6B45";
-const C_TAX  = "#5C5F7A";
-const C_INV  = "#6B70B8";
+const C_GP   = "#4AAE6A";
+const C_COGS = "#E07575";
+const C_OP   = "#3892C0";
+const C_OPEX = "#E09A40";
+const C_NP   = "#2ECC71";
+const C_TAX  = "#C03030";
+const C_INV  = "#8A6CC8";
 
 const VW       = 1000;
 const FLOW_OP  = 0.72;
@@ -255,17 +255,17 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         id: "loss",
         name: "Net Loss",
         displayValue: `-${fmt(loss, unit)}`,
-        color: "#8E2A2A",
+        color: "#B0353A",
       });
       const buckets: Array<{ id: string; name: string; value: number; color: string }> = [];
-      if (opbGaPR  > 0) buckets.push({ id: "ga",     name: "G&A",            value: opbGaPR,  color: "#9C7F2E" });
-      if (opbRdPR  > 0) buckets.push({ id: "rd",     name: "R&D",            value: opbRdPR,  color: "#C9A84C" });
-      if (opbDepPR > 0) buckets.push({ id: "dep",    name: "D&A",            value: opbDepPR, color: "#6E7290" });
-      if (opbOtPR  > 0) buckets.push({ id: "ot",     name: "Other OpEx",     value: opbOtPR,  color: "#5C5F7A" });
-      if (intExpPR > 0) buckets.push({ id: "intExp", name: "Interest Exp.",  value: intExpPR, color: "#3A3E5C" });
+      if (opbGaPR  > 0) buckets.push({ id: "ga",     name: "G&A",            value: opbGaPR,  color: "#B07030" });
+      if (opbRdPR  > 0) buckets.push({ id: "rd",     name: "R&D",            value: opbRdPR,  color: "#D06050" });
+      if (opbDepPR > 0) buckets.push({ id: "dep",    name: "D&A",            value: opbDepPR, color: "#7A6E5A" });
+      if (opbOtPR  > 0) buckets.push({ id: "ot",     name: "Other OpEx",     value: opbOtPR,  color: "#C09050" });
+      if (intExpPR > 0) buckets.push({ id: "intExp", name: "Interest Exp.",  value: intExpPR, color: "#C95A2C" });
       if (taxPR    > 0) buckets.push({ id: "tax",    name: "Taxes",          value: taxPR,    color: C_TAX     });
       if (residualPR > loss * 0.005) {
-        buckets.push({ id: "otherCh", name: "Other Charges", value: residualPR, color: "#9FA2C0" });
+        buckets.push({ id: "otherCh", name: "Other Charges", value: residualPR, color: "#A06070" });
       }
       for (const b of buckets) {
         addNode({ id: b.id, name: b.name, displayValue: fmt(b.value, unit), color: b.color });
@@ -306,19 +306,19 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       const synthSink   = Math.max(0, (rev + lossBank) - tagged);
       const synthSource = Math.max(0, tagged - (rev + lossBank));
 
-      addNode({ id: "loss", name: "Net Loss", displayValue: `-${fmt(lossBank, unit)}`, color: "#8E2A2A" });
+      addNode({ id: "loss", name: "Net Loss", displayValue: `-${fmt(lossBank, unit)}`, color: "#B0353A" });
       segNodeIds.add("loss");
 
       if (synthSource > 0) {
-        addNode({ id: "nonop", name: "Non-Op Income", displayValue: `+${fmt(synthSource, unit)}`, color: "#1F6B45" });
+        addNode({ id: "nonop", name: "Non-Op Income", displayValue: `+${fmt(synthSource, unit)}`, color: "#5A8A5A" });
         segNodeIds.add("nonop");
       }
 
       const tcTotal = rev + lossBank + synthSource;
       addNode({ id: "tc", name: "Op. Costs", displayValue: fmt(tcTotal, unit), color: C_OPEX });
       addLink({ source: "revenue", target: "tc", value: rev,      color: C_OPEX });
-      addLink({ source: "loss",    target: "tc", value: lossBank, color: "#8E2A2A" });
-      if (synthSource > 0) addLink({ source: "nonop", target: "tc", value: synthSource, color: "#1F6B45" });
+      addLink({ source: "loss",    target: "tc", value: lossBank, color: "#B0353A" });
+      if (synthSource > 0) addLink({ source: "nonop", target: "tc", value: synthSource, color: "#5A8A5A" });
 
       if (provision > 0) {
         addNode({ id: "provision", name: "Provisions", displayValue: fmt(provision, unit), color: C_COGS });
@@ -333,8 +333,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         addLink({ source: "tc", target: "tax", value: taxBank, color: C_TAX });
       }
       if (synthSink > 0) {
-        addNode({ id: "otherBank", name: "Other Costs", displayValue: fmt(synthSink, unit), color: "#9FA2C0" });
-        addLink({ source: "tc", target: "otherBank", value: synthSink, color: "#9FA2C0" });
+        addNode({ id: "otherBank", name: "Other Costs", displayValue: fmt(synthSink, unit), color: "#A06070" });
+        addLink({ source: "tc", target: "otherBank", value: synthSink, color: "#A06070" });
       }
     } else {
       const sumOut   = provision + nonExp + taxBank + niBank;
@@ -370,12 +370,12 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           const profNeb  = v(opexBreakdown.bankProfessional);
           const mktNeb   = v(opexBreakdown.bankMarketing);
           const othNeb   = v(opexBreakdown.bankOtherNoninterest);
-          if (compNeb > 0)  bankBuckets.push({ id: "neComp",  name: "Compensation",   value: compNeb, color: "#9FA2C0" });
-          if (techNeb > 0)  bankBuckets.push({ id: "neTech",  name: "Tech & Comm.",   value: techNeb, color: "#6E7290" });
-          if (occNeb > 0)   bankBuckets.push({ id: "neOcc",   name: "Occupancy",      value: occNeb,  color: "#9C7F2E" });
-          if (profNeb > 0)  bankBuckets.push({ id: "neProf",  name: "Prof. Services", value: profNeb, color: "#1F6B45" });
-          if (mktNeb > 0)   bankBuckets.push({ id: "neMkt",   name: "Marketing",      value: mktNeb,  color: "#3A3E5C" });
-          if (othNeb > 0)   bankBuckets.push({ id: "neOther", name: "Other",          value: othNeb,  color: "#5C5F7A" });
+          if (compNeb > 0)  bankBuckets.push({ id: "neComp",  name: "Compensation",   value: compNeb, color: "#A06070" });
+          if (techNeb > 0)  bankBuckets.push({ id: "neTech",  name: "Tech & Comm.",   value: techNeb, color: "#7A6E5A" });
+          if (occNeb > 0)   bankBuckets.push({ id: "neOcc",   name: "Occupancy",      value: occNeb,  color: "#B07030" });
+          if (profNeb > 0)  bankBuckets.push({ id: "neProf",  name: "Prof. Services", value: profNeb, color: "#5A8A5A" });
+          if (mktNeb > 0)   bankBuckets.push({ id: "neMkt",   name: "Marketing",      value: mktNeb,  color: "#C95A2C" });
+          if (othNeb > 0)   bankBuckets.push({ id: "neOther", name: "Other",          value: othNeb,  color: "#C09050" });
         }
         const bucketSum = bankBuckets.reduce((s, b) => s + b.value, 0);
         if (bucketSum > 0 && bucketSum <= nonExp * 1.02) {
@@ -392,14 +392,14 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
             addLink({ source: "nonExp", target: b.id, value: b.value, color: b.color });
           }
           if (!otherBucket && neResidual > nonExp * 0.02) {
-            addNode({ id: "neResidual", name: "Other", displayValue: fmt(neResidual, unit), color: "#5C5F7A" });
-            addLink({ source: "nonExp", target: "neResidual", value: neResidual, color: "#5C5F7A" });
+            addNode({ id: "neResidual", name: "Other", displayValue: fmt(neResidual, unit), color: "#C09050" });
+            addLink({ source: "nonExp", target: "neResidual", value: neResidual, color: "#C09050" });
           }
         }
       }
       if (residual > 0 && residual / rev > 0.01) {
-        addNode({ id: "otherBank", name: "Other Costs", displayValue: fmt(residual, unit), color: "#5C5F7A" });
-        addLink({ source: "revenue", target: "otherBank", value: residual, color: "#5C5F7A" });
+        addNode({ id: "otherBank", name: "Other Costs", displayValue: fmt(residual, unit), color: "#C09050" });
+        addLink({ source: "revenue", target: "otherBank", value: residual, color: "#C09050" });
       }
       if (taxBank > 0) {
         addNode({ id: "tax", name: "Taxes", displayValue: fmt(taxBank, unit), color: C_TAX });
@@ -451,12 +451,12 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       // potentially-stale displayed noi value.
       const noiOut = ga + dep + intExp + taxReit + niReit;
       const noiK = noiOut > noiFlow && noiOut > 0 ? noiFlow / noiOut : 1;
-      if (ga > 0)     { addNode({ id: "ga", name: "G&A", displayValue: fmt(ga, unit), color: "#9C7F2E" });
-                        addLink({ source: "noi", target: "ga", value: ga * noiK, color: "#9C7F2E" }); }
-      if (dep > 0)    { addNode({ id: "dep", name: "D&A", displayValue: fmt(dep, unit), color: "#6E7290" });
-                        addLink({ source: "noi", target: "dep", value: dep * noiK, color: "#6E7290" }); }
-      if (intExp > 0) { addNode({ id: "intExp", name: "Interest Exp.", displayValue: fmt(intExp, unit), color: "#3A3E5C" });
-                        addLink({ source: "noi", target: "intExp", value: intExp * noiK, color: "#3A3E5C" }); }
+      if (ga > 0)     { addNode({ id: "ga", name: "G&A", displayValue: fmt(ga, unit), color: "#B07030" });
+                        addLink({ source: "noi", target: "ga", value: ga * noiK, color: "#B07030" }); }
+      if (dep > 0)    { addNode({ id: "dep", name: "D&A", displayValue: fmt(dep, unit), color: "#7A6E5A" });
+                        addLink({ source: "noi", target: "dep", value: dep * noiK, color: "#7A6E5A" }); }
+      if (intExp > 0) { addNode({ id: "intExp", name: "Interest Exp.", displayValue: fmt(intExp, unit), color: "#C95A2C" });
+                        addLink({ source: "noi", target: "intExp", value: intExp * noiK, color: "#C95A2C" }); }
       if (taxReit > 0){ addNode({ id: "tax", name: "Taxes", displayValue: fmt(taxReit, unit), color: C_TAX });
                         addLink({ source: "noi", target: "tax", value: taxReit * noiK, color: C_TAX }); }
       if (niReit > 0) { addNode({ id: "np", name: "Net Income", displayValue: fmt(niReit, unit),
@@ -467,8 +467,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       // operating items between NOI and Net Income.
       const noiResidual = Math.max(0, noiFlow - (ga + dep + intExp + taxReit + niReit) * noiK);
       if (noiResidual > rev * 0.005) {
-        addNode({ id: "noiOther", name: "Other", displayValue: fmt(noiResidual, unit), color: "#5C5F7A" });
-        addLink({ source: "noi", target: "noiOther", value: noiResidual, color: "#5C5F7A" });
+        addNode({ id: "noiOther", name: "Other", displayValue: fmt(noiResidual, unit), color: "#C09050" });
+        addLink({ source: "noi", target: "noiOther", value: noiResidual, color: "#C09050" });
       }
       customProfileBuilt = true;
     }
@@ -491,12 +491,12 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       });
       addLink({ source: "revenue", target: "comp", value: comp, color: C_OPEX });
       if (ga > 0) {
-        addNode({ id: "ga", name: "G&A", displayValue: fmt(ga, unit), color: "#9C7F2E" });
-        addLink({ source: "revenue", target: "ga", value: ga, color: "#9C7F2E" });
+        addNode({ id: "ga", name: "G&A", displayValue: fmt(ga, unit), color: "#B07030" });
+        addLink({ source: "revenue", target: "ga", value: ga, color: "#B07030" });
       }
       if (otherCosts > rev * 0.01) {
-        addNode({ id: "otherCosts", name: "Other Costs", displayValue: fmt(otherCosts, unit), color: "#5C5F7A" });
-        addLink({ source: "revenue", target: "otherCosts", value: otherCosts, color: "#5C5F7A" });
+        addNode({ id: "otherCosts", name: "Other Costs", displayValue: fmt(otherCosts, unit), color: "#C09050" });
+        addLink({ source: "revenue", target: "otherCosts", value: otherCosts, color: "#C09050" });
       }
       addNode({
         id: "op",
@@ -540,8 +540,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         addLink({ source: "revenue", target: "underw", value: underw, color: C_OPEX });
       }
       if (residualIns > rev * 0.01) {
-        addNode({ id: "otherIns", name: "Other Costs", displayValue: fmt(residualIns, unit), color: "#5C5F7A" });
-        addLink({ source: "revenue", target: "otherIns", value: residualIns, color: "#5C5F7A" });
+        addNode({ id: "otherIns", name: "Other Costs", displayValue: fmt(residualIns, unit), color: "#C09050" });
+        addLink({ source: "revenue", target: "otherIns", value: residualIns, color: "#C09050" });
       }
       if (taxIns > 0) {
         addNode({ id: "tax", name: "Taxes", displayValue: fmt(taxIns, unit), color: C_TAX });
@@ -560,8 +560,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         });
         addLink({ source: "revenue", target: "np", value: niIns, color: C_NP });
       } else if (lossIns > 0) {
-        addNode({ id: "loss", name: "Net Loss", displayValue: `-${fmt(lossIns, unit)}`, color: "#8E2A2A" });
-        addLink({ source: "revenue", target: "loss", value: lossIns, color: "#8E2A2A" });
+        addNode({ id: "loss", name: "Net Loss", displayValue: `-${fmt(lossIns, unit)}`, color: "#B0353A" });
+        addLink({ source: "revenue", target: "loss", value: lossIns, color: "#B0353A" });
       }
       customProfileBuilt = true;
     }
@@ -633,7 +633,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       id: "loss",
       name: "Net Loss",
       displayValue: `-${fmt(lossAmt, unit)}`,
-      color: "#8E2A2A",
+      color: "#B0353A",
     });
     // Label "loss" with the same LEFT placement + greedy anti-overlap used for
     // revenue segments — prevents label collisions when col-1 stacks Revenue,
@@ -645,7 +645,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         id: "nonop",
         name: "Non-Op Income",
         displayValue: `+${fmt(synthSource, unit)}`,
-        color: "#1F6B45",
+        color: "#5A8A5A",
       });
       segNodeIds.add("nonop");
     }
@@ -661,23 +661,23 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       addNode({ id: "cogs", name: "Cost of Rev.", displayValue: fmt(realCogs, unit), color: C_COGS });
       addLink({ source: "revenue", target: "cogs", value: cogsFromRev, color: C_COGS });
       if (cogsFromLoss > 0) {
-        addLink({ source: "loss", target: "cogs", value: cogsFromLoss, color: "#8E2A2A" });
+        addLink({ source: "loss", target: "cogs", value: cogsFromLoss, color: "#B0353A" });
       }
     }
 
     const otherCostEntries: Array<{ id: string; name: string; value: number; color: string }> = [];
-    if (opbFuel  > 0) otherCostEntries.push({ id: "fuel",  name: "Fuel",            value: opbFuel,  color: "#3A3E5C" });
-    if (opbLabor > 0) otherCostEntries.push({ id: "labor", name: "Salaries & Wages", value: opbLabor, color: "#9C7F2E" });
-    if (opbMaint > 0) otherCostEntries.push({ id: "maint", name: "Maintenance",     value: opbMaint, color: "#C9A84C" });
-    if (opbRent  > 0) otherCostEntries.push({ id: "rent",  name: "Rent & Landing",  value: opbRent,  color: "#9C7F2E" });
-    if (opbDep   > 0) otherCostEntries.push({ id: "dep",   name: "D&A",             value: opbDep,   color: "#6E7290" });
-    if (opbRd    > 0) otherCostEntries.push({ id: "rd",    name: "R&D",          value: opbRd,      color: "#C9A84C" });
+    if (opbFuel  > 0) otherCostEntries.push({ id: "fuel",  name: "Fuel",            value: opbFuel,  color: "#C95A2C" });
+    if (opbLabor > 0) otherCostEntries.push({ id: "labor", name: "Salaries & Wages", value: opbLabor, color: "#B5723A" });
+    if (opbMaint > 0) otherCostEntries.push({ id: "maint", name: "Maintenance",     value: opbMaint, color: "#9D7A45" });
+    if (opbRent  > 0) otherCostEntries.push({ id: "rent",  name: "Rent & Landing",  value: opbRent,  color: "#8B7050" });
+    if (opbDep   > 0) otherCostEntries.push({ id: "dep",   name: "D&A",             value: opbDep,   color: "#7A6E5A" });
+    if (opbRd    > 0) otherCostEntries.push({ id: "rd",    name: "R&D",          value: opbRd,      color: "#D06050" });
     if (opbSm    > 0) otherCostEntries.push({ id: "sm",    name: "Sales & Mkt",  value: opbSm,      color: C_OPEX   });
-    if (opbGa    > 0) otherCostEntries.push({ id: "ga",    name: "G&A",          value: opbGa,      color: "#9C7F2E" });
-    if (opbSbc   > 0) otherCostEntries.push({ id: "sbc",   name: "Stock Comp",   value: opbSbc,         color: "#9C7F2E" });
-    if (opbImpairment > 0) otherCostEntries.push({ id: "impair", name: "Impairment", value: opbImpairment, color: "#8E2A2A" });
-    if (opbRestructure > 0) otherCostEntries.push({ id: "restr", name: "Restructuring", value: opbRestructure, color: "#9FA2C0" });
-    if (opbOt    > 0) otherCostEntries.push({ id: "ot",    name: "Other OpEx",   value: opbOt,      color: "#5C5F7A" });
+    if (opbGa    > 0) otherCostEntries.push({ id: "ga",    name: "G&A",          value: opbGa,      color: "#B07030" });
+    if (opbSbc   > 0) otherCostEntries.push({ id: "sbc",   name: "Stock Comp",   value: opbSbc,         color: "#9B7C40" });
+    if (opbImpairment > 0) otherCostEntries.push({ id: "impair", name: "Impairment", value: opbImpairment, color: "#C0707A" });
+    if (opbRestructure > 0) otherCostEntries.push({ id: "restr", name: "Restructuring", value: opbRestructure, color: "#A06070" });
+    if (opbOt    > 0) otherCostEntries.push({ id: "ot",    name: "Other OpEx",   value: opbOt,      color: "#C09050" });
     // Merge "Taxes" + synthSink into one "Tax & Non-Op" sink in loss mode.
     // Both represent below-the-line items consuming the operating result; a
     // separate $70M Taxes bucket next to a $700M Tax & Non-Op produces a
@@ -689,7 +689,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         id: "below",
         name: "Tax & Non-Op",
         value: taxAndBelow,
-        color: "#9FA2C0",
+        color: "#A06070",
       });
     }
 
@@ -716,8 +716,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         // Width = 0.0011 ≈ 0.0003 px — visually invisible.
         links.push({ source: "revenue", target: "tc", value: 0.0011, color: C_OPEX });
       }
-      if (lossToTc > 0)    addLink({ source: "loss",  target: "tc", value: lossToTc,    color: "#8E2A2A" });
-      if (synthSource > 0) addLink({ source: "nonop", target: "tc", value: synthSource, color: "#1F6B45" });
+      if (lossToTc > 0)    addLink({ source: "loss",  target: "tc", value: lossToTc,    color: "#B0353A" });
+      if (synthSource > 0) addLink({ source: "nonop", target: "tc", value: synthSource, color: "#5A8A5A" });
       for (const c of otherCostEntries) {
         addNode({ id: c.id, name: c.name, displayValue: fmt(c.value, unit), color: c.color });
         addLink({ source: "tc", target: c.id, value: c.value, color: c.color });
@@ -830,7 +830,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
         id: "below",
         name: "Tax & Non-Op",
         displayValue: `+${fmt(synthSrc, unit)}`,
-        color: "#1F6B45",
+        color: "#5A8A5A",
       });
       // Structural-only link gp → below: width 0.0011 ≈ 0.0003 px, visually
       // invisible but forces d3-sankey to place `below` at depth gp+1 — the
@@ -838,9 +838,9 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       // Routing it through Revenue would land it in the GP/Cost-of-Rev column
       // and crowd labels there (RYOJ FY2025: GP rect collapses to a sliver
       // and its label gets crossed by the GP→OpEx ribbon).
-      links.push({ source: "gp", target: "below", value: 0.0011, color: "#1F6B45" });
+      links.push({ source: "gp", target: "below", value: 0.0011, color: "#5A8A5A" });
       if (opexGap > 0) {
-        addLink({ source: "below", target: "opex", value: opexGap, color: "#8E2A2A" });
+        addLink({ source: "below", target: "opex", value: opexGap, color: "#B0353A" });
       }
       addNode({ id: "np", name: "Net Income", displayValue: fmt(np, unit), subLabel: npSubLabel, color: C_NP });
       addLink({ source: "below", target: "np", value: np, color: C_NP });
@@ -866,8 +866,8 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     // (which forces d3-sankey to route a red ribbon across the cogs→fuel flow).
     const belowOp = Math.max(0, op - np);
     if (belowOp > 0) {
-      addNode({ id: "below", name: "Tax & Non-Op", displayValue: fmt(belowOp, unit), color: "#9FA2C0" });
-      addLink({ source: "op", target: "below", value: belowOp, color: "#9FA2C0" });
+      addNode({ id: "below", name: "Tax & Non-Op", displayValue: fmt(belowOp, unit), color: "#A06070" });
+      addLink({ source: "op", target: "below", value: belowOp, color: "#A06070" });
     }
   } else {
     if (tx > 0 && !lossHandled) {
@@ -917,13 +917,13 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       const netIntExp = Math.max(0, intExpReported - intIncReported);
       const intExpVal = Math.min(netIntExp, opGap);
       if (intExpVal > op * 0.005) {
-        addNode({ id: "intExp", name: "Interest Exp.", displayValue: fmt(intExpVal, unit), color: "#3A3E5C" });
-        addLink({ source: "op", target: "intExp", value: intExpVal, color: "#3A3E5C" });
+        addNode({ id: "intExp", name: "Interest Exp.", displayValue: fmt(intExpVal, unit), color: "#C95A2C" });
+        addLink({ source: "op", target: "intExp", value: intExpVal, color: "#C95A2C" });
       }
       const residualGap = opGap - intExpVal;
       if (residualGap > op * 0.005) {
-        addNode({ id: "below", name: "Non-Op Exp.", displayValue: fmt(residualGap, unit), color: "#9FA2C0" });
-        addLink({ source: "op", target: "below", value: residualGap, color: "#9FA2C0" });
+        addNode({ id: "below", name: "Non-Op Exp.", displayValue: fmt(residualGap, unit), color: "#A06070" });
+        addLink({ source: "op", target: "below", value: residualGap, color: "#A06070" });
       }
     }
   }
@@ -957,25 +957,25 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     const advertising  = Number(opexBreakdown.advertising)          || 0;
     const depStd       = Number(opexBreakdown.depreciationStandard) || 0;
     const entries = [
-      { id: "purchases", name: "Purchases & Prod.", displayValue: fmt(purchases, unit), value: purchases, color: "#9C7F2E" },
-      { id: "fuel",  name: "Fuel",             displayValue: fmt(fuel, unit), value: fuel, color: "#3A3E5C" },
-      { id: "labor", name: "Salaries & Wages", displayValue: fmt(labor, unit), value: labor, color: "#9C7F2E" },
-      { id: "payroll", name: "Payroll",        displayValue: fmt(payroll, unit), value: payroll, color: "#9C7F2E" },
-      { id: "maint", name: "Maintenance",      displayValue: fmt(maint, unit), value: maint, color: "#C9A84C" },
-      { id: "rent",  name: "Rent & Landing",   displayValue: fmt(rent, unit), value: rent, color: "#9C7F2E" },
-      { id: "rentE", name: "Rent",             displayValue: fmt(rentExp, unit), value: rentExp, color: "#9C7F2E" },
-      { id: "dep",   name: "D&A",              displayValue: fmt(dep, unit), value: dep,  color: "#6E7290" },
-      { id: "depStd",name: "D&A",              displayValue: fmt(depStd, unit), value: depStd, color: "#6E7290" },
-      { id: "adv",   name: "Advertising",      displayValue: fmt(advertising, unit), value: advertising, color: "#C9A84C" },
-      { id: "txOth", name: "Other Taxes",      displayValue: fmt(taxesOther, unit), value: taxesOther, color: "#3A3E5C" },
-      { id: "explor",name: "Exploration",      displayValue: fmt(exploration, unit), value: exploration, color: "#9C7F2E" },
-      { id: "rd",  name: "R&D",         displayValue: fmt(rd, unit), value: rd,  color: "#C9A84C" },
+      { id: "purchases", name: "Purchases & Prod.", displayValue: fmt(purchases, unit), value: purchases, color: "#A86040" },
+      { id: "fuel",  name: "Fuel",             displayValue: fmt(fuel, unit), value: fuel, color: "#C95A2C" },
+      { id: "labor", name: "Salaries & Wages", displayValue: fmt(labor, unit), value: labor, color: "#B5723A" },
+      { id: "payroll", name: "Payroll",        displayValue: fmt(payroll, unit), value: payroll, color: "#B5723A" },
+      { id: "maint", name: "Maintenance",      displayValue: fmt(maint, unit), value: maint, color: "#9D7A45" },
+      { id: "rent",  name: "Rent & Landing",   displayValue: fmt(rent, unit), value: rent, color: "#8B7050" },
+      { id: "rentE", name: "Rent",             displayValue: fmt(rentExp, unit), value: rentExp, color: "#8B7050" },
+      { id: "dep",   name: "D&A",              displayValue: fmt(dep, unit), value: dep,  color: "#7A6E5A" },
+      { id: "depStd",name: "D&A",              displayValue: fmt(depStd, unit), value: depStd, color: "#7A6E5A" },
+      { id: "adv",   name: "Advertising",      displayValue: fmt(advertising, unit), value: advertising, color: "#A07050" },
+      { id: "txOth", name: "Other Taxes",      displayValue: fmt(taxesOther, unit), value: taxesOther, color: "#9C5560" },
+      { id: "explor",name: "Exploration",      displayValue: fmt(exploration, unit), value: exploration, color: "#856B4A" },
+      { id: "rd",  name: "R&D",         displayValue: fmt(rd, unit), value: rd,  color: "#D06050" },
       { id: "sm",  name: "Sales & Mkt", displayValue: fmt(sm, unit), value: sm,  color: C_OPEX   },
-      { id: "ga",  name: "G&A",         displayValue: fmt(ga, unit), value: ga,  color: "#9C7F2E" },
-      { id: "sbc",   name: "Stock Comp",     displayValue: fmt(sbc, unit),      value: sbc,      color: "#9C7F2E" },
-      { id: "impair",name: "Impairment",     displayValue: fmt(impair, unit),   value: impair,   color: "#8E2A2A" },
-      { id: "restr", name: "Restructuring",  displayValue: fmt(restruct, unit), value: restruct, color: "#9FA2C0" },
-      { id: "ot",  name: "Other OpEx",  displayValue: fmt(ot, unit), value: ot,  color: "#5C5F7A" },
+      { id: "ga",  name: "G&A",         displayValue: fmt(ga, unit), value: ga,  color: "#B07030" },
+      { id: "sbc",   name: "Stock Comp",     displayValue: fmt(sbc, unit),      value: sbc,      color: "#9B7C40" },
+      { id: "impair",name: "Impairment",     displayValue: fmt(impair, unit),   value: impair,   color: "#C0707A" },
+      { id: "restr", name: "Restructuring",  displayValue: fmt(restruct, unit), value: restruct, color: "#A06070" },
+      { id: "ot",  name: "Other OpEx",  displayValue: fmt(ot, unit), value: ot,  color: "#C09050" },
     ];
     // Pick whichever cost-parent node exists. Issuers with a GP layer get
     // an "opex" node from the gp > 0 branch; airlines / no-GP issuers route
@@ -1014,7 +1014,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
           name: isServices ? "Other OpEx" : "Cost of Rev.",
           displayValue: fmt(gap, unit),
           value: gap,
-          color: isServices ? "#5C5F7A" : C_COGS,
+          color: isServices ? "#C09050" : C_COGS,
         });
       } else if (parentVal > 0 && -gap > parentVal * RECONCILE_THRESHOLD) {
         const overflow = -gap;
@@ -1482,7 +1482,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     if (n.subLabel && showSub) {
       lines.push(
         <text key="sub" x={cx} y={topY + LINE_H * idx + LINE_H / 2}
-          fontSize={subSz} fill="#6E7290"
+          fontSize={subSz} fill="#666"
           textAnchor={anchor} dominantBaseline="middle">
           {n.subLabel}
         </text>
@@ -1917,14 +1917,14 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
                     return [
                       <text key="sl" x={lx} y={topY + LINE_H / 2}
                         fontSize={10} textAnchor="end" dominantBaseline="middle">
-                        <tspan fontWeight="800" fill="#0E1130">{n.name}</tspan>
+                        <tspan fontWeight="800" fill="#111">{n.name}</tspan>
                         {n.displayValue && (
-                          <tspan fontWeight="600" fill="#3A3E5C">{"  " + n.displayValue}</tspan>
+                          <tspan fontWeight="600" fill="#444">{"  " + n.displayValue}</tspan>
                         )}
                       </text>,
                     ];
                   }
-                  return labelBlock(n, lx, topY, "end", 13, 11, 9, "#0E1130", "#3A3E5C", state?.showSub ?? true);
+                  return labelBlock(n, lx, topY, "end", 13, 11, 9, "#111", "#444", state?.showSub ?? true);
 
                 } else {
                   // ── RIGHT of node (last column only) ──
@@ -1937,14 +1937,14 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
                     return [
                       <text key="sl" x={lx} y={topY + LINE_H / 2}
                         fontSize={10} textAnchor="start" dominantBaseline="middle">
-                        <tspan fontWeight="800" fill="#0E1130">{n.name}</tspan>
+                        <tspan fontWeight="800" fill="#111">{n.name}</tspan>
                         {n.displayValue && (
-                          <tspan fontWeight="600" fill="#3A3E5C">{"  " + n.displayValue}</tspan>
+                          <tspan fontWeight="600" fill="#444">{"  " + n.displayValue}</tspan>
                         )}
                       </text>,
                     ];
                   }
-                  return labelBlock(n, lx, topY, "start", 13, 11, 9, "#0E1130", "#3A3E5C", state?.showSub ?? true);
+                  return labelBlock(n, lx, topY, "start", 13, 11, 9, "#111", "#444", state?.showSub ?? true);
                 }
               })()}
             </g>

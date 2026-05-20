@@ -1,28 +1,45 @@
 import Link from "next/link";
 
-const NAV_GROUPS = [
+type FooterLink = { label: string; href: string; external?: boolean };
+
+const NAV_GROUPS: { title: string; links: FooterLink[] }[] = [
   {
-    title: "Casa",
+    title: "La casa",
     links: [
       { label: "Nosotros", href: "/nosotros" },
+      { label: "Historia", href: "/historia" },
       { label: "Equipo", href: "/equipo" },
       { label: "Contacto", href: "/contacto" },
     ],
   },
   {
-    title: "Servicios",
+    title: "Ecosistema",
     links: [
-      { label: "Bonos", href: "/servicios#bonos" },
-      { label: "Acciones", href: "/servicios#acciones" },
-      { label: "Fondos", href: "/servicios#fondos" },
-      { label: "ETFs", href: "/servicios#etfs" },
+      { label: "Mercado local", href: "/servicios#local" },
+      { label: "Mercado internacional", href: "/servicios#internacional" },
+      { label: "Proceso de inversión", href: "/servicios#proceso" },
+      { label: "Calculadora", href: "/calculadora" },
+      { label: "Análisis de acciones", href: "/analisis" },
     ],
   },
   {
-    title: "Herramientas",
+    title: "Accesos",
     links: [
-      { label: "Calculadora", href: "/calculadora" },
-      { label: "Análisis de acciones", href: "/analisis" },
+      { label: "Cuenta Activa", href: "https://cuentaactiva.gbengochea.com.uy/", external: true },
+      { label: "Consultanet", href: "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx", external: true },
+      { label: "Informes", href: "/informes" },
+      { label: "Instructivo Consultanet", href: "https://www.youtube.com/watch?v=HtIjF2N9i-0", external: true },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { label: "Tarifario", href: "https://gbengochea.com.uy/files/servicios-y-costos-2025.pdf", external: true },
+      { label: "Código de Ética", href: "https://gbengochea.com.uy/files/codigo-de-etica-2025.pdf", external: true },
+      { label: "Código de Buenas Prácticas", href: "https://gbengochea.com.uy/files/codigo-de-buenas-practicas-2025.pdf", external: true },
+      { label: "Certificado BVM", href: "https://gbengochea.com.uy/files/certificado-de-la-bvm.pdf", external: true },
+      { label: "Inscripción en BCU", href: "https://gbengochea.com.uy/files/comunicacion-de-alta-en-bcu.jpg", external: true },
+      { label: "Formulario de reclamos", href: "https://gbengochea.com.uy/files/formulario-de-reclamos-bengochea.pdf", external: true },
     ],
   },
 ];
@@ -107,29 +124,26 @@ export function FooterInstitucional() {
           </div>
         </div>
 
-        {/* Cuatro columnas: marca + nav groups */}
+        {/* Marca + contacto */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1.4fr) repeat(3, minmax(0, 1fr))",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
             gap: "var(--space-6)",
             paddingTop: "var(--space-6)",
+            paddingBottom: "var(--space-6)",
+            borderBottom: "1px solid rgba(255,255,255,0.18)",
           }}
-          className="footer-grid"
+          className="footer-brand-row"
         >
-          {/* Marca + contacto */}
           <div>
-            <div
-              className="serif"
-              style={{
-                fontSize: 24,
-                lineHeight: 1.1,
-                letterSpacing: "-0.01em",
-                color: "var(--ivory)",
-              }}
-            >
-              Bengochea <span className="serif-i" style={{ color: "var(--gold-soft)" }}>&amp; Cía.</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-bengochea.svg?v=2"
+              alt="Gastón Bengochea"
+              style={{ height: 32, width: "auto", display: "block" }}
+            />
+
             <div
               className="mono"
               style={{
@@ -140,26 +154,45 @@ export function FooterInstitucional() {
                 marginTop: 6,
               }}
             >
-              Sociedad de bolsa · 1967
+              Sociedad de Bolsa · Miembro BVM desde 1967
             </div>
+          </div>
 
-            <div className="rule-on-navy" style={{ margin: "var(--space-4) 0" }} />
-
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }} className="footer-contact">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <a href="tel:+59826286447" className="body-small" style={{ color: "rgba(255,255,255,0.75)" }}>
+              <span className="cap-on-navy cap">Contacto</span>
+              <a href="tel:+59826286447" className="body-small footer-link" style={{ color: "rgba(255,255,255,0.85)" }}>
                 +598 2628 6447
               </a>
-              <a href="mailto:info@gbengochea.com.uy" className="body-small" style={{ color: "rgba(255,255,255,0.75)" }}>
+              <a href="mailto:info@gbengochea.com.uy" className="body-small footer-link" style={{ color: "rgba(255,255,255,0.85)" }}>
                 info@gbengochea.com.uy
               </a>
-              <p className="body-small" style={{ color: "rgba(255,255,255,0.6)", margin: 0 }}>
+              <a href="mailto:reclamos@gbengochea.com.uy" className="body-small footer-link" style={{ color: "rgba(255,255,255,0.85)" }}>
+                reclamos@gbengochea.com.uy
+              </a>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span className="cap-on-navy cap">Oficina</span>
+              <p className="body-small" style={{ color: "rgba(255,255,255,0.72)", margin: 0, lineHeight: 1.55 }}>
                 Luis A. de Herrera 1248<br />
-                WTC Torre I, Of. 707<br />
+                World Trade Center<br />
+                Torre I · Oficina 707<br />
                 Montevideo, Uruguay
               </p>
             </div>
           </div>
+        </div>
 
+        {/* Cuatro columnas de navegación */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gap: "var(--space-6)",
+            paddingTop: "var(--space-6)",
+          }}
+          className="footer-grid"
+        >
           {NAV_GROUPS.map((group) => (
             <div key={group.title}>
               <div className="cap-on-navy cap" style={{ marginBottom: "var(--space-3)" }}>
@@ -168,13 +201,28 @@ export function FooterInstitucional() {
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {group.links.map((l) => (
                   <li key={l.href}>
-                    <Link
-                      href={l.href}
-                      className="footer-link body-base"
-                      style={{ fontSize: 14 }}
-                    >
-                      {l.label}
-                    </Link>
+                    {l.external ? (
+                      <a
+                        href={l.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="footer-link body-base"
+                        style={{ fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        {l.label}
+                        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.5 }}>
+                          <path d="M3 9L9 3M9 3H4M9 3V8" />
+                        </svg>
+                      </a>
+                    ) : (
+                      <Link
+                        href={l.href}
+                        className="footer-link body-base"
+                        style={{ fontSize: 13.5 }}
+                      >
+                        {l.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -250,9 +298,11 @@ export function FooterInstitucional() {
 
         @media (max-width: 900px) {
           .footer-manifesto { grid-template-columns: 1fr !important; }
-          .footer-grid { grid-template-columns: 1fr 1fr !important; }
+          .footer-brand-row { grid-template-columns: 1fr !important; gap: var(--space-5) !important; }
+          .footer-grid { grid-template-columns: 1fr 1fr !important; gap: var(--space-5) !important; }
         }
         @media (max-width: 600px) {
+          .footer-contact { grid-template-columns: 1fr !important; }
           .footer-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>

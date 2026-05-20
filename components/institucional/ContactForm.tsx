@@ -31,7 +31,7 @@ export function ContactForm() {
         className="serif"
         style={{
           fontWeight: 400,
-          fontSize: 32,
+          fontSize: "clamp(24px, 4vw, 32px)",
           lineHeight: 1.1,
           margin: "0 0 var(--space-2)",
           letterSpacing: "-0.015em",
@@ -92,7 +92,7 @@ export function ContactForm() {
 
       <style>{`
         .form-row { grid-template-columns: 1fr 1fr; }
-        @media (max-width: 560px) {
+        @media (max-width: 640px) {
           .form-row { grid-template-columns: 1fr !important; }
         }
         input:focus, select:focus, textarea:focus {

@@ -2,6 +2,7 @@ import YahooFinance from "yahoo-finance2";
 import { fetchEdgarQuarterlyRevenue } from "@/lib/fetchEdgarSegments";
 import { fetchUsdRate } from "@/lib/fxRates";
 import { resolveLogoDomain } from "@/lib/logoDomain";
+import { fetchGoogleNewsWhitelist } from "@/lib/fetchGoogleNewsWhitelist";
 import type {
   StockData,
   CashFlowYear,
@@ -428,7 +429,26 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
 
     annualCashFlow,
     quarterlyRevenue: revenueRaw ?? null,
-    recentNews: (() => {
+    recentNews: await (async () => {
+      // PRIMARY: Google News RSS filtered to a Tier 1/2 publisher whitelist.
+      // For mid/small caps where Yahoo serves mostly retail blog spam, this
+      // surfaces actual wire coverage (Reuters, Bloomberg, WSJ) that Yahoo's
+      // engagement-weighted feed buries.
+      const companyName = String(price?.longName ?? price?.shortName ?? ticker);
+      const gnews = await fetchGoogleNewsWhitelist(ticker, companyName, 7);
+      if (gnews.length >= 2) {
+        return gnews.map((n) => ({
+          title: n.title,
+          publisher: n.publisher,
+          link: n.link,
+          publishedAt: n.publishedAt,
+          description: n.description,
+        }));
+      }
+
+      // FALLBACK: Yahoo Finance search news. Used only when Google News
+      // returns too few items (typical for very small caps without wire
+      // coverage, or transient RSS failures).
       const rawNews = (searchResult as AnyRecord | null)?.news as AnyRecord[] | undefined;
       return rawNews
         ?.slice(0, 7)

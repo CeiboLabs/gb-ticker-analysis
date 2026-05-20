@@ -212,8 +212,14 @@ export function MetricsDashboard({ stockData: d }: Props) {
       </div>
 
       <style>{`
+        @media (max-width: 980px) {
+          .metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        }
         @media (max-width: 720px) {
           .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 420px) {
+          .metrics-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

@@ -7,6 +7,12 @@ import { fetchEdgar8KIncomeStatement, type Edgar8KIncomeStatement } from "@/lib/
 import { fetchUsdRate } from "@/lib/fxRates";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
+import {
+  StructuredReportSchema,
+  clampReportPriceTargets,
+  coerceStringFields,
+  formatZodErrors,
+} from "@/lib/analysisSchemas";
 import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
 import { checkRateLimit, checkIpHourlyLimit, checkDailyFreshLimit, isIpAllowlisted } from "@/lib/rateLimiter";
@@ -760,51 +766,71 @@ export async function POST(req: NextRequest) {
 
   const { ticker, refresh } = parsed.data;
 
-  // 2. Cache check
-  if (!refresh) {
-    const cached = await cacheGet(ticker);
-    if (cached) {
-      // If EDGAR data was already stale relative to Yahoo when this was
-      // cached, treat as a miss so we re-fetch — the 10-Q may now be filed.
-      if (isAnalysisStale(cached.stockData, cached.report.segmentData ?? null)) {
-        await cacheClear(ticker);
-      } else {
-        void recordTickerView(ticker).catch(() => {});
-        const qCached = scoreSankey(cached.report.segmentData ?? null, ticker);
-        fireEvent({
-          ticker,
-          status: "cache_hit",
-          sankeySource: classifySankeySource(cached.report.segmentData ?? null),
-          sankeyStale: false,
-          qualityScore: qCached.score,
-          hasSegments: qCached.hasSegments,
-          segmentCount: qCached.segmentCount,
-          hasOpexBreakdown: qCached.hasOpexBreakdown,
-          segmentBalancePct: qCached.segmentBalancePct,
-          costBalancePct: qCached.costBalancePct,
-          opexBalancePct: qCached.opexBalancePct,
-          opChainBalancePct: qCached.opChainBalancePct,
-          qualityFlags: qCached.findings.map((f) => f.code),
-          qualityFindings: qCached.findings.length > 0 ? JSON.stringify(qCached.findings) : null,
-          sankeySnapshot: snapshotSankey({
-            finalSankey: cached.report.segmentData ?? null,
-            overridePath: "cache",
-            yahooQuarter: slimYahooQuarter(cached.stockData),
-            yahooCurrency: cached.stockData?.currency ?? null,
-          }),
-          verdictRating: cached.report.verdict?.rating ?? null,
-          verdictConviction: cached.report.verdict?.conviction ?? null,
-          verdictRationale: cached.report.verdict?.rationale ?? null,
-          companyName: cached.stockData?.companyName ?? null,
-          currentPrice: cached.stockData?.currentPrice ?? null,
-          marketCap: cached.stockData?.marketCap ?? null,
-          bullTarget: cached.report.bullCase?.priceTarget ?? null,
-          bearTarget: cached.report.bearCase?.priceTarget ?? null,
-        });
-        return withSession(NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true }));
-      }
-    }
-  } else {
+  // 2. Cache check + regeneration cooldown.
+  // GPT-4o at temperature 0 no es bit-determinístico (MoE routing + mixed
+  // precision). Sin cooldown, dos clicks de "regenerar" sobre el mismo input
+  // pueden devolver HOLD y luego AVOID — UX inaceptable para una nota
+  // institucional. Dentro de la ventana de cooldown servimos el cache aunque
+  // el cliente haya pedido refresh, y le informamos cuánto falta para
+  // desbloquear. Staleness de EDGAR sigue invalidando el cache antes que el
+  // cooldown — un 10-Q nuevo siempre gana sobre la regla de estabilidad.
+  const REGEN_COOLDOWN_MS = 60 * 60 * 1000; // 1 h
+
+  const cached = await cacheGet(ticker);
+  const cachedStale = cached
+    ? isAnalysisStale(cached.stockData, cached.report.segmentData ?? null)
+    : false;
+  const cooldownRemainingMs = cached && !cachedStale
+    ? Math.max(0, REGEN_COOLDOWN_MS - (Date.now() - cached.createdAt))
+    : 0;
+  const cooldownBlocksRefresh = refresh && cooldownRemainingMs > 0 && !!cached && !cachedStale;
+
+  if (cached && cachedStale) {
+    // EDGAR pasó a stale después de cachear → re-fetch obligatorio.
+    await cacheClear(ticker);
+  } else if (cached && (!refresh || cooldownBlocksRefresh)) {
+    void recordTickerView(ticker).catch(() => {});
+    const qCached = scoreSankey(cached.report.segmentData ?? null, ticker);
+    fireEvent({
+      ticker,
+      status: "cache_hit",
+      sankeySource: classifySankeySource(cached.report.segmentData ?? null),
+      sankeyStale: false,
+      qualityScore: qCached.score,
+      hasSegments: qCached.hasSegments,
+      segmentCount: qCached.segmentCount,
+      hasOpexBreakdown: qCached.hasOpexBreakdown,
+      segmentBalancePct: qCached.segmentBalancePct,
+      costBalancePct: qCached.costBalancePct,
+      opexBalancePct: qCached.opexBalancePct,
+      opChainBalancePct: qCached.opChainBalancePct,
+      qualityFlags: qCached.findings.map((f) => f.code),
+      qualityFindings: qCached.findings.length > 0 ? JSON.stringify(qCached.findings) : null,
+      sankeySnapshot: snapshotSankey({
+        finalSankey: cached.report.segmentData ?? null,
+        overridePath: "cache",
+        yahooQuarter: slimYahooQuarter(cached.stockData),
+        yahooCurrency: cached.stockData?.currency ?? null,
+      }),
+      verdictRating: cached.report.verdict?.rating ?? null,
+      verdictConviction: cached.report.verdict?.conviction ?? null,
+      verdictRationale: cached.report.verdict?.rationale ?? null,
+      companyName: cached.stockData?.companyName ?? null,
+      currentPrice: cached.stockData?.currentPrice ?? null,
+      marketCap: cached.stockData?.marketCap ?? null,
+      bullTarget: cached.report.bullCase?.priceTarget ?? null,
+      bearTarget: cached.report.bearCase?.priceTarget ?? null,
+    });
+    return withSession(NextResponse.json({
+      report: cached.report,
+      stockData: cached.stockData,
+      cached: true,
+      cachedAt: cached.createdAt,
+      cooldownRemainingSeconds: Math.ceil(cooldownRemainingMs / 1000),
+      cooldownBlockedRefresh: cooldownBlocksRefresh,
+    }));
+  } else if (refresh && cached) {
+    // Cooldown expirado → permitimos la regeneración y limpiamos el cache.
     await cacheClear(ticker);
   }
 
@@ -1078,14 +1104,16 @@ export async function POST(req: NextRequest) {
   // 4. Mock mode — skip OpenAI, return stub report with real segment data
   if (process.env.MOCK_REPORT === "true") {
     const stub: StructuredReport = {
+      keyDebate: "",
       businessModel: "Mock mode activo — análisis de OpenAI deshabilitado.",
       revenueStreams: "", profitabilityAnalysis: "", balanceSheetHealth: "",
-      freeCashFlow: "", capitalExpenditure: "", competitiveAdvantages: "", managementQuality: "",
+      freeCashFlow: "", capitalExpenditure: "", capitalAllocation: "",
+      competitiveAdvantages: "", managementQuality: "",
       valuationSnapshot: "", recentEarnings: "", riskFactors: "",
       catalysts: "", industryContext: "",
-      verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real." },
-      bullCase: { narrative: "", priceTarget: "—" },
-      bearCase: { narrative: "", priceTarget: "—" },
+      verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real.", priceTarget: "—", sizing: "" },
+      bullCase: { narrative: "", priceTarget: "—", probability: "0" },
+      bearCase: { narrative: "", priceTarget: "—", probability: "0" },
       segmentData: segmentData ?? null,
     };
     const stubStale = isAnalysisStale(stockData, stub.segmentData ?? null);
@@ -1123,29 +1151,50 @@ export async function POST(req: NextRequest) {
     return withSession(NextResponse.json({ report: stub, stockData, cached: false }));
   }
 
-  // 5. Build prompt
+  // 5. Build prompt (single-call architecture with rich enrichments:
+  // insider classification, peer percentile ranking, forward estimate
+  // divergence, industry-aware hints, Sankey quality feedback).
   const { systemPrompt, userPrompt } = buildPrompt(stockData, segmentData);
 
-  // 5. Call GPT-4o with streaming
-  let fullText = "";
+  // Seed determinístico = hash(ticker + fecha UTC). GPT-4o a temperature=0
+  // NO es bit-determinístico (MoE routing + mixed-precision); enviar el mismo
+  // seed estabiliza la salida para el mismo input dentro del mismo día y evita
+  // que el rating flapee entre HOLD/AVOID en regeneraciones consecutivas. El
+  // seed cambia día a día para que el análisis pueda evolucionar.
+  const seedKey = `${ticker}|${new Date().toISOString().slice(0, 10)}`;
+  let openaiSeed = 0;
+  for (let i = 0; i < seedKey.length; i++) {
+    openaiSeed = ((openaiSeed << 5) - openaiSeed + seedKey.charCodeAt(i)) | 0;
+  }
+  openaiSeed = Math.abs(openaiSeed);
 
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Send stock data immediately — lets the UI render the header and metrics
-        // while GPT-4o is still generating the analysis narrative.
+        // Send stockData immediately — UI renders header + KPIs + chart while
+        // GPT-4o is still generating the narrative. segmentData (Sankey) is
+        // already computed by this point, so emit it as a partial report so
+        // the income-statement Sankey paints together with Yahoo data instead
+        // of waiting for the LLM to finish.
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ stockData })}\n\n`)
         );
+        if (segmentData) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ partial: { segmentData } })}\n\n`)
+          );
+        }
 
+        let fullText = "";
         const completion = await getOpenAIClient().chat.completions.create({
           model: "gpt-4o-2024-11-20",
           response_format: { type: "json_object" },
           stream: true,
           temperature: 0,
-          max_tokens: 4500,
+          seed: openaiSeed,
+          max_tokens: 7000,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -1160,35 +1209,72 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // 6. Parse + sanitize + cache after stream ends
-        let report: StructuredReport;
+        // Parse + coerce + validate. On validation failure, do ONE non-streaming
+        // retry with the errors fed back as a follow-up user message.
+        let report: StructuredReport | null = null;
+        let validationError: string | null = null;
+
+        const STRING_FIELDS = [
+          "keyDebate",
+          "businessModel", "revenueStreams", "profitabilityAnalysis",
+          "balanceSheetHealth", "freeCashFlow", "capitalExpenditure", "capitalAllocation",
+          "competitiveAdvantages", "managementQuality", "valuationSnapshot",
+          "recentEarnings", "riskFactors", "catalysts", "industryContext",
+        ] as const;
+
         try {
           const raw = JSON.parse(fullText) as Record<string, unknown>;
-          // Ensure all narrative fields are strings — GPT-4o occasionally returns nested objects
-          const stringFields: (keyof StructuredReport)[] = [
-            "businessModel", "revenueStreams", "profitabilityAnalysis",
-            "balanceSheetHealth", "freeCashFlow", "capitalExpenditure",
-            "competitiveAdvantages", "managementQuality", "valuationSnapshot",
-            "recentEarnings", "riskFactors", "catalysts", "industryContext",
-          ];
-          // segmentData is a structured object — leave it as-is
-          for (const field of stringFields) {
-            if (typeof raw[field] !== "string") {
-              raw[field] = serializeField(raw[field]);
-            }
+          const coerced = coerceStringFields(raw, STRING_FIELDS as unknown as (keyof typeof raw)[]);
+          const parsed = StructuredReportSchema.safeParse(coerced);
+          if (parsed.success) {
+            report = parsed.data as unknown as StructuredReport;
+          } else {
+            validationError = formatZodErrors(parsed.error);
           }
-          report = raw as unknown as StructuredReport;
-          // EDGAR XBRL / 8-K / Yahoo-quarter (real fields only). When none of
-          // those produce a Sankey we leave segmentData null — better than
-          // fabricating a TTM-margin chart that doesn't represent any real
-          // reporting period.
-          report.segmentData = segmentData ?? null;
         } catch (parseErr) {
+          validationError = parseErr instanceof Error ? parseErr.message : "JSON parse failed";
+        }
+
+        // Retry once with feedback if validation failed.
+        if (!report) {
+          try {
+            const retry = await getOpenAIClient().chat.completions.create({
+              model: "gpt-4o-2024-11-20",
+              response_format: { type: "json_object" },
+              temperature: 0,
+              seed: openaiSeed,
+              max_tokens: 7000,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+                { role: "assistant", content: fullText || "{}" },
+                {
+                  role: "user",
+                  content:
+                    `El output anterior falló validación con los siguientes errores:\n\n${validationError}\n\n` +
+                    `Regenerá el JSON corrigiendo SÓLO los campos con error. Mantené exactamente el mismo esquema. ` +
+                    `No agregues markdown exterior, sólo JSON puro.`,
+                },
+              ],
+            });
+            const retryText = retry.choices[0]?.message?.content ?? "";
+            const raw = JSON.parse(retryText) as Record<string, unknown>;
+            const coerced = coerceStringFields(raw, STRING_FIELDS as unknown as (keyof typeof raw)[]);
+            const parsed = StructuredReportSchema.safeParse(coerced);
+            if (parsed.success) {
+              report = parsed.data as unknown as StructuredReport;
+            }
+          } catch {
+            // fall through — report stays null
+          }
+        }
+
+        if (!report) {
           fireEvent({
             ticker,
             status: "error",
             errorStage: "parse",
-            errorMsg: parseErr instanceof Error ? parseErr.message : "OpenAI JSON parse failed",
+            errorMsg: validationError ?? "OpenAI output failed validation after retry",
             sankeySource: classifySankeySource(segmentData ?? null),
             edgar8kOk,
             segmentsOk,
@@ -1198,12 +1284,19 @@ export async function POST(req: NextRequest) {
               `data: ${JSON.stringify({
                 error: "Análisis no disponible por el momento. Intente en unos minutos.",
                 code: "analysis_unavailable",
-              })}\n\n`
-            )
+              })}\n\n`,
+            ),
           );
           controller.close();
           return;
         }
+
+        // Attach segmentData (Sankey) — real fields only, never fabricate.
+        report.segmentData = segmentData ?? null;
+
+        // Clamp bull/bear price targets against analyst high/low (±30%) to
+        // prevent the model from emitting wildly out-of-range numbers.
+        report = clampReportPriceTargets(report, stockData);
 
         const stale = isAnalysisStale(stockData, report.segmentData ?? null);
         const ttl = stale ? SHORT_TTL : undefined;

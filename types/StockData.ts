@@ -62,6 +62,13 @@ export interface NewsItem {
   publisher: string;
   link: string;
   publishedAt: string; // "YYYY-MM-DD"
+  /**
+   * Article snippet (1-3 sentences). Available from Google News RSS for
+   * most items; Yahoo Finance fallback usually has none. Optional.
+   * Used to give the model more context than just the headline so it can
+   * judge materiality.
+   */
+  description?: string;
 }
 
 export interface PeerMultiple {

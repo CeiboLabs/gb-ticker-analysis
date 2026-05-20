@@ -117,7 +117,7 @@ export function HeroInstitucional() {
                 {cell.cap}
               </div>
               <div
-                className={cell.mono ? "mono" : "serif"}
+                className={cell.mono ? "mono hero-ledger-value" : "serif hero-ledger-value"}
                 style={{
                   fontWeight: 400,
                   fontSize: cell.mono ? 26 : 32,
@@ -134,8 +134,13 @@ export function HeroInstitucional() {
       </div>
 
       <style>{`
-        @media (max-width: 720px) {
-          .hero-ledger { grid-template-columns: repeat(2, 1fr) !important; }
+        @media (max-width: 900px) {
+          .hero-ledger { grid-template-columns: repeat(2, 1fr) !important; gap: var(--space-4) !important; }
+          .hero-ledger-value { font-size: 22px !important; }
+        }
+        @media (max-width: 420px) {
+          .hero-ledger { grid-template-columns: 1fr 1fr !important; gap: var(--space-3) !important; }
+          .hero-ledger-value { font-size: 18px !important; }
         }
       `}</style>
     </header>

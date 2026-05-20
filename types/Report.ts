@@ -146,20 +146,49 @@ export interface Verdict {
   rating: VerdictRating;
   conviction: VerdictConviction;
   rationale: string;
+  // 12-month price target derived by the model from financials, multiples
+  // and forward estimates. NOT the analyst consensus mean — that's
+  // stockData.targetMeanPrice. The hero displays this one as "Target casa";
+  // analyst consensus is shown separately on the Wall Street panel.
+  priceTarget: string;
+  // Position sizing recommendation: 1-2 sentences telling the advisory client
+  // how to size this position in a portfolio. Derived from conviction × beta
+  // × overall thesis strength. Example:
+  //   "Holding core 3-5% en portfolios growth. Conviction HIGH justifica
+  //    entrada en una tranche. Hedge opcional con QQQ short si el riesgo
+  //    sectorial preocupa."
+  sizing: string;
 }
 
 export interface BullBearCase {
   narrative: string;
   priceTarget: string;
+  // Probability of this scenario materializing in the next 12 months, as a
+  // string number 0-100. bullCase.probability + bearCase.probability must be
+  // ≤ 100; the remainder is the base case probability (verdict scenario).
+  // Used to compute expected value and risk/reward asymmetry.
+  probability: string;
 }
 
 export interface StructuredReport {
+  // Key debate: 1 paragraph (~120 words) framing the central contested
+  // question on this stock — what alcistas believe, what bajistas believe,
+  // and our reading of who is right. Sits between the verdict and the
+  // business description. Sharpens "why this view" beyond just rationale.
+  keyDebate: string;
   businessModel: string;
   revenueStreams: string;
   profitabilityAnalysis: string;
   balanceSheetHealth: string;
   freeCashFlow: string;
   capitalExpenditure: string;
+  // Capital allocation track record (historical TSR-focused analysis):
+  // 3-5 year history of how the company deployed cash — buyback execution
+  // (share count reduction), dividend growth rate, M&A track record,
+  // reinvestment intensity. Distinct from freeCashFlow which is about
+  // current generation. This is rear-view: "did management create value
+  // with the cash they had?"
+  capitalAllocation: string;
   competitiveAdvantages: string;
   managementQuality: string;
   valuationSnapshot: string;

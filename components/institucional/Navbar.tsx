@@ -4,12 +4,20 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV_LINKS = [
-  { label: "Servicios", href: "/servicios" },
+type NavLink = { label: string; href: string; external?: boolean };
+
+const NAV_LINKS: NavLink[] = [
   { label: "Nosotros", href: "/nosotros" },
+  { label: "Historia", href: "/historia" },
+  { label: "Ecosistema", href: "/servicios" },
   { label: "Equipo", href: "/equipo" },
-  { label: "Calculadora", href: "/calculadora" },
+  { label: "Informes", href: "/informes" },
   { label: "Análisis", href: "/analisis" },
+];
+
+const ACCESOS: NavLink[] = [
+  { label: "Cuenta Activa", href: "https://cuentaactiva.gbengochea.com.uy/", external: true },
+  { label: "Consultanet", href: "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx", external: true },
 ];
 
 export function Navbar() {
@@ -46,28 +54,21 @@ export function Navbar() {
     >
       <div className="mx-auto max-w-[1440px] px-6 sm:px-8 h-full flex items-center justify-between">
         {/* Wordmark */}
-        <Link href="/" className="flex items-baseline gap-2 shrink-0">
-          <span
-            className="serif"
+        <Link href="/" className="flex items-center shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-bengochea.svg?v=2"
+            alt="Gastón Bengochea"
             style={{
-              fontWeight: 400,
-              fontSize: 22,
-              color: fg,
-              letterSpacing: "-0.01em",
+              height: 28,
+              width: "auto",
+              filter: isDark ? "none" : "invert(1)",
             }}
-          >
-            Bengochea
-          </span>
-          <span
-            className="serif-i"
-            style={{ fontSize: 18, color: goldAccent }}
-          >
-            &amp; Cía.
-          </span>
+          />
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden lg:flex items-center gap-9">
+        <div className="hidden lg:flex items-center gap-7">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
             return (
@@ -79,7 +80,7 @@ export function Navbar() {
                 data-active={active ? "1" : "0"}
                 style={{
                   fontFamily: "var(--font-sans)",
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 500,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
@@ -93,12 +94,46 @@ export function Navbar() {
               </Link>
             );
           })}
+
+          <span
+            aria-hidden
+            style={{ width: 1, height: 18, background: ruleColor, display: "inline-block" }}
+          />
+
+          {ACCESOS.map((acc) => (
+            <a
+              key={acc.href}
+              href={acc.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-link-anchor"
+              data-dark={isDark ? "1" : "0"}
+              data-active="0"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 11.5,
+                fontWeight: 500,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: goldAccent,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              {acc.label}
+              <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <path d="M3 9L9 3M9 3H4M9 3V8" />
+              </svg>
+            </a>
+          ))}
+
           <Link
             href="/contacto"
             className={isDark ? "btn btn-on-navy-primary" : "btn btn-primary"}
-            style={{ padding: "10px 18px", fontSize: 13 }}
+            style={{ padding: "10px 16px", fontSize: 12 }}
           >
-            Agendá una reunión <span className="arrow" />
+            Contacto <span className="arrow" />
           </Link>
         </div>
 
@@ -130,7 +165,7 @@ export function Navbar() {
       <div
         className="lg:hidden overflow-hidden"
         style={{
-          maxHeight: menuOpen ? "420px" : 0,
+          maxHeight: menuOpen ? "720px" : 0,
           opacity: menuOpen ? 1 : 0,
           background: bg,
           borderTop: menuOpen ? `1px solid ${ruleColor}` : "none",
@@ -159,6 +194,46 @@ export function Navbar() {
               </Link>
             );
           })}
+
+          <div
+            className="mono pt-4 pb-2"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: fgSecondary,
+            }}
+          >
+            Accesos clientes
+          </div>
+
+          {ACCESOS.map((acc) => (
+            <a
+              key={acc.href}
+              href={acc.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-3"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+                fontWeight: 500,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: goldAccent,
+                borderBottom: `1px solid ${ruleColor}`,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {acc.label}
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <path d="M3 9L9 3M9 3H4M9 3V8" />
+              </svg>
+            </a>
+          ))}
+
           <Link
             href="/contacto"
             className={isDark ? "btn btn-on-navy-primary mt-4" : "btn btn-primary mt-4"}

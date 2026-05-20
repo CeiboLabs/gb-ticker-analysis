@@ -15,7 +15,12 @@ const CACHE_NAME = "ticker-analysis";
 // Bump when the shape of cached data changes (new fields, gap-fill logic, etc.)
 // so old entries are invalidated immediately rather than waiting for the daily
 // rollover. Append-only — never reuse a previous version.
-const CACHE_VERSION = "v29";
+// v30 (2026-05-18): bump invalidates reports cached with broken news
+// descriptions before the stripDescriptionHtml decode-order fix.
+// v31 (2026-05-18): verdict.rationale ahora pide 3-4 párrafos (~600 palabras)
+// para alimentar la sección Tesis de inversión; viejos rationales cortos quedan obsoletos.
+// v32 (2026-05-18): ajuste a 2-3 párrafos (~400 palabras) — la versión previa quedaba demasiado extensa.
+const CACHE_VERSION = "v32";
 
 export { SHORT_TTL };
 

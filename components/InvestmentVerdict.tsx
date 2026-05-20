@@ -25,8 +25,29 @@ const convictionLabel: Record<VerdictConviction, string> = {
   LOW: "Baja",
 };
 
+const convictionCopy: Record<VerdictRating, Record<VerdictConviction, string>> = {
+  BUY: {
+    HIGH: "Datos cuantitativos y cualitativos alineados. Tesis apta para posición core.",
+    MEDIUM: "Tesis razonable con 1–2 factores en conflicto. Sizing satélite y revisar próximo earnings.",
+    LOW: "Tesis dependiente de supuestos no verificables. Exposición mínima o esperar más data.",
+  },
+  HOLD: {
+    HIGH: "Equilibrio claro entre catalizadores y riesgos. Mantener si ya hay posición; no añadir.",
+    MEDIUM: "Señales mixtas que no justifican comprar ni vender. Mantener con monitoreo activo.",
+    LOW: "Datos insuficientes para una recomendación direccional. Mantener tamaño actual.",
+  },
+  AVOID: {
+    HIGH: "Riesgos materiales claramente identificados. Exit gradual si hay exposición.",
+    MEDIUM: "Factores negativos dominan pero con incertidumbre. No iniciar; reducir si ya hay posición.",
+    LOW: "Datos insuficientes o supuestos frágiles. Preferible evitar hasta tener mayor claridad.",
+  },
+};
+
 export function InvestmentVerdict({ verdict }: Props) {
-  const cfg = ratingConfig[verdict.rating as VerdictRating] ?? ratingConfig.HOLD;
+  const rating = (verdict.rating as VerdictRating) in ratingConfig ? (verdict.rating as VerdictRating) : "HOLD";
+  const conviction = (verdict.conviction in convictionLabel ? verdict.conviction : "MEDIUM") as VerdictConviction;
+  const cfg = ratingConfig[rating];
+  const convictionText = convictionCopy[rating][conviction];
 
   return (
     <div
@@ -64,7 +85,19 @@ export function InvestmentVerdict({ verdict }: Props) {
             </span>
           </div>
           <div className="cap" style={{ marginTop: "var(--space-3)", color: "var(--ink-2)" }}>
-            Convicción · {convictionLabel[verdict.conviction] ?? verdict.conviction}
+            Convicción · {convictionLabel[conviction]}
+          </div>
+          <div
+            className="body-base"
+            style={{
+              marginTop: "var(--space-2)",
+              color: "var(--ink-3, var(--ink-2))",
+              fontSize: 13,
+              lineHeight: 1.45,
+              maxWidth: "28em",
+            }}
+          >
+            {convictionText}
           </div>
         </div>
         <div
