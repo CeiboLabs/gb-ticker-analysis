@@ -763,6 +763,36 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       addLink({ source: "gp", target: "opex", value: gpToOpex, color: C_OPEX });
     }
   } else if (op > 0) {
+    // No-GP layout. Standard path (airlines, oil-gas, services single-step IS):
+    // rev → op + rev → cogs (intermediate), with totalCosts = rev − op.
+    //
+    // Anomaly path: when reported op > rev — issuer classified a one-time
+    // non-operating gain (license milestone, fair-value remeasurement, equity-
+    // method gain) inside OperatingIncomeLoss so the tagged op exceeds the
+    // top line. ZVRA Q1 FY2026: revenue $36M, CostsAndExpenses $25M, but
+    // OperatingIncomeLoss tagged at $52M (~$41M one-time gain absorbed into
+    // op). The naive `totalCosts = rev − op` goes negative, the `cogs` node
+    // is skipped, and the opexBreakdown block below tries to attach links to
+    // a non-existent "cogs" parent → d3-sankey crashes with "missing: cogs".
+    //
+    // Fix: surface the excess (op − rev) as a "Non-Op Gain" co-source feeding
+    // Op.Income alongside Revenue, and size the cost intermediate from the
+    // tagged opex total (CostsAndExpenses for single-step issuers) so the
+    // opexBreakdown block has a parent. Flow conservation holds:
+    //   revenue (rev) → op (rev − opexTotal) + cogs (opexTotal)
+    //   nonop  (op − (rev − opexTotal)) → op
+    //   op outflows: np + tax + below (= IBT non-op residual)
+    const opexTotal     = Math.max(0, Number(operatingExpenses) || 0);
+    // `>=` rather than `>` so the equality edge (op exactly equal to rev with
+    // a tagged opex > 0 — implies an offsetting one-time gain of the same
+    // magnitude as opex) also takes the overflow path. Otherwise totalCosts
+    // collapses to 0, the cogs intermediate is skipped, and the opexBreakdown
+    // block downstream defaults to a non-existent "cogs" parent.
+    const opOverflow    = op >= rev && opexTotal > 0;
+    const totalCosts    = opOverflow ? opexTotal : Math.max(0, rev - op);
+    const opFromRev     = opOverflow ? Math.max(0, rev - totalCosts) : Math.min(op, rev);
+    const opFromNonop   = Math.max(0, op - opFromRev);
+
     addNode({
       id: "op",
       name: "Op. Income",
@@ -770,13 +800,26 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       subLabel: operatingMarginPct ? `${operatingMarginPct}% margin` : undefined,
       color: C_OP,
     });
-    addLink({ source: "revenue", target: "op", value: op, color: C_OP });
-    const totalCosts = rev - op;
+    if (opFromRev > 0) {
+      addLink({ source: "revenue", target: "op", value: opFromRev, color: C_OP });
+    }
+    if (opFromNonop > 0) {
+      addNode({
+        id: "nonop",
+        name: "Non-Op Gain",
+        displayValue: `+${fmt(opFromNonop, unit)}`,
+        color: "#5A8A5A",
+      });
+      segNodeIds.add("nonop");
+      addLink({ source: "nonop", target: "op", value: opFromNonop, color: "#5A8A5A" });
+    }
     if (totalCosts > 0) {
       // Airlines (and other no-GP issuers with a populated opex breakdown)
       // route the breakdown through this node — relabel "Op. Costs" so the
-      // intermediate matches its role as a cost aggregator.
-      const tcName = airlineNoGp ? "Op. Costs" : "Total Costs";
+      // intermediate matches its role as a cost aggregator. Anomaly path
+      // (op > rev) also uses "Op. Costs" since the intermediate now sizes
+      // to tagged opex, not the residual.
+      const tcName = airlineNoGp || opOverflow ? "Op. Costs" : "Total Costs";
       addNode({ id: "cogs", name: tcName, displayValue: fmt(totalCosts, unit), color: C_COGS });
       addLink({ source: "revenue", target: "cogs", value: totalCosts, color: C_COGS });
     }
@@ -998,9 +1041,15 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
     //     ("Purchases & Prod" for oil-gas, the largest opex line otherwise)
     //     absorbs the overflow, displayed value preserved.
     {
+      // For the no-GP path (parentId === "cogs"), the cogs intermediate is
+      // sized to `rev − op` normally. In the op-overflow anomaly (reported op
+      // exceeds revenue — see the op > 0 branch above), the cogs intermediate
+      // was instead sized to the tagged opex total to keep the parent existing
+      // and flow conservation valid. Mirror that here so reconciliation pads /
+      // trims the breakdown against the right target.
       const parentVal = parentId === "opex"
         ? (opLoss > 0 ? Math.min(gp, opex) : opex)
-        : (rev - op);
+        : (op > rev && opex > 0 ? opex : Math.max(0, rev - op));
       const breakdownSum = entries.reduce(
         (s, e) => s + (e.value > 0 ? e.value : 0),
         0,
@@ -1162,7 +1211,31 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
   else if (industryProfile === "bank") layout.nodeSort(bankSort);
   else if (!customProfileBuilt && !lossHandled) layout.nodeSort(standardSort);
 
-  const graph = layout({ nodes: nodes.map(n => ({ ...n })), links: links.map(l => ({ ...l })) });
+  // Safety net for d3-sankey's "missing: <id>" throw. The library does not
+  // tolerate a link whose source/target id is absent from the nodes array,
+  // and the branch matrix above (industry profiles × loss/np/op states ×
+  // breakdown availability) makes it easy to introduce a path where a node
+  // is skipped (gated by a value > 0 check) while an inbound link to it was
+  // still pushed elsewhere. Known cases handled by branch logic above:
+  //   • ZVRA Q1 FY2026: op > rev → no "cogs" parent for opexBreakdown
+  //     (fixed via the op-overflow path in the op > 0 branch).
+  // Latent shapes the safety net still covers without a per-case branch fix:
+  //   • gp > 0, op = 0 (exact), opLoss = 0, np > 0: the np > 0 fallback at
+  //     `addLink(op → np)` references a "op" node that was never added
+  //     because the gp > 0 branch only emits it when `op > 0`.
+  //   • All operating metrics clamp to 0 with no loss tag but opex > 0:
+  //     no branch fires, so neither "cogs" nor "opex" parent exists for
+  //     the breakdown block.
+  // Dropping orphan links degrades to a missing ribbon instead of a runtime
+  // crash; the visible chart loses one flow at most, the rest still renders.
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const validLinks = links.filter((l) => {
+    const src = typeof l.source === "string" ? l.source : l.source.id;
+    const tgt = typeof l.target === "string" ? l.target : l.target.id;
+    return nodeIds.has(src) && nodeIds.has(tgt);
+  });
+
+  const graph = layout({ nodes: nodes.map(n => ({ ...n })), links: validLinks.map(l => ({ ...l })) });
 
   // Airline-mode safety: d3-sankey's barycentric relaxation can still place
   // Op. Income above Op. Costs (the bulk flow pulls Op. Income up because
