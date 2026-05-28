@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
 import { getTopTickers } from "@/lib/tickerStats";
 import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
+import { reportError } from "@/lib/errorReporter";
 
 export const runtime = "edge";
 
@@ -53,10 +54,16 @@ export async function GET(req: NextRequest) {
   const quotes = await Promise.all(
     symbols.map(async (sym) => {
       const [quote, profile] = await Promise.all([
-        yahooFinance.quote(sym).catch(() => null),
+        yahooFinance.quote(sym, {}, { validateResult: false }).catch((err) => {
+          reportError("api/popular/quote", err, { symbol: sym });
+          return null;
+        }),
         yahooFinance
           .quoteSummary(sym, { modules: ["assetProfile"] }, { validateResult: false })
-          .catch(() => null) as Promise<{ assetProfile?: { website?: string } } | null>,
+          .catch((err) => {
+            reportError("api/popular/quoteSummary", err, { symbol: sym });
+            return null;
+          }) as Promise<{ assetProfile?: { website?: string } } | null>,
       ]);
       if (!quote) return null;
       return {
