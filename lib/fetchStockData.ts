@@ -3,6 +3,7 @@ import { fetchEdgarQuarterlyRevenue } from "@/lib/fetchEdgarSegments";
 import { fetchUsdRate } from "@/lib/fxRates";
 import { resolveLogoDomain } from "@/lib/logoDomain";
 import { fetchGoogleNewsWhitelist } from "@/lib/fetchGoogleNewsWhitelist";
+import { reportError } from "@/lib/errorReporter";
 import type {
   StockData,
   CashFlowYear,
@@ -107,9 +108,21 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     { validateResult: false },
   ) as AnyRecord,
     yahooFinance
-      .historical(ticker, { period1: oneYearAgo, period2: today, interval: "1wk" })
-      .catch(() => null),
-    yahooFinance.search(ticker, { newsCount: 7, quotesCount: 1 }).catch(() => null),
+      .historical(
+        ticker,
+        { period1: oneYearAgo, period2: today, interval: "1wk" },
+        { validateResult: false },
+      )
+      .catch((err) => {
+        reportError("fetchStockData/historical", err, { ticker });
+        return null;
+      }),
+    yahooFinance
+      .search(ticker, { newsCount: 7, quotesCount: 1 }, { validateResult: false })
+      .catch((err) => {
+        reportError("fetchStockData/search", err, { ticker });
+        return null;
+      }),
     fetchEdgarQuarterlyRevenue(ticker, oneYearAgo),
     yahooFinance
       .fundamentalsTimeSeries(
@@ -117,14 +130,20 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         { period1: tenYearsAgo, type: "annual", module: "all" },
         { validateResult: false },
       )
-      .catch(() => null) as Promise<AnyRecord[] | null>,
+      .catch((err) => {
+        reportError("fetchStockData/fundamentalsAnnual", err, { ticker });
+        return null;
+      }) as Promise<AnyRecord[] | null>,
     yahooFinance
       .fundamentalsTimeSeries(
         ticker,
         { period1: oneYearAgo, type: "quarterly", module: "all" },
         { validateResult: false },
       )
-      .catch(() => null) as Promise<AnyRecord[] | null>,
+      .catch((err) => {
+        reportError("fetchStockData/fundamentalsQuarterly", err, { ticker });
+        return null;
+      }) as Promise<AnyRecord[] | null>,
   ]);
 
   // ── Quarterly revenue: EDGAR + Yahoo gap-fill ──────────────────────────────
@@ -419,7 +438,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
     insiderTransactions,
 
     historicalPrices: historicalRaw
-      ? historicalRaw
+      ? (historicalRaw as Array<{ date: Date; adjClose?: number | null }>)
           .filter((d) => d.adjClose != null)
           .map((d) => ({
             time: d.date.toISOString().split("T")[0],
@@ -552,7 +571,7 @@ export async function fetchPeerComparison(
     // have it (e.g. stand-alone use or stockData.industry came back null).
     let industry = knownIndustry ?? null;
     if (!industry) {
-      const quote = await yahooFinance.quote(ticker) as AnyRecord;
+      const quote = await yahooFinance.quote(ticker, {}, { validateResult: false }) as AnyRecord;
       industry = (quote.industry as string | undefined) ?? null;
     }
     if (!industry) return null;

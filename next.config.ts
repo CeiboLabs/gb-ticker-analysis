@@ -13,7 +13,9 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  // @react-pdf/renderer carga el WASM de yoga vía fetch(data:...) y crea un worker desde blob:.
+  "connect-src 'self' data: blob:",
+  "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
