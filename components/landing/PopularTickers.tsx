@@ -34,9 +34,22 @@ function PopularLogo({ symbol, domain }: { symbol: string; domain: string | null
   );
 }
 
-// Used only as skeleton placeholders while /api/popular is loading.
-// The real list comes from the server (tracked views + curated fallback).
+// Skeleton placeholders while /api/popular is loading, and final fallback
+// if the API errors / returns no quotes — better to show curated symbols
+// with em-dashes than collapse the section to zero buttons.
 const SKELETON_SYMBOLS = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"];
+
+function skeletonQuotes(): Quote[] {
+  return SKELETON_SYMBOLS.map((s) => ({
+    symbol: s,
+    name: s,
+    price: null,
+    changePercent: null,
+    currency: null,
+    domain: null,
+    viewCount: null,
+  }));
+}
 
 function formatPrice(p: number | null): string {
   if (p == null) return "—";
@@ -59,12 +72,13 @@ export function PopularTickers({ onSelect }: Props) {
     let cancelled = false;
     fetch(`/api/popular?limit=8`)
       .then((r) => r.json())
-      .then((data: { quotes: Quote[] }) => {
+      .then((data: { quotes?: Quote[] }) => {
         if (cancelled) return;
-        setQuotes(data.quotes);
+        const arr = Array.isArray(data?.quotes) ? data.quotes : [];
+        setQuotes(arr.length > 0 ? arr : skeletonQuotes());
       })
       .catch(() => {
-        if (!cancelled) setQuotes([]);
+        if (!cancelled) setQuotes(skeletonQuotes());
       });
     return () => {
       cancelled = true;

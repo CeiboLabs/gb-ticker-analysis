@@ -10,15 +10,6 @@ const FALLBACK = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"
 const DEFAULT_LIMIT = 8;
 const LOOKBACK_DAYS = 7;
 
-function extractDomain(website: string | null | undefined): string | null {
-  if (!website) return null;
-  try {
-    return new URL(website).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: NextRequest) {
   const gate = checkPublicGetLimit("popular", clientIpFrom(req), PUBLIC_LIMIT_DEFAULT);
   if (!gate.allowed) {
@@ -48,38 +39,49 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 3. Fetch quotes + domain for each
+  // 3. Single batched Yahoo call for all symbols. The previous implementation
+  // issued 8 quote() + 8 quoteSummary() requests serialized by the 1 req/s
+  // Yahoo throttle (~16s total) which timed out on Cloudflare edge. The
+  // logo endpoint resolves brand marks from the ticker alone, so we no
+  // longer need quoteSummary just to get the website domain here.
   const trackedCounts = new Map(top.map((t) => [t.symbol, t.count]));
 
-  const quotes = await Promise.all(
-    symbols.map(async (sym) => {
-      const [quote, profile] = await Promise.all([
-        yahooFinance.quote(sym, {}, { validateResult: false }).catch((err) => {
-          reportError("api/popular/quote", err, { symbol: sym });
-          return null;
-        }),
-        yahooFinance
-          .quoteSummary(sym, { modules: ["assetProfile"] }, { validateResult: false })
-          .catch((err) => {
-            reportError("api/popular/quoteSummary", err, { symbol: sym });
-            return null;
-          }) as Promise<{ assetProfile?: { website?: string } } | null>,
-      ]);
-      if (!quote) return null;
+  type BatchQuote = {
+    symbol: string;
+    longName?: string;
+    shortName?: string;
+    regularMarketPrice?: number;
+    regularMarketChangePercent?: number;
+    currency?: string;
+  };
+
+  const batch = (await yahooFinance
+    .quote(symbols, {}, { validateResult: false })
+    .catch((err) => {
+      reportError("api/popular/quote-batch", err, { symbols: symbols.join(",") });
+      return [] as BatchQuote[];
+    })) as BatchQuote[];
+
+  const bySymbol = new Map(batch.map((q) => [q.symbol, q]));
+
+  const quotes = symbols
+    .map((sym) => {
+      const q = bySymbol.get(sym);
+      if (!q) return null;
       return {
         symbol: sym,
-        name: quote.longName ?? quote.shortName ?? sym,
-        price: quote.regularMarketPrice ?? null,
-        changePercent: quote.regularMarketChangePercent ?? null,
-        currency: quote.currency ?? null,
-        domain: extractDomain(profile?.assetProfile?.website),
+        name: q.longName ?? q.shortName ?? sym,
+        price: q.regularMarketPrice ?? null,
+        changePercent: q.regularMarketChangePercent ?? null,
+        currency: q.currency ?? null,
+        domain: null as string | null,
         viewCount: trackedCounts.get(sym) ?? null,
       };
-    }),
-  );
+    })
+    .filter((q): q is NonNullable<typeof q> => q !== null);
 
   return NextResponse.json(
-    { quotes: quotes.filter((q): q is NonNullable<typeof q> => q !== null) },
+    { quotes },
     {
       headers: {
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
