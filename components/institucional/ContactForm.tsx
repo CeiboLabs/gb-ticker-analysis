@@ -1,73 +1,45 @@
 "use client";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  border: "0",
-  borderBottom: "1px solid var(--rule)",
-  background: "transparent",
-  padding: "10px 0",
-  fontFamily: "var(--font-sans)",
-  fontSize: 15,
-  color: "var(--ink)",
-  outline: "none",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontFamily: "var(--font-sans)",
-  textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  fontSize: 11,
-  fontWeight: 500,
-  color: "var(--ink-3)",
-  display: "block",
-  marginBottom: 4,
-};
+const ArrowRight = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
 
 export function ContactForm() {
   return (
-    <div style={{ borderTop: "1px solid var(--ink)", paddingTop: "var(--space-5)" }}>
-      <div className="cap-gold" style={{ marginBottom: 6 }}>Escribinos</div>
-      <h2
-        className="serif"
-        style={{
-          fontWeight: 400,
-          fontSize: "clamp(24px, 4vw, 32px)",
-          lineHeight: 1.1,
-          margin: "0 0 var(--space-2)",
-          letterSpacing: "-0.015em",
-        }}
-      >
-        Envianos un mensaje.
-      </h2>
-      <p className="body-base" style={{ marginBottom: "var(--space-5)" }}>
+    <div className="site">
+      <div className="eyebrow-sm">Escribinos</div>
+      <h2 className="t-h3" style={{ marginTop: 16 }}>Envianos un mensaje.</h2>
+      <p className="t-lead" style={{ marginTop: 16, marginBottom: 36, maxWidth: "30em" }}>
         Completá el formulario y un asesor de la casa te responde a la brevedad.
       </p>
 
-      <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }} className="form-row">
+      <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           <div>
-            <label style={labelStyle}>Nombre</label>
-            <input type="text" placeholder="Tu nombre" style={inputStyle} />
+            <label className="ui-label">Nombre</label>
+            <input type="text" placeholder="Tu nombre" className="ui-input" />
           </div>
           <div>
-            <label style={labelStyle}>Apellido</label>
-            <input type="text" placeholder="Tu apellido" style={inputStyle} />
+            <label className="ui-label">Apellido</label>
+            <input type="text" placeholder="Tu apellido" className="ui-input" />
           </div>
         </div>
 
         <div>
-          <label style={labelStyle}>Email</label>
-          <input type="email" placeholder="tu@email.com" style={inputStyle} />
+          <label className="ui-label">Email</label>
+          <input type="email" placeholder="tu@email.com" className="ui-input" />
         </div>
 
         <div>
-          <label style={labelStyle}>Teléfono</label>
-          <input type="tel" placeholder="+598 99 123 456" style={inputStyle} />
+          <label className="ui-label">Teléfono</label>
+          <input type="tel" placeholder="+598 99 123 456" className="ui-input" />
         </div>
 
         <div>
-          <label style={labelStyle}>Motivo</label>
-          <select style={inputStyle}>
+          <label className="ui-label">Motivo</label>
+          <select className="ui-input">
             <option value="">Seleccioná una opción</option>
             <option value="cuenta">Abrir una cuenta</option>
             <option value="asesoria">Asesoramiento financiero</option>
@@ -77,29 +49,28 @@ export function ContactForm() {
         </div>
 
         <div>
-          <label style={labelStyle}>Mensaje</label>
+          <label className="ui-label">Mensaje</label>
           <textarea
             placeholder="Contanos sobre tu consulta…"
             rows={4}
-            style={{ ...inputStyle, resize: "none", padding: "10px 0", borderBottom: "1px solid var(--rule)" }}
+            className="ui-input"
+            style={{ resize: "vertical" }}
           />
         </div>
 
-        <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start", marginTop: "var(--space-2)" }}>
-          Enviar mensaje <span className="arrow" />
+        <button
+          type="submit"
+          className="ui-btn ui-btn-primary"
+          style={{ alignSelf: "flex-start", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          Enviar mensaje
+          <span style={{ width: 18, height: 18, display: "inline-flex" }}><ArrowRight /></span>
         </button>
       </form>
 
       <style>{`
-        .form-row { grid-template-columns: 1fr 1fr; }
         @media (max-width: 640px) {
           .form-row { grid-template-columns: 1fr !important; }
-        }
-        input:focus, select:focus, textarea:focus {
-          border-bottom-color: var(--ink) !important;
-        }
-        input::placeholder, textarea::placeholder {
-          color: var(--ink-3);
         }
       `}</style>
     </div>

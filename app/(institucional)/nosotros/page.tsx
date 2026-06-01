@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Nosotros · Bengochea & Cía.",
@@ -16,7 +17,7 @@ const VALORES = [
   "Proactivos y creativos para adaptarnos a los desafíos.",
 ];
 
-const PILARES = [
+const PILARES: [string, string][] = [
   ["Presencia y experiencia", "Casi seis décadas gestionando patrimonios de uruguayos y extranjeros. Miembros de la Bolsa de Valores de Montevideo desde 1967."],
   ["Una mirada global", "Somos locales pero con foco global. Invertimos en el mundo desde Uruguay."],
   ["Regulación", "Compañía regulada por el Banco Central del Uruguay y miembros activos de la BVM."],
@@ -26,304 +27,189 @@ const PILARES = [
   ["Somos tu aliado", "No exigimos mínimos para abrir cuenta. El tiempo es tu mejor aliado; nosotros también."],
 ];
 
+const ArrowRight = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+
 export default function NosotrosPage() {
   return (
-    <main>
-      {/* Hero */}
-      <section className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(50% 70% at 20% 20%, rgba(201,168,76,0.08), transparent 60%)",
-          }}
-        />
-        <div
-          className="wrap"
-          style={{
-            paddingTop: "calc(var(--nav-h) + var(--space-7))",
-            paddingBottom: "var(--space-7)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(255,255,255,0.18)",
-              paddingBottom: "var(--space-3)",
-              marginBottom: "var(--space-6)",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>La casa · Nosotros</span>
-            <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>EST. 1967</span>
+    <main className="site">
+      {/* Hero full-bleed */}
+      <div className="hero-media">
+        <div className="media-ph" aria-hidden />
+        <div className="scrim" aria-hidden />
+
+        <Reveal className="site-wrap hero-content">
+          <div className="kicker" style={{ color: "var(--gold-soft)" }}>
+            La casa · Nosotros
           </div>
-
-          <h1
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(40px, 6vw, 84px)",
-              lineHeight: 1,
-              letterSpacing: "-0.025em",
-              margin: 0,
-              color: "var(--ivory)",
-              maxWidth: "18ch",
-            }}
-          >
-            La excelencia hace{" "}
-            <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
-              la diferencia.
-            </em>
+          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+            La excelencia hace la diferencia.
           </h1>
-
-          <p
-            className="lede"
-            style={{
-              maxWidth: "42em",
-              color: "rgba(255,255,255,0.82)",
-              marginTop: "var(--space-5)",
-            }}
-          >
-            Creemos en las relaciones basadas en la confianza mutua y el profesionalismo. Brindamos un servicio profesional construido sobre altos estándares de gestión, sostenido por casi seis décadas en la plaza uruguaya.
+          <p className="t-lead" style={{ maxWidth: "40em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+            Creemos en las relaciones basadas en la confianza mutua y el profesionalismo. Un servicio
+            construido sobre altos estándares de gestión, sostenido por casi seis décadas en la plaza uruguaya.
           </p>
-        </div>
-      </section>
+          <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
+            <Link href="/historia" className="ui-btn ui-btn-on-navy-ghost">Nuestra historia</Link>
+          </div>
+        </Reveal>
+      </div>
 
-      {/* 01 · Pull cita */}
-      <section className="section">
-        <div className="wrap-narrow" style={{ paddingTop: "var(--space-7)", paddingBottom: "var(--space-7)" }}>
-          <div className="cap-gold">Premisa</div>
-          <p
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(28px, 3.6vw, 44px)",
-              lineHeight: 1.2,
-              letterSpacing: "-0.015em",
-              margin: "var(--space-3) 0 0",
-              maxWidth: "22ch",
-            }}
-          >
-            Asumimos con responsabilidad la{" "}
-            <em className="serif-i" style={{ color: "var(--gold-deep)" }}>
-              administración profesional
-            </em>{" "}
-            de tus inversiones.
-          </p>
-        </div>
-      </section>
-
-      {/* 02 · Misión & Visión */}
-      <section className="section">
-        <div className="wrap">
-          <div className="sec-head">
+      {/* Premisa — declaración */}
+      <section className="band site-section">
+        <div className="site-wrap">
+          <Reveal className="split-label">
+            <div className="eyebrow-sm">Premisa</div>
             <div>
-              <div className="sec-num">01 / 03</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Misión y visión</div>
+              <p className="t-h2" style={{ maxWidth: "18em" }}>
+                Asumimos con responsabilidad la administración profesional de tus inversiones.
+                La confianza de cada cliente siempre fue nuestro norte.
+              </p>
             </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Misión & Visión — split de dos columnas, sin cards */}
+      <section className="band-muted site-section">
+        <div className="site-wrap">
+          <Reveal className="split-label">
+            <div className="eyebrow-sm">Misión y visión</div>
             <div>
-              <h2>Acompañar al inversor uruguayo, dentro y fuera de fronteras.</h2>
-              <p className="dek">
+              <h2 className="t-h2">Acompañar al inversor uruguayo, dentro y fuera de fronteras.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 Dos definiciones que ordenan la práctica de todos los días.
               </p>
             </div>
-          </div>
+          </Reveal>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 0,
-              borderTop: "1px solid var(--ink)",
-            }}
-            className="mv-grid"
-          >
-            <article
-              style={{
-                padding: "var(--space-5) var(--space-5) var(--space-5) 0",
-                borderRight: "1px solid var(--rule)",
-                borderBottom: "1px solid var(--rule)",
-              }}
-              className="mv-col"
-            >
-              <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Misión</div>
-              <p className="body-lead" style={{ margin: 0, maxWidth: "32em" }}>
-                Entregar a nuestros clientes asesoramiento profesional e independiente en inversiones financieras, de acuerdo a los objetivos definidos por el inversor y cumpliendo con altos estándares de ética y conducta profesional.
+          <Stagger className="mv-grid" as="div">
+            <StaggerItem className="mv-item" as="div">
+              <div className="eyebrow-sm">Misión</div>
+              <p className="t-body" style={{ marginTop: 14, marginBottom: 0 }}>
+                Entregar a nuestros clientes asesoramiento profesional e independiente en inversiones
+                financieras, de acuerdo a los objetivos definidos por el inversor y cumpliendo con altos
+                estándares de ética y conducta profesional.
               </p>
-              <p className="body-base" style={{ marginTop: "var(--space-3)", maxWidth: "32em" }}>
-                Democratizar las inversiones financieras en Uruguay, brindando y promoviendo el acceso al mercado al gran público.
+              <p className="t-body" style={{ marginTop: 16, marginBottom: 0 }}>
+                Democratizar las inversiones financieras en Uruguay, brindando y promoviendo el acceso al
+                mercado al gran público.
               </p>
-            </article>
-
-            <article
-              style={{
-                padding: "var(--space-5) 0 var(--space-5) var(--space-5)",
-                borderBottom: "1px solid var(--rule)",
-              }}
-              className="mv-col"
-            >
-              <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Visión</div>
-              <p className="body-lead" style={{ margin: 0, maxWidth: "32em" }}>
-                Construir y sostener liderazgo en el mercado a partir de la innovación centrada en el cliente y de la adaptabilidad a cambios de contexto.
+            </StaggerItem>
+            <StaggerItem className="mv-item" as="div">
+              <div className="eyebrow-sm">Visión</div>
+              <p className="t-body" style={{ marginTop: 14, marginBottom: 0 }}>
+                Construir y sostener liderazgo en el mercado a partir de la innovación centrada en el cliente
+                y de la adaptabilidad a cambios de contexto.
               </p>
-              <p className="body-base" style={{ marginTop: "var(--space-3)", maxWidth: "32em" }}>
-                Generar relaciones de largo plazo con clientes, colaboradores y proveedores basadas en la confianza y el profesionalismo.
+              <p className="t-body" style={{ marginTop: 16, marginBottom: 0 }}>
+                Generar relaciones de largo plazo con clientes, colaboradores y proveedores basadas en la
+                confianza y el profesionalismo.
               </p>
-            </article>
-          </div>
+            </StaggerItem>
+          </Stagger>
         </div>
-
-        <style>{`
-          @media (max-width: 760px) {
-            .mv-grid { grid-template-columns: 1fr !important; }
-            .mv-col { padding: var(--space-4) 0 !important; border-right: 0 !important; }
-          }
-        `}</style>
       </section>
 
-      {/* 03 · Valores */}
-      <section className="section">
-        <div className="wrap">
-          <div className="sec-head">
-            <div>
-              <div className="sec-num">02 / 03</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Valores</div>
-            </div>
-            <div>
-              <h2>Seis principios que ordenan la casa.</h2>
-              <p className="dek">
+      {/* Valores — lista de filas hairline */}
+      <section className="band site-section">
+        <div className="site-wrap">
+          <div className="split">
+            <Reveal>
+              <div className="eyebrow-sm">Valores</div>
+              <h2 className="t-h2" style={{ marginTop: 16 }}>Seis principios que ordenan la casa.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "30em" }}>
                 Lo que sostiene la convivencia interna y la relación con cada cliente.
               </p>
-            </div>
+            </Reveal>
+
+            <Stagger className="ui-list" as="div">
+              {VALORES.map((v) => (
+                <StaggerItem key={v} className="ui-list-row" as="div">
+                  <span className="row-title" style={{ fontSize: "clamp(18px, 1.8vw, 22px)" }}>{v}</span>
+                </StaggerItem>
+              ))}
+            </Stagger>
           </div>
-
-          <ol
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              borderTop: "1px solid var(--ink)",
-            }}
-          >
-            {VALORES.map((v, i) => (
-              <li
-                key={v}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "80px 1fr",
-                  gap: "var(--space-4)",
-                  padding: "var(--space-4) 0",
-                  borderBottom: "1px solid var(--rule)",
-                  alignItems: "baseline",
-                }}
-                className="valor-row"
-              >
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 13,
-                    letterSpacing: "0.08em",
-                    color: "var(--gold-deep)",
-                  }}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <p className="body-lead" style={{ margin: 0, maxWidth: "40em" }}>{v}</p>
-              </li>
-            ))}
-          </ol>
         </div>
-
-        <style>{`
-          @media (max-width: 600px) {
-            .valor-row { grid-template-columns: 40px 1fr !important; gap: var(--space-3) !important; }
-          }
-        `}</style>
       </section>
 
-      {/* 04 · Pilares */}
-      <section className="section-navy">
-        <div className="wrap">
-          <div className="sec-head">
+      {/* Pilares — banda navy full-width, hairline-grid */}
+      <section className="band-navy site-section">
+        <div className="site-wrap">
+          <Reveal className="split-label">
+            <div className="eyebrow-sm">Por qué GB</div>
             <div>
-              <div className="sec-num">03 / 03</div>
-              <div className="cap-gold-on-navy cap" style={{ marginTop: 8 }}>Por qué GB</div>
-            </div>
-            <div>
-              <h2 style={{ color: "var(--ivory)" }}>
-                Siete pilares,{" "}
-                <em className="serif-i" style={{ color: "var(--gold-soft)", fontWeight: 300 }}>
-                  una sola promesa.
-                </em>
-              </h2>
-              <p className="dek" style={{ color: "rgba(255,255,255,0.78)" }}>
-                La confianza de nuestros clientes siempre fue nuestro norte. Estos son los atributos sobre los que se construyó.
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Siete pilares, una sola promesa.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Casi seis décadas de confianza. Estos son los atributos sobre los que se construyó la relación
+                con cada cliente.
               </p>
             </div>
-          </div>
+          </Reveal>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              borderTop: "1px solid rgba(255,255,255,0.18)",
-              borderLeft: "1px solid rgba(255,255,255,0.18)",
-            }}
-            className="pilar-grid"
-          >
+          <Stagger className="pilar-grid" as="div">
             {PILARES.map(([title, body]) => (
-              <article
-                key={title}
-                style={{
-                  padding: "var(--space-5)",
-                  borderRight: "1px solid rgba(255,255,255,0.18)",
-                  borderBottom: "1px solid rgba(255,255,255,0.18)",
-                }}
-              >
-                <h3
-                  className="serif"
-                  style={{
-                    color: "var(--ivory)",
-                    fontWeight: 400,
-                    fontSize: 20,
-                    lineHeight: 1.2,
-                    margin: 0,
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  {title}
-                </h3>
-                <p className="body-base" style={{ color: "rgba(255,255,255,0.78)", margin: "var(--space-2) 0 0", fontSize: 14 }}>
-                  {body}
-                </p>
-              </article>
+              <StaggerItem key={title} className="pilar-item" as="div">
+                <h3 className="t-h4">{title}</h3>
+                <p className="t-small" style={{ marginTop: 12, marginBottom: 0 }}>{body}</p>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-5)", gap: 12 }}>
-            <Link href="/historia" className="btn btn-on-navy-secondary">
-              Nuestra historia
-            </Link>
-            <Link href="/contacto" className="btn btn-on-navy-primary">
-              Agendá una reunión <span className="arrow" />
-            </Link>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 48 }}>
+            <Link href="/historia" className="ui-btn ui-btn-on-navy-ghost">Nuestra historia</Link>
+            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
           </div>
         </div>
-
-        <style>{`
-          @media (max-width: 1000px) {
-            .pilar-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          }
-          @media (max-width: 560px) {
-            .pilar-grid { grid-template-columns: 1fr !important; }
-          }
-        `}</style>
       </section>
+
+      <style>{`
+        .mv-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0;
+          margin-top: 56px;
+          border-top: 1px solid var(--site-border);
+        }
+        .mv-item {
+          padding: 36px 48px 36px 0;
+          border-bottom: 1px solid var(--site-border);
+          border-right: 1px solid var(--site-border);
+        }
+        .mv-item:nth-child(2n) { border-right: 0; padding-right: 0; padding-left: 48px; }
+        .pilar-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0;
+          margin-top: 56px;
+          border-top: 1px solid rgba(255,255,255,0.16);
+          border-left: 1px solid rgba(255,255,255,0.16);
+        }
+        .pilar-item {
+          padding: 32px 28px;
+          border-right: 1px solid rgba(255,255,255,0.16);
+          border-bottom: 1px solid rgba(255,255,255,0.16);
+        }
+        @media (max-width: 980px) {
+          .pilar-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 760px) {
+          .mv-grid { grid-template-columns: 1fr; }
+          .mv-item, .mv-item:nth-child(2n) {
+            border-right: 0;
+            padding: 32px 0;
+            padding-left: 0;
+          }
+        }
+        @media (max-width: 560px) {
+          .pilar-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </main>
   );
 }

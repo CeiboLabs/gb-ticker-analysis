@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Informes · Bengochea & Cía.",
@@ -53,346 +54,119 @@ const INFORMES: Informe[] = [
   },
 ];
 
+const ArrowRight = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+
 export default function InformesPage() {
   const destacado = INFORMES[0];
-  const restantes = INFORMES.slice(1);
 
   return (
-    <main>
-      {/* Hero */}
-      <section className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(50% 70% at 10% 20%, rgba(201,168,76,0.10), transparent 60%)",
-          }}
-        />
-        <div
-          className="wrap"
-          style={{
-            paddingTop: "calc(var(--nav-h) + var(--space-7))",
-            paddingBottom: "var(--space-7)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(255,255,255,0.18)",
-              paddingBottom: "var(--space-3)",
-              marginBottom: "var(--space-6)",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>Recomendaciones · Informes</span>
-            <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>Mensuales y semanales</span>
+    <main className="site">
+      {/* Hero full-bleed */}
+      <div className="hero-media">
+        <div className="media-ph" aria-hidden />
+        <div className="scrim" aria-hidden />
+        <Reveal as="div" className="site-wrap hero-content">
+          <div className="kicker" style={{ color: "var(--gold-soft)" }}>
+            Recomendaciones · Informes
           </div>
-
-          <h1
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(40px, 6vw, 84px)",
-              lineHeight: 1,
-              letterSpacing: "-0.025em",
-              margin: 0,
-              color: "var(--ivory)",
-              maxWidth: "20ch",
-            }}
-          >
-            Lectura semanal y mensual del{" "}
-            <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
-              mercado.
-            </em>
+          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+            Lectura semanal y mensual del mercado.
           </h1>
-
-          <p
-            className="lede"
-            style={{
-              maxWidth: "42em",
-              color: "rgba(255,255,255,0.82)",
-              marginTop: "var(--space-5)",
-            }}
-          >
-            Recibí asesoramiento personalizado de acuerdo a tu perfil de inversor y necesidades particulares. Nuestros informes recogen la lectura de la mesa: macro, fija, equity y oportunidades.
+          <p className="t-lead" style={{ maxWidth: "42em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+            Nuestros informes recogen la lectura de la mesa: macro internacional, renta fija uruguaya,
+            equity global y las oportunidades de cada cierre de mercado.
           </p>
-        </div>
-      </section>
-
-      {/* Destacado */}
-      <section className="section">
-        <div className="wrap">
-          <div className="sec-head">
-            <div>
-              <div className="sec-num">Último</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Edición vigente</div>
-            </div>
-            <div>
-              <h2>{destacado.titulo}.</h2>
-              <p className="dek">
-                Publicado el {destacado.fechaTexto}. Disponible para descarga en PDF.
-              </p>
-            </div>
-          </div>
-
-          <article
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-              borderTop: "1px solid var(--ink)",
-              borderBottom: "1px solid var(--ink)",
-              padding: "var(--space-6) 0",
-              gap: "var(--space-6)",
-              alignItems: "center",
-            }}
-            className="destacado-grid"
-          >
-            <div>
-              <div className="cap-gold" style={{ marginBottom: "var(--space-2)" }}>{destacado.categoria}</div>
-              <h3
-                className="serif"
-                style={{
-                  fontWeight: 400,
-                  fontSize: "clamp(28px, 3.6vw, 44px)",
-                  lineHeight: 1.1,
-                  margin: 0,
-                  letterSpacing: "-0.02em",
-                  maxWidth: "16ch",
-                }}
-              >
-                {destacado.titulo}
-              </h3>
-              <p className="body-base" style={{ marginTop: "var(--space-3)" }}>
-                Lectura de la macro internacional, posicionamiento en renta fija uruguaya, oportunidades en equity global y comentarios sobre la operativa de la semana.
-              </p>
-              <div style={{ marginTop: "var(--space-4)" }}>
-                <a
-                  href={destacado.pdf}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary"
-                >
-                  Descargar PDF <span className="arrow" />
-                </a>
-              </div>
-            </div>
-
-            {/* Mock cover */}
+          <div style={{ marginTop: 32 }}>
             <a
               href={destacado.pdf}
               target="_blank"
               rel="noopener noreferrer"
-              className="section-navy"
-              style={{
-                position: "relative",
-                padding: "var(--space-6) var(--space-5)",
-                color: "var(--ivory)",
-                minHeight: 280,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                gap: "var(--space-5)",
-                textDecoration: "none",
-              }}
+              className="ui-btn ui-btn-on-navy"
             >
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  top: "var(--space-3)",
-                  right: "var(--space-3)",
-                  width: 24,
-                  height: 24,
-                  borderTop: "1px solid var(--gold)",
-                  borderRight: "1px solid var(--gold)",
-                }}
-              />
-              <div>
-                <div className="cap-gold-on-navy cap">Bengochea Inversiones</div>
-                <h4
-                  className="serif"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: 30,
-                    lineHeight: 1.1,
-                    margin: "var(--space-2) 0 0",
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  Informe <span className="serif-i" style={{ color: "var(--gold-soft)" }}>mensual.</span>
-                </h4>
-              </div>
-              <div
-                className="mono"
-                style={{
-                  fontSize: 12,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.6)",
-                  borderTop: "1px solid rgba(255,255,255,0.18)",
-                  paddingTop: "var(--space-3)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span>Mayo · 2026</span>
-                <span style={{ color: "var(--gold-soft)" }}>PDF ↗</span>
-              </div>
+              Descargar último informe
             </a>
-          </article>
-        </div>
+          </div>
+        </Reveal>
+      </div>
 
-        <style>{`
-          @media (max-width: 760px) {
-            .destacado-grid { grid-template-columns: 1fr !important; }
-          }
-        `}</style>
-      </section>
-
-      {/* Histórico */}
-      <section className="section">
-        <div className="wrap">
-          <div className="sec-head">
+      {/* Archivo — lista de filas con hairlines */}
+      <section className="band site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Archivo</div>
             <div>
-              <div className="sec-num">Archivo</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Ediciones anteriores</div>
-            </div>
-            <div>
-              <h2>Informes semanales recientes.</h2>
-              <p className="dek">
-                Lectura de cada cierre de mercado, con comentarios sobre los movimientos relevantes.
+              <h2 className="t-h2">Ediciones recientes.</h2>
+              <p className="t-lead" style={{ marginTop: 16, maxWidth: "36em" }}>
+                Lectura de cada cierre, con comentarios sobre los movimientos relevantes de la semana
+                y del mes. Disponibles para descarga en PDF.
               </p>
             </div>
-          </div>
+          </Reveal>
 
-          <ol
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              borderTop: "1px solid var(--ink)",
-            }}
-          >
-            {restantes.map((it, i) => (
-              <li
-                key={it.pdf}
-                style={{
-                  borderBottom: "1px solid var(--rule)",
-                }}
-              >
+          <Stagger as="div" className="ui-list" style={{ marginTop: 56 }}>
+            {INFORMES.map((it) => (
+              <StaggerItem as="div" key={it.pdf}>
                 <a
                   href={it.pdf}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="informe-row"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "120px 100px 1fr 80px",
-                    gap: "var(--space-4)",
-                    padding: "var(--space-4) 0",
-                    alignItems: "baseline",
-                    textDecoration: "none",
-                  }}
+                  className="ui-list-row informe-row"
                 >
-                  <span
-                    className="mono"
-                    style={{ fontSize: 13, color: "var(--gold-deep)", letterSpacing: "0.06em" }}
-                  >
-                    {it.fechaTexto.split(",")[0]}
+                  <span className="informe-main">
+                    <span className="informe-meta">
+                      <span className="t-small informe-fecha">{it.fechaTexto.split(",")[0]}</span>
+                      <span className="ui-tag">{it.categoria}</span>
+                    </span>
+                    <span className="row-title" style={{ display: "block", marginTop: 8 }}>{it.titulo}</span>
                   </span>
-                  <span className="cap" style={{ color: "var(--ink-3)" }}>{it.categoria}</span>
-                  <h3
-                    className="serif"
-                    style={{
-                      fontWeight: 400,
-                      fontSize: 20,
-                      lineHeight: 1.2,
-                      margin: 0,
-                      letterSpacing: "-0.015em",
-                      color: "var(--ink)",
-                    }}
-                  >
-                    {it.titulo}
-                  </h3>
-                  <span
-                    className="mono"
-                    style={{ fontSize: 11, color: "var(--ink-2)", letterSpacing: "0.08em", textAlign: "right" }}
-                  >
-                    PDF ↗
+                  <span className="link-arrow informe-cta">
+                    Descargar PDF <ArrowRight />
                   </span>
                 </a>
-                <style>{i === 0 ? `
-                  .informe-row { transition: background 160ms ease; }
-                  .informe-row:hover { background: var(--rule-soft); }
-                  @media (max-width: 760px) {
-                    .informe-row { grid-template-columns: 1fr auto !important; gap: var(--space-2) !important; }
-                    .informe-row > .cap { display: none; }
-                    .informe-row > h3 { grid-column: 1 / -1; }
-                    .informe-row > .mono:last-child { grid-column: 2; }
-                  }
-                ` : ""}</style>
-              </li>
+              </StaggerItem>
             ))}
-          </ol>
+          </Stagger>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="section-navy">
-        <div className="wrap" style={{ paddingTop: "var(--space-7)", paddingBottom: "var(--space-7)" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)",
-              gap: "var(--space-6)",
-              alignItems: "end",
-            }}
-            className="informes-cta-grid"
-          >
+      {/* CTA — banda navy */}
+      <section className="band-navy site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Asesoramiento</div>
             <div>
-              <div className="cap-gold-on-navy cap">Asesoramiento</div>
-              <h2
-                className="serif"
-                style={{
-                  fontStyle: "italic",
-                  fontWeight: 300,
-                  fontSize: "clamp(28px, 3.6vw, 44px)",
-                  lineHeight: 1.1,
-                  margin: "var(--space-3) 0 0",
-                  color: "var(--gold-soft)",
-                  letterSpacing: "-0.01em",
-                  maxWidth: "20ch",
-                }}
-              >
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>
                 Las recomendaciones a medida no caben en un PDF.
               </h2>
-            </div>
-            <div>
-              <p className="lede" style={{ color: "rgba(255,255,255,0.82)", margin: 0, maxWidth: "36em" }}>
-                Los informes son una lectura general. Para tu cartera, hace falta una conversación. Agendá una reunión con un asesor de la casa.
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "38em" }}>
+                Los informes son una lectura general. Para tu cartera, hace falta una conversación.
+                Agendá una reunión con un asesor de la casa.
               </p>
-              <div style={{ display: "flex", gap: 12, marginTop: "var(--space-5)", flexWrap: "wrap" }}>
-                <Link href="/contacto" className="btn btn-on-navy-primary">
-                  Agendá una reunión <span className="arrow" />
+              <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+                <Link href="/contacto" className="ui-btn ui-btn-on-navy">
+                  Agendá una reunión
                 </Link>
-                <Link href="/servicios" className="btn btn-on-navy-secondary">
+                <Link href="/servicios" className="ui-btn ui-btn-on-navy-ghost">
                   Ver el ecosistema
                 </Link>
               </div>
             </div>
-          </div>
+          </Reveal>
         </div>
-
-        <style>{`
-          @media (max-width: 900px) {
-            .informes-cta-grid { grid-template-columns: 1fr !important; gap: var(--space-5) !important; }
-          }
-        `}</style>
       </section>
+
+      <style>{`
+        .informe-meta { display: inline-flex; align-items: center; gap: 14px; }
+        .informe-fecha { font-weight: 600; color: var(--gold-deep); letter-spacing: 0.02em; }
+        .informe-cta { pointer-events: none; flex: none; }
+        @media (max-width: 640px) {
+          .informe-row { flex-direction: column; align-items: flex-start; gap: 14px; }
+        }
+      `}</style>
     </main>
   );
 }

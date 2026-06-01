@@ -20,11 +20,14 @@ const ACCESOS: NavLink[] = [
   { label: "Consultanet", href: "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx", external: true },
 ];
 
+const ARIAL = 'Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif';
+
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
+  // La página /analyze conserva el navbar oscuro original — no se rediseña.
   const isDark = pathname.startsWith("/analyze");
 
   useEffect(() => {
@@ -36,19 +39,21 @@ export function Navbar() {
 
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
-  const bg = isDark ? "var(--navy)" : "var(--ivory)";
+  const bg = isDark ? "var(--navy)" : "#FFFFFF";
   const fg = isDark ? "var(--ivory)" : "var(--ink)";
-  const fgSecondary = isDark ? "rgba(255,255,255,0.72)" : "var(--ink-2)";
-  const ruleColor = isDark ? "rgba(255,255,255,0.18)" : "var(--rule)";
+  const fgSecondary = isDark ? "rgba(255,255,255,0.72)" : "#4A4E6B";
+  const ruleColor = isDark ? "rgba(255,255,255,0.18)" : "var(--site-border, #E7E8F2)";
   const goldAccent = isDark ? "var(--gold-soft)" : "var(--gold-deep)";
+  const navFont = isDark ? "var(--font-sans)" : ARIAL;
 
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-50"
+      className={`fixed top-0 inset-x-0 z-50${isDark ? "" : " site"}`}
       style={{
         background: bg,
         borderBottom: `1px solid ${scrolled || isDark ? ruleColor : "transparent"}`,
-        transition: "border-color 200ms ease",
+        boxShadow: !isDark && scrolled ? "0 4px 20px rgba(3,6,94,0.05)" : "none",
+        transition: "border-color 200ms ease, box-shadow 200ms ease",
         height: "var(--nav-h)",
       }}
     >
@@ -79,14 +84,14 @@ export function Navbar() {
                 data-dark={isDark ? "1" : "0"}
                 data-active={active ? "1" : "0"}
                 style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
+                  fontFamily: navFont,
+                  fontSize: isDark ? 12 : 15,
+                  fontWeight: isDark ? 500 : 600,
+                  letterSpacing: isDark ? "0.08em" : "0",
+                  textTransform: isDark ? "uppercase" : "none",
                   color: active ? fg : fgSecondary,
                   paddingBottom: 4,
-                  borderBottom: `1px solid ${active ? "var(--gold)" : "transparent"}`,
+                  borderBottom: `2px solid ${active ? (isDark ? "var(--gold)" : "var(--navy)") : "transparent"}`,
                   transition: "color 180ms ease, border-color 180ms ease",
                 }}
               >
@@ -110,11 +115,11 @@ export function Navbar() {
               data-dark={isDark ? "1" : "0"}
               data-active="0"
               style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: 11.5,
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
+                fontFamily: navFont,
+                fontSize: isDark ? 11.5 : 14,
+                fontWeight: isDark ? 500 : 600,
+                letterSpacing: isDark ? "0.1em" : "0",
+                textTransform: isDark ? "uppercase" : "none",
                 color: goldAccent,
                 display: "inline-flex",
                 alignItems: "center",
@@ -130,10 +135,10 @@ export function Navbar() {
 
           <Link
             href="/contacto"
-            className={isDark ? "btn btn-on-navy-primary" : "btn btn-primary"}
-            style={{ padding: "10px 16px", fontSize: 12 }}
+            className={isDark ? "btn btn-on-navy-primary" : "ui-btn ui-btn-primary"}
+            style={isDark ? { padding: "10px 16px", fontSize: 12 } : { padding: "10px 18px", fontSize: 14 }}
           >
-            Contacto <span className="arrow" />
+            Contacto {isDark && <span className="arrow" />}
           </Link>
         </div>
 
@@ -181,12 +186,12 @@ export function Navbar() {
                 href={link.href}
                 className="py-3"
                 style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: active ? goldAccent : fg,
+                  fontFamily: navFont,
+                  fontSize: isDark ? 13 : 16,
+                  fontWeight: isDark ? 500 : 600,
+                  letterSpacing: isDark ? "0.08em" : "0",
+                  textTransform: isDark ? "uppercase" : "none",
+                  color: active ? (isDark ? goldAccent : "var(--navy)") : fg,
                   borderBottom: `1px solid ${ruleColor}`,
                 }}
               >
@@ -196,12 +201,15 @@ export function Navbar() {
           })}
 
           <div
-            className="mono pt-4 pb-2"
             style={{
-              fontSize: 10,
-              letterSpacing: "0.18em",
+              fontFamily: navFont,
+              fontSize: isDark ? 10 : 12,
+              fontWeight: 700,
+              letterSpacing: "0.14em",
               textTransform: "uppercase",
               color: fgSecondary,
+              paddingTop: 18,
+              paddingBottom: 8,
             }}
           >
             Accesos clientes
@@ -215,11 +223,11 @@ export function Navbar() {
               rel="noopener noreferrer"
               className="py-3"
               style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
+                fontFamily: navFont,
+                fontSize: isDark ? 12 : 15,
+                fontWeight: 600,
+                letterSpacing: isDark ? "0.1em" : "0",
+                textTransform: isDark ? "uppercase" : "none",
                 color: goldAccent,
                 borderBottom: `1px solid ${ruleColor}`,
                 display: "inline-flex",
@@ -236,17 +244,17 @@ export function Navbar() {
 
           <Link
             href="/contacto"
-            className={isDark ? "btn btn-on-navy-primary mt-4" : "btn btn-primary mt-4"}
+            className={isDark ? "btn btn-on-navy-primary mt-4" : "ui-btn ui-btn-primary mt-4"}
             style={{ justifyContent: "center" }}
           >
-            Agendá una reunión <span className="arrow" />
+            Agendá una reunión {isDark && <span className="arrow" />}
           </Link>
         </div>
       </div>
 
       <style>{`
         .nav-link-anchor[data-dark="1"][data-active="0"]:hover { color: var(--ivory) !important; }
-        .nav-link-anchor[data-dark="0"][data-active="0"]:hover { color: var(--ink) !important; }
+        .nav-link-anchor[data-dark="0"][data-active="0"]:hover { color: var(--navy) !important; }
       `}</style>
     </nav>
   );

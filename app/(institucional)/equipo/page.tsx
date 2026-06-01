@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Reveal, Stagger, StaggerItem, Counter } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Equipo · Bengochea & Cía.",
@@ -69,280 +70,151 @@ const AREAS: Area[] = [
   },
 ];
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
-}
+const ArrowRight = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
 
 export default function EquipoPage() {
   const total = AREAS.reduce((acc, a) => acc + a.people.length, 0);
 
   return (
-    <main>
-      {/* Hero */}
-      <section className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(50% 70% at 80% 30%, rgba(201,168,76,0.08), transparent 60%)",
-          }}
-        />
-        <div
-          className="wrap"
-          style={{
-            paddingTop: "calc(var(--nav-h) + var(--space-7))",
-            paddingBottom: "var(--space-7)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(255,255,255,0.18)",
-              paddingBottom: "var(--space-3)",
-              marginBottom: "var(--space-6)",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>La casa · Equipo</span>
-            <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>WTC Montevideo · {total} colaboradores</span>
+    <main className="site">
+      {/* Hero full-bleed */}
+      <div className="hero-media">
+        <div className="media-ph" aria-hidden />
+        <div className="scrim" aria-hidden />
+        <Reveal as="div" className="site-wrap hero-content">
+          <div className="kicker" style={{ color: "var(--gold-soft)" }}>
+            La casa · Equipo
           </div>
-
-          <h1
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(40px, 6vw, 84px)",
-              lineHeight: 1,
-              letterSpacing: "-0.025em",
-              margin: 0,
-              color: "var(--ivory)",
-              maxWidth: "18ch",
-            }}
-          >
-            La mesa, en su{" "}
-            <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
-              composición.
-            </em>
+          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+            La mesa, en su composición.
           </h1>
-
-          <p
-            className="lede"
-            style={{
-              maxWidth: "40em",
-              color: "rgba(255,255,255,0.82)",
-              marginTop: "var(--space-5)",
-            }}
-          >
-            Cinco áreas, un único oficio. Cada cliente sabe con quién habla, sabe quién ejecuta y sabe quién firma. Estos son los nombres detrás de cada portafolio.
+          <p className="t-lead" style={{ maxWidth: "40em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+            Cinco áreas, un único oficio. Cada cliente sabe con quién habla, sabe quién ejecuta y sabe
+            quién firma. Estos son los nombres detrás de cada portafolio.
           </p>
-
-          {/* Index */}
-          <nav
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 24,
-              marginTop: "var(--space-6)",
-              paddingTop: "var(--space-4)",
-              borderTop: "1px solid rgba(255,255,255,0.18)",
-            }}
-          >
-            {AREAS.map((a, i) => (
-              <a
-                key={a.id}
-                href={`#${a.id}`}
-                className="mono"
-                style={{
-                  fontSize: 11.5,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.65)",
-                  display: "inline-flex",
-                  alignItems: "baseline",
-                  gap: 8,
-                }}
-              >
-                <span style={{ color: "var(--gold-soft)" }}>0{i + 1}</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 32 }}>
+            {AREAS.map((a) => (
+              <a key={a.id} href={`#${a.id}`} className="ui-btn ui-btn-on-navy-ghost">
                 {a.title}
               </a>
             ))}
-          </nav>
-        </div>
-      </section>
-
-      {/* Áreas */}
-      {AREAS.map((area, idx) => (
-        <section key={area.id} id={area.id} className="section">
-          <div className="wrap">
-            <div className="sec-head">
-              <div>
-                <div className="sec-num">{String(idx + 1).padStart(2, "0")} / {String(AREAS.length).padStart(2, "0")}</div>
-                <div className="cap-gold" style={{ marginTop: 8 }}>{area.title}</div>
-              </div>
-              <div>
-                <h2>{area.title}.</h2>
-                <p className="dek">{area.lede}</p>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                borderTop: "1px solid var(--ink)",
-                borderLeft: "1px solid var(--rule)",
-              }}
-              className="team-grid"
-            >
-              {area.people.map((p) => (
-                <article
-                  key={p.name}
-                  style={{
-                    padding: "var(--space-5)",
-                    borderRight: "1px solid var(--rule)",
-                    borderBottom: "1px solid var(--rule)",
-                    background: "var(--paper)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-4)",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      aspectRatio: "1 / 1",
-                      border: "1px solid var(--rule-strong)",
-                      background: "var(--ivory)",
-                      overflow: "hidden",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.photo}
-                      alt={p.name}
-                      loading="lazy"
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        objectPosition: "center top",
-                        filter: "grayscale(35%) contrast(0.98)",
-                      }}
-                    />
-                    <span
-                      aria-hidden
-                      className="serif"
-                      style={{
-                        fontSize: 28,
-                        fontWeight: 400,
-                        letterSpacing: "-0.02em",
-                        color: "var(--ink-3)",
-                        opacity: 0.25,
-                      }}
-                    >
-                      {initials(p.name)}
-                    </span>
-                    {/* Esquina dorada decorativa */}
-                    <span
-                      aria-hidden
-                      style={{
-                        position: "absolute",
-                        top: 6,
-                        right: 6,
-                        width: 14,
-                        height: 14,
-                        borderTop: "1px solid var(--gold)",
-                        borderRight: "1px solid var(--gold)",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <h3
-                      className="serif"
-                      style={{
-                        fontWeight: 400,
-                        fontSize: 18,
-                        lineHeight: 1.2,
-                        margin: 0,
-                        letterSpacing: "-0.015em",
-                      }}
-                    >
-                      {p.name}
-                    </h3>
-                    <div
-                      className="cap-gold"
-                      style={{
-                        marginTop: 6,
-                        fontSize: 10.5,
-                      }}
-                    >
-                      {p.role}
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
           </div>
+        </Reveal>
+      </div>
 
-          <style>{`
-            @media (max-width: 1000px) {
-              .team-grid { grid-template-columns: repeat(3, 1fr) !important; }
-            }
-            @media (max-width: 720px) {
-              .team-grid { grid-template-columns: repeat(2, 1fr) !important; }
-            }
-            @media (max-width: 480px) {
-              .team-grid { grid-template-columns: 1fr !important; }
-            }
-          `}</style>
+      {/* Áreas — grilla limpia de personas, sin tarjetas */}
+      {AREAS.map((area, idx) => (
+        <section
+          key={area.id}
+          id={area.id}
+          className={idx % 2 === 0 ? "band site-section" : "band-muted site-section"}
+        >
+          <div className="site-wrap">
+            <Reveal as="div" className="split-label">
+              <div className="eyebrow-sm">{area.title}</div>
+              <div>
+                <h2 className="t-h2">{area.title}</h2>
+                <p className="t-lead" style={{ marginTop: 16, maxWidth: "36em" }}>{area.lede}</p>
+              </div>
+            </Reveal>
+
+            <Stagger as="div" className="team-grid">
+              {area.people.map((p) => (
+                <StaggerItem key={p.name} as="div" className="person">
+                  <div className="person-photo">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.photo} alt={p.name} loading="lazy" />
+                  </div>
+                  <h3 className="t-h4" style={{ marginTop: 16 }}>{p.name}</h3>
+                  <div className="t-small" style={{ marginTop: 4 }}>{p.role}</div>
+                </StaggerItem>
+              ))}
+            </Stagger>
+          </div>
         </section>
       ))}
 
-      {/* Cierre */}
-      <section className="section">
-        <div className="wrap-narrow" style={{ paddingTop: "var(--space-7)", paddingBottom: "var(--space-7)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "var(--space-5)" }}>
-          <div className="cap-gold">Trabajá con la casa</div>
-          <p
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(28px, 3.6vw, 44px)",
-              lineHeight: 1.2,
-              letterSpacing: "-0.015em",
-              margin: 0,
-              maxWidth: "22ch",
-            }}
-          >
-            Cada portafolio se discute{" "}
-            <em className="serif-i" style={{ color: "var(--gold-deep)" }}>
-              entre todos.
-            </em>
-          </p>
-          <p className="body-lead" style={{ margin: 0, maxWidth: "42em" }}>
-            La recomendación al cliente no es la opinión aislada de un canal: es una conversación entre Directorio, Asesores, Mesa y Compliance.
-          </p>
-          <Link href="/contacto" className="btn btn-primary">
-            Agendá una reunión <span className="arrow" />
-          </Link>
+      {/* Cierre — banda navy */}
+      <section className="band-navy site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Trabajá con la casa</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>
+                Cada portafolio se discute entre todos.
+              </h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "42em" }}>
+                La recomendación al cliente no es la opinión aislada de un canal: es una conversación
+                entre Directorio, Asesores, Mesa y Compliance. Hoy somos{" "}
+                <Counter to={total} /> colaboradores en el WTC de Montevideo.
+              </p>
+              <Link href="/contacto" className="link-arrow" style={{ marginTop: 28 }}>
+                Agendá una reunión <ArrowRight />
+              </Link>
+            </div>
+          </Reveal>
         </div>
       </section>
+
+      <style>{`
+        .team-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: clamp(28px, 3vw, 44px) clamp(24px, 3vw, 40px);
+          margin-top: 56px;
+        }
+        .person {
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .person:hover {
+          transform: translateY(-4px);
+        }
+        .person:hover .t-small {
+          color: var(--navy);
+          transition: color 0.4s ease;
+        }
+        .person .t-small {
+          transition: color 0.4s ease;
+        }
+        .person-photo {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 4 / 5;
+          border-radius: 6px;
+          overflow: hidden;
+          background: var(--surface-muted);
+        }
+        .person-photo img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center top;
+          filter: grayscale(1);
+          transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .person:hover .person-photo img {
+          filter: grayscale(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .person, .person-photo img, .person .t-small { transition: none; }
+        }
+        .band-navy .person-photo { background: rgba(255,255,255,0.06); }
+        @media (max-width: 1000px) {
+          .team-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 720px) {
+          .team-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 460px) {
+          .team-grid { grid-template-columns: 1fr 1fr; }
+        }
+      `}</style>
     </main>
   );
 }

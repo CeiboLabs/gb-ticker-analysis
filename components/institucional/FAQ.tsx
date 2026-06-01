@@ -44,120 +44,92 @@ export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="section">
-      <div className="wrap">
-        <div className="sec-head">
-          <div>
-            <div className="sec-num">03 / 03</div>
-            <div className="cap-gold" style={{ marginTop: 8 }}>Preguntas frecuentes</div>
+    <div className="site">
+      <section className="band site-section">
+        <div className="site-wrap">
+          <div className="split-label">
+            <div className="eyebrow-sm">Preguntas frecuentes</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Respuestas a lo que más nos consultan.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Si tu pregunta no está acá, escribinos. La mejor respuesta sigue siendo una conversación.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2>Respuestas a lo que más nos consultan.</h2>
-            <p className="dek">
-              Si tu pregunta no está acá, escribinos. La mejor respuesta sigue siendo una conversación.
-            </p>
+
+          <div style={{ marginTop: 56, borderTop: "1px solid var(--site-border)" }}>
+            {FAQ_ITEMS.map((item, i) => {
+              const isOpen = openIndex === i;
+              return (
+                <div key={i} style={{ borderBottom: "1px solid var(--site-border)" }}>
+                  <button
+                    onClick={() => setOpenIndex(isOpen ? null : i)}
+                    aria-expanded={isOpen}
+                    style={{
+                      width: "100%",
+                      background: "none",
+                      border: 0,
+                      padding: "28px 4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 24,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "clamp(19px, 1.9vw, 24px)",
+                        fontWeight: 400,
+                        letterSpacing: "-0.015em",
+                        color: isOpen ? "var(--navy)" : "var(--site-ink)",
+                        transition: "color 200ms ease",
+                      }}
+                    >
+                      {item.question}
+                    </span>
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 26,
+                        height: 26,
+                        flex: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: isOpen ? "var(--navy)" : "var(--site-ink-3)",
+                        transition: "transform 220ms ease, color 200ms ease",
+                        transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                        <path d="M9 1v16M1 9h16" />
+                      </svg>
+                    </span>
+                  </button>
+
+                  <div
+                    style={{
+                      overflow: "hidden",
+                      maxHeight: isOpen ? 400 : 0,
+                      opacity: isOpen ? 1 : 0,
+                      transition: "max-height 280ms ease, opacity 200ms ease",
+                    }}
+                  >
+                    <p
+                      className="t-body"
+                      style={{ margin: 0, padding: "0 4px 32px", maxWidth: "48em" }}
+                    >
+                      {item.answer}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-
-        <ol style={{ listStyle: "none", padding: 0, margin: 0, borderTop: "1px solid var(--ink)" }}>
-          {FAQ_ITEMS.map((item, i) => {
-            const isOpen = openIndex === i;
-            return (
-              <li
-                key={i}
-                style={{
-                  borderBottom: "1px solid var(--rule)",
-                }}
-              >
-                <button
-                  onClick={() => setOpenIndex(isOpen ? null : i)}
-                  aria-expanded={isOpen}
-                  className="faq-row"
-                  style={{
-                    width: "100%",
-                    background: "none",
-                    border: 0,
-                    padding: "var(--space-4) 0",
-                    display: "grid",
-                    gridTemplateColumns: "60px 1fr 32px",
-                    gap: "var(--space-4)",
-                    alignItems: "baseline",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                >
-                  <span
-                    className="mono"
-                    style={{
-                      fontSize: 13,
-                      color: isOpen ? "var(--gold-deep)" : "var(--ink-3)",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span
-                    className="serif faq-question"
-                    style={{
-                      fontWeight: 400,
-                      fontSize: 22,
-                      lineHeight: 1.25,
-                      color: "var(--ink)",
-                      letterSpacing: "-0.015em",
-                    }}
-                  >
-                    {item.question}
-                  </span>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 24,
-                      height: 24,
-                      color: "var(--ink-2)",
-                      transition: "transform 200ms ease",
-                      transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M7 1v12M1 7h12" />
-                    </svg>
-                  </span>
-                </button>
-
-                <div
-                  style={{
-                    overflow: "hidden",
-                    maxHeight: isOpen ? 400 : 0,
-                    opacity: isOpen ? 1 : 0,
-                    transition: "max-height 260ms ease, opacity 200ms ease",
-                  }}
-                >
-                  <p
-                    className="body-base faq-answer"
-                    style={{
-                      margin: 0,
-                      padding: "0 0 var(--space-5) 60px",
-                      maxWidth: "44em",
-                    }}
-                  >
-                    {item.answer}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-
-      <style>{`
-        @media (max-width: 640px) {
-          .faq-row { grid-template-columns: 32px 1fr 24px !important; gap: var(--space-2) !important; }
-          .faq-question { font-size: 18px !important; }
-          .faq-answer { padding-left: 0 !important; }
-        }
-      `}</style>
-    </section>
+      </section>
+    </div>
   );
 }

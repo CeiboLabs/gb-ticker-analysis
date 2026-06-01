@@ -77,233 +77,154 @@ const SOCIAL = [
 
 export function FooterInstitucional() {
   return (
-    <footer className="section-navy mt-auto">
-      <div className="wrap" style={{ paddingTop: "var(--space-7)", paddingBottom: "var(--space-5)" }}>
-        {/* Manifesto editorial */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: "var(--space-6)",
-            paddingBottom: "var(--space-7)",
-            borderBottom: "1px solid rgba(255,255,255,0.18)",
-          }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)", gap: "var(--space-6)" }} className="footer-manifesto">
-            <div>
-              <div className="cap-gold-on-navy cap">Casa de bolsa · Montevideo · 1967</div>
-              <h2
-                className="serif"
-                style={{
-                  fontStyle: "italic",
-                  fontWeight: 300,
-                  fontSize: "clamp(28px, 4vw, 44px)",
-                  lineHeight: 1.1,
-                  margin: "var(--space-3) 0 0",
-                  maxWidth: "16em",
-                  color: "var(--gold-soft)",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Cincuenta y siete años invirtiendo con criterio uruguayo en los mercados del mundo.
-              </h2>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "var(--space-3)" }}>
-              <p className="lede" style={{ color: "rgba(255,255,255,0.78)", maxWidth: "32em", margin: 0 }}>
-                Sociedad de bolsa regulada por el Banco Central del Uruguay, con cuentas segregadas a nombre del cliente y asesoramiento de la casa.
-              </p>
-              <div style={{ display: "flex", gap: 12, marginTop: "var(--space-3)" }}>
-                <Link href="/contacto" className="btn btn-on-navy-primary">
-                  Agendá una reunión <span className="arrow" />
-                </Link>
-                <Link href="/analisis" className="btn btn-on-navy-secondary">
-                  Analizar una acción
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Marca + contacto */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-            gap: "var(--space-6)",
-            paddingTop: "var(--space-6)",
-            paddingBottom: "var(--space-6)",
-            borderBottom: "1px solid rgba(255,255,255,0.18)",
-          }}
-          className="footer-brand-row"
-        >
+    <footer className="site band-navy mt-auto">
+      <div className="site-wrap" style={{ paddingTop: 80, paddingBottom: 40 }}>
+        {/* Marca + columnas de navegación */}
+        <div className="footer-main">
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo-bengochea.svg?v=2"
               alt="Gastón Bengochea"
-              style={{ height: 32, width: "auto", display: "block" }}
+              style={{ height: 38, width: "auto", display: "block" }}
             />
-
-            <div
-              className="mono"
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.55)",
-                marginTop: 6,
-              }}
-            >
-              Sociedad de Bolsa · Miembro BVM desde 1967
-            </div>
+            <p className="t-small" style={{ marginTop: 20, maxWidth: "26em" }}>
+              Sociedad de Bolsa regulada por el Banco Central del Uruguay. Miembro de la Bolsa de Valores
+              de Montevideo desde 1967.
+            </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }} className="footer-contact">
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span className="cap-on-navy cap">Contacto</span>
-              <a href="tel:+59826286447" className="body-small footer-link" style={{ color: "rgba(255,255,255,0.85)" }}>
-                +598 2628 6447
-              </a>
-              <a href="mailto:info@gbengochea.com.uy" className="body-small footer-link" style={{ color: "rgba(255,255,255,0.85)" }}>
-                info@gbengochea.com.uy
-              </a>
-              <a href="mailto:reclamos@gbengochea.com.uy" className="body-small footer-link" style={{ color: "rgba(255,255,255,0.85)" }}>
-                reclamos@gbengochea.com.uy
-              </a>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span className="cap-on-navy cap">Oficina</span>
-              <p className="body-small" style={{ color: "rgba(255,255,255,0.72)", margin: 0, lineHeight: 1.55 }}>
-                Luis A. de Herrera 1248<br />
-                World Trade Center<br />
-                Torre I · Oficina 707<br />
-                Montevideo, Uruguay
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Cuatro columnas de navegación */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: "var(--space-6)",
-            paddingTop: "var(--space-6)",
-          }}
-          className="footer-grid"
-        >
-          {NAV_GROUPS.map((group) => (
-            <div key={group.title}>
-              <div className="cap-on-navy cap" style={{ marginBottom: "var(--space-3)" }}>
-                {group.title}
+          <div className="footer-grid">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.title}>
+                <div className="footer-col-title">{group.title}</div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                  {group.links.map((l) => (
+                    <li key={l.href}>
+                      {l.external ? (
+                        <a href={l.href} target="_blank" rel="noopener noreferrer" className="footer-link">
+                          {l.label}
+                        </a>
+                      ) : (
+                        <Link href={l.href} className="footer-link">{l.label}</Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-                {group.links.map((l) => (
-                  <li key={l.href}>
-                    {l.external ? (
-                      <a
-                        href={l.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="footer-link body-base"
-                        style={{ fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 6 }}
-                      >
-                        {l.label}
-                        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.5 }}>
-                          <path d="M3 9L9 3M9 3H4M9 3V8" />
-                        </svg>
-                      </a>
-                    ) : (
-                      <Link
-                        href={l.href}
-                        className="footer-link body-base"
-                        style={{ fontSize: 13.5 }}
-                      >
-                        {l.label}
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* Social + colofón */}
-        <div
-          style={{
-            marginTop: "var(--space-7)",
-            paddingTop: "var(--space-4)",
-            borderTop: "1px solid rgba(255,255,255,0.18)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-4)",
-          }}
-        >
+        {/* CTAs grandes con flecha (estilo Marex) */}
+        <div className="footer-cta">
+          <Link href="/contacto" className="footer-big-link">
+            <span>Agendá una reunión</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </Link>
+          <Link href="/analisis" className="footer-big-link">
+            <span>Analizá una acción</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </Link>
+        </div>
+
+        {/* Colofón */}
+        <div className="footer-bottom">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <div className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: "0.04em" }}>
-              © {new Date().getFullYear()} Gastón Bengochea &amp; Cía. · Sociedad de Bolsa
+            <div className="t-small" style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
+              <span>© {new Date().getFullYear()} Gastón Bengochea &amp; Cía.</span>
+              <a href="tel:+59826286447" className="footer-link">+598 2628 6447</a>
+              <a href="mailto:info@gbengochea.com.uy" className="footer-link">info@gbengochea.com.uy</a>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 10 }}>
               {SOCIAL.map((s) => (
-                <a
-                  key={s.label}
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={s.label}
-                  className="footer-social"
-                >
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="footer-social">
                   {s.icon}
                 </a>
               ))}
             </div>
           </div>
 
-          <p className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", margin: 0, maxWidth: "44em", lineHeight: 1.6 }}>
-            Regulado por el Banco Central del Uruguay. La información publicada en este sitio tiene fines informativos y no constituye asesoramiento personalizado de inversión. Las decisiones de inversión son responsabilidad del cliente.
-          </p>
-
-          <div className="mono" style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em" }}>
+          <p className="t-small" style={{ margin: "20px 0 0", maxWidth: "62em", lineHeight: 1.6, opacity: 0.7 }}>
+            La información publicada en este sitio tiene fines informativos y no constituye asesoramiento
+            personalizado de inversión. Las decisiones de inversión son responsabilidad del cliente.
             Desarrollado por{" "}
-            <a href="https://ceibolabs.dev" target="_blank" rel="noopener noreferrer" style={{ borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-              ceibolabs
-            </a>
-          </div>
+            <a href="https://ceibolabs.dev" target="_blank" rel="noopener noreferrer" className="footer-link" style={{ textDecoration: "underline" }}>ceibolabs</a>.
+          </p>
         </div>
       </div>
 
       <style>{`
+        .footer-main {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
+          gap: 48px;
+          padding-bottom: 56px;
+        }
+        .footer-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 32px;
+        }
+        .footer-col-title {
+          font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+          color: var(--gold-soft); margin-bottom: 18px;
+        }
         .footer-link {
-          color: rgba(255,255,255,0.75);
+          color: rgba(255,255,255,0.72);
+          font-size: 15px;
+          text-decoration: none;
           transition: color 160ms ease;
         }
         .footer-link:hover { color: var(--gold-soft); }
 
-        .footer-social {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
+        .footer-cta {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0;
+          border-top: 1px solid rgba(255,255,255,0.16);
+          border-bottom: 1px solid rgba(255,255,255,0.16);
+        }
+        .footer-big-link {
+          display: flex;
           align-items: center;
-          justify-content: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 36px 32px 36px 0;
+          font-size: clamp(24px, 3vw, 36px);
+          font-weight: 400;
+          letter-spacing: -0.02em;
+          color: #fff;
+          text-decoration: none;
+          transition: padding-left 200ms ease, color 160ms ease;
+        }
+        .footer-big-link:first-child { border-right: 1px solid rgba(255,255,255,0.16); padding-right: 32px; }
+        .footer-big-link:last-child { padding-left: 32px; }
+        .footer-big-link svg { width: 30px; height: 30px; flex: none; transition: transform 200ms ease; opacity: 0.7; }
+        .footer-big-link:hover { color: var(--gold-soft); }
+        .footer-big-link:hover svg { transform: translateX(6px); opacity: 1; }
+
+        .footer-bottom { padding-top: 36px; }
+        .footer-social {
+          width: 38px; height: 38px; border-radius: 8px;
+          display: inline-flex; align-items: center; justify-content: center;
           border: 1px solid rgba(255,255,255,0.18);
-          color: rgba(255,255,255,0.6);
-          transition: color 160ms ease, border-color 160ms ease;
+          color: rgba(255,255,255,0.65);
+          transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
         }
-        .footer-social:hover {
-          color: var(--gold-soft);
-          border-color: var(--gold-soft);
-        }
+        .footer-social:hover { color: #fff; border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); }
 
         @media (max-width: 900px) {
-          .footer-manifesto { grid-template-columns: 1fr !important; }
-          .footer-brand-row { grid-template-columns: 1fr !important; gap: var(--space-5) !important; }
-          .footer-grid { grid-template-columns: 1fr 1fr !important; gap: var(--space-5) !important; }
+          .footer-main { grid-template-columns: 1fr; gap: 40px; }
+          .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
         }
-        @media (max-width: 600px) {
-          .footer-contact { grid-template-columns: 1fr !important; }
-          .footer-grid { grid-template-columns: 1fr !important; }
+        @media (max-width: 620px) {
+          .footer-cta { grid-template-columns: 1fr; }
+          .footer-big-link:first-child { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.16); padding-right: 0; }
+          .footer-big-link:last-child { padding-left: 0; }
+        }
+        @media (max-width: 520px) {
+          .footer-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </footer>

@@ -52,15 +52,13 @@ function saveRecents(items: SearchResult[]) {
 
 const variantStyles = {
   hero: {
-    input:
-      "bg-transparent border-0 border-b border-white/30 rounded-none text-white placeholder-white/45 focus:border-white",
-    dropdown: "bg-[var(--ivory)] border border-[var(--ink)]",
-    item: "hover:bg-[var(--navy-050)]",
-    itemActive: "bg-[var(--navy-050)]",
-    symbol: "text-[var(--ink)] font-medium font-mono",
-    meta: "text-[var(--ink-3)]",
-    button:
-      "bg-[var(--gold)] text-[var(--ink)] hover:bg-[var(--gold-soft)] rounded-none",
+    input: "",
+    dropdown: "bg-white border border-[var(--site-border,#E7E8F2)] rounded-xl shadow-lg",
+    item: "hover:bg-[var(--surface-muted,#F4F5FB)]",
+    itemActive: "bg-[var(--surface-muted,#F4F5FB)]",
+    symbol: "text-[var(--site-ink,#16193A)] font-semibold",
+    meta: "text-[var(--site-ink-3,#797D99)]",
+    button: "",
   },
   header: {
     input:
@@ -74,15 +72,13 @@ const variantStyles = {
       "bg-[var(--gold)] text-[var(--ink)] hover:bg-[var(--gold-soft)] rounded-none disabled:opacity-50 disabled:cursor-not-allowed",
   },
   footer: {
-    input:
-      "bg-transparent border-0 border-b border-[var(--ink)] rounded-none text-[var(--ink)] placeholder-[var(--ink-3)] focus:border-[var(--ink)]",
-    dropdown: "bg-[var(--ivory)] border border-[var(--ink)]",
-    item: "hover:bg-[var(--navy-050)]",
-    itemActive: "bg-[var(--navy-050)]",
-    symbol: "text-[var(--ink)] font-medium font-mono",
-    meta: "text-[var(--ink-3)]",
-    button:
-      "bg-[var(--navy)] text-[var(--ivory)] hover:bg-[var(--navy-700)] rounded-none",
+    input: "",
+    dropdown: "bg-white border border-[var(--site-border,#E7E8F2)] rounded-xl shadow-lg",
+    item: "hover:bg-[var(--surface-muted,#F4F5FB)]",
+    itemActive: "bg-[var(--surface-muted,#F4F5FB)]",
+    symbol: "text-[var(--site-ink,#16193A)] font-semibold",
+    meta: "text-[var(--site-ink-3,#797D99)]",
+    button: "",
   },
 };
 
@@ -107,6 +103,8 @@ export function TickerSearch({
   const [portalReady, setPortalReady] = useState(false);
 
   const styles = variantStyles[variant];
+  // header = navbar oscuro de /analyze (estilo legacy intacto); hero/footer = sitio moderno.
+  const isModern = variant !== "header";
 
   // Defer portal rendering until after mount so we don't try to portal into
   // a DOM that doesn't exist yet during SSR. The lint rule prefers derived
@@ -336,8 +334,12 @@ export function TickerSearch({
               setIsOpen(true);
             }
           }}
-          className={`w-full px-0 py-3 font-mono text-sm focus:outline-none uppercase tracking-[0.04em] ${styles.input}`}
-          style={{ fontFamily: "var(--font-mono)" }}
+          className={
+            isModern
+              ? `ui-input ${disabled ? "opacity-50 cursor-not-allowed" : ""}`
+              : `w-full px-0 py-3 font-mono text-sm focus:outline-none uppercase tracking-[0.04em] ${styles.input}`
+          }
+          style={isModern ? undefined : { fontFamily: "var(--font-mono)" }}
         />
 
         {/* Dropdown — portaled to body so it escapes any ancestor `overflow-hidden` */}
@@ -373,7 +375,7 @@ export function TickerSearch({
                       }}
                       className="flex-1 min-w-0 text-left px-4 py-3 flex items-center gap-3 cursor-pointer"
                     >
-                      <span className={`font-mono text-xs ${styles.symbol}`}>
+                      <span className={`text-xs ${isModern ? "" : "font-mono"} ${styles.symbol}`}>
                         {item.symbol}
                       </span>
                       <span className={`truncate ${styles.meta}`}>
@@ -418,7 +420,7 @@ export function TickerSearch({
                     i === activeIndex ? styles.itemActive : styles.item
                   }`}
                 >
-                  <span className={`font-mono text-xs ${styles.symbol}`}>
+                  <span className={`text-xs ${isModern ? "" : "font-mono"} ${styles.symbol}`}>
                     {item.symbol}
                   </span>
                   <span className={`truncate ${styles.meta}`}>
@@ -439,8 +441,12 @@ export function TickerSearch({
         type="submit"
         disabled={disabled}
         aria-label="Analizar"
-        className={`px-5 sm:px-7 py-3 font-medium text-sm transition-colors shrink-0 uppercase tracking-[0.08em] ${styles.button}`}
-        style={{ fontFamily: "var(--font-sans)" }}
+        className={
+          isModern
+            ? `ui-btn shrink-0 ${variant === "hero" ? "ui-btn-on-navy" : "ui-btn-primary"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`
+            : `px-5 sm:px-7 py-3 font-medium text-sm transition-colors shrink-0 uppercase tracking-[0.08em] ${styles.button}`
+        }
+        style={isModern ? undefined : { fontFamily: "var(--font-sans)" }}
       >
         <span className="hidden sm:inline">Analizar</span>
         <svg

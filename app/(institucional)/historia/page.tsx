@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { HistoriaTimeline } from "@/components/institucional/HistoriaTimeline";
 
 export const metadata: Metadata = {
   title: "Historia · Bengochea & Cía.",
@@ -72,229 +73,89 @@ const TIMELINE = [
 
 export default function HistoriaPage() {
   return (
-    <main>
-      {/* Hero */}
-      <section className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(50% 70% at 80% 10%, rgba(201,168,76,0.10), transparent 60%)",
-          }}
-        />
-        <div
-          className="wrap"
-          style={{
-            paddingTop: "calc(var(--nav-h) + var(--space-7))",
-            paddingBottom: "var(--space-7)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(255,255,255,0.18)",
-              paddingBottom: "var(--space-3)",
-              marginBottom: "var(--space-6)",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>La casa · Historia</span>
-            <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>1967 — 2026</span>
+    <main className="site">
+      {/* Hero full-bleed */}
+      <div className="hero-media">
+        <div className="media-ph" aria-hidden />
+        <div className="scrim" aria-hidden />
+
+        <div className="site-wrap hero-content">
+          <div className="kicker" style={{ color: "var(--gold-soft)" }}>
+            La casa · Historia
           </div>
-
-          <h1
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(40px, 6vw, 84px)",
-              lineHeight: 1,
-              letterSpacing: "-0.025em",
-              margin: 0,
-              color: "var(--ivory)",
-              maxWidth: "16ch",
-            }}
-          >
-            Sesenta años de{" "}
-            <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
-              confianza e idoneidad.
-            </em>
+          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+            Sesenta años de confianza e idoneidad.
           </h1>
-
-          <p
-            className="lede"
-            style={{
-              maxWidth: "42em",
-              color: "rgba(255,255,255,0.82)",
-              marginTop: "var(--space-5)",
-            }}
-          >
-            Gastón Bengochea CB es miembro de la Bolsa de Valores de Montevideo desde 1967. Una sola firma, sin discontinuidades, atravesando ciclos económicos, regímenes regulatorios y crisis cambiarias.
+          <p className="t-lead" style={{ maxWidth: "42em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+            Gastón Bengochea CB es miembro de la Bolsa de Valores de Montevideo desde 1967. Una sola firma,
+            sin discontinuidades, atravesando ciclos económicos, regímenes regulatorios y crisis cambiarias.
           </p>
         </div>
-      </section>
+      </div>
 
-      {/* 01 · Origen */}
-      <section className="section">
-        <div className="wrap-narrow" style={{ paddingTop: "var(--space-7)", paddingBottom: "var(--space-7)" }}>
-          <div className="cap-gold" style={{ marginBottom: "var(--space-3)" }}>Origen</div>
-          <h2
-            className="serif"
-            style={{
-              fontWeight: 400,
-              fontSize: "clamp(28px, 3.4vw, 40px)",
-              lineHeight: 1.15,
-              letterSpacing: "-0.015em",
-              margin: 0,
-              maxWidth: "24ch",
-            }}
-          >
-            Una casa fundada con estructura horizontal.
-          </h2>
-          <p className="body-lead" style={{ marginTop: "var(--space-4)", maxWidth: "44em" }}>
-            La compañía fue fundada por Gastón Bengochea con una estructura empresarial horizontal, permitiendo a sus colaboradores trabajar de forma integrada. Esa lógica fundacional —oficio compartido, decisiones discutidas en la mesa— se mantiene intacta seis décadas después.
-          </p>
-          <p className="body-base" style={{ marginTop: "var(--space-3)", maxWidth: "44em" }}>
-            En la década del ochenta, Bengochea firmó un acuerdo de distribución de Fondos Mutuos con Fidelity Investments y se convirtió en el primer broker local en incorporar fondos mutuos a su catálogo. La apertura internacional empezó allí.
-          </p>
-        </div>
-      </section>
-
-      {/* 02 · Timeline */}
-      <section className="section">
-        <div className="wrap">
-          <div className="sec-head">
+      {/* Origen */}
+      <section className="band site-section">
+        <div className="site-wrap">
+          <div className="split-label">
+            <div className="eyebrow-sm">Origen</div>
             <div>
-              <div className="sec-num">01 / 02</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>A través de los años</div>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Una casa fundada con estructura horizontal.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
+                La compañía fue fundada por Gastón Bengochea con una estructura empresarial horizontal,
+                permitiendo a sus colaboradores trabajar de forma integrada. Esa lógica fundacional —oficio
+                compartido, decisiones discutidas en la mesa— se mantiene intacta seis décadas después.
+              </p>
+              <p className="t-body" style={{ marginTop: 16, maxWidth: "36em" }}>
+                En la década del ochenta, Bengochea firmó un acuerdo de distribución de Fondos Mutuos con
+                Fidelity Investments y se convirtió en el primer broker local en incorporar fondos mutuos a su
+                catálogo. La apertura internacional empezó allí.
+              </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline — lista vertical minimal: año grande a la izquierda + título + texto, hairlines */}
+      <section className="band-muted site-section">
+        <div className="site-wrap">
+          <div className="split-label">
+            <div className="eyebrow-sm">A través de los años</div>
             <div>
-              <h2>Doce hitos que cuentan la trayectoria.</h2>
-              <p className="dek">
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Doce hitos que cuentan la trayectoria.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 De la fundación a los acuerdos institucionales con custodios globales. Sin saltos.
               </p>
             </div>
           </div>
 
-          <ol
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              borderTop: "1px solid var(--ink)",
-            }}
-          >
-            {TIMELINE.map((t) => (
-              <li
-                key={t.year}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "140px 280px 1fr",
-                  gap: "var(--space-5)",
-                  padding: "var(--space-5) 0",
-                  borderBottom: "1px solid var(--rule)",
-                  alignItems: "baseline",
-                }}
-                className="timeline-row"
-              >
-                <div
-                  className="mono"
-                  style={{
-                    fontSize: 22,
-                    color: "var(--gold-deep)",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {t.year}
-                </div>
-                <h3
-                  className="serif"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: 22,
-                    lineHeight: 1.2,
-                    margin: 0,
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  {t.title}
-                </h3>
-                <p className="body-base" style={{ margin: 0, maxWidth: "44em" }}>
-                  {t.body}
-                </p>
-              </li>
-            ))}
-          </ol>
+          <HistoriaTimeline items={TIMELINE} />
         </div>
-
-        <style>{`
-          @media (max-width: 1000px) {
-            .timeline-row { grid-template-columns: 120px 1fr !important; }
-            .timeline-row > h3 { grid-column: 2; }
-            .timeline-row > p { grid-column: 2; }
-          }
-          @media (max-width: 600px) {
-            .timeline-row { grid-template-columns: 1fr !important; gap: 6px !important; }
-            .timeline-row > h3, .timeline-row > p { grid-column: 1; }
-          }
-        `}</style>
       </section>
 
-      {/* 03 · Cierre */}
-      <section className="section-navy">
-        <div className="wrap" style={{ paddingTop: "var(--space-7)", paddingBottom: "var(--space-7)" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)",
-              gap: "var(--space-6)",
-              alignItems: "end",
-            }}
-            className="cierre-grid"
-          >
+      {/* Cierre — banda navy */}
+      <section className="band-navy site-section">
+        <div className="site-wrap">
+          <div className="split">
             <div>
-              <div className="cap-gold-on-navy cap">2026 · hoy</div>
-              <h2
-                className="serif"
-                style={{
-                  fontStyle: "italic",
-                  fontWeight: 300,
-                  fontSize: "clamp(28px, 4vw, 48px)",
-                  lineHeight: 1.1,
-                  margin: "var(--space-3) 0 0",
-                  color: "var(--gold-soft)",
-                  letterSpacing: "-0.015em",
-                  maxWidth: "18em",
-                }}
-              >
+              <div className="eyebrow-sm">2026 · hoy</div>
+              <h2 className="t-h2" style={{ marginTop: 16, maxWidth: "14em" }}>
                 La misma lectura prudente que abrió la casa en 1967.
               </h2>
             </div>
             <div>
-              <p className="lede" style={{ color: "rgba(255,255,255,0.82)", margin: 0, maxWidth: "36em" }}>
-                Hoy operamos ocho mercados desde Montevideo con un equipo que conserva la lógica fundadora: cuentas a nombre del cliente, asesoramiento de la casa y decisiones que se discuten en la mesa.
+              <p className="t-lead" style={{ margin: 0 }}>
+                Hoy operamos ocho mercados desde Montevideo con un equipo que conserva la lógica fundadora:
+                cuentas a nombre del cliente, asesoramiento de la casa y decisiones que se discuten en la mesa.
               </p>
-              <div style={{ display: "flex", gap: 12, marginTop: "var(--space-5)", flexWrap: "wrap" }}>
-                <Link href="/equipo" className="btn btn-on-navy-secondary">
-                  Conocé el equipo
-                </Link>
-                <Link href="/contacto" className="btn btn-on-navy-primary">
-                  Agendá una reunión <span className="arrow" />
-                </Link>
+              <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+                <Link href="/equipo" className="ui-btn ui-btn-on-navy-ghost">Conocé el equipo</Link>
+                <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
               </div>
             </div>
           </div>
         </div>
-
-        <style>{`
-          @media (max-width: 900px) {
-            .cierre-grid { grid-template-columns: 1fr !important; gap: var(--space-5) !important; }
-          }
-        `}</style>
       </section>
+
     </main>
   );
 }

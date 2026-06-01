@@ -1,5 +1,6 @@
 import { Calculadora } from "@/components/institucional/Calculadora";
 import type { Metadata } from "next";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Calculadora · Bengochea & Cía.",
@@ -8,21 +9,18 @@ export const metadata: Metadata = {
 
 const PERFILES = [
   {
-    n: "i.",
     title: "Conservador",
     rango: "4 – 6 %",
     body: "Cartera dominada por renta fija de alta calidad. Cupón previsible, volatilidad acotada, capital preservado.",
     perfil: "Baja tolerancia al riesgo",
   },
   {
-    n: "ii.",
     title: "Moderado",
     rango: "6 – 10 %",
     body: "Combinación balanceada de renta fija y renta variable. Crecimiento compuesto sin abandonar el ancla de la liquidez.",
     perfil: "Tolerancia media al riesgo",
   },
   {
-    n: "iii.",
     title: "Agresivo",
     rango: "10 – 15 %",
     body: "Mayor exposición a renta variable global y mercados emergentes. Volatilidad mayor, horizonte largo.",
@@ -30,7 +28,7 @@ const PERFILES = [
   },
 ];
 
-const CONCEPTOS = [
+const CONCEPTOS: [string, string][] = [
   ["Interés compuesto", "El rendimiento se calcula sobre el capital inicial más los rendimientos previamente acumulados. Es el motor del crecimiento de largo plazo."],
   ["Diversificación", "Distribuir entre activos de baja correlación reduce el riesgo de cartera sin sacrificar retorno esperado proporcionalmente."],
   ["Horizonte temporal", "El plazo largo permite absorber volatilidad y aprovechar el compounding. El plazo corto exige menos riesgo."],
@@ -39,198 +37,135 @@ const CONCEPTOS = [
 
 export default function CalculadoraPage() {
   return (
-    <main>
-      {/* Hero */}
-      <section className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(50% 70% at 50% 0%, rgba(201,168,76,0.08), transparent 60%)",
-          }}
-        />
-        <div
-          className="wrap"
-          style={{
-            paddingTop: "calc(var(--nav-h) + var(--space-7))",
-            paddingBottom: "var(--space-7)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(255,255,255,0.18)",
-              paddingBottom: "var(--space-3)",
-              marginBottom: "var(--space-6)",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>Herramientas · Calculadora</span>
-            <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>Simulador · v1</span>
+    <main className="site">
+      {/* Hero full-bleed */}
+      <div className="hero-media">
+        <div className="media-ph" aria-hidden />
+        <div className="scrim" aria-hidden />
+
+        <Reveal as="div" className="site-wrap hero-content">
+          <div className="kicker" style={{ color: "var(--gold-soft)" }}>
+            Herramientas · Calculadora
           </div>
 
-          <h1
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(40px, 6vw, 84px)",
-              lineHeight: 1,
-              letterSpacing: "-0.025em",
-              margin: 0,
-              color: "var(--ivory)",
-              maxWidth: "18ch",
-            }}
-          >
-            El interés compuesto,{" "}
-            <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
-              año por año.
-            </em>
+          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+            El interés compuesto, año por año.
           </h1>
 
-          <p
-            className="lede"
-            style={{
-              maxWidth: "38em",
-              color: "rgba(255,255,255,0.82)",
-              marginTop: "var(--space-5)",
-            }}
-          >
+          <p className="t-lead" style={{ maxWidth: "40em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Simulá el crecimiento de una cartera con aportes mensuales y tasa anual constante. Sin promesas: una herramienta para discutir el horizonte.
           </p>
-        </div>
-      </section>
+        </Reveal>
+      </div>
 
       {/* Calculadora */}
-      <section className="section">
-        <Calculadora />
+      <section className="band site-section">
+        <Reveal as="div">
+          <Calculadora />
+        </Reveal>
       </section>
 
-      {/* Perfiles */}
-      <section className="section-navy">
-        <div className="wrap">
-          <div className="sec-head">
+      {/* Perfiles — hairline grid */}
+      <section className="band-muted site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Perfiles</div>
             <div>
-              <div className="sec-num">02 / 03</div>
-              <div className="cap-gold-on-navy cap" style={{ marginTop: 8 }}>Perfiles</div>
-            </div>
-            <div>
-              <h2 style={{ color: "var(--ivory)" }}>Tres lecturas posibles del retorno esperado.</h2>
-              <p className="dek" style={{ color: "rgba(255,255,255,0.78)" }}>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>
+                Tres lecturas posibles del retorno esperado.
+              </h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 Estimaciones de mercado, no garantías. La asignación concreta se discute en la mesa según el cliente.
               </p>
             </div>
-          </div>
+          </Reveal>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              borderTop: "1px solid rgba(255,255,255,0.18)",
-            }}
-            className="perfiles-grid"
-          >
-            {PERFILES.map((p, i) => (
-              <article
-                key={p.n}
-                style={{
-                  padding: "var(--space-6) var(--space-5)",
-                  borderRight: i < 2 ? "1px solid rgba(255,255,255,0.18)" : "none",
-                  borderBottom: "1px solid rgba(255,255,255,0.18)",
-                }}
-              >
-                <div className="serif-i" style={{ fontSize: 48, color: "var(--gold-soft)", lineHeight: 1 }}>
-                  {p.n}
-                </div>
-                <h3
-                  className="serif"
+          <Stagger as="div" className="perfiles-grid">
+            {PERFILES.map((p) => (
+              <StaggerItem as="article" key={p.title} className="perfil-item">
+                <div className="eyebrow-sm">{p.perfil}</div>
+                <h3 className="t-h3" style={{ marginTop: 18 }}>{p.title}</h3>
+                <div
                   style={{
-                    color: "var(--ivory)",
+                    fontSize: 40,
                     fontWeight: 400,
-                    fontSize: 28,
-                    lineHeight: 1.15,
-                    margin: "var(--space-3) 0 var(--space-2)",
-                    letterSpacing: "-0.015em",
+                    letterSpacing: "-0.02em",
+                    color: "var(--gold-deep)",
+                    marginTop: 8,
                   }}
                 >
-                  {p.title}
-                </h3>
-                <div className="mono" style={{ fontSize: 22, color: "var(--gold-soft)", marginBottom: "var(--space-3)" }}>
                   {p.rango}
                 </div>
-                <p className="body-base" style={{ color: "rgba(255,255,255,0.78)", margin: 0 }}>{p.body}</p>
-                <div
-                  className="cap"
-                  style={{
-                    marginTop: "var(--space-4)",
-                    paddingTop: "var(--space-2)",
-                    borderTop: "1px dashed rgba(255,255,255,0.18)",
-                    color: "rgba(255,255,255,0.55)",
-                  }}
-                >
-                  {p.perfil}
-                </div>
-              </article>
+                <p className="t-body" style={{ marginTop: 18, marginBottom: 0 }}>{p.body}</p>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
-
-        <style>{`
-          @media (max-width: 900px) {
-            .perfiles-grid { grid-template-columns: 1fr !important; }
-            .perfiles-grid article { border-right: 0 !important; }
-          }
-        `}</style>
       </section>
 
-      {/* Conceptos */}
-      <section className="section">
-        <div className="wrap">
-          <div className="sec-head">
+      {/* Conceptos — hairline grid */}
+      <section className="band site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Conceptos</div>
             <div>
-              <div className="sec-num">03 / 03</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Conceptos</div>
-            </div>
-            <div>
-              <h2>Cuatro ideas que sostienen la simulación.</h2>
-              <p className="dek">
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>
+                Cuatro ideas que sostienen la simulación.
+              </h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 Para que el simulador no sea una caja negra. Lo que está adentro, en cuatro definiciones.
               </p>
             </div>
-          </div>
+          </Reveal>
 
-          <ol style={{ listStyle: "none", padding: 0, margin: 0, borderTop: "1px solid var(--ink)" }}>
+          <div className="conceptos-grid">
             {CONCEPTOS.map(([title, body]) => (
-              <li
-                key={title}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(180px, 220px) 1fr",
-                  gap: "var(--space-5)",
-                  padding: "var(--space-4) 0",
-                  borderBottom: "1px solid var(--rule)",
-                  alignItems: "baseline",
-                }}
-                className="instrument-row"
-              >
-                <h3 className="serif" style={{ fontWeight: 400, fontSize: 22, lineHeight: 1.2, margin: 0, letterSpacing: "-0.015em" }}>
-                  {title}
-                </h3>
-                <p className="body-base" style={{ margin: 0 }}>{body}</p>
-              </li>
+              <div key={title} className="concepto-item">
+                <h3 className="t-h4">{title}</h3>
+                <p className="t-body" style={{ marginTop: 12, marginBottom: 0 }}>{body}</p>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
-
-        <style>{`
-          @media (max-width: 640px) {
-            .instrument-row { grid-template-columns: 1fr !important; gap: 6px !important; }
-          }
-        `}</style>
       </section>
+
+      <style>{`
+        .perfiles-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          margin-top: 56px;
+          border-top: 1px solid var(--site-border);
+        }
+        .perfil-item {
+          padding: 36px 32px 36px 0;
+          border-bottom: 1px solid var(--site-border);
+          border-right: 1px solid var(--site-border);
+        }
+        .perfil-item:last-child { border-right: 0; padding-right: 0; }
+        .perfil-item:not(:first-child) { padding-left: 32px; }
+        .conceptos-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          margin-top: 56px;
+          border-top: 1px solid var(--site-border);
+        }
+        .concepto-item {
+          padding: 32px 32px 32px 0;
+          border-bottom: 1px solid var(--site-border);
+          border-right: 1px solid var(--site-border);
+        }
+        .concepto-item:nth-child(2n) { border-right: 0; padding-right: 0; }
+        .concepto-item:nth-child(2n) { padding-left: 32px; }
+        @media (max-width: 900px) {
+          .perfiles-grid { grid-template-columns: 1fr; }
+          .perfil-item { border-right: 0; padding: 28px 0; }
+          .perfil-item:not(:first-child) { padding-left: 0; }
+        }
+        @media (max-width: 760px) {
+          .conceptos-grid { grid-template-columns: 1fr; }
+          .concepto-item, .concepto-item:nth-child(2n) { border-right: 0; padding: 28px 0; padding-left: 0; }
+        }
+      `}</style>
     </main>
   );
 }

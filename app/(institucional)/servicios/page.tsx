@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Ecosistema · Bengochea & Cía.",
@@ -53,7 +54,7 @@ const INTERNACIONAL = [
   },
 ];
 
-const PROCESO = [
+const PROCESO: [string, string, string][] = [
   ["01", "Escuchamos al cliente", "Una reunión sin compromiso para entender objetivos, restricciones y horizonte."],
   ["02", "Entendemos las necesidades", "Traducimos los objetivos a parámetros concretos: liquidez, riesgo asumible, plazo y moneda."],
   ["03", "Diseñamos la propuesta", "Asignación discutida en la mesa, escrita en términos verificables. El cliente sabe qué se compra y por qué."],
@@ -74,407 +75,199 @@ const PLAZAS = [
   ["B3", "Brasil"],
 ];
 
+const ArrowRight = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+
 export default function ServiciosPage() {
   return (
-    <main>
-      {/* Hero */}
-      <section className="section-navy" style={{ position: "relative", overflow: "hidden" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(50% 70% at 80% 0%, rgba(201,168,76,0.08), transparent 60%)",
-          }}
-        />
-        <div
-          className="wrap"
-          style={{
-            paddingTop: "calc(var(--nav-h) + var(--space-7))",
-            paddingBottom: "var(--space-7)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid rgba(255,255,255,0.18)",
-              paddingBottom: "var(--space-3)",
-              marginBottom: "var(--space-6)",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <span className="cap" style={{ color: "rgba(255,255,255,0.55)" }}>Ecosistema</span>
-            <span className="cap mono" style={{ color: "rgba(255,255,255,0.55)" }}>Catálogo · 2026</span>
-          </div>
+    <main className="site">
+      {/* Hero full-bleed */}
+      <div className="hero-media">
+        {/* Placeholder sobrio — reemplazable por <img className="media-fill" src=... alt="" /> */}
+        <div className="media-ph" aria-hidden />
+        <div className="scrim" aria-hidden />
 
-          <h1
-            className="serif"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(40px, 6vw, 84px)",
-              lineHeight: 1,
-              letterSpacing: "-0.025em",
-              margin: 0,
-              color: "var(--ivory)",
-              maxWidth: "16ch",
-            }}
-          >
-            Una puerta local al mercado{" "}
-            <em style={{ fontStyle: "italic", color: "var(--gold-soft)", fontWeight: 300 }}>
-              internacional.
-            </em>
+        <Reveal as="div" className="site-wrap hero-content">
+          <div className="kicker" style={{ color: "var(--gold-soft)" }}>Ecosistema</div>
+
+          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+            Una puerta local al mercado internacional.
           </h1>
 
-          <p
-            className="lede"
-            style={{
-              maxWidth: "42em",
-              color: "rgba(255,255,255,0.82)",
-              marginTop: "var(--space-5)",
-            }}
-          >
-            En GB abrimos las puertas a nuestro amplio ecosistema financiero. Operativa en la plaza uruguaya y acceso directo a las principales bolsas globales, desde una sola mesa.
+          <p className="t-lead" style={{ maxWidth: "42em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+            En GB abrimos las puertas a nuestro amplio ecosistema financiero. Operativa en la plaza uruguaya
+            y acceso directo a las principales bolsas globales, desde una sola mesa.
           </p>
 
-          {/* Index */}
-          <nav
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 24,
-              marginTop: "var(--space-6)",
-              paddingTop: "var(--space-4)",
-              borderTop: "1px solid rgba(255,255,255,0.18)",
-            }}
-          >
-            {[
-              ["01", "Mercado Local", "#local"],
-              ["02", "Mercado Internacional", "#internacional"],
-              ["03", "Proceso", "#proceso"],
-              ["04", "Plazas", "#plazas"],
-            ].map(([num, label, href]) => (
-              <a
-                key={href}
-                href={href}
-                className="mono"
-                style={{
-                  fontSize: 11.5,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.65)",
-                  display: "inline-flex",
-                  alignItems: "baseline",
-                  gap: 8,
-                }}
-              >
-                <span style={{ color: "var(--gold-soft)" }}>{num}</span>
-                {label}
-              </a>
-            ))}
-          </nav>
-        </div>
-      </section>
-
-      {/* 01 · Mercado Local */}
-      <section id="local" className="section">
-        <div className="wrap">
-          <div className="sec-head">
-            <div>
-              <div className="sec-num">01 / 04</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Mercado Local</div>
-            </div>
-            <div>
-              <h2>Operativa en la plaza uruguaya.</h2>
-              <p className="dek">
-                Cinco instrumentos del mercado local. Mercado primario y secundario con regulación BCU.
-              </p>
-            </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
+            <a href="#local" className="ui-btn ui-btn-on-navy-ghost">Ver el ecosistema</a>
           </div>
+        </Reveal>
+      </div>
 
-          <ol
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              borderTop: "1px solid var(--ink)",
-            }}
-          >
-            {LOCAL.map((it, i) => (
-              <li
-                key={it.title}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "60px minmax(220px, 280px) 1fr",
-                  gap: "var(--space-5)",
-                  padding: "var(--space-4) 0",
-                  borderBottom: "1px solid var(--rule)",
-                  alignItems: "baseline",
-                }}
-                className="instrument-row"
-              >
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 13,
-                    letterSpacing: "0.08em",
-                    color: "var(--gold-deep)",
-                  }}
-                >
-                  L · {String(i + 1).padStart(2, "0")}
-                </span>
-                <h3
-                  className="serif"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: 22,
-                    lineHeight: 1.2,
-                    margin: 0,
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  {it.title}
-                </h3>
-                <p className="body-base" style={{ margin: 0, maxWidth: "44em" }}>{it.body}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <style>{`
-          @media (max-width: 760px) {
-            .instrument-row { grid-template-columns: 50px 1fr !important; }
-            .instrument-row > p { grid-column: 2; }
-          }
-          @media (max-width: 480px) {
-            .instrument-row { grid-template-columns: 1fr !important; gap: 6px !important; }
-            .instrument-row > p { grid-column: 1; }
-          }
-        `}</style>
-      </section>
-
-      {/* 02 · Mercado Internacional */}
-      <section id="internacional" className="section">
-        <div className="wrap">
-          <div className="sec-head">
-            <div>
-              <div className="sec-num">02 / 04</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Mercado Internacional</div>
+      {/* Mercado Local — split: intro a la izquierda, lista de filas a la derecha */}
+      <section id="local" className="band site-section">
+        <div className="site-wrap">
+          <div className="split">
+            <div className="split-intro-sticky">
+              <Reveal as="div">
+                <div className="eyebrow-sm">Mercado Local</div>
+                <h2 className="t-h2" style={{ marginTop: 16 }}>Operativa en la plaza uruguaya.</h2>
+                <p className="t-lead" style={{ marginTop: 20, maxWidth: "32em" }}>
+                  Cinco instrumentos del mercado local. Mercado primario y secundario con regulación BCU.
+                </p>
+              </Reveal>
             </div>
-            <div>
-              <h2>Acceso directo a las bolsas globales.</h2>
-              <p className="dek">
-                Renta fija, renta variable, fondos y derivados, con custodia internacional regulada.
-              </p>
-            </div>
+
+            <Reveal as="div" className="ui-list">
+              {LOCAL.map((it) => (
+                <div key={it.title} className="ui-list-row">
+                  <span>
+                    <span className="row-title">{it.title}</span>
+                    <span className="row-desc" style={{ display: "block" }}>{it.body}</span>
+                  </span>
+                </div>
+              ))}
+            </Reveal>
           </div>
-
-          <ol
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              borderTop: "1px solid var(--ink)",
-            }}
-          >
-            {INTERNACIONAL.map((it, i) => (
-              <li
-                key={it.title}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "60px minmax(220px, 320px) 1fr",
-                  gap: "var(--space-5)",
-                  padding: "var(--space-4) 0",
-                  borderBottom: "1px solid var(--rule)",
-                  alignItems: "baseline",
-                }}
-                className="instrument-row"
-              >
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 13,
-                    letterSpacing: "0.08em",
-                    color: "var(--gold-deep)",
-                  }}
-                >
-                  I · {String(i + 1).padStart(2, "0")}
-                </span>
-                <h3
-                  className="serif"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: 22,
-                    lineHeight: 1.2,
-                    margin: 0,
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  {it.title}
-                </h3>
-                <p className="body-base" style={{ margin: 0, maxWidth: "44em" }}>{it.body}</p>
-              </li>
-            ))}
-          </ol>
         </div>
       </section>
 
-      {/* 03 · Proceso */}
-      <section id="proceso" className="section-navy">
-        <div className="wrap">
-          <div className="sec-head">
-            <div>
-              <div className="sec-num">03 / 04</div>
-              <div className="cap-gold-on-navy cap" style={{ marginTop: 8 }}>Proceso</div>
+      {/* Mercado Internacional — split */}
+      <section id="internacional" className="band-muted site-section">
+        <div className="site-wrap">
+          <div className="split">
+            <div className="split-intro-sticky">
+              <Reveal as="div">
+                <div className="eyebrow-sm">Mercado Internacional</div>
+                <h2 className="t-h2" style={{ marginTop: 16 }}>Acceso directo a las bolsas globales.</h2>
+                <p className="t-lead" style={{ marginTop: 20, maxWidth: "32em" }}>
+                  Renta fija, renta variable, fondos y derivados, con custodia internacional regulada.
+                </p>
+              </Reveal>
             </div>
+
+            <Reveal as="div" className="ui-list">
+              {INTERNACIONAL.map((it) => (
+                <div key={it.title} className="ui-list-row">
+                  <span>
+                    <span className="row-title">{it.title}</span>
+                    <span className="row-desc" style={{ display: "block" }}>{it.body}</span>
+                  </span>
+                </div>
+              ))}
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* Proceso — split-label + lista de filas con número */}
+      <section id="proceso" className="band-navy site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Proceso</div>
             <div>
-              <h2 style={{ color: "var(--ivory)" }}>
-                Siete pasos,{" "}
-                <em className="serif-i" style={{ color: "var(--gold-soft)", fontWeight: 300 }}>
-                  una sola lógica.
-                </em>
-              </h2>
-              <p className="dek" style={{ color: "rgba(255,255,255,0.78)" }}>
+              <h2 className="t-h2">Siete pasos, una sola lógica.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 Así trabajamos con cada nuevo inversor. Lo que se hace antes, durante y después de la primera operación.
               </p>
             </div>
-          </div>
+          </Reveal>
 
-          <ol
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              borderTop: "1px solid rgba(255,255,255,0.18)",
-            }}
-          >
+          <div className="ui-list" style={{ marginTop: 48 }}>
             {PROCESO.map(([n, title, body]) => (
-              <li
-                key={n}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "100px minmax(220px, 320px) 1fr",
-                  gap: "var(--space-5)",
-                  padding: "var(--space-4) 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.18)",
-                  alignItems: "baseline",
-                }}
-                className="proceso-row"
-              >
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 14,
-                    letterSpacing: "0.08em",
-                    color: "var(--gold-soft)",
-                  }}
-                >
-                  {n}
+              <div key={n} className="ui-list-row">
+                <span style={{ display: "flex", gap: 28, alignItems: "baseline" }}>
+                  <span className="proc-num">{n}</span>
+                  <span>
+                    <span className="row-title">{title}</span>
+                    <span className="row-desc" style={{ display: "block" }}>{body}</span>
+                  </span>
                 </span>
-                <h3
-                  className="serif"
-                  style={{
-                    color: "var(--ivory)",
-                    fontWeight: 400,
-                    fontSize: 22,
-                    lineHeight: 1.2,
-                    margin: 0,
-                    letterSpacing: "-0.015em",
-                  }}
-                >
-                  {title}
-                </h3>
-                <p className="body-base" style={{ color: "rgba(255,255,255,0.78)", margin: 0, maxWidth: "42em" }}>
-                  {body}
-                </p>
-              </li>
-            ))}
-          </ol>
-
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-5)" }}>
-            <Link href="/contacto" className="btn btn-on-navy-primary">
-              Empezar la conversación <span className="arrow" />
-            </Link>
-          </div>
-        </div>
-
-        <style>{`
-          @media (max-width: 760px) {
-            .proceso-row { grid-template-columns: 80px 1fr !important; }
-            .proceso-row > p { grid-column: 2; }
-          }
-          @media (max-width: 480px) {
-            .proceso-row { grid-template-columns: 1fr !important; gap: 6px !important; }
-            .proceso-row > p { grid-column: 1; }
-          }
-        `}</style>
-      </section>
-
-      {/* 04 · Plazas */}
-      <section id="plazas" className="section">
-        <div className="wrap">
-          <div className="sec-head">
-            <div>
-              <div className="sec-num">04 / 04</div>
-              <div className="cap-gold" style={{ marginTop: 8 }}>Plazas</div>
-            </div>
-            <div>
-              <h2>Ocho mercados, una sola mesa.</h2>
-              <p className="dek">
-                Operativa con ejecución directa en las principales bolsas globales y en la plaza local.
-              </p>
-            </div>
-          </div>
-
-          <div
-            className="plazas-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              borderTop: "1px solid var(--ink)",
-              borderLeft: "1px solid var(--rule)",
-            }}
-          >
-            {PLAZAS.map((m) => (
-              <div
-                key={m[0]}
-                style={{
-                  padding: "var(--space-4) var(--space-4)",
-                  borderRight: "1px solid var(--rule)",
-                  borderBottom: "1px solid var(--rule)",
-                  background: "var(--paper)",
-                }}
-              >
-                <div
-                  className="mono"
-                  style={{
-                    color: "var(--gold-deep)",
-                    fontSize: 18,
-                    letterSpacing: "0.02em",
-                    marginBottom: 6,
-                  }}
-                >
-                  {m[0]}
-                </div>
-                <div className="cap" style={{ color: "var(--ink-3)" }}>
-                  {m[1]}
-                </div>
               </div>
             ))}
           </div>
-        </div>
 
-        <style>{`
-          @media (max-width: 720px) {
-            .plazas-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          }
-          @media (max-width: 420px) {
-            .plazas-grid { grid-template-columns: 1fr !important; }
-          }
-        `}</style>
+          <div style={{ marginTop: 40 }}>
+            <Link href="/contacto" className="link-arrow">
+              Empezar la conversación <ArrowRight />
+            </Link>
+          </div>
+        </div>
       </section>
+
+      {/* Plazas — hairline-grid navy */}
+      <section id="plazas" className="band-navy site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Plazas</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Ocho mercados, una sola mesa.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Operativa con ejecución directa en las principales bolsas globales y en la plaza local.
+              </p>
+            </div>
+          </Reveal>
+
+          <Stagger as="div" className="plazas-grid">
+            {PLAZAS.map((m) => (
+              <StaggerItem key={m[0]} as="div" className="plaza-cell">
+                <div className="plaza-name">{m[0]}</div>
+                <div className="plaza-loc">{m[1]}</div>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </section>
+
+      <style>{`
+        .split-intro-sticky {
+          position: sticky;
+          top: calc(var(--nav-h) + 24px);
+          align-self: start;
+        }
+        .proc-num {
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          color: var(--gold-soft);
+          flex: none;
+          padding-top: 8px;
+        }
+        .plazas-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          margin-top: 56px;
+          border-top: 1px solid rgba(255,255,255,0.16);
+          border-left: 1px solid rgba(255,255,255,0.16);
+        }
+        .plaza-cell {
+          padding: 28px 24px;
+          border-right: 1px solid rgba(255,255,255,0.16);
+          border-bottom: 1px solid rgba(255,255,255,0.16);
+        }
+        .plaza-name {
+          font-size: 24px;
+          font-weight: 400;
+          letter-spacing: -0.015em;
+          color: #fff;
+        }
+        .plaza-loc {
+          font-size: 14px;
+          color: rgba(255,255,255,0.6);
+          margin-top: 6px;
+        }
+        @media (max-width: 900px) {
+          .plazas-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 560px) {
+          .plazas-grid { grid-template-columns: 1fr 1fr; }
+        }
+      `}</style>
     </main>
   );
 }
