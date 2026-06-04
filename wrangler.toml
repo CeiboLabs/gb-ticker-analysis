@@ -15,9 +15,10 @@ binding       = "METRICS_DB"
 database_name = "ticker-metrics"
 database_id   = "3cc6d984-1c52-437a-a45e-38fe1b3b54dd"
 
-# Retention: Pages no soporta crons nativos. Para limpiar eventos viejos
-# llamar a /api/admin/retention?days=90 desde un cron externo (Worker con
-# cron trigger, cron-job.org, etc.) con header x-admin-token: $ADMIN_TOKEN.
+# Retention: la app se auto-purga — el primer análisis fresco de cada día
+# dispara purgeExpiredRows (eventos > RETENTION_DAYS, default 90, y ventanas
+# de rate limit muertas) después de responder. /api/admin/retention queda
+# como trigger manual para limpiezas puntuales con otro horizonte.
 
 # Variables de entorno usadas en runtime (configurar en Cloudflare Pages
 # Settings → Environment variables, o con `wrangler pages secret put`):

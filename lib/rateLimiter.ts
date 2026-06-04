@@ -11,7 +11,8 @@
 //    abuse it prevents; the Yahoo outbound throttle is the real guard there.
 //    Also the fallback when the METRICS_DB binding is missing (local dev).
 
-import { getMetricsDb } from "@/lib/metrics";
+import { after } from "next/server";
+import { getMetricsDb, purgeExpiredRows } from "@/lib/metrics";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * 60 * 60 * 1000;
@@ -124,6 +125,14 @@ async function checkDurable(
       .bind(key, windowStart)
       .first<{ count: number }>();
     const count = row?.count ?? 1;
+    // Opportunistic retention: the first request that opens a NEW daily
+    // window also purges expired rows (events past retention + dead
+    // rate-limit windows). Pages has no native crons; this keeps both tables
+    // bounded with zero external infra. Runs after the response, never
+    // blocks, failures are swallowed.
+    if (count === 1 && windowMs === DAY_MS) {
+      after(() => purgeExpiredRows(db).catch(() => {}));
+    }
     if (count > max) {
       return { allowed: false, retryAfter: Math.ceil((windowStart + windowMs - now) / 1000) };
     }
