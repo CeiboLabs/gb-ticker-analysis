@@ -35,7 +35,7 @@ interface EventRow {
 // Returns the most recent N events for a ticker, with full diagnostic JSON
 // (findings + snapshot). Used by the dashboard's drill-down drawer.
 export async function GET(req: NextRequest) {
-  const denied = requireAdminToken(req);
+  const denied = await requireAdminToken(req);
   if (denied) return denied;
   const db = getMetricsDb();
   if (!db) {

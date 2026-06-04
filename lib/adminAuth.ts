@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkPublicGetLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { checkAdminFailedAuthLimit, clientIpFrom } from "@/lib/rateLimiter";
 
 // Constant-time string compare that works in the edge runtime (no node:crypto).
 // Returns false on any length mismatch but still iterates over `a` so the wall
@@ -24,7 +24,7 @@ const ADMIN_HOURLY_MAX = 30;
 // access logs, browser history, and Referer headers.
 //
 // Fail-closed: if ADMIN_TOKEN is unset in env, every request is rejected.
-export function requireAdminToken(req: NextRequest): NextResponse | null {
+export async function requireAdminToken(req: NextRequest): Promise<NextResponse | null> {
   const expected = process.env.ADMIN_TOKEN;
   if (!expected) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -32,10 +32,11 @@ export function requireAdminToken(req: NextRequest): NextResponse | null {
   const got = req.headers.get("x-admin-token") ?? "";
   if (timingSafeEqual(got, expected)) return null;
 
-  // Failed auth — consume from the brute-force bucket. Once exhausted, even
-  // a request with a valid token (above) still gets in; only attackers
-  // guessing tokens hit this branch.
-  const gate = checkPublicGetLimit("admin", clientIpFrom(req), ADMIN_HOURLY_MAX);
+  // Failed auth — consume from the durable brute-force bucket (D1, survives
+  // isolate recycling, no allowlist bypass). Once exhausted, even a request
+  // with a valid token (above) still gets in; only attackers guessing tokens
+  // hit this branch.
+  const gate = await checkAdminFailedAuthLimit(clientIpFrom(req), ADMIN_HOURLY_MAX);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },

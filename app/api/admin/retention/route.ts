@@ -12,7 +12,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // hit on a daily cron from a separate Cloudflare Worker, an external scheduler,
 // or manually for spot cleanups.
 export async function POST(req: NextRequest) {
-  const denied = requireAdminToken(req);
+  const denied = await requireAdminToken(req);
   if (denied) return denied;
 
   const db = getMetricsDb();
@@ -26,14 +26,18 @@ export async function POST(req: NextRequest) {
     : DEFAULT_RETENTION_DAYS;
 
   const cutoff = Date.now() - days * DAY_MS;
-  const result = (await db
-    .prepare("DELETE FROM analyze_events WHERE ts < ?")
-    .bind(cutoff)
-    .run()) as { meta?: { changes?: number } };
+  // Rate-limit counters: drop windows that ended more than 2 days ago. The
+  // longest window is the daily fresh cap, so anything older is dead weight.
+  const rateLimitCutoff = Date.now() - 2 * DAY_MS;
+  const [result, rlResult] = (await db.batch([
+    db.prepare("DELETE FROM analyze_events WHERE ts < ?").bind(cutoff),
+    db.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(rateLimitCutoff),
+  ])) as Array<{ meta?: { changes?: number } }>;
 
   return NextResponse.json({
     ok: true,
-    deletedRows: result.meta?.changes ?? null,
+    deletedRows: result?.meta?.changes ?? null,
+    deletedRateLimitRows: rlResult?.meta?.changes ?? null,
     cutoff,
     retentionDays: days,
   });

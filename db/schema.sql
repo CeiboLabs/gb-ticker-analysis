@@ -67,3 +67,15 @@ ALTER TABLE analyze_events ADD COLUMN bull_target        TEXT;   -- price target
 ALTER TABLE analyze_events ADD COLUMN bear_target        TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_events_verdict ON analyze_events(verdict_rating, ts);
+
+-- Migration 2026-06-04: durable rate-limit counters. The previous limiter
+-- lived in an in-memory Map per edge isolate — an F5 could land on a fresh
+-- isolate and the 429 evaporated. Counters now persist here with atomic
+-- UPSERT increments; one row per (key, fixed window). Expired windows are
+-- purged by /api/admin/retention.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key          TEXT    NOT NULL,  -- e.g. 'hr:<session>', 'hrip:<ip>', 'dfresh:<session>', 'adminfail:<ip>'
+  window_start INTEGER NOT NULL,  -- ms epoch, floor(now / windowMs) * windowMs
+  count        INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, window_start)
+) WITHOUT ROWID;

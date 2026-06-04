@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   // Admin-only: this endpoint calls OpenAI directly, billing the project's API
   // key. Public access would let anyone burn arbitrary amounts of credit by
   // probing different tickers/models.
-  const denied = requireAdminToken(req);
+  const denied = await requireAdminToken(req);
   if (denied) return denied;
 
   const ticker = normalizeTicker(req.nextUrl.searchParams.get("ticker"));

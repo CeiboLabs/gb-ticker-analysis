@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   // Admin-only: each call fans out 7 upstream requests (EDGAR + Yahoo + 8-K
   // debug) and returns raw parser internals — both a quota burner and an
   // information-disclosure surface for someone fingerprinting the scraper.
-  const denied = requireAdminToken(req);
+  const denied = await requireAdminToken(req);
   if (denied) return denied;
 
   const ticker = normalizeTicker(req.nextUrl.searchParams.get("ticker")) ?? "MMM";

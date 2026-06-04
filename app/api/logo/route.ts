@@ -72,9 +72,12 @@ async function tryFetch(
     if (res.status !== 200) return null;
     const buf = await res.arrayBuffer();
     if (buf.byteLength < minBytes) return null;
+    // Only ever reflect image/* upstream content types into our response —
+    // anything else (text/html, application/*) gets coerced to a safe default.
+    const upstreamType = res.headers.get("content-type") ?? "";
     return {
       buf,
-      contentType: res.headers.get("content-type") ?? "image/x-icon",
+      contentType: upstreamType.startsWith("image/") ? upstreamType : "image/x-icon",
     };
   } catch {
     return null;

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // Admin-only: one call fans out to ~30 SEC EDGAR requests and unauthenticated
 // abuse would torch the public 10 req/s ceiling.
 export async function GET(req: NextRequest) {
-  const denied = requireAdminToken(req);
+  const denied = await requireAdminToken(req);
   if (denied) return denied;
 
   const ticker = normalizeTicker(req.nextUrl.searchParams.get("ticker"));
