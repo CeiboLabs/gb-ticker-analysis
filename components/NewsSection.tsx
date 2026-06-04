@@ -4,6 +4,12 @@ interface Props {
   news: NewsItem[];
 }
 
+// Los links vienen de Yahoo (tercero). React ya neutraliza javascript:, pero
+// no dependemos de eso: solo renderizamos http(s) explícito.
+function safeHttpUrl(url: string | undefined | null): string | undefined {
+  return url && /^https?:\/\//i.test(url) ? url : undefined;
+}
+
 export function NewsSection({ news }: Props) {
   if (!news || news.length === 0) return null;
 
@@ -16,7 +22,7 @@ export function NewsSection({ news }: Props) {
         {news.map((item, i) => (
           <li key={i} className="py-2.5 first:pt-0 last:pb-0">
             <a
-              href={item.link}
+              href={safeHttpUrl(item.link)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-medium text-[#03065E] hover:underline leading-snug block"

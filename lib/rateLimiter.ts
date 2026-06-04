@@ -1,8 +1,8 @@
 // Rate-limit counters. Two tiers:
 //
 // 1. DURABLE (D1, table `rate_limits`) — the gates that guard real money or
-//    auth: analyze session/IP/daily-fresh and failed admin logins. Counters
-//    are fixed windows incremented with an atomic UPSERT, so they survive
+//    auth: analyze IP/daily-fresh and failed admin logins. Counters are
+//    fixed windows incremented with an atomic UPSERT, so they survive
 //    isolate recycling: an F5 that lands on a fresh Cloudflare isolate sees
 //    the same count as the request that tripped the 429.
 //
@@ -20,14 +20,25 @@ const DAY_MS  = 24 * 60 * 60 * 1000;
 // no medianoche UTC — mismo criterio que usa el dashboard de métricas.
 const UY_OFFSET_MS = 3 * 60 * 60 * 1000;
 
-// All defaults below are derived, not guessed. System ceiling at OpenAI
-// Tier 2 (450k TPM / 12k tokens per analysis ≈ 2,250/h) is bound by Yahoo:
-// at 1 req/s sustained (yfinance maintainer's recommendation) and ~7 Yahoo
-// calls per analysis, the worker can sustain ~510 analyses/h. Per-user
-// gates split that capacity across ~10 concurrent honest users.
-const HOURLY_MAX = parseInt(process.env.RATE_LIMIT_MAX ?? "50", 10);
-const HOURLY_IP_MAX = parseInt(process.env.RATE_LIMIT_IP_MAX ?? "500", 10);
+// All analyze gates are keyed by IP — never by anything the client can mint
+// itself (cookies, headers, body). A cookie-keyed bucket is a bucket the
+// attacker rotates for free; the IP is the only request attribute the client
+// can't cheaply choose. Shared NATs get headroom via the allowlist
+// multiplier, not by trusting client state.
+//
+// Defaults are derived, not guessed. System ceiling at OpenAI Tier 2
+// (450k TPM / 12k tokens per analysis ≈ 2,250/h) is bound by Yahoo: at
+// 1 req/s sustained (yfinance maintainer's recommendation) and ~7 Yahoo
+// calls per analysis, the worker can sustain ~510 analyses/h. 100/h per IP
+// stays far above any honest single user without letting one address
+// monopolize the worker.
+const HOURLY_IP_MAX = parseInt(process.env.RATE_LIMIT_IP_MAX ?? "100", 10);
 const DAILY_FRESH_MAX = parseInt(process.env.RATE_LIMIT_DAILY_FRESH_MAX ?? "150", 10);
+
+// Allowlisted IPs (corporate NATs) get N× the analyze caps instead of a full
+// bypass — a single abusive browser inside a "trusted" office still hits a
+// ceiling.
+const ALLOWLIST_MULTIPLIER = parseInt(process.env.RATE_LIMIT_ALLOWLIST_MULTIPLIER ?? "10", 10);
 
 // Per-IP, per-endpoint hourly cap for public GETs. Type-ahead search and
 // quote polling fan out quickly: a 10-user office easily generates >1k
@@ -40,10 +51,9 @@ export const PUBLIC_LIMIT_DEFAULT = parseInt(process.env.PUBLIC_LIMIT_DEFAULT ??
 export const PUBLIC_LIMIT_LOGO = parseInt(process.env.PUBLIC_LIMIT_LOGO ?? "3000", 10);
 
 // Allowlist of trusted egress IPs (typically corporate NATs where many real
-// users share a single outbound address) that bypass the per-IP hourly
-// caps. Session-cookie and daily-fresh gates still apply, so a single
-// browser cannot abuse this — but the office isn't punished for sharing
-// an IP. Comma-separated, no spaces required (we trim).
+// users share a single outbound address). For analyze gates they get the
+// multiplier above; for cheap public GETs they bypass the in-memory cap
+// entirely. Comma-separated, no spaces required (we trim).
 const IP_ALLOWLIST = new Set(
   (process.env.RATE_LIMIT_IP_ALLOWLIST ?? "")
     .split(",")
@@ -123,23 +133,26 @@ async function checkDurable(
   }
 }
 
-// Per-session 1h window, keyed by the ticker_session cookie value.
-export function checkRateLimit(key: string): Promise<Gate> {
-  return checkDurable(`hr:${key}`, HOURLY_MAX, HOUR_MS);
+// Effective cap for an IP: allowlisted NATs get the multiplier, everyone
+// else the base. Never a bypass — every IP has *some* ceiling.
+function effectiveMax(ip: string, base: number): number {
+  return isIpAllowlisted(ip) ? base * ALLOWLIST_MULTIPLIER : base;
 }
 
-// Per-IP 1h window. Higher ceiling than the session bucket so shared NATs
-// (offices, mobile carriers) don't trip on legitimate use, but it still caps
-// someone who keeps wiping their session cookie.
-export function checkIpHourlyLimit(ip: string): Promise<Gate> {
-  return checkDurable(`hrip:${ip}`, HOURLY_IP_MAX, HOUR_MS);
+// Per-IP 1h window over ALL analyze requests (fresh + would-be-fresh).
+// Requests with no resolvable IP (never happens behind Cloudflare) share a
+// single conservative bucket instead of skipping the gate.
+export function checkIpHourlyLimit(ip: string | null): Promise<Gate> {
+  if (!ip) return checkDurable("hrip:noip", HOURLY_IP_MAX, HOUR_MS);
+  return checkDurable(`hrip:${ip}`, effectiveMax(ip, HOURLY_IP_MAX), HOUR_MS);
 }
 
-// Daily cap on *fresh* analyses (cache misses) per key. Caches still serve
+// Daily cap on *fresh* analyses (cache misses) per IP. Caches still serve
 // freely; this purely caps the OpenAI/upstream-fanout cost an attacker can
 // burn by rotating tickers. Window resets at midnight Uruguay.
-export function checkDailyFreshLimit(key: string): Promise<Gate> {
-  return checkDurable(`dfresh:${key}`, DAILY_FRESH_MAX, DAY_MS, UY_OFFSET_MS);
+export function checkDailyFreshLimit(ip: string | null): Promise<Gate> {
+  if (!ip) return checkDurable("dfresh:noip", DAILY_FRESH_MAX, DAY_MS, UY_OFFSET_MS);
+  return checkDurable(`dfresh:${ip}`, effectiveMax(ip, DAILY_FRESH_MAX), DAY_MS, UY_OFFSET_MS);
 }
 
 // Brute-force cap on FAILED admin auth attempts, per IP. Durable on purpose:

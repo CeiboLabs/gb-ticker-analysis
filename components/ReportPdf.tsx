@@ -432,7 +432,7 @@ function ReportDocument({ report, stockData: d, sankeyImageUrl, priceChartImageU
                 {report.segmentData.source && (
                   <Text style={{ fontSize: 6.5, color: "#9ca3af", marginTop: 3, textAlign: "right" }}>
                     Fuente:{" "}
-                    {report.segmentData.sourceUrl ? (
+                    {report.segmentData.sourceUrl && /^https:\/\//i.test(report.segmentData.sourceUrl) ? (
                       <Link
                         src={report.segmentData.sourceUrl}
                         style={{ color: "#6b7280", textDecoration: "underline" }}

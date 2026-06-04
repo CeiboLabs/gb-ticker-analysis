@@ -2004,7 +2004,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
       {data.source && (
         <div className="px-3 pt-1 text-[10px] text-[#707070] text-right">
           Fuente:{" "}
-          {data.sourceUrl ? (
+          {data.sourceUrl && /^https:\/\//i.test(data.sourceUrl) ? (
             <a
               href={data.sourceUrl}
               target="_blank"

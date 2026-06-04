@@ -9,7 +9,7 @@ import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
 import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
-import { checkRateLimit, checkIpHourlyLimit, checkDailyFreshLimit, isIpAllowlisted } from "@/lib/rateLimiter";
+import { checkIpHourlyLimit, checkDailyFreshLimit } from "@/lib/rateLimiter";
 import {
   recordAnalyzeEvent,
   eventBaseFromRequest,
@@ -723,19 +723,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // 0b. Rate limiting — session cookie keeps shared-IP offices working, IP
-  // bucket caps cookie-rotation abuse. Either bucket trips → 429.
-  const SESSION_COOKIE = "ticker_session";
-  const existingSession = req.cookies.get(SESSION_COOKIE)?.value;
-  const sessionId = existingSession ?? crypto.randomUUID();
-  const setCookieHeader = existingSession
-    ? null
-    : `${SESSION_COOKIE}=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=${60 * 60 * 24 * 365}`;
-  const withSession = <T extends Response>(res: T): T => {
-    if (setCookieHeader) res.headers.append("Set-Cookie", setCookieHeader);
-    return res;
-  };
-
+  // 0b. Rate limiting is keyed exclusively by IP (durable counters in D1).
+  // No session cookie: a cookie-keyed bucket is one the client rotates for
+  // free. Shared NATs get headroom via RATE_LIMIT_IP_ALLOWLIST (multiplier,
+  // not bypass).
   const clientIp =
     req.headers.get("cf-connecting-ip") ??
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -748,14 +739,14 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: "invalid JSON body" });
-    return withSession(NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }));
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const parsed = AnalyzeRequestSchema.safeParse(body);
   if (!parsed.success) {
     const msg = parsed.error.issues[0]?.message ?? "Invalid request";
     fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: msg });
-    return withSession(NextResponse.json({ error: msg }, { status: 400 }));
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 
   const { ticker, refresh } = parsed.data;
@@ -801,7 +792,7 @@ export async function POST(req: NextRequest) {
           bullTarget: cached.report.bullCase?.priceTarget ?? null,
           bearTarget: cached.report.bearCase?.priceTarget ?? null,
         });
-        return withSession(NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true }));
+        return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
       }
     }
   } else {
@@ -811,36 +802,29 @@ export async function POST(req: NextRequest) {
   // 2b. Rate-limit gates — only fresh paths count. Cache hits served above
   // never touch upstream APIs, so they don't consume quota and don't count.
   // Counters live in D1 (durable across edge isolates — an F5 no longer
-  // resets them). Order: session (cookie) → IP (NAT-aware allowlist) →
-  // daily fresh.
-  const [sessionGate, ipGate] = await Promise.all([
-    checkRateLimit(sessionId),
-    clientIp && !isIpAllowlisted(clientIp)
-      ? checkIpHourlyLimit(clientIp)
-      : Promise.resolve({ allowed: true, retryAfter: 0 }),
-  ]);
-  if (!sessionGate.allowed || !ipGate.allowed) {
-    const retryAfter = Math.max(sessionGate.retryAfter, ipGate.retryAfter);
+  // resets them), keyed by IP. Order: hourly IP → daily fresh.
+  const ipGate = await checkIpHourlyLimit(clientIp);
+  if (!ipGate.allowed) {
     fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit" });
-    return withSession(NextResponse.json(
+    return NextResponse.json(
       {
         error: "Análisis no disponible por el momento. Intente en unos minutos.",
         code: "analysis_unavailable",
       },
-      { status: 429, headers: { "Retry-After": String(retryAfter) } }
-    ));
+      { status: 429, headers: { "Retry-After": String(ipGate.retryAfter) } }
+    );
   }
 
-  const freshGate = await checkDailyFreshLimit(sessionId);
+  const freshGate = await checkDailyFreshLimit(clientIp);
   if (!freshGate.allowed) {
     fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
-    return withSession(NextResponse.json(
+    return NextResponse.json(
       {
         error: "Límite diario de análisis nuevos alcanzado. Vuelva mañana o consulte tickers ya analizados.",
         code: "daily_cap_reached",
       },
       { status: 429, headers: { "Retry-After": String(freshGate.retryAfter) } }
-    ));
+    );
   }
 
   // 3. Fetch financial data
@@ -1060,23 +1044,23 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     if (message.includes("no está listado")) {
       fireEvent({ ticker, status: "bad_request", errorStage: "yahoo", errorMsg: message, edgar8kOk, segmentsOk });
-      return withSession(NextResponse.json({ error: message }, { status: 400 }));
+      return NextResponse.json({ error: message }, { status: 400 });
     }
     if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("no data")) {
       fireEvent({ ticker, status: "not_found", errorStage: "yahoo", errorMsg: message, edgar8kOk, segmentsOk });
-      return withSession(NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 }));
+      return NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 });
     }
     // Either fetchStockData or one of the EDGAR fetches threw — pick the
     // most likely stage from the rejection origin recorded above.
     const stage = segmentsOk === false || edgar8kOk === false ? "edgar" : "yahoo";
     fireEvent({ ticker, status: "error", errorStage: stage, errorMsg: message, edgar8kOk, segmentsOk });
-    return withSession(NextResponse.json(
+    return NextResponse.json(
       {
         error: "Análisis no disponible por el momento. Intente en unos minutos.",
         code: "analysis_unavailable",
       },
       { status: 502 }
-    ));
+    );
   }
 
   // 4. Mock mode — skip OpenAI, return stub report with real segment data
@@ -1124,7 +1108,7 @@ export async function POST(req: NextRequest) {
         filingIndexUrl: edgar8K?.sourceUrl ?? null,
       }),
     });
-    return withSession(NextResponse.json({ report: stub, stockData, cached: false }));
+    return NextResponse.json({ report: stub, stockData, cached: false });
   }
 
   // 5. Build prompt
@@ -1266,13 +1250,14 @@ export async function POST(req: NextRequest) {
           err instanceof OpenAI.APIError ||
           err instanceof OpenAI.APIConnectionError ||
           err instanceof OpenAI.APIConnectionTimeoutError;
+        // The raw message goes to metrics only — never to the client. An
+        // unexpected throw here can carry internals (upstream URLs, parse
+        // details) that don't belong in a public response.
         const rawMsg = err instanceof Error ? err.message : "Unknown error";
-        const message = isOpenAIError
-          ? "Análisis no disponible por el momento. Intente en unos minutos."
-          : rawMsg;
-        const payload = isOpenAIError
-          ? { error: message, code: "analysis_unavailable" }
-          : { error: message };
+        const payload = {
+          error: "Análisis no disponible por el momento. Intente en unos minutos.",
+          code: "analysis_unavailable",
+        };
         fireEvent({
           ticker,
           status: "error",
@@ -1290,11 +1275,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return withSession(new Response(stream, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     },
-  }));
+  });
 }
