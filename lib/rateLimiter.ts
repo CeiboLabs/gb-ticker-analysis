@@ -164,6 +164,14 @@ export function checkDailyFreshLimit(ip: string | null): Promise<Gate> {
   return checkDurable(`dfresh:${ip}`, effectiveMax(ip, DAILY_FRESH_MAX), DAY_MS, UY_OFFSET_MS);
 }
 
+// Contact form: 5 envíos/h por IP, durable. Bajo a propósito — nadie
+// legítimo manda más de un puñado de consultas comerciales por hora, y cada
+// envío dispara un email.
+const CONTACT_HOURLY_MAX = parseInt(process.env.RATE_LIMIT_CONTACT_MAX ?? "5", 10);
+export function checkContactLimit(ip: string | null): Promise<Gate> {
+  return checkDurable(`contact:${ip ?? "noip"}`, CONTACT_HOURLY_MAX, HOUR_MS);
+}
+
 // Brute-force cap on FAILED admin auth attempts, per IP. Durable on purpose:
 // an in-memory bucket let an attacker reset their budget by rotating isolates
 // (or just waiting for a redeploy). No allowlist bypass here — auth guessing

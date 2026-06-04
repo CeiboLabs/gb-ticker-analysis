@@ -79,3 +79,21 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   count        INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (key, window_start)
 ) WITHOUT ROWID;
+
+-- Migration 2026-06-04: mensajes del formulario de contacto institucional.
+-- emailed marca si la notificación por Resend salió bien (0 = quedó solo en
+-- DB; el dashboard/inbox manual sigue siendo la fuente de verdad).
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts       INTEGER NOT NULL,
+  nombre   TEXT    NOT NULL,
+  apellido TEXT    NOT NULL,
+  email    TEXT    NOT NULL,
+  telefono TEXT,
+  motivo   TEXT    NOT NULL,
+  mensaje  TEXT    NOT NULL,
+  ip_hash  TEXT,
+  emailed  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_contact_ts ON contact_messages(ts);

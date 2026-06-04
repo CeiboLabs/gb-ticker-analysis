@@ -29,3 +29,24 @@ export const AnalyzeRequestSchema = z.object({
 
 export type AnalyzeRequest = z.infer<typeof AnalyzeRequestSchema>;
 
+// Contact form (sitio institucional). Motivos cerrados a la lista del form —
+// cualquier otro valor es un cliente armado a mano.
+export const CONTACT_MOTIVOS = [
+  "cuenta-personal",
+  "cuenta-empresa",
+  "asesoria",
+  "productos",
+  "otro",
+] as const;
+
+export const ContactRequestSchema = z.object({
+  nombre: z.string().trim().min(2, "Nombre muy corto").max(100),
+  apellido: z.string().trim().min(2, "Apellido muy corto").max(100),
+  email: z.string().trim().email("Email inválido").max(200),
+  telefono: z.string().trim().max(40).optional().default(""),
+  motivo: z.enum(CONTACT_MOTIVOS),
+  mensaje: z.string().trim().min(10, "Contanos un poco más").max(2000),
+});
+
+export type ContactRequest = z.infer<typeof ContactRequestSchema>;
+
