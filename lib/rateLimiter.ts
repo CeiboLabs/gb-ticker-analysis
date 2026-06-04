@@ -1,10 +1,24 @@
-// In-memory token-bucket-ish counters keyed by an arbitrary string. Resets
-// every WINDOW_MS. Edge runtime per-isolate state, so this is "best effort"
-// across multiple Cloudflare workers — but combined with cookie + IP keys it
-// still raises the bar on cheap abuse meaningfully.
+// Rate-limit counters. Two tiers:
+//
+// 1. DURABLE (D1, table `rate_limits`) — the gates that guard real money or
+//    auth: analyze session/IP/daily-fresh and failed admin logins. Counters
+//    are fixed windows incremented with an atomic UPSERT, so they survive
+//    isolate recycling: an F5 that lands on a fresh Cloudflare isolate sees
+//    the same count as the request that tripped the 429.
+//
+// 2. IN-MEMORY (per-isolate Map) — high-volume public GETs (search type-ahead,
+//    quote polling, logos). A D1 write per keystroke would cost more than the
+//    abuse it prevents; the Yahoo outbound throttle is the real guard there.
+//    Also the fallback when the METRICS_DB binding is missing (local dev).
+
+import { getMetricsDb } from "@/lib/metrics";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * 60 * 60 * 1000;
+
+// "Mañana" para el cap diario significa medianoche Uruguay (UTC-3, sin DST),
+// no medianoche UTC — mismo criterio que usa el dashboard de métricas.
+const UY_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 // All defaults below are derived, not guessed. System ceiling at OpenAI
 // Tier 2 (450k TPM / 12k tokens per analysis ≈ 2,250/h) is bound by Yahoo:
@@ -41,6 +55,11 @@ export function isIpAllowlisted(ip: string | null): boolean {
   return !!ip && IP_ALLOWLIST.has(ip);
 }
 
+interface Gate {
+  allowed: boolean;
+  retryAfter: number;
+}
+
 interface Entry {
   count: number;
   windowStart: number;
@@ -48,7 +67,7 @@ interface Entry {
 
 const store = new Map<string, Entry>();
 
-function check(key: string, max: number, windowMs: number): { allowed: boolean; retryAfter: number } {
+function check(key: string, max: number, windowMs: number): Gate {
   const now = Date.now();
   const entry = store.get(key);
 
@@ -66,34 +85,82 @@ function check(key: string, max: number, windowMs: number): { allowed: boolean; 
   return { allowed: true, retryAfter: 0 };
 }
 
-// Per-session 1h window — original behaviour, kept for backward compat.
-export function checkRateLimit(key: string): { allowed: boolean; retryAfter: number } {
-  return check(`hr:${key}`, HOURLY_MAX, HOUR_MS);
+// Durable fixed-window counter in D1. One atomic UPSERT per call: insert the
+// window row or bump its count, read the result back in the same statement.
+// Concurrent requests on different isolates serialize in D1, so the count is
+// authoritative — no per-isolate drift, no reset on F5.
+//
+// windowOffsetMs shifts the window boundary (e.g. UY midnight for the daily
+// cap). Falls back to the in-memory check when the binding is missing (local
+// dev) or D1 errors — the limiter must never take the endpoint down with it.
+async function checkDurable(
+  key: string,
+  max: number,
+  windowMs: number,
+  windowOffsetMs = 0,
+): Promise<Gate> {
+  const db = getMetricsDb();
+  if (!db) return check(key, max, windowMs);
+
+  const now = Date.now();
+  const windowStart = Math.floor((now - windowOffsetMs) / windowMs) * windowMs + windowOffsetMs;
+  try {
+    const row = await db
+      .prepare(
+        "INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1) " +
+        "ON CONFLICT(key, window_start) DO UPDATE SET count = count + 1 " +
+        "RETURNING count"
+      )
+      .bind(key, windowStart)
+      .first<{ count: number }>();
+    const count = row?.count ?? 1;
+    if (count > max) {
+      return { allowed: false, retryAfter: Math.ceil((windowStart + windowMs - now) / 1000) };
+    }
+    return { allowed: true, retryAfter: 0 };
+  } catch {
+    return check(key, max, windowMs);
+  }
+}
+
+// Per-session 1h window, keyed by the ticker_session cookie value.
+export function checkRateLimit(key: string): Promise<Gate> {
+  return checkDurable(`hr:${key}`, HOURLY_MAX, HOUR_MS);
 }
 
 // Per-IP 1h window. Higher ceiling than the session bucket so shared NATs
 // (offices, mobile carriers) don't trip on legitimate use, but it still caps
 // someone who keeps wiping their session cookie.
-export function checkIpHourlyLimit(ip: string): { allowed: boolean; retryAfter: number } {
-  return check(`hrip:${ip}`, HOURLY_IP_MAX, HOUR_MS);
+export function checkIpHourlyLimit(ip: string): Promise<Gate> {
+  return checkDurable(`hrip:${ip}`, HOURLY_IP_MAX, HOUR_MS);
 }
 
 // Daily cap on *fresh* analyses (cache misses) per key. Caches still serve
 // freely; this purely caps the OpenAI/upstream-fanout cost an attacker can
-// burn by rotating tickers.
-export function checkDailyFreshLimit(key: string): { allowed: boolean; retryAfter: number } {
-  return check(`dfresh:${key}`, DAILY_FRESH_MAX, DAY_MS);
+// burn by rotating tickers. Window resets at midnight Uruguay.
+export function checkDailyFreshLimit(key: string): Promise<Gate> {
+  return checkDurable(`dfresh:${key}`, DAILY_FRESH_MAX, DAY_MS, UY_OFFSET_MS);
+}
+
+// Brute-force cap on FAILED admin auth attempts, per IP. Durable on purpose:
+// an in-memory bucket let an attacker reset their budget by rotating isolates
+// (or just waiting for a redeploy). No allowlist bypass here — auth guessing
+// from a "trusted" NAT is still auth guessing.
+export function checkAdminFailedAuthLimit(ip: string | null, max: number): Promise<Gate> {
+  if (!ip) return Promise.resolve({ allowed: true, retryAfter: 0 });
+  return checkDurable(`adminfail:${ip}`, max, HOUR_MS);
 }
 
 // Generic per-IP, per-endpoint hourly limiter for read-only public GETs
 // (chart-range, quotes, search, popular). Each endpoint gets its own bucket,
 // keyed by IP, so a noisy caller on /search doesn't deny /chart-range.
-// Allowlisted IPs (corporate NATs) bypass the cap.
+// Allowlisted IPs (corporate NATs) bypass the cap. Deliberately in-memory:
+// these endpoints are cheap and high-volume — see header comment.
 export function checkPublicGetLimit(
   endpoint: string,
   ip: string | null,
   max: number,
-): { allowed: boolean; retryAfter: number } {
+): Gate {
   if (!ip) return { allowed: true, retryAfter: 0 };
   if (isIpAllowlisted(ip)) return { allowed: true, retryAfter: 0 };
   return check(`pub:${endpoint}:${ip}`, max, HOUR_MS);

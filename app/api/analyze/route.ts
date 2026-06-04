@@ -810,11 +810,15 @@ export async function POST(req: NextRequest) {
 
   // 2b. Rate-limit gates — only fresh paths count. Cache hits served above
   // never touch upstream APIs, so they don't consume quota and don't count.
-  // Order: session (cookie) → IP (NAT-aware allowlist) → daily fresh.
-  const sessionGate = checkRateLimit(sessionId);
-  const ipGate = clientIp && !isIpAllowlisted(clientIp)
-    ? checkIpHourlyLimit(clientIp)
-    : { allowed: true, retryAfter: 0 };
+  // Counters live in D1 (durable across edge isolates — an F5 no longer
+  // resets them). Order: session (cookie) → IP (NAT-aware allowlist) →
+  // daily fresh.
+  const [sessionGate, ipGate] = await Promise.all([
+    checkRateLimit(sessionId),
+    clientIp && !isIpAllowlisted(clientIp)
+      ? checkIpHourlyLimit(clientIp)
+      : Promise.resolve({ allowed: true, retryAfter: 0 }),
+  ]);
   if (!sessionGate.allowed || !ipGate.allowed) {
     const retryAfter = Math.max(sessionGate.retryAfter, ipGate.retryAfter);
     fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit" });
@@ -827,7 +831,7 @@ export async function POST(req: NextRequest) {
     ));
   }
 
-  const freshGate = checkDailyFreshLimit(sessionId);
+  const freshGate = await checkDailyFreshLimit(sessionId);
   if (!freshGate.allowed) {
     fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
     return withSession(NextResponse.json(

@@ -33,7 +33,7 @@ function percentile(values: number[], p: number): number | null {
 }
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdminToken(req);
+  const denied = await requireAdminToken(req);
   if (denied) return denied;
 
   const db = getMetricsDb();
