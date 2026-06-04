@@ -485,6 +485,7 @@ interface DownloadProps {
 
 export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChartImageUrl }: DownloadProps) {
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [pdfFailed, setPdfFailed] = useState(false);
   const [justDownloaded, setJustDownloaded] = useState(false);
 
   // Pre-generate the PDF as soon as the report is ready. iOS Safari requires
@@ -496,12 +497,20 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset; the new blob is async, can't be derived in render
     setPdfBlob(null);
+    setPdfFailed(false);
     pdf(
       <ReportDocument report={report} stockData={stockData} sankeyImageUrl={sankeyImageUrl} priceChartImageUrl={priceChartImageUrl} />
     )
       .toBlob()
       .then((blob) => {
         if (!cancelled) setPdfBlob(blob);
+      })
+      .catch((err) => {
+        // Sin esto, un fallo de generación (CSP bloqueando el WASM de yoga,
+        // fuentes, imágenes) muere mudo y el botón queda en "Preparando…"
+        // para siempre. Loguear fuerte y mostrar estado de error.
+        console.error("[pdf-export] generación falló:", err);
+        if (!cancelled) setPdfFailed(true);
       });
     return () => {
       cancelled = true;
@@ -541,6 +550,18 @@ export function ReportPdfDownload({ report, stockData, sankeyImageUrl, priceChar
   }, [pdfBlob, justDownloaded, stockData.ticker]);
 
   const ready = pdfBlob !== null;
+
+  if (pdfFailed) {
+    return (
+      <button
+        disabled
+        className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white/60 text-[#03065E]/50 cursor-default"
+        title="No se pudo generar el PDF en este navegador"
+      >
+        PDF no disponible
+      </button>
+    );
+  }
 
   return (
     <button

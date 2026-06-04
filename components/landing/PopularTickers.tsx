@@ -9,16 +9,14 @@ interface Quote {
   price: number | null;
   changePercent: number | null;
   currency: string | null;
-  domain: string | null;
-  viewCount: number | null;
 }
 
 interface Props {
   onSelect: (ticker: string) => void;
 }
 
-function PopularLogo({ symbol, domain }: { symbol: string; domain: string | null }) {
-  const src = `/api/logo?ticker=${encodeURIComponent(symbol)}${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`;
+function PopularLogo({ symbol }: { symbol: string }) {
+  const src = `/api/logo?ticker=${encodeURIComponent(symbol)}`;
   const brightness = useLogoBrightness(src);
   const bg = brightness === "light" ? "bg-[#03065E]" : "bg-white";
   return (
@@ -46,8 +44,6 @@ function skeletonQuotes(): Quote[] {
     price: null,
     changePercent: null,
     currency: null,
-    domain: null,
-    viewCount: null,
   }));
 }
 
@@ -113,7 +109,7 @@ export function PopularTickers({ onSelect }: Props) {
                   aria-label={`Analizar ${q.name ?? q.symbol}`}
                 >
                   <div className="flex items-center gap-2 sm:gap-2.5 mb-2.5 sm:mb-3">
-                    <PopularLogo symbol={q.symbol} domain={q.domain ?? null} />
+                    <PopularLogo symbol={q.symbol} />
                     <span className="font-mono font-bold text-white text-sm tracking-tight">
                       {q.symbol}
                     </span>

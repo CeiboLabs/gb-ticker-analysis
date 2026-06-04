@@ -8,11 +8,17 @@ import { useEffect, useState } from "react";
 // State carries the src it was computed for, so when `src` prop changes we
 // derive `null` until the new computation lands — no need to setState inside
 // the effect just to reset.
+//
+// Module-level cache: the result is deterministic per src, so re-mounts
+// (landing ↔ report navigation, the 8 popular logos) skip the Image load +
+// canvas probe entirely after the first computation.
+const brightnessCache = new Map<string, "light" | "dark">();
+
 export function useLogoBrightness(src: string | null): "light" | "dark" | null {
   const [resolved, setResolved] = useState<{ src: string; brightness: "light" | "dark" } | null>(null);
 
   useEffect(() => {
-    if (!src) return;
+    if (!src || brightnessCache.has(src)) return;
     let cancelled = false;
 
     const img = new Image();
@@ -49,7 +55,9 @@ export function useLogoBrightness(src: string | null): "light" | "dark" | null {
         const transparentRatio = transparentCount / total;
         const meanLum = opaqueLumSum / opaqueCount;
         const isLight = transparentRatio > 0.3 && meanLum > 200;
-        setResolved({ src, brightness: isLight ? "light" : "dark" });
+        const brightness = isLight ? "light" : "dark";
+        brightnessCache.set(src, brightness);
+        setResolved({ src, brightness });
       } catch {
         // Tainted canvas or other read failure — leave neutral.
       }
@@ -61,5 +69,8 @@ export function useLogoBrightness(src: string | null): "light" | "dark" | null {
     };
   }, [src]);
 
+  // Cache hit resolves during render — no effect round-trip, no extra render.
+  const cached = src ? brightnessCache.get(src) : undefined;
+  if (cached) return cached;
   return resolved?.src === src ? resolved.brightness : null;
 }

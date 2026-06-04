@@ -1140,11 +1140,23 @@ export async function POST(req: NextRequest) {
           ],
         });
 
+        // El cliente no renderiza texto incremental (espera el payload final
+        // con done: true), así que no reenviamos cada token. Solo emitimos un
+        // heartbeat de progreso cada 10s para que proxies intermedios no
+        // corten la conexión por idle mientras GPT-4o genera (~40-90s).
+        const HEARTBEAT_MS = 10_000;
+        let lastBeat = Date.now();
         for await (const chunk of completion) {
           const delta = chunk.choices[0]?.delta?.content ?? "";
           if (delta) {
             fullText += delta;
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+            const now = Date.now();
+            if (now - lastBeat >= HEARTBEAT_MS) {
+              lastBeat = now;
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ progress: fullText.length })}\n\n`)
+              );
+            }
           }
         }
 

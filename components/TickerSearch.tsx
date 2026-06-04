@@ -7,7 +7,6 @@ interface SearchResult {
   symbol: string;
   name: string;
   exchange: string;
-  quoteType: string;
 }
 
 interface TickerSearchProps {
