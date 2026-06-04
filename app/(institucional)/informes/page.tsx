@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { ArrowRight, Calendar, Clock } from "@/components/institucional/icons";
 
 export const metadata: Metadata = {
   title: "Informes · Bengochea & Cía.",
@@ -17,6 +18,20 @@ type Informe = {
 };
 
 const INFORMES: Informe[] = [
+  {
+    fecha: "2026-05-29",
+    fechaTexto: "29 de mayo, 2026",
+    titulo: "Informe semanal · 29 de mayo",
+    categoria: "Semanal",
+    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 29-05-2026.pdf",
+  },
+  {
+    fecha: "2026-05-22",
+    fechaTexto: "22 de mayo, 2026",
+    titulo: "Informe semanal · 22 de mayo",
+    categoria: "Semanal",
+    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 22-05-2026.pdf",
+  },
   {
     fecha: "2026-05-18",
     fechaTexto: "18 de mayo, 2026",
@@ -54,29 +69,21 @@ const INFORMES: Informe[] = [
   },
 ];
 
-const ArrowRight = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14M13 6l6 6-6 6" />
-  </svg>
-);
-
 export default function InformesPage() {
   const destacado = INFORMES[0];
 
   return (
     <main className="site">
-      {/* Hero full-bleed */}
-      <div className="hero-media">
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-        <Reveal as="div" className="site-wrap hero-content">
+      {/* Hero split — contenido + imagen */}
+      <div className="hero-split">
+        <Reveal as="div" className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
             Recomendaciones · Informes
           </div>
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             Lectura semanal y mensual del mercado.
           </h1>
-          <p className="t-lead" style={{ maxWidth: "42em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Nuestros informes recogen la lectura de la mesa: macro internacional, renta fija uruguaya,
             equity global y las oportunidades de cada cierre de mercado.
           </p>
@@ -91,7 +98,35 @@ export default function InformesPage() {
             </a>
           </div>
         </Reveal>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/informes.jpg" alt="Informe financiero con gráficos de mercado" />
+        </div>
       </div>
+
+      {/* Cifras — cobertura editorial */}
+      <section className="band-muted site-section-sm">
+        <div className="site-wrap">
+          <div className="cifras-row">
+            <div className="cifra">
+              <span className="cifra-num">Semanal</span>
+              <span className="cifra-label">Lectura del cierre de mercado</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">Mensual</span>
+              <span className="cifra-label">Visión macro y de cartera</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">1967</span>
+              <span className="cifra-label">La lectura de la casa desde</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">8</span>
+              <span className="cifra-label">Mercados cubiertos en cada informe</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Archivo — lista de filas con hairlines */}
       <section className="band site-section">
@@ -116,12 +151,17 @@ export default function InformesPage() {
                   rel="noopener noreferrer"
                   className="ui-list-row informe-row"
                 >
-                  <span className="informe-main">
-                    <span className="informe-meta">
-                      <span className="t-small informe-fecha">{it.fechaTexto.split(",")[0]}</span>
-                      <span className="ui-tag">{it.categoria}</span>
+                  <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                    <span className="list-icon" aria-hidden>
+                      {it.categoria === "Mensual" ? <Calendar /> : <Clock />}
                     </span>
-                    <span className="row-title" style={{ display: "block", marginTop: 8 }}>{it.titulo}</span>
+                    <span className="informe-main">
+                      <span className="informe-meta">
+                        <span className="t-small informe-fecha">{it.fechaTexto.split(",")[0]}</span>
+                        <span className="ui-tag">{it.categoria}</span>
+                      </span>
+                      <span className="row-title" style={{ display: "block", marginTop: 8 }}>{it.titulo}</span>
+                    </span>
                   </span>
                   <span className="link-arrow informe-cta">
                     Descargar PDF <ArrowRight />

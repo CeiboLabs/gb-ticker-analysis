@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TickerSearch } from "@/components/TickerSearch";
+import { Verdict, BarChart, LineChart, Flow, Poll, FileDown } from "@/components/institucional/icons";
 
-const FEATURES: [string, string][] = [
-  ["Veredicto", "Recomendación BUY · HOLD · AVOID con convicción declarada y rationale escrito."],
-  ["Métricas", "Doce indicadores clave: capitalización, múltiplos, márgenes, FCF, beta."],
-  ["Precio", "Tres años de serie histórica con barras trimestrales de revenue superpuestas."],
-  ["Sankey", "Diagrama de flujo del estado de resultados: ingresos → costos → utilidad neta."],
-  ["Consenso", "Distribución de ratings de Wall Street y precio objetivo medio."],
-  ["Exportación", "PDF profesional listo para circular en cartera de clientes."],
+const FEATURES: { icon: ReactNode; title: string; body: string }[] = [
+  { icon: <Verdict />, title: "Veredicto", body: "Recomendación BUY · HOLD · AVOID con convicción declarada y rationale escrito." },
+  { icon: <BarChart />, title: "Métricas", body: "Doce indicadores clave: capitalización, múltiplos, márgenes, FCF, beta." },
+  { icon: <LineChart />, title: "Precio", body: "Tres años de serie histórica con barras trimestrales de revenue superpuestas." },
+  { icon: <Flow />, title: "Sankey", body: "Diagrama de flujo del estado de resultados: ingresos → costos → utilidad neta." },
+  { icon: <Poll />, title: "Consenso", body: "Distribución de ratings de Wall Street y precio objetivo medio." },
+  { icon: <FileDown />, title: "Exportación", body: "PDF profesional listo para circular en cartera de clientes." },
 ];
 
 const STEPS: [string, string, string][] = [
@@ -18,12 +20,6 @@ const STEPS: [string, string, string][] = [
   ["02", "Datos en streaming", "El modelo procesa información de Yahoo Finance y SEC EDGAR en tiempo real."],
   ["03", "Reporte completo", "Veredicto, métricas, gráficos y narrativa, en segundos."],
 ];
-
-const ArrowRight = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14M13 6l6 6-6 6" />
-  </svg>
-);
 
 export default function AnalisisPage() {
   const router = useRouter();
@@ -39,32 +35,33 @@ export default function AnalisisPage() {
 
   return (
     <main className="site">
-      {/* Hero full-bleed con el buscador dentro */}
-      <div className="hero-media">
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-
-        <div className="site-wrap hero-content">
+      {/* Hero split — contenido (con buscador) + imagen */}
+      <div className="hero-split">
+        <div className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
             Herramienta · Análisis de acciones
           </div>
 
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             Equity research, en segundos.
           </h1>
 
-          <p className="t-lead" style={{ maxWidth: "40em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Cargá un ticker y obtené un reporte con veredicto, doce KPIs, Sankey del estado de resultados
             y consenso de Wall Street. Mismo rigor que un research sell-side, en lenguaje propio.
           </p>
 
-          <div style={{ marginTop: 36, maxWidth: 560 }}>
+          <div style={{ marginTop: 36 }}>
             <TickerSearch variant="hero" onSubmit={handleSearch} />
           </div>
 
           <p className="t-small" style={{ marginTop: 16, color: "rgba(255,255,255,0.7)" }}>
             Probá con AAPL · TSLA · MELI · KO
           </p>
+        </div>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/analisis.jpg" alt="Tablero de cotizaciones del mercado" />
         </div>
       </div>
 
@@ -82,11 +79,14 @@ export default function AnalisisPage() {
             </div>
 
             <div className="ui-list">
-              {FEATURES.map(([title, body]) => (
+              {FEATURES.map(({ icon, title, body }) => (
                 <div key={title} className="ui-list-row">
-                  <span>
-                    <span className="row-title">{title}</span>
-                    <span className="row-desc" style={{ display: "block" }}>{body}</span>
+                  <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                    <span className="list-icon" aria-hidden>{icon}</span>
+                    <span>
+                      <span className="row-title">{title}</span>
+                      <span className="row-desc" style={{ display: "block" }}>{body}</span>
+                    </span>
                   </span>
                 </div>
               ))}
@@ -160,7 +160,7 @@ export default function AnalisisPage() {
           font-size: 14px;
           font-weight: 600;
           letter-spacing: 0.04em;
-          color: var(--site-ink-3);
+          color: var(--gold-deep);
         }
         @media (max-width: 900px) {
           .step-grid { grid-template-columns: 1fr; }

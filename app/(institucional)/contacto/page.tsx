@@ -1,7 +1,9 @@
 import { FAQ } from "@/components/institucional/FAQ";
 import { ContactForm } from "@/components/institucional/ContactForm";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { Phone, Mail, Message, Pin } from "@/components/institucional/icons";
 
 export const metadata: Metadata = {
   title: "Contacto · Bengochea & Cía.",
@@ -9,11 +11,11 @@ export const metadata: Metadata = {
     "Agendá una reunión con la mesa de Bengochea & Cía. Oficina en WTC Montevideo, Uruguay.",
 };
 
-const CONTACTO_DATA = [
-  ["Teléfono", "+598 2628 6447", "tel:+59826286447"],
-  ["Email general", "info@gbengochea.com.uy", "mailto:info@gbengochea.com.uy"],
-  ["Reclamos", "reclamos@gbengochea.com.uy", "mailto:reclamos@gbengochea.com.uy"],
-  ["Dirección", "Luis A. de Herrera 1248 · WTC Torre I, Of. 707 · Montevideo", "https://maps.google.com/?q=World+Trade+Center+Montevideo+Torre+1"],
+const CONTACTO_DATA: { icon: ReactNode; label: string; value: string; href: string }[] = [
+  { icon: <Phone />, label: "Teléfono", value: "+598 2628 6447", href: "tel:+59826286447" },
+  { icon: <Mail />, label: "Email general", value: "info@gbengochea.com.uy", href: "mailto:info@gbengochea.com.uy" },
+  { icon: <Message />, label: "Reclamos", value: "reclamos@gbengochea.com.uy", href: "mailto:reclamos@gbengochea.com.uy" },
+  { icon: <Pin />, label: "Dirección", value: "Luis A. de Herrera 1248 · WTC Torre I, Of. 707 · Montevideo", href: "https://maps.google.com/?q=World+Trade+Center+Montevideo+Torre+1" },
 ];
 
 const HORARIOS = [
@@ -25,24 +27,26 @@ const HORARIOS = [
 export default function ContactoPage() {
   return (
     <main className="site">
-      {/* Hero full-bleed */}
-      <div className="hero-media">
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-
-        <Reveal as="div" className="site-wrap hero-content">
+      {/* Hero split — contenido + imagen */}
+      <div className="hero-split">
+        <Reveal as="div" className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
             Contacto · Montevideo
           </div>
 
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             La mejor respuesta sigue siendo una conversación.
           </h1>
 
-          <p className="t-lead" style={{ maxWidth: "38em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
-            Agendá una reunión, sin compromiso, con un asesor de la casa. En oficina, por videollamada o donde corresponda.
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+            Agendá una reunión, sin compromiso, con un asesor de la casa y recibí asesoramiento personalizado
+            de acuerdo a tu perfil de inversor y necesidades particulares. En oficina o por videollamada.
           </p>
         </Reveal>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/contacto.jpg" alt="Torres de oficinas de vidrio" />
+        </div>
       </div>
 
       {/* Info + Form */}
@@ -62,7 +66,7 @@ export default function ContactoPage() {
               </Reveal>
 
               <Stagger as="div" className="ui-list" style={{ marginTop: 32 }}>
-                {CONTACTO_DATA.map(([label, value, href]) => (
+                {CONTACTO_DATA.map(({ icon, label, value, href }) => (
                   <StaggerItem as="div" key={label}>
                     <a
                       href={href}
@@ -70,19 +74,22 @@ export default function ContactoPage() {
                       rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
                       className="ui-list-row"
                     >
-                      <span>
-                        <span className="eyebrow-sm" style={{ display: "block" }}>{label}</span>
-                        <span
-                          style={{
-                            display: "block",
-                            marginTop: 6,
-                            fontSize: 18,
-                            fontWeight: 400,
-                            letterSpacing: "-0.01em",
-                            color: "var(--site-ink)",
-                          }}
-                        >
-                          {value}
+                      <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                        <span className="list-icon" aria-hidden>{icon}</span>
+                        <span>
+                          <span className="eyebrow-sm" style={{ display: "block" }}>{label}</span>
+                          <span
+                            style={{
+                              display: "block",
+                              marginTop: 6,
+                              fontSize: 18,
+                              fontWeight: 400,
+                              letterSpacing: "-0.01em",
+                              color: "var(--site-ink)",
+                            }}
+                          >
+                            {value}
+                          </span>
                         </span>
                       </span>
                     </a>

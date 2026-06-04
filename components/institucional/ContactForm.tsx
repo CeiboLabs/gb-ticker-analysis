@@ -41,7 +41,8 @@ export function ContactForm() {
           <label className="ui-label">Motivo</label>
           <select className="ui-input">
             <option value="">Seleccioná una opción</option>
-            <option value="cuenta">Abrir una cuenta</option>
+            <option value="cuenta-personal">Abrir una cuenta personal</option>
+            <option value="cuenta-empresa">Abrir una cuenta empresa</option>
             <option value="asesoria">Asesoramiento financiero</option>
             <option value="productos">Información de productos</option>
             <option value="otro">Otra consulta</option>

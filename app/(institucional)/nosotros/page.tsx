@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { Columns, Globe, Scales, Lock, Waveform, Compass, Handshake, Users, Rocket } from "@/components/institucional/icons";
 
 export const metadata: Metadata = {
   title: "Nosotros · Bengochea & Cía.",
@@ -8,47 +10,45 @@ export const metadata: Metadata = {
     "Sociedad de Bolsa uruguaya desde 1967. Misión, visión y valores de Gastón Bengochea CB.",
 };
 
-const VALORES = [
-  "El cliente inversor siempre primero.",
-  "Promovemos el trabajo en equipo.",
-  "Valoramos las habilidades blandas: liderazgo, comunicación, flexibilidad y motivación.",
-  "Fomentamos la capacitación permanente como herramienta de crecimiento profesional.",
-  "Apoyamos la educación financiera y las acciones de defensa del inversor.",
-  "Proactivos y creativos para adaptarnos a los desafíos.",
+const VALORES: { icon: ReactNode; text: string }[] = [
+  { icon: <Handshake />, text: "El cliente inversor siempre primero." },
+  { icon: <Users />, text: "Promovemos el trabajo en equipo." },
+  { icon: <Waveform />, text: "Valoramos las habilidades blandas: liderazgo, comunicación, flexibilidad y motivación." },
+  { icon: <Compass />, text: "Fomentamos la capacitación permanente como herramienta de crecimiento profesional." },
+  { icon: <Globe />, text: "Apoyamos la educación financiera y las acciones de defensa del inversor." },
+  { icon: <Rocket />, text: "Proactivos y creativos para adaptarnos a los desafíos." },
 ];
 
-const PILARES: [string, string][] = [
-  ["Presencia y experiencia", "Casi seis décadas gestionando patrimonios de uruguayos y extranjeros. Miembros de la Bolsa de Valores de Montevideo desde 1967."],
-  ["Una mirada global", "Somos locales pero con foco global. Invertimos en el mundo desde Uruguay."],
-  ["Regulación", "Compañía regulada por el Banco Central del Uruguay y miembros activos de la BVM."],
-  ["Seguridad", "Cuentas segregadas: el cliente es el propietario legal de los activos en su cuenta."],
-  ["Escucha activa", "Proponemos una cartera individual alineada a los objetivos de cada inversor."],
-  ["Dedicación", "Explicamos el funcionamiento del mercado y de cada activo que forma parte de tu cartera."],
-  ["Somos tu aliado", "No exigimos mínimos para abrir cuenta. El tiempo es tu mejor aliado; nosotros también."],
+const PILARES: { icon: ReactNode; title: string; body: string }[] = [
+  { icon: <Columns />, title: "Presencia y experiencia", body: "Casi seis décadas gestionando patrimonios de uruguayos y extranjeros. Miembros de la Bolsa de Valores de Montevideo desde 1967." },
+  { icon: <Globe />, title: "Una mirada global", body: "Somos locales pero con foco global. Invertimos en el mundo desde Uruguay." },
+  { icon: <Scales />, title: "Regulación", body: "Compañía regulada por el Banco Central del Uruguay y miembros activos de la BVM." },
+  { icon: <Lock />, title: "Seguridad", body: "Cuentas segregadas: el cliente es el propietario legal de los activos en su cuenta." },
+  { icon: <Waveform />, title: "Escucha activa", body: "Proponemos una cartera individual alineada a los objetivos de cada inversor." },
+  { icon: <Compass />, title: "Dedicación", body: "Explicamos el funcionamiento del mercado y de cada activo que forma parte de tu cartera." },
+  { icon: <Handshake />, title: "Somos tu aliado", body: "No exigimos mínimos para abrir cuenta. El tiempo es tu mejor aliado; nosotros también." },
 ];
 
-const ArrowRight = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14M13 6l6 6-6 6" />
-  </svg>
-);
+const CIFRAS: [string, string][] = [
+  ["1967", "Miembros de la Bolsa de Valores de Montevideo"],
+  ["~6 décadas", "Administrando inversiones de nuestros clientes"],
+  ["8", "Plazas locales e internacionales"],
+  ["BCU", "Regulados por el Banco Central del Uruguay"],
+];
 
 export default function NosotrosPage() {
   return (
     <main className="site">
-      {/* Hero full-bleed */}
-      <div className="hero-media">
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-
-        <Reveal className="site-wrap hero-content">
+      {/* Hero split — contenido + imagen */}
+      <div className="hero-split">
+        <Reveal className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
             La casa · Nosotros
           </div>
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             La excelencia hace la diferencia.
           </h1>
-          <p className="t-lead" style={{ maxWidth: "40em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Creemos en las relaciones basadas en la confianza mutua y el profesionalismo. Un servicio
             construido sobre altos estándares de gestión, sostenido por casi seis décadas en la plaza uruguaya.
           </p>
@@ -57,6 +57,10 @@ export default function NosotrosPage() {
             <Link href="/historia" className="ui-btn ui-btn-on-navy-ghost">Nuestra historia</Link>
           </div>
         </Reveal>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/nosotros.jpg" alt="Fachada de vidrio de un edificio corporativo" />
+        </div>
       </div>
 
       {/* Premisa — declaración */}
@@ -71,6 +75,15 @@ export default function NosotrosPage() {
               </p>
             </div>
           </Reveal>
+
+          <Stagger className="cifras-row" as="div">
+            {CIFRAS.map(([num, label]) => (
+              <StaggerItem key={label} className="cifra" as="div">
+                <span className="cifra-num">{num}</span>
+                <span className="cifra-label">{label}</span>
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
       </section>
 
@@ -128,9 +141,12 @@ export default function NosotrosPage() {
             </Reveal>
 
             <Stagger className="ui-list" as="div">
-              {VALORES.map((v) => (
-                <StaggerItem key={v} className="ui-list-row" as="div">
-                  <span className="row-title" style={{ fontSize: "clamp(18px, 1.8vw, 22px)" }}>{v}</span>
+              {VALORES.map(({ icon, text }) => (
+                <StaggerItem key={text} className="ui-list-row" as="div">
+                  <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                    <span className="list-icon" aria-hidden>{icon}</span>
+                    <span className="row-title" style={{ fontSize: "clamp(18px, 1.8vw, 22px)" }}>{text}</span>
+                  </span>
                 </StaggerItem>
               ))}
             </Stagger>
@@ -153,8 +169,9 @@ export default function NosotrosPage() {
           </Reveal>
 
           <Stagger className="pilar-grid" as="div">
-            {PILARES.map(([title, body]) => (
+            {PILARES.map(({ icon, title, body }) => (
               <StaggerItem key={title} className="pilar-item" as="div">
+                <span className="feat-icon" aria-hidden>{icon}</span>
                 <h3 className="t-h4">{title}</h3>
                 <p className="t-small" style={{ marginTop: 12, marginBottom: 0 }}>{body}</p>
               </StaggerItem>

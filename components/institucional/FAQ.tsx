@@ -11,7 +11,7 @@ const FAQ_ITEMS = [
   {
     question: "¿Cuál es la inversión mínima?",
     answer:
-      "Varía por producto y por mercado. Tenemos alternativas para perfiles distintos. En la primera conversación dimensionamos lo que tenga sentido para tu situación específica.",
+      "No exigimos mínimos para la apertura de cuenta: nos adaptamos a cada situación. Cuando empieces a invertir, el tiempo será tu mejor aliado — nosotros también. En la primera conversación dimensionamos lo que tenga sentido para tu caso.",
   },
   {
     question: "¿Están regulados?",

@@ -1,26 +1,31 @@
 import { Calculadora } from "@/components/institucional/Calculadora";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { ShieldCheck, Scale, Rocket, LineChart, Layers, Calendar, BarChart } from "@/components/institucional/icons";
 
 export const metadata: Metadata = {
   title: "Calculadora · Bengochea & Cía.",
   description: "Simulá el crecimiento de una inversión con interés compuesto. Configurá monto inicial, aporte mensual, tasa y horizonte.",
 };
 
-const PERFILES = [
+const PERFILES: { icon: ReactNode; title: string; rango: string; body: string; perfil: string }[] = [
   {
+    icon: <ShieldCheck />,
     title: "Conservador",
     rango: "4 – 6 %",
     body: "Cartera dominada por renta fija de alta calidad. Cupón previsible, volatilidad acotada, capital preservado.",
     perfil: "Baja tolerancia al riesgo",
   },
   {
+    icon: <Scale />,
     title: "Moderado",
     rango: "6 – 10 %",
     body: "Combinación balanceada de renta fija y renta variable. Crecimiento compuesto sin abandonar el ancla de la liquidez.",
     perfil: "Tolerancia media al riesgo",
   },
   {
+    icon: <Rocket />,
     title: "Agresivo",
     rango: "10 – 15 %",
     body: "Mayor exposición a renta variable global y mercados emergentes. Volatilidad mayor, horizonte largo.",
@@ -28,11 +33,11 @@ const PERFILES = [
   },
 ];
 
-const CONCEPTOS: [string, string][] = [
-  ["Interés compuesto", "El rendimiento se calcula sobre el capital inicial más los rendimientos previamente acumulados. Es el motor del crecimiento de largo plazo."],
-  ["Diversificación", "Distribuir entre activos de baja correlación reduce el riesgo de cartera sin sacrificar retorno esperado proporcionalmente."],
-  ["Horizonte temporal", "El plazo largo permite absorber volatilidad y aprovechar el compounding. El plazo corto exige menos riesgo."],
-  ["Aportes regulares", "Invertir cantidades fijas con frecuencia (DCA) suaviza el efecto de la volatilidad y disciplina el ahorro."],
+const CONCEPTOS: { icon: ReactNode; title: string; body: string }[] = [
+  { icon: <LineChart />, title: "Interés compuesto", body: "El rendimiento se calcula sobre el capital inicial más los rendimientos previamente acumulados. Es el motor del crecimiento de largo plazo." },
+  { icon: <Layers />, title: "Diversificación", body: "Distribuir entre activos de baja correlación reduce el riesgo de cartera sin sacrificar retorno esperado proporcionalmente." },
+  { icon: <Calendar />, title: "Horizonte temporal", body: "El plazo largo permite absorber volatilidad y aprovechar el compounding. El plazo corto exige menos riesgo." },
+  { icon: <BarChart />, title: "Aportes regulares", body: "Invertir cantidades fijas con frecuencia (DCA) suaviza el efecto de la volatilidad y disciplina el ahorro." },
 ];
 
 export default function CalculadoraPage() {
@@ -83,6 +88,7 @@ export default function CalculadoraPage() {
           <Stagger as="div" className="perfiles-grid">
             {PERFILES.map((p) => (
               <StaggerItem as="article" key={p.title} className="perfil-item">
+                <span className="feat-icon" aria-hidden>{p.icon}</span>
                 <div className="eyebrow-sm">{p.perfil}</div>
                 <h3 className="t-h3" style={{ marginTop: 18 }}>{p.title}</h3>
                 <div
@@ -119,8 +125,9 @@ export default function CalculadoraPage() {
           </Reveal>
 
           <div className="conceptos-grid">
-            {CONCEPTOS.map(([title, body]) => (
+            {CONCEPTOS.map(({ icon, title, body }) => (
               <div key={title} className="concepto-item">
+                <span className="feat-icon" aria-hidden>{icon}</span>
                 <h3 className="t-h4">{title}</h3>
                 <p className="t-body" style={{ marginTop: 12, marginBottom: 0 }}>{body}</p>
               </div>

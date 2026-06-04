@@ -16,8 +16,8 @@ const TIMELINE = [
   },
   {
     year: "1980s",
-    title: "Primer broker local en fondos mutuos",
-    body: "Acuerdo de distribución de Fondos Mutuos con Fidelity Investments. Bengochea se convierte en el primer broker local en incorporar fondos mutuos a su menú.",
+    title: "Primer corredor local en fondos mutuos",
+    body: "Acuerdo de distribución de Fondos Mutuos con Fidelity Investments. Bengochea se convierte en el primer corredor de bolsa local en incorporar fondos mutuos a su menú.",
   },
   {
     year: "2003",
@@ -74,22 +74,23 @@ const TIMELINE = [
 export default function HistoriaPage() {
   return (
     <main className="site">
-      {/* Hero full-bleed */}
-      <div className="hero-media">
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-
-        <div className="site-wrap hero-content">
+      {/* Hero split — contenido + imagen */}
+      <div className="hero-split">
+        <div className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
             La casa · Historia
           </div>
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             Sesenta años de confianza e idoneidad.
           </h1>
-          <p className="t-lead" style={{ maxWidth: "42em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Gastón Bengochea CB es miembro de la Bolsa de Valores de Montevideo desde 1967. Una sola firma,
             sin discontinuidades, atravesando ciclos económicos, regímenes regulatorios y crisis cambiarias.
           </p>
+        </div>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/historia.jpg" alt="Columnas neoclásicas de un edificio institucional" />
         </div>
       </div>
 
@@ -107,9 +108,28 @@ export default function HistoriaPage() {
               </p>
               <p className="t-body" style={{ marginTop: 16, maxWidth: "36em" }}>
                 En la década del ochenta, Bengochea firmó un acuerdo de distribución de Fondos Mutuos con
-                Fidelity Investments y se convirtió en el primer broker local en incorporar fondos mutuos a su
-                catálogo. La apertura internacional empezó allí.
+                Fidelity Investments y se convirtió en el primer corredor de bolsa local en incorporar fondos
+                mutuos a su catálogo. La apertura internacional empezó allí.
               </p>
+            </div>
+          </div>
+
+          <div className="cifras-row">
+            <div className="cifra">
+              <span className="cifra-num">1967</span>
+              <span className="cifra-label">Miembros de la Bolsa de Valores de Montevideo</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">~60</span>
+              <span className="cifra-label">Años de trayectoria sin discontinuidades</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">8</span>
+              <span className="cifra-label">Mercados operados desde Montevideo</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">12</span>
+              <span className="cifra-label">Hitos institucionales que cuentan la casa</span>
             </div>
           </div>
         </div>

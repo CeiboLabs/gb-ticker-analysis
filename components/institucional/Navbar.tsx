@@ -16,7 +16,6 @@ const NAV_LINKS: NavLink[] = [
 ];
 
 const ACCESOS: NavLink[] = [
-  { label: "Cuenta Activa", href: "https://cuentaactiva.gbengochea.com.uy/", external: true },
   { label: "Consultanet", href: "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx", external: true },
 ];
 
@@ -27,9 +26,6 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // La página /analyze conserva el navbar oscuro original — no se rediseña.
-  const isDark = pathname.startsWith("/analyze");
-
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
@@ -39,35 +35,32 @@ export function Navbar() {
 
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
-  const bg = isDark ? "var(--navy)" : "#FFFFFF";
-  const fg = isDark ? "var(--ivory)" : "var(--ink)";
-  const fgSecondary = isDark ? "rgba(255,255,255,0.72)" : "#4A4E6B";
-  const ruleColor = isDark ? "rgba(255,255,255,0.18)" : "var(--site-border, #E7E8F2)";
-  const goldAccent = isDark ? "var(--gold-soft)" : "var(--gold-deep)";
-  const navFont = isDark ? "var(--font-sans)" : ARIAL;
+  const fg = "var(--ink)";
+  const fgSecondary = "#4A4E6B";
+  const ruleColor = "var(--site-border, #E7E8F2)";
+  const goldAccent = "var(--gold-deep)";
 
   return (
     <nav
-      className={`fixed top-0 inset-x-0 z-50${isDark ? "" : " site"}`}
+      className="fixed top-0 inset-x-0 z-50 site"
       style={{
-        background: bg,
-        borderBottom: `1px solid ${scrolled || isDark ? ruleColor : "transparent"}`,
-        boxShadow: !isDark && scrolled ? "0 4px 20px rgba(3,6,94,0.05)" : "none",
+        background: "#FFFFFF",
+        borderBottom: `1px solid ${scrolled ? ruleColor : "transparent"}`,
+        boxShadow: scrolled ? "0 4px 20px rgba(3,6,94,0.05)" : "none",
         transition: "border-color 200ms ease, box-shadow 200ms ease",
         height: "var(--nav-h)",
       }}
     >
       <div className="mx-auto max-w-[1440px] px-6 sm:px-8 h-full flex items-center justify-between">
         {/* Wordmark */}
-        <Link href="/" className="flex items-center shrink-0">
+        <Link href="/" className="flex items-center shrink-0 cursor-pointer">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-bengochea.svg?v=2"
+            src="/logo-bengochea-light.svg?v=1"
             alt="Gastón Bengochea"
             style={{
               height: 28,
               width: "auto",
-              filter: isDark ? "none" : "invert(1)",
             }}
           />
         </Link>
@@ -81,17 +74,14 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className="nav-link-anchor"
-                data-dark={isDark ? "1" : "0"}
                 data-active={active ? "1" : "0"}
                 style={{
-                  fontFamily: navFont,
-                  fontSize: isDark ? 12 : 15,
-                  fontWeight: isDark ? 500 : 600,
-                  letterSpacing: isDark ? "0.08em" : "0",
-                  textTransform: isDark ? "uppercase" : "none",
+                  fontFamily: ARIAL,
+                  fontSize: 15,
+                  fontWeight: 600,
                   color: active ? fg : fgSecondary,
                   paddingBottom: 4,
-                  borderBottom: `2px solid ${active ? (isDark ? "var(--gold)" : "var(--navy)") : "transparent"}`,
+                  borderBottom: `2px solid ${active ? "var(--navy)" : "transparent"}`,
                   transition: "color 180ms ease, border-color 180ms ease",
                 }}
               >
@@ -112,14 +102,11 @@ export function Navbar() {
               target="_blank"
               rel="noopener noreferrer"
               className="nav-link-anchor"
-              data-dark={isDark ? "1" : "0"}
               data-active="0"
               style={{
-                fontFamily: navFont,
-                fontSize: isDark ? 11.5 : 14,
-                fontWeight: isDark ? 500 : 600,
-                letterSpacing: isDark ? "0.1em" : "0",
-                textTransform: isDark ? "uppercase" : "none",
+                fontFamily: ARIAL,
+                fontSize: 14,
+                fontWeight: 600,
                 color: goldAccent,
                 display: "inline-flex",
                 alignItems: "center",
@@ -135,10 +122,10 @@ export function Navbar() {
 
           <Link
             href="/contacto"
-            className={isDark ? "btn btn-on-navy-primary" : "ui-btn ui-btn-primary"}
-            style={isDark ? { padding: "10px 16px", fontSize: 12 } : { padding: "10px 18px", fontSize: 14 }}
+            className="ui-btn ui-btn-primary"
+            style={{ padding: "10px 18px", fontSize: 14 }}
           >
-            Contacto {isDark && <span className="arrow" />}
+            Contacto
           </Link>
         </div>
 
@@ -172,7 +159,7 @@ export function Navbar() {
         style={{
           maxHeight: menuOpen ? "720px" : 0,
           opacity: menuOpen ? 1 : 0,
-          background: bg,
+          background: "#FFFFFF",
           borderTop: menuOpen ? `1px solid ${ruleColor}` : "none",
           transition: "max-height 260ms ease, opacity 200ms ease",
         }}
@@ -186,12 +173,10 @@ export function Navbar() {
                 href={link.href}
                 className="py-3"
                 style={{
-                  fontFamily: navFont,
-                  fontSize: isDark ? 13 : 16,
-                  fontWeight: isDark ? 500 : 600,
-                  letterSpacing: isDark ? "0.08em" : "0",
-                  textTransform: isDark ? "uppercase" : "none",
-                  color: active ? (isDark ? goldAccent : "var(--navy)") : fg,
+                  fontFamily: ARIAL,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: active ? "var(--navy)" : fg,
                   borderBottom: `1px solid ${ruleColor}`,
                 }}
               >
@@ -202,8 +187,8 @@ export function Navbar() {
 
           <div
             style={{
-              fontFamily: navFont,
-              fontSize: isDark ? 10 : 12,
+              fontFamily: ARIAL,
+              fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
@@ -223,11 +208,9 @@ export function Navbar() {
               rel="noopener noreferrer"
               className="py-3"
               style={{
-                fontFamily: navFont,
-                fontSize: isDark ? 12 : 15,
+                fontFamily: ARIAL,
+                fontSize: 15,
                 fontWeight: 600,
-                letterSpacing: isDark ? "0.1em" : "0",
-                textTransform: isDark ? "uppercase" : "none",
                 color: goldAccent,
                 borderBottom: `1px solid ${ruleColor}`,
                 display: "inline-flex",
@@ -244,17 +227,16 @@ export function Navbar() {
 
           <Link
             href="/contacto"
-            className={isDark ? "btn btn-on-navy-primary mt-4" : "ui-btn ui-btn-primary mt-4"}
+            className="ui-btn ui-btn-primary mt-4"
             style={{ justifyContent: "center" }}
           >
-            Agendá una reunión {isDark && <span className="arrow" />}
+            Agendá una reunión
           </Link>
         </div>
       </div>
 
       <style>{`
-        .nav-link-anchor[data-dark="1"][data-active="0"]:hover { color: var(--ivory) !important; }
-        .nav-link-anchor[data-dark="0"][data-active="0"]:hover { color: var(--navy) !important; }
+        .nav-link-anchor[data-active="0"]:hover { color: var(--navy) !important; }
       `}</style>
     </nav>
   );

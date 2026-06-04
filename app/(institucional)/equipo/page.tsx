@@ -81,18 +81,16 @@ export default function EquipoPage() {
 
   return (
     <main className="site">
-      {/* Hero full-bleed */}
-      <div className="hero-media">
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-        <Reveal as="div" className="site-wrap hero-content">
+      {/* Hero split — contenido + imagen */}
+      <div className="hero-split">
+        <Reveal as="div" className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
             La casa · Equipo
           </div>
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             La mesa, en su composición.
           </h1>
-          <p className="t-lead" style={{ maxWidth: "40em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Cinco áreas, un único oficio. Cada cliente sabe con quién habla, sabe quién ejecuta y sabe
             quién firma. Estos son los nombres detrás de cada portafolio.
           </p>
@@ -104,7 +102,35 @@ export default function EquipoPage() {
             ))}
           </div>
         </Reveal>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/equipo.jpg" alt="Profesionales de la casa en una reunión de trabajo" />
+        </div>
       </div>
+
+      {/* Cifras — composición de la mesa */}
+      <section className="band-muted site-section-sm">
+        <div className="site-wrap">
+          <div className="cifras-row">
+            <div className="cifra">
+              <span className="cifra-num">{total}</span>
+              <span className="cifra-label">Profesionales en el WTC de Montevideo</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">5</span>
+              <span className="cifra-label">Áreas integradas en una sola mesa</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">1967</span>
+              <span className="cifra-label">Miembros de la Bolsa de Valores de Montevideo</span>
+            </div>
+            <div className="cifra">
+              <span className="cifra-num">8</span>
+              <span className="cifra-label">Mercados operados desde Montevideo</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Áreas — grilla limpia de personas, sin tarjetas */}
       {AREAS.map((area, idx) => (

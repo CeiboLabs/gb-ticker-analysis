@@ -4,10 +4,10 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 
 const LEDGER = [
-  { cap: "Fundada", value: "1967" },
-  { cap: "Trayectoria", value: "57+ años" },
+  { cap: "Miembros BVM", value: "Desde 1967" },
+  { cap: "Trayectoria", value: "Casi 6 décadas" },
   { cap: "Regulada por", value: "BCU" },
-  { cap: "Plaza", value: "Montevideo · BVM" },
+  { cap: "Mercados", value: "8 plazas" },
 ];
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -50,23 +50,11 @@ export function HeroInstitucional() {
         <div className="scrim" aria-hidden />
 
         <div className="site-wrap hero-content" style={{ paddingBottom: "clamp(60px, 8vw, 128px)" }}>
-          <motion.div className="kicker" style={{ color: "var(--gold-soft)" }} {...rise(0.05)}>
-            Sociedad de Bolsa · Montevideo · Est. 1967
-          </motion.div>
-
-          <motion.h1 className="t-display" style={{ marginTop: 32, maxWidth: "16ch", color: "#fff" }} {...rise(0.18)}>
-            Acceso a los mercados del mundo, desde Uruguay.
+          <motion.h1 className="t-display" style={{ maxWidth: "15ch", color: "#fff" }} {...rise(0.1)}>
+            Una puerta local al mercado internacional.
           </motion.h1>
 
-          <motion.p
-            className="t-lead"
-            style={{ maxWidth: "30ch", marginTop: 30, color: "rgba(255,255,255,0.82)" }}
-            {...rise(0.32)}
-          >
-            Una casa de bolsa uruguaya, leyendo los mercados desde 1967.
-          </motion.p>
-
-          <motion.div style={{ display: "flex", gap: 14, marginTop: 48, flexWrap: "wrap" }} {...rise(0.46)}>
+          <motion.div style={{ display: "flex", gap: 14, marginTop: 40, flexWrap: "wrap" }} {...rise(0.28)}>
             <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
             <Link href="/analisis" className="ui-btn ui-btn-on-navy-ghost">Analizar una acción</Link>
           </motion.div>

@@ -1187,25 +1187,64 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        let fullText = "";
-        const completion = await getOpenAIClient().chat.completions.create({
-          model: "gpt-4o-2024-11-20",
-          response_format: { type: "json_object" },
-          stream: true,
+        // Shared request shape — reused for the streaming attempt and the
+        // non-streaming fallback below so the two paths can't drift.
+        const baseParams = {
+          model: "gpt-4o-2024-11-20" as const,
+          response_format: { type: "json_object" as const },
           temperature: 0,
           seed: openaiSeed,
           max_tokens: 7000,
           messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "system" as const, content: systemPrompt },
+            { role: "user" as const, content: userPrompt },
           ],
-        });
+        };
 
-        for await (const chunk of completion) {
-          const delta = chunk.choices[0]?.delta?.content ?? "";
-          if (delta) {
-            fullText += delta;
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+        // Connection-level retry. The real-world failure mode here is the
+        // initial request to api.openai.com throwing before a single token
+        // arrives (intermittent VPN/corporate DNS resolution failures) — which
+        // would otherwise drop the user straight to "service unavailable" even
+        // though a retry a second later succeeds. We only RE-STREAM while no
+        // delta has reached the client yet; once tokens are flowing, a mid-
+        // stream drop falls back to one non-streaming fetch so the client can
+        // never receive duplicated text.
+        let fullText = "";
+        let emittedAnyDelta = false;
+        const MAX_OPENAI_ATTEMPTS = 3;
+        for (let attempt = 1; attempt <= MAX_OPENAI_ATTEMPTS; attempt++) {
+          try {
+            if (emittedAnyDelta) {
+              const retry = await getOpenAIClient().chat.completions.create(baseParams);
+              fullText = retry.choices[0]?.message?.content ?? "";
+            } else {
+              fullText = "";
+              const completion = await getOpenAIClient().chat.completions.create({
+                ...baseParams,
+                stream: true,
+              });
+              for await (const chunk of completion) {
+                const delta = chunk.choices[0]?.delta?.content ?? "";
+                if (delta) {
+                  fullText += delta;
+                  emittedAnyDelta = true;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+                }
+              }
+            }
+            break; // success
+          } catch (streamErr) {
+            // Retry only transient transport/server failures — never a 4xx
+            // (bad key, malformed request) that would just fail identically.
+            const retriable =
+              streamErr instanceof OpenAI.APIConnectionError ||
+              streamErr instanceof OpenAI.APIConnectionTimeoutError ||
+              (streamErr instanceof OpenAI.APIError &&
+                (streamErr.status === undefined || streamErr.status >= 500 || streamErr.status === 429));
+            if (!retriable || attempt === MAX_OPENAI_ATTEMPTS) throw streamErr;
+            // Linear backoff (1.5s, 3s): long enough for a flaky resolver to
+            // recover, short enough to stay well inside maxDuration=60.
+            await new Promise((r) => setTimeout(r, attempt * 1500));
           }
         }
 

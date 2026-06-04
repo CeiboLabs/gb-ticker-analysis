@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { ArrowRight, Certificate, Shield, Layers, Clock, Building, Globe, TrendingUp, Flow, Lock } from "@/components/institucional/icons";
 
 export const metadata: Metadata = {
   title: "Ecosistema · Bengochea & Cía.",
@@ -8,50 +10,67 @@ export const metadata: Metadata = {
     "Mercado local e internacional: bonos globales uruguayos, Notas en UI, fideicomisos, LRM, ON, acciones globales, fondos y derivados.",
 };
 
-const LOCAL = [
+const LOCAL: { icon: ReactNode; title: string; body: string }[] = [
   {
+    icon: <Certificate />,
     title: "Bonos Globales uruguayos",
     body: "Operativa en bonos globales soberanos denominados en dólares y pesos uruguayos. Mercado primario y secundario.",
   },
   {
+    icon: <Shield />,
     title: "Notas del Tesoro en UI",
     body: "Mercado primario y secundario en Notas del Tesoro emitidas en Unidades Indexadas, instrumento de cobertura de inflación.",
   },
   {
+    icon: <Layers />,
     title: "Fideicomisos Financieros",
     body: "Vehículos de inversión para el financiamiento privado y de obras de infraestructura, bajo estructura fiduciaria local.",
   },
   {
+    icon: <Clock />,
     title: "Letras de Regulación Monetaria",
     body: "Mercado primario y secundario de LRM en pesos. Instrumento de corto plazo para la gestión de liquidez.",
   },
   {
+    icon: <Building />,
     title: "Obligaciones Negociables",
     body: "Deuda corporativa emitida bajo jurisdicción local, con regulación del Banco Central del Uruguay.",
   },
 ];
 
-const INTERNACIONAL = [
+const INTERNACIONAL: { icon: ReactNode; title: string; body: string }[] = [
   {
+    icon: <Globe />,
     title: "Bonos soberanos y corporativos",
     body: "Renta fija global: tesoros nacionales, investment-grade y high-yield, con análisis crediticio y monitoreo de duration.",
   },
   {
+    icon: <TrendingUp />,
     title: "Acciones comunes y preferidas",
     body: "Acceso a NYSE, NASDAQ, LSE, Euronext, XETRA y plazas regionales (BVM, BYMA, B3).",
   },
   {
+    icon: <Layers />,
     title: "Fondos de Inversión",
     body: "Vehículos gestionados por managers globales seleccionados: renta fija, equity, multi-asset y alternativos.",
   },
   {
+    icon: <Flow />,
     title: "Instrumentos derivados",
     body: "Cobertura y exposición direccional según el mandato del cliente. Definidos a medida.",
   },
   {
+    icon: <Lock />,
     title: "Apertura de cuenta internacional",
     body: "Cuenta segregada con counterparties globales (Bank of New York, Clearstream). Reporting consolidado.",
   },
+];
+
+const CIFRAS: [string, string][] = [
+  ["10", "Instrumentos entre plaza local e internacional"],
+  ["8", "Plazas globales con ejecución directa"],
+  ["1967", "Operando los mercados desde"],
+  ["1", "Una sola mesa, local y global"],
 ];
 
 const PROCESO: [string, string, string][] = [
@@ -75,29 +94,19 @@ const PLAZAS = [
   ["B3", "Brasil"],
 ];
 
-const ArrowRight = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14M13 6l6 6-6 6" />
-  </svg>
-);
-
 export default function ServiciosPage() {
   return (
     <main className="site">
-      {/* Hero full-bleed */}
-      <div className="hero-media">
-        {/* Placeholder sobrio — reemplazable por <img className="media-fill" src=... alt="" /> */}
-        <div className="media-ph" aria-hidden />
-        <div className="scrim" aria-hidden />
-
-        <Reveal as="div" className="site-wrap hero-content">
+      {/* Hero split — contenido + imagen */}
+      <div className="hero-split">
+        <Reveal as="div" className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>Ecosistema</div>
 
-          <h1 className="t-display" style={{ marginTop: 20, maxWidth: "16ch", color: "#fff" }}>
-            Una puerta local al mercado internacional.
+          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
+            Locales, con foco global.
           </h1>
 
-          <p className="t-lead" style={{ maxWidth: "42em", marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
+          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             En GB abrimos las puertas a nuestro amplio ecosistema financiero. Operativa en la plaza uruguaya
             y acceso directo a las principales bolsas globales, desde una sola mesa.
           </p>
@@ -107,6 +116,10 @@ export default function ServiciosPage() {
             <a href="#local" className="ui-btn ui-btn-on-navy-ghost">Ver el ecosistema</a>
           </div>
         </Reveal>
+        <div className="hero-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/servicios.jpg" alt="Distrito financiero al atardecer" />
+        </div>
       </div>
 
       {/* Mercado Local — split: intro a la izquierda, lista de filas a la derecha */}
@@ -126,9 +139,12 @@ export default function ServiciosPage() {
             <Reveal as="div" className="ui-list">
               {LOCAL.map((it) => (
                 <div key={it.title} className="ui-list-row">
-                  <span>
-                    <span className="row-title">{it.title}</span>
-                    <span className="row-desc" style={{ display: "block" }}>{it.body}</span>
+                  <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                    <span className="list-icon" aria-hidden>{it.icon}</span>
+                    <span>
+                      <span className="row-title">{it.title}</span>
+                      <span className="row-desc" style={{ display: "block" }}>{it.body}</span>
+                    </span>
                   </span>
                 </div>
               ))}
@@ -154,14 +170,26 @@ export default function ServiciosPage() {
             <Reveal as="div" className="ui-list">
               {INTERNACIONAL.map((it) => (
                 <div key={it.title} className="ui-list-row">
-                  <span>
-                    <span className="row-title">{it.title}</span>
-                    <span className="row-desc" style={{ display: "block" }}>{it.body}</span>
+                  <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                    <span className="list-icon" aria-hidden>{it.icon}</span>
+                    <span>
+                      <span className="row-title">{it.title}</span>
+                      <span className="row-desc" style={{ display: "block" }}>{it.body}</span>
+                    </span>
                   </span>
                 </div>
               ))}
             </Reveal>
           </div>
+
+          <Stagger className="cifras-row" as="div">
+            {CIFRAS.map(([num, label]) => (
+              <StaggerItem key={label} className="cifra" as="div">
+                <span className="cifra-num">{num}</span>
+                <span className="cifra-label">{label}</span>
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
       </section>
 

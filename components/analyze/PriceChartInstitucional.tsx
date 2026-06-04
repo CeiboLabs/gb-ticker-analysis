@@ -36,8 +36,8 @@ const PALETTE = {
   ruleSoft: "#ECEDF6",
   navy: "#03065E",
   navy300: "#6B70B8",
-  gold: "#C9A84C",
-  goldSoft: "rgba(201, 168, 76, 0.35)",
+  gold: "#EBD288",
+  goldSoft: "rgba(235, 210, 136, 0.35)",
   pos: "#1F6B45",
   neg: "#8E2A2A",
 };

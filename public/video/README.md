@@ -2,7 +2,7 @@
 
 ## Hero del home — montaje (instalado)
 
-`hero-home.{mp4,webm}` es un montaje de 3 beats con crossfades, gradeado oscuro
+`hero-home.{mp4,webm}` es un montaje de 5 beats con crossfades, gradeado oscuro
 con tinte navy para legibilidad y unidad de marca:
 
 1. **WTC Montevideo aéreo** — toma drone de las torres del WTC (Buceo), de
@@ -11,14 +11,16 @@ con tinte navy para legibilidad y unidad de marca:
    cliente). Guardar la autorización por escrito en los registros de Bengochea.
    Ventana usada: 22.5–27.1s del original (segmento continuo, sin cortes).
    Bajado en 1440p (format 271) y downscaleado a 1080 para máxima nitidez.
-2. **Asesor al teléfono con un cliente** — Pexels (`...-8346901`), asesor senior
-   de traje en una llamada.
-3. **Oficina de broker** — Pexels (`...-7581202`), oficina abierta con escritorios
-   y monitores; un asesor de traje revisando documentos, colegas trabajando.
-4. **Puerto / logística aéreo** — Pexels (`...-32747083`).
+2. **Molinos de viento (energía)** — Pexels (`...-32389489`), aérea de parque eólico
+   sobre campos.
+3. **Mega fábrica** — Pexels (`...-30715848`), nave industrial enorme con línea de producción.
+4. **Agro** — Pexels (`...-31999665`), aérea de cosechadora en campo de soja.
+5. **Puerto / logística aéreo** — Pexels (`...-32747083`).
 
-Loop sin costura (4 beats con crossfade de 0.7s; el último funde puerto→WTC y
-empalma cuadro-a-cuadro con el inicio). Duración del loop: ~15.6s.
+(Beats 2 y 3 reemplazaron al asesor al teléfono y la oficina de broker; el 4 (agro) se sumó después.)
+
+Loop sin costura (5 beats con crossfade de 0.7s; el último funde puerto→WTC y
+empalma cuadro-a-cuadro con el inicio). Duración del loop: ~19.5s.
 
 ## Sección "Industrias" (instalado)
 
