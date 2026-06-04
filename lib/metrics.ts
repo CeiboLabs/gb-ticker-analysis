@@ -17,6 +17,24 @@ export interface D1Database {
   batch(statements: D1PreparedStatement[]): Promise<unknown[]>;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS ?? "90", 10);
+
+// Drop analyze_events past retention and rate-limit windows that ended more
+// than 2 days ago (the longest window is the daily fresh cap). Idempotent and
+// cheap — both deletes hit indexed columns. Called opportunistically from the
+// rate limiter on the first fresh-analysis of each IP's day (so it runs a
+// handful of times daily with zero cron infra), and manually via
+// /api/admin/retention.
+export async function purgeExpiredRows(db: D1Database, retentionDays = RETENTION_DAYS): Promise<{ events: number | null; rateLimits: number | null }> {
+  const now = Date.now();
+  const [ev, rl] = (await db.batch([
+    db.prepare("DELETE FROM analyze_events WHERE ts < ?").bind(now - retentionDays * DAY_MS),
+    db.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(now - 2 * DAY_MS),
+  ])) as Array<{ meta?: { changes?: number } }>;
+  return { events: ev?.meta?.changes ?? null, rateLimits: rl?.meta?.changes ?? null };
+}
+
 export type SankeySource =
   | "8k"
   | "6k"
