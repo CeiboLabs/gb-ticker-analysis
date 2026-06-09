@@ -17,6 +17,7 @@ const NAV_GROUPS: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: "Mercado local", href: "/servicios#local" },
       { label: "Mercado internacional", href: "/servicios#internacional" },
+      { label: "BNG Selección Global", href: "/bng-seleccion-global" },
       { label: "Proceso de inversión", href: "/servicios#proceso" },
       { label: "Calculadora", href: "/calculadora" },
       { label: "Análisis de acciones", href: "/analisis" },

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { ArrowRight, Calendar, Clock } from "@/components/institucional/icons";
+import { CarpetaInformes } from "@/components/institucional/CarpetaInformes";
 
 export const metadata: Metadata = {
   title: "Informes · Bengochea & Cía.",
@@ -69,6 +70,37 @@ const INFORMES: Informe[] = [
   },
 ];
 
+type Autor = {
+  nombre: string;
+  cadencia: string;
+  tag: "Mensual" | "Semanal";
+  foto: string;
+  bio: string;
+};
+
+// NOTA: bios placeholder — reemplazar por la versión definitiva del cliente.
+// Falta el retrato de Paula Bujia: dejar el archivo en public/equipo/paula-bujia.jpg
+const AUTORES: Autor[] = [
+  {
+    nombre: "Paula Bujia",
+    cadencia: "Informes mensuales",
+    tag: "Mensual",
+    // Sin retrato todavía: dejar el archivo en public/equipo/paula-bujia.jpg
+    // y completar el path para que reemplace el placeholder.
+    foto: "",
+    bio:
+      "Lidera el informe mensual: la visión macro internacional, la lectura de la renta fija uruguaya y el posicionamiento de cartera que ordena el mes en la mesa.",
+  },
+  {
+    nombre: "Adrián Moreira",
+    cadencia: "Informes semanales",
+    tag: "Semanal",
+    foto: "/equipo/adrian-moreira.jpeg",
+    bio:
+      "Desde la mesa de operaciones firma el informe semanal: el seguimiento de cada cierre de mercado y los movimientos relevantes de la semana en las plazas locales e internacionales.",
+  },
+];
+
 export default function InformesPage() {
   const destacado = INFORMES[0];
 
@@ -98,9 +130,8 @@ export default function InformesPage() {
             </a>
           </div>
         </Reveal>
-        <div className="hero-figure">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero/informes.jpg" alt="Informe financiero con gráficos de mercado" />
+        <div className="hero-figure hero-figure--carpeta">
+          <CarpetaInformes />
         </div>
       </div>
 
@@ -110,19 +141,19 @@ export default function InformesPage() {
           <div className="cifras-row">
             <div className="cifra">
               <span className="cifra-num">Semanal</span>
-              <span className="cifra-label">Lectura del cierre de mercado</span>
+              <span className="cifra-label">Lectura del cierre de cada semana</span>
             </div>
             <div className="cifra">
               <span className="cifra-num">Mensual</span>
               <span className="cifra-label">Visión macro y de cartera</span>
             </div>
             <div className="cifra">
-              <span className="cifra-num">1967</span>
-              <span className="cifra-label">La lectura de la casa desde</span>
+              <span className="cifra-num">2</span>
+              <span className="cifra-label">Autores que firman las ediciones</span>
             </div>
             <div className="cifra">
-              <span className="cifra-num">8</span>
-              <span className="cifra-label">Mercados cubiertos en cada informe</span>
+              <span className="cifra-num">PDF</span>
+              <span className="cifra-label">Cada informe, libre para descarga</span>
             </div>
           </div>
         </div>
@@ -173,6 +204,40 @@ export default function InformesPage() {
         </div>
       </section>
 
+      {/* Autores — quién firma cada informe */}
+      <section className="band-muted site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Autores</div>
+            <div>
+              <h2 className="t-h2">Quién firma cada informe.</h2>
+              <p className="t-lead" style={{ marginTop: 16, maxWidth: "38em" }}>
+                Dos lecturas, dos plumas de la casa. El mensual ordena la visión macro y de cartera;
+                el semanal sigue cada cierre de mercado.
+              </p>
+            </div>
+          </Reveal>
+
+          <Stagger as="div" className="autor-grid">
+            {AUTORES.map((a) => (
+              <StaggerItem as="div" key={a.nombre} className="autor">
+                <div className={a.foto ? "autor-photo" : "autor-photo autor-photo--placeholder"}>
+                  {a.foto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={a.foto} alt={a.nombre} loading="lazy" />
+                  ) : (
+                    <span className="autor-photo-fallback">{a.nombre}</span>
+                  )}
+                </div>
+                <span className="autor-cadencia">{a.cadencia}</span>
+                <h3 className="t-h3" style={{ marginTop: 12 }}>{a.nombre}</h3>
+                <p className="t-body" style={{ marginTop: 18, marginBottom: 0, maxWidth: "34em" }}>{a.bio}</p>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </section>
+
       {/* CTA — banda navy */}
       <section className="band-navy site-section">
         <div className="site-wrap">
@@ -200,6 +265,74 @@ export default function InformesPage() {
       </section>
 
       <style>{`
+        .hero-split .hero-figure.hero-figure--carpeta {
+          background:
+            radial-gradient(120% 90% at 60% 30%, #ffffff 0%, #f4f5f8 52%, #e9ebf1 100%);
+        }
+        .hero-figure--carpeta::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(58% 46% at 50% 62%, rgba(15,34,73,0.06), transparent 72%);
+          pointer-events: none;
+        }
+        .autor-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: clamp(48px, 8vw, 120px);
+          margin-top: clamp(56px, 7vw, 88px);
+        }
+        .autor { max-width: 38em; }
+        .autor-photo {
+          position: relative;
+          width: 100%;
+          max-width: 280px;
+          aspect-ratio: 4 / 5;
+          border-radius: 8px;
+          overflow: hidden;
+          background: var(--surface-muted);
+          margin-bottom: clamp(24px, 2.6vw, 32px);
+        }
+        .autor-photo img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center top;
+          filter: grayscale(1);
+          transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .autor:hover .autor-photo img { filter: grayscale(0); }
+        .autor-photo--placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          background: #fff;
+          border: 1px solid var(--site-border, rgba(15,34,73,0.12));
+        }
+        .autor-photo-fallback {
+          font-size: clamp(15px, 1.5vw, 18px);
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          color: var(--ink-soft, rgba(15,34,73,0.55));
+          text-align: center;
+        }
+        .autor-cadencia {
+          display: block;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--gold-deep);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .autor-photo img { transition: none; }
+        }
+        @media (max-width: 860px) {
+          .autor-grid { grid-template-columns: 1fr; gap: clamp(48px, 12vw, 72px); }
+        }
         .informe-meta { display: inline-flex; align-items: center; gap: 14px; }
         .informe-fecha { font-weight: 600; color: var(--gold-deep); letter-spacing: 0.02em; }
         .informe-cta { pointer-events: none; flex: none; }

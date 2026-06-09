@@ -57,7 +57,7 @@ export const SECTORES: Record<string, Sector> = {
     ficha: [
       ["Horizonte", "Largo plazo"],
       ["Perfil de retorno", "Crecimiento"],
-      ["Acceso", "NYSE · NASDAQ"],
+      ["Acceso", "Acciones EE. UU."],
       ["Moneda base", "Dólares"],
     ],
     tesis: {
@@ -91,7 +91,7 @@ export const SECTORES: Record<string, Sector> = {
     vehiculos: {
       dek: "Distintos instrumentos para tomar exposición, según objetivo, horizonte y tolerancia al riesgo. La selección se define en la mesa.",
       items: [
-        { icon: <TrendingUp />, title: "Acciones globales", body: "Posiciones directas en compañías listadas en NYSE y NASDAQ, con ejecución desde la mesa local." },
+        { icon: <TrendingUp />, title: "Acciones globales", body: "Posiciones en compañías listadas en Estados Unidos y otros mercados, operadas desde la mesa local." },
         { icon: <Layers />, title: "ETFs sectoriales", body: "Exposición diversificada al sector o a subsegmentos (semis, software) en un solo instrumento." },
         { icon: <Certificate />, title: "Renta fija corporativa", body: "Deuda de compañías tecnológicas, para quien busca el sector con un perfil de riesgo más conservador." },
         { icon: <Lock />, title: "Fondos gestionados", body: "Vehículos de managers globales especializados, para delegar la selección dentro del sector." },

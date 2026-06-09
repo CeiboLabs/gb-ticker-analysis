@@ -20,7 +20,7 @@ const VALORES: { icon: ReactNode; text: string }[] = [
 ];
 
 const PILARES: { icon: ReactNode; title: string; body: string }[] = [
-  { icon: <Columns />, title: "Presencia y experiencia", body: "Casi seis décadas gestionando patrimonios de uruguayos y extranjeros. Miembros de la Bolsa de Valores de Montevideo desde 1967." },
+  { icon: <Columns />, title: "Presencia y experiencia", body: "Seis décadas gestionando patrimonios de uruguayos y extranjeros. Miembros de la Bolsa de Valores de Montevideo desde 1967." },
   { icon: <Globe />, title: "Una mirada global", body: "Somos locales pero con foco global. Invertimos en el mundo desde Uruguay." },
   { icon: <Scales />, title: "Regulación", body: "Compañía regulada por el Banco Central del Uruguay y miembros activos de la BVM." },
   { icon: <Lock />, title: "Seguridad", body: "Cuentas segregadas: el cliente es el propietario legal de los activos en su cuenta." },
@@ -31,9 +31,9 @@ const PILARES: { icon: ReactNode; title: string; body: string }[] = [
 
 const CIFRAS: [string, string][] = [
   ["1967", "Miembros de la Bolsa de Valores de Montevideo"],
-  ["~6 décadas", "Administrando inversiones de nuestros clientes"],
-  ["8", "Plazas locales e internacionales"],
-  ["BCU", "Regulados por el Banco Central del Uruguay"],
+  ["6 décadas", "Administrando inversiones de nuestros clientes"],
+  ["Segregadas", "Cuentas siempre a nombre del cliente"],
+  ["Sin mínimos", "Para abrir tu cuenta de inversión"],
 ];
 
 export default function NosotrosPage() {
@@ -50,7 +50,7 @@ export default function NosotrosPage() {
           </h1>
           <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
             Creemos en las relaciones basadas en la confianza mutua y el profesionalismo. Un servicio
-            construido sobre altos estándares de gestión, sostenido por casi seis décadas en la plaza uruguaya.
+            construido sobre altos estándares de gestión, sostenido por seis décadas en la plaza uruguaya.
           </p>
           <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
             <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
@@ -162,7 +162,7 @@ export default function NosotrosPage() {
             <div>
               <h2 className="t-h2" style={{ maxWidth: "14em" }}>Siete pilares, una sola promesa.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Casi seis décadas de confianza. Estos son los atributos sobre los que se construyó la relación
+                Seis décadas de confianza. Estos son los atributos sobre los que se construyó la relación
                 con cada cliente.
               </p>
             </div>

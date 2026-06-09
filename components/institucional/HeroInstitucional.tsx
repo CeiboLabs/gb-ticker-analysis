@@ -1,39 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { useRef } from "react";
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
+import { SplitText } from "@/components/scroll";
+import { Glass } from "@/components/institucional/LiquidGlass";
 
 const LEDGER = [
   { cap: "Miembros BVM", value: "Desde 1967" },
-  { cap: "Trayectoria", value: "Casi 6 décadas" },
+  { cap: "Trayectoria", value: "6 décadas" },
   { cap: "Regulada por", value: "BCU" },
-  { cap: "Mercados", value: "8 plazas" },
+  { cap: "Mercados", value: "Local e internacional" },
 ];
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export function HeroInstitucional() {
   const reduce = useReducedMotion();
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  // Progreso de salida del hero: 0 = arriba de todo, 1 = hero fuera de vista.
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const titleY = useTransform(scrollYProgress, [0, 1], [0, 110]);
+  // El rango cubre [0, 1] completo: un rango parcial se rompe al acelerarse
+  // a WAAPI (ver scrollWindow en components/scroll.tsx).
+  const titleOpacity = useTransform(scrollYProgress, [0, 0.75, 1], [1, 0.25, 0.25]);
+  const videoScale = useTransform(scrollYProgress, [0, 1], [1, 1.09]);
+
   const rise = (delay: number) =>
     reduce
       ? {}
       : {
-          initial: { opacity: 0, y: 28 },
+          initial: { opacity: 0, y: 24 },
           animate: { opacity: 1, y: 0 },
           transition: { duration: 0.9, ease: EASE, delay },
         };
 
   return (
     <header className="site">
-      <div className="hero-media" style={{ minHeight: "min(92vh, 880px)" }}>
+      <div ref={heroRef} className="hero-media" style={{ minHeight: "min(94vh, 940px)" }}>
         {/* Fondo navy de base: se ve mientras carga el video o si falla / reduce-motion */}
         <div className="media-ph" aria-hidden />
 
         {/* Video de fondo: WTC Montevideo + temáticas de inversión.
             Se omite si el usuario pidió menos movimiento (accesibilidad). */}
         {!reduce && (
-          <video
+          <motion.video
             className="media-fill"
+            style={{ scale: videoScale }}
             autoPlay
             muted
             loop
@@ -44,19 +66,37 @@ export function HeroInstitucional() {
           >
             <source src="/video/hero-home.webm" type="video/webm" />
             <source src="/video/hero-home.mp4" type="video/mp4" />
-          </video>
+          </motion.video>
         )}
 
         <div className="scrim" aria-hidden />
 
-        <div className="site-wrap hero-content" style={{ paddingBottom: "clamp(60px, 8vw, 128px)" }}>
-          <motion.h1 className="t-display" style={{ maxWidth: "15ch", color: "#fff" }} {...rise(0.1)}>
-            Una puerta local al mercado internacional.
-          </motion.h1>
+        <div
+          className="site-wrap hero-content"
+          style={{ paddingBottom: "clamp(56px, 7vw, 110px)" }}
+        >
+          <motion.div style={reduce ? undefined : { y: titleY, opacity: titleOpacity }}>
+            <h1 className="t-display-xl t-serif-display" style={{ color: "#fff", maxWidth: "13ch" }}>
+              <SplitText text="Una puerta local al mercado internacional." mode="enter" delay={0.1} stagger={0.09} as="span" />
+            </h1>
 
-          <motion.div style={{ display: "flex", gap: 14, marginTop: 40, flexWrap: "wrap" }} {...rise(0.28)}>
-            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendá una reunión</Link>
-            <Link href="/analisis" className="ui-btn ui-btn-on-navy-ghost">Analizar una acción</Link>
+            <motion.p
+              className="t-lead"
+              style={{ color: "rgba(255,255,255,0.78)", marginTop: 28, maxWidth: "38em" }}
+              {...rise(0.7)}
+            >
+              Sociedad de bolsa uruguaya · Miembros de la Bolsa de Valores de Montevideo desde 1967.
+            </motion.p>
+
+            <motion.div style={{ display: "flex", gap: 14, marginTop: 36, flexWrap: "wrap", alignItems: "center" }} {...rise(0.85)}>
+              <Link href="/contacto" className="ui-btn ui-btn-on-navy" style={{ borderRadius: 999 }}>
+                Agendá una reunión
+              </Link>
+              {/* Secundario en liquid glass sobre el video */}
+              <Glass interactive>
+                <Link href="/analisis" className="lqg-btn">Analizar una acción</Link>
+              </Glass>
+            </motion.div>
           </motion.div>
         </div>
       </div>

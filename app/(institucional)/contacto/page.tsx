@@ -159,7 +159,7 @@ export default function ContactoPage() {
           >
             <iframe
               title="Ubicación Bengochea & Cía."
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3272.1!2d-56.1585!3d-34.8941!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x959f802b6f48fa4d%3A0x2c9b7d94b0e8c9f!2sWorld%20Trade%20Center%20Montevideo!5e0!3m2!1ses!2suy!4v1"
+              src="https://maps.google.com/maps?q=Luis+Alberto+de+Herrera+1248,+World+Trade+Center+Montevideo&z=16&hl=es&output=embed"
               width="100%"
               height="420"
               style={{ border: 0, display: "block", filter: "grayscale(60%) contrast(0.98)" }}

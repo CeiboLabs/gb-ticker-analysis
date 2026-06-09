@@ -47,7 +47,7 @@ const INTERNACIONAL: { icon: ReactNode; title: string; body: string }[] = [
   {
     icon: <TrendingUp />,
     title: "Acciones comunes y preferidas",
-    body: "Acceso a NYSE, NASDAQ, LSE, Euronext, XETRA y plazas regionales (BVM, BYMA, B3).",
+    body: "Acciones listadas en Estados Unidos y otros mercados, operadas desde la mesa local.",
   },
   {
     icon: <Layers />,
@@ -62,14 +62,14 @@ const INTERNACIONAL: { icon: ReactNode; title: string; body: string }[] = [
   {
     icon: <Lock />,
     title: "Apertura de cuenta internacional",
-    body: "Cuenta segregada con counterparties globales (Bank of New York, Clearstream). Reporting consolidado.",
+    body: "Cuenta en el exterior a nombre del cliente, con custodia segregada y reporting consolidado.",
   },
 ];
 
 const CIFRAS: [string, string][] = [
   ["10", "Instrumentos entre plaza local e internacional"],
-  ["8", "Plazas globales con ejecución directa"],
-  ["1967", "Operando los mercados desde"],
+  ["2", "Mercados: plaza local e internacional"],
+  ["Global", "Acceso a los mercados del mundo desde Uruguay"],
   ["1", "Una sola mesa, local y global"],
 ];
 
@@ -83,15 +83,16 @@ const PROCESO: [string, string, string][] = [
   ["07", "Seguimiento y revisión", "Revisión continua ex-post. Reajustes ante cambios de contexto o de objetivos."],
 ];
 
-const PLAZAS = [
-  ["NYSE", "Estados Unidos"],
-  ["NASDAQ", "Estados Unidos"],
-  ["LSE", "Reino Unido"],
-  ["Euronext", "Europa"],
-  ["XETRA", "Alemania"],
-  ["BVM", "Uruguay"],
-  ["BYMA", "Argentina"],
-  ["B3", "Brasil"],
+/* Instrumentos reales del ecosistema (gbengochea.com.uy/ecosistema.php) */
+const INSTRUMENTOS_GRID = [
+  ["Bonos globales", "Uruguay · USD y pesos"],
+  ["Notas en UI", "Tesoro · Uruguay"],
+  ["Letras LRM", "BCU · Uruguay"],
+  ["ONs y fideicomisos", "Uruguay"],
+  ["Bonos soberanos", "Mercado internacional"],
+  ["Bonos corporativos", "Mercado internacional"],
+  ["Acciones", "EE. UU. y otros mercados"],
+  ["Fondos y derivados", "Mercado internacional"],
 ];
 
 export default function ServiciosPage() {
@@ -232,17 +233,17 @@ export default function ServiciosPage() {
       <section id="plazas" className="band-navy site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Plazas</div>
+            <div className="eyebrow-sm">Mercados</div>
             <div>
-              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Ocho mercados, una sola mesa.</h2>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Dos mercados, una sola mesa.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Operativa con ejecución directa en las principales bolsas globales y en la plaza local.
+                Operativa en la plaza local y en el mercado internacional, desde una misma mesa.
               </p>
             </div>
           </Reveal>
 
           <Stagger as="div" className="plazas-grid">
-            {PLAZAS.map((m) => (
+            {INSTRUMENTOS_GRID.map((m) => (
               <StaggerItem key={m[0]} as="div" className="plaza-cell">
                 <div className="plaza-name">{m[0]}</div>
                 <div className="plaza-loc">{m[1]}</div>

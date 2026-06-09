@@ -26,7 +26,7 @@ const FAQ_ITEMS = [
   {
     question: "¿A qué mercados se accede?",
     answer:
-      "NYSE, NASDAQ, LSE, Euronext, XETRA, BVM, BYMA y B3. Renta fija, renta variable, ETFs, fondos y productos estructurados, en USD, EUR y monedas locales según el instrumento.",
+      "Al mercado local —bonos globales uruguayos, Notas del Tesoro en UI, Letras de Regulación Monetaria, obligaciones negociables y fideicomisos financieros— y al internacional: bonos soberanos y corporativos, acciones listadas en Estados Unidos y otros mercados, fondos de inversión e instrumentos derivados.",
   },
   {
     question: "¿Hay asesoramiento personalizado?",

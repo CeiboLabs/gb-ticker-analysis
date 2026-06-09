@@ -114,19 +114,19 @@ export default function EquipoPage() {
           <div className="cifras-row">
             <div className="cifra">
               <span className="cifra-num">{total}</span>
-              <span className="cifra-label">Profesionales en el WTC de Montevideo</span>
+              <span className="cifra-label">Profesionales en una sola mesa</span>
             </div>
             <div className="cifra">
               <span className="cifra-num">5</span>
-              <span className="cifra-label">Áreas integradas en una sola mesa</span>
+              <span className="cifra-label">Áreas que trabajan integradas</span>
             </div>
             <div className="cifra">
-              <span className="cifra-num">1967</span>
-              <span className="cifra-label">Miembros de la Bolsa de Valores de Montevideo</span>
+              <span className="cifra-num">WTC</span>
+              <span className="cifra-label">Nuestra sede, en Montevideo</span>
             </div>
             <div className="cifra">
-              <span className="cifra-num">8</span>
-              <span className="cifra-label">Mercados operados desde Montevideo</span>
+              <span className="cifra-num">BCU</span>
+              <span className="cifra-label">Bajo supervisión del Banco Central</span>
             </div>
           </div>
         </div>

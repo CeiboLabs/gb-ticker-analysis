@@ -20,6 +20,8 @@ const cspDirectives = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
+  // El mapa de /contacto es un embed de Google Maps; el resto del sitio no incrusta terceros.
+  "frame-src https://www.google.com https://maps.google.com",
   "upgrade-insecure-requests",
 ];
 

@@ -97,3 +97,20 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_contact_ts ON contact_messages(ts);
+
+-- Migration 2026-06-07: serie diaria del fondo BNG Selección Global.
+-- Una fila por día hábil (dia = 'YYYY-MM-DD'). El sitio lee la última fila
+-- para el valor cuota (nav) y los activos bajo manejo (aum), y toda la serie
+-- para el gráfico de performance. Mientras el fondo esté en pre-lanzamiento la
+-- tabla queda vacía y la web muestra el estado "en proceso de lanzamiento"; la
+-- ingestión diaria (custodio/feed) se enchufa acá sin tocar el frontend.
+CREATE TABLE IF NOT EXISTS fund_nav (
+  dia      TEXT    NOT NULL,           -- fecha de cierre, 'YYYY-MM-DD' (clave natural)
+  nav      REAL    NOT NULL,           -- valor cuota del día
+  aum      REAL,                       -- activos bajo manejo (misma moneda que nav), NULL si no se publica
+  nota     TEXT,                       -- comentario opcional del cierre
+  updated_at INTEGER NOT NULL,         -- Date.now() del ingreso/actualización de la fila
+  PRIMARY KEY (dia)
+) WITHOUT ROWID;
+
+CREATE INDEX IF NOT EXISTS idx_fund_nav_dia ON fund_nav(dia);

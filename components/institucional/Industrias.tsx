@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "framer-motion";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { ParallaxLayer } from "@/components/scroll";
 import { ArrowRight } from "@/components/institucional/icons";
 
 const INDUSTRIAS: { key: string; label: string; desc: string }[] = [
@@ -70,17 +71,18 @@ function LoopVideo({ src, poster, reduce }: { src: string; poster: string; reduc
     className: "ind-video",
     muted: true,
     playsInline: true,
-    preload: "auto" as const,
     poster,
     "aria-hidden": true,
   };
 
   return (
     <>
-      <video ref={aRef} {...common} style={{ opacity: 1 }} {...(reduce ? {} : { autoPlay: true })}>
+      <video ref={aRef} {...common} preload="auto" style={{ opacity: 1 }} {...(reduce ? {} : { autoPlay: true })}>
         <source src={src} type="video/mp4" />
       </video>
-      <video ref={bRef} {...common} style={{ opacity: 0 }}>
+      {/* La capa B recién se reproduce en el primer crossfade (~fin del clip):
+          con metadata alcanza y evita descargar los 4 clips dos veces. */}
+      <video ref={bRef} {...common} preload="metadata" style={{ opacity: 0 }}>
         <source src={src} type="video/mp4" />
       </video>
     </>
@@ -107,27 +109,35 @@ export function Industrias() {
         </Reveal>
 
         <Stagger className="ind-grid" as="div">
-          {INDUSTRIAS.map((it) => (
-            <StaggerItem key={it.key} className="ind-card" as="div">
+          {INDUSTRIAS.map((it, i) => (
+            /* Parallax en el contenedor EXTERNO: el transform no puede ir en
+               .ind-card (overflow:hidden + aspect-ratio del crossfade). Offsets
+               alternados para que las tarjetas "floten" a distinta velocidad. */
+            <ParallaxLayer key={it.key} offset={i % 2 === 0 ? 16 : 44}>
+              <StaggerItem className="ind-card" as="div">
               <LoopVideo
                 src={`/video/ind/${it.key}.mp4`}
                 poster={`/video/ind/${it.key}-poster.jpg`}
                 reduce={reduce}
               />
               <div className="ind-scrim" aria-hidden />
+              {/* Texto sobre el video (sin fondo glass) */}
               <div className="ind-meta">
-                <span className="ind-label">{it.label}</span>
-                <span className="ind-desc">{it.desc}</span>
-                <span className="ind-cta" aria-hidden>
-                  Cómo invertir <ArrowRight />
-                </span>
+                <div className="ind-meta-inner">
+                  <span className="ind-label">{it.label}</span>
+                  <span className="ind-desc">{it.desc}</span>
+                  <span className="ind-cta" aria-hidden>
+                    Cómo invertir <ArrowRight />
+                  </span>
+                </div>
               </div>
               <Link
                 href={`/oportunidades/${it.key}`}
                 className="ind-cardlink"
                 aria-label={`${it.label}: cómo invertir en el sector`}
               />
-            </StaggerItem>
+              </StaggerItem>
+            </ParallaxLayer>
           ))}
         </Stagger>
       </div>
@@ -163,16 +173,20 @@ export function Industrias() {
           inset: 0;
           z-index: 1;
           pointer-events: none;
-          background: linear-gradient(180deg, rgba(2,4,40,0.10) 0%, transparent 38%, rgba(2,4,40,0.85) 100%);
+          /* Sin placa glass: el scrim ahora garantiza la legibilidad del texto */
+          background: linear-gradient(180deg, rgba(2,4,40,0.10) 0%, transparent 30%, rgba(2,4,40,0.78) 100%);
         }
         .ind-meta {
           position: absolute;
           left: 0; right: 0; bottom: 0;
           z-index: 2;
-          padding: 22px 22px 24px;
+          pointer-events: none;
+        }
+        .ind-meta-inner {
           display: flex;
           flex-direction: column;
           gap: 6px;
+          padding: 18px 20px 20px;
         }
         .ind-label {
           font-size: 21px;
@@ -183,7 +197,7 @@ export function Industrias() {
         .ind-desc {
           font-size: 13.5px;
           line-height: 1.5;
-          color: rgba(255,255,255,0.78);
+          color: rgba(255,255,255,0.82);
         }
         .ind-cta {
           display: inline-flex;

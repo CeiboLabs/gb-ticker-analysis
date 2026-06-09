@@ -51,7 +51,7 @@ export function Nosotros() {
             </p>
             <p className="text-sm text-white/55 leading-relaxed mb-6">
               Desde 1967, somos miembros de la Bolsa de Valores de Montevideo.
-              Con casi seis décadas de trayectoria, hemos gestionado activos
+              Con seis décadas de trayectoria, hemos gestionado activos
               financieros para miles de uruguayos y extranjeros, construyendo
               relaciones basadas en la confianza y la transparencia.
             </p>

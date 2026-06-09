@@ -124,8 +124,8 @@ export default function HistoriaPage() {
               <span className="cifra-label">Años de trayectoria sin discontinuidades</span>
             </div>
             <div className="cifra">
-              <span className="cifra-num">8</span>
-              <span className="cifra-label">Mercados operados desde Montevideo</span>
+              <span className="cifra-num">BCU</span>
+              <span className="cifra-label">Regulados por el Banco Central del Uruguay</span>
             </div>
             <div className="cifra">
               <span className="cifra-num">12</span>
@@ -164,7 +164,7 @@ export default function HistoriaPage() {
             </div>
             <div>
               <p className="t-lead" style={{ margin: 0 }}>
-                Hoy operamos ocho mercados desde Montevideo con un equipo que conserva la lógica fundadora:
+                Hoy invertimos en el mundo desde Montevideo con un equipo que conserva la lógica fundadora:
                 cuentas a nombre del cliente, asesoramiento de la casa y decisiones que se discuten en la mesa.
               </p>
               <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
