@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useTransform, type MotionValue } from "framer-motion";
+import { motion, useTransform, cubicBezier, type MotionValue } from "framer-motion";
 import { PinnedSection, scrollWindow } from "@/components/scroll";
 
 // Header propio del fondo — NO usa el `hero-split` genérico del resto del sitio.
@@ -57,12 +57,51 @@ const framePts = `${SQ.x0},${SQ.y0} ${SQ.x1},${SQ.y0} ${SQ.x1},${SQ.y1} ${SQ.x0}
 // es lat(3,2) = (x1, y0+200); la línea baja por el lado derecho de y0 a y1, así
 // que lo alcanza a (200/300) de ese lado ⇒ 0.25 + 0.667·0.25 ≈ 0.417.
 const HIT_BR = 0.25 + ((SQ.y0 + 200 - SQ.y0) / (SQ.y1 - SQ.y0)) * 0.25;
-// Sobre el hero NAVY: piezas como paneles de vidrio BLANCO translúcido con trazo
-// claro fino — así se leen sobre el fondo oscuro (un relleno navy sería invisible
-// sobre navy). La profundidad la refuerza la sombra (drop-shadow en .piece3d).
-const FILLS = ["rgba(255,255,255,0.12)", "rgba(255,255,255,0.06)", "rgba(255,255,255,0.16)"];
+// Sobre el hero NAVY las piezas son paneles de vidrio blanco translúcido con
+// trazo claro fino. El brillo NO es plano: se calcula por orientación (ver
+// sombreado en Pieza3D), así cada panel capta/pierde luz al girar.
 
 const VB = { w: 600, h: 460, pad: 16 };
+
+// ── Iluminación para el sombreado por orientación ──────────────────────────
+const DEG = Math.PI / 180;
+// Luz direccional (arriba-izquierda, de frente) y half-vector (luz+vista) para
+// el glint especular. Vectores ~normalizados.
+const LIGHT: [number, number, number] = [-0.39, -0.49, 0.78];
+const HALF: [number, number, number] = [-0.21, -0.26, 0.94];
+// Normal del panel (plano XY, normal +Z) tras rotateX(a)·rotateY(b), en grados.
+function panelNormal(rxDeg: number, ryDeg: number): [number, number, number] {
+  const a = rxDeg * DEG, b = ryDeg * DEG;
+  return [Math.sin(b) * Math.cos(a), -Math.sin(a), Math.cos(b) * Math.cos(a)];
+}
+
+// ── Inercia al aterrizar ────────────────────────────────────────────────────
+// Ease-out con peso (mismo bezier que el resto del sitio), BAKEADO en keyframes
+// de rango completo 0→1. No usamos la opción `ease` de useTransform para no
+// romper la aceleración WAAPI del scroll, que exige inputRange con primer offset
+// 0 y último 1 (misma razón que scrollWindow).
+const EASE_OUT = cubicBezier(0.16, 1, 0.3, 1);
+function lerpVal(from: number | string, to: number | string, e: number): number | string {
+  if (typeof from === "number" && typeof to === "number") return from + (to - from) * e;
+  const f = parseFloat(from as string), t = parseFloat(to as string);
+  const unit = String(from).replace(/[-0-9.]/g, "");
+  return `${f + (t - f) * e}${unit}`;
+}
+function easeWindow<T extends number | string>(
+  start: number, end: number, from: T, to: T,
+): { times: number[]; values: T[] } {
+  const N = 6;
+  const times: number[] = [];
+  const values: (number | string)[] = [];
+  if (start > 0) { times.push(0); values.push(from); }
+  for (let k = 0; k <= N; k++) {
+    const t = k / N;
+    times.push(start + t * (end - start));
+    values.push(lerpVal(from, to, EASE_OUT(t)));
+  }
+  if (end < 1) { times.push(1); values.push(to); }
+  return { times, values: values as T[] };
+}
 
 // Dispersión 2D inicial acotada al lienzo (se compone con la profundidad 3D).
 function scatter(pieza: Pieza): [number, number] {
@@ -88,25 +127,54 @@ function scatter(pieza: Pieza): [number, number] {
   return [ox, oy];
 }
 
-function Pieza3D({ p, pieza, idx, fill }: { p: MotionValue<number>; pieza: Pieza; idx: number; fill: string }) {
+function Pieza3D({ p, pieza, idx }: { p: MotionValue<number>; pieza: Pieza; idx: number }) {
   const start = 0.05 + idx * 0.045;
   const end = start + 0.4;
   const [ox, oy] = scatter(pieza);
   // x/y en % del lienzo (el div ocupa todo el stage, que mapea 600×460).
-  const oxPct = (ox / VB.w) * 100;
-  const oyPct = (oy / VB.h) * 100;
-  const xw = scrollWindow(start, end, `${oxPct}%`, "0%");
-  const yw = scrollWindow(start, end, `${oyPct}%`, "0%");
-  const zw = scrollWindow(start, end, Z0[idx], 0);
-  const rxw = scrollWindow(start, end, ROTX[idx], 0);
-  const ryw = scrollWindow(start, end, ROTY[idx], 0);
-  const rzw = scrollWindow(start, end, pieza.rot, 0);
+  // Redondeados a 2 decimales: el valor inicial se renderiza en SSR y un drift
+  // de float (último ULP) entre server y cliente dispara mismatch de hidratación.
+  const oxPct = Math.round((ox / VB.w) * 10000) / 100;
+  const oyPct = Math.round((oy / VB.h) * 10000) / 100;
+  // easeWindow ⇒ las piezas desaceleran con peso al encajar (no scrub lineal).
+  const xw = easeWindow(start, end, `${oxPct}%`, "0%");
+  const yw = easeWindow(start, end, `${oyPct}%`, "0%");
+  const zw = easeWindow(start, end, Z0[idx], 0);
+  const rxw = easeWindow(start, end, ROTX[idx], 0);
+  const ryw = easeWindow(start, end, ROTY[idx], 0);
+  const rzw = easeWindow(start, end, pieza.rot, 0);
   const x = useTransform(p, xw.times, xw.values);
   const y = useTransform(p, yw.times, yw.values);
   const z = useTransform(p, zw.times, zw.values);
   const rotateX = useTransform(p, rxw.times, rxw.values);
   const rotateY = useTransform(p, ryw.times, ryw.values);
   const rotateZ = useTransform(p, rzw.times, rzw.values);
+
+  // Sombreado por orientación: difusa (lit) según la luz, más un glint especular
+  // (spec) que barre cuando el panel pasa por el ángulo de reflexión. El brillo
+  // del panel cambia a medida que gira ⇒ lectura 3D real, no relleno plano.
+  const lit = useTransform([rotateX, rotateY], (latest: number[]) => {
+    const [nx, ny, nz] = panelNormal(latest[0], latest[1]);
+    return Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
+  });
+  const spec = useTransform([rotateX, rotateY], (latest: number[]) => {
+    const [nx, ny, nz] = panelNormal(latest[0], latest[1]);
+    return Math.pow(Math.max(0, nx * HALF[0] + ny * HALF[1] + nz * HALF[2]), 26);
+  });
+  // Pequeña variación de brillo base entre piezas (como las 3 tintas previas).
+  const fillIdx = ((idx % 3) + Math.floor(idx / 3)) % 3;
+  const baseK = [1.0, 0.72, 1.25][fillIdx];
+  // Salidas redondeadas (4 dec): evita el mismatch de hidratación por precisión
+  // de float del valor inicial renderizado en SSR vs cliente.
+  const bodyOp = useTransform(lit, (v) => {
+    const c = v < 0 ? 0 : v > 1 ? 1 : v;
+    return Math.round((0.05 + c * 0.15) * baseK * 1e4) / 1e4;
+  });
+  const specOp = useTransform(spec, (v) => {
+    const c = v < 0 ? 0 : v > 1 ? 1 : v;
+    return Math.round(c * 0.45 * 1e4) / 1e4;
+  });
+
   const [cx, cy] = pieza.centroid;
   const ptsStr = pieza.pts.map(([px, py]) => `${px},${py}`).join(" ");
   return (
@@ -118,7 +186,10 @@ function Pieza3D({ p, pieza, idx, fill }: { p: MotionValue<number>; pieza: Pieza
       }}
     >
       <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="piece3d-svg" aria-hidden>
-        <polygon points={ptsStr} fill={fill} stroke="rgba(255,255,255,0.4)" strokeWidth={1} strokeLinejoin="round" />
+        {/* cuerpo: opacidad del relleno modulada por la difusa */}
+        <motion.polygon points={ptsStr} fill="#dfe7ff" stroke="rgba(255,255,255,0.5)" strokeWidth={1} strokeLinejoin="round" style={{ fillOpacity: bodyOp }} />
+        {/* glint especular: barre al girar el panel */}
+        <motion.polygon points={ptsStr} fill="#ffffff" style={{ fillOpacity: specOp }} />
       </svg>
     </motion.div>
   );
@@ -161,7 +232,7 @@ function Inner({ p }: { p: MotionValue<number> }) {
         </motion.div>
         <div className="stage3d">
           {PIEZAS.map((pieza, idx) => (
-            <Pieza3D key={idx} p={p} pieza={pieza} idx={idx} fill={FILLS[((idx % 3) + Math.floor(idx / 3)) % 3]} />
+            <Pieza3D key={idx} p={p} pieza={pieza} idx={idx} />
           ))}
           <svg className="stage3d-overlay" viewBox={`0 0 ${VB.w} ${VB.h}`} aria-hidden>
             <motion.polyline points={framePts} fill="none" stroke="var(--gold-soft)" strokeWidth={2.5}
