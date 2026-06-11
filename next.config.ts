@@ -9,7 +9,11 @@ const isDev = process.env.NODE_ENV === "development";
 // /api/* routes, so connect-src/img-src can stay 'self'.
 const cspDirectives = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // 'wasm-unsafe-eval' habilita SOLO compilar WebAssembly (no eval de JS):
+  // @react-pdf/renderer compila el layout engine yoga a WASM en el browser —
+  // sin esto, pdf().toBlob() rechaza en prod y el export de PDF nunca termina.
+  // 'unsafe-eval' completo queda restringido a dev (tooling de Next).
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",

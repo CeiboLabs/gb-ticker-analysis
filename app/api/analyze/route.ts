@@ -740,6 +740,13 @@ export async function POST(req: NextRequest) {
     null;
 
   // 1. Parse + validate
+  // El body legítimo es {ticker, refresh} — rechazar payloads grandes antes
+  // de deserializarlos.
+  const contentLength = Number(req.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > 2048) {
+    fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: "body too large" });
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 413 });
+  }
   let body: unknown;
   try {
     body = await req.json();
@@ -1194,15 +1201,21 @@ export async function POST(req: NextRequest) {
         // arrives (intermittent VPN/corporate DNS resolution failures) — which
         // would otherwise drop the user straight to "service unavailable" even
         // though a retry a second later succeeds. We only RE-STREAM while no
-        // delta has reached the client yet; once tokens are flowing, a mid-
-        // stream drop falls back to one non-streaming fetch so the client can
-        // never receive duplicated text.
+        // token has arrived yet; once tokens are flowing, a mid-stream drop
+        // falls back to one non-streaming fetch to get the full text cleanly.
+        //
+        // El cliente no renderiza texto incremental (espera el payload final
+        // con done: true), así que no reenviamos cada token: sólo emitimos un
+        // heartbeat de progreso cada 10s para que proxies intermedios no corten
+        // la conexión por idle mientras GPT-4o genera (~40-90s).
         let fullText = "";
-        let emittedAnyDelta = false;
+        let tokensStarted = false;
         const MAX_OPENAI_ATTEMPTS = 3;
+        const HEARTBEAT_MS = 10_000;
+        let lastBeat = Date.now();
         for (let attempt = 1; attempt <= MAX_OPENAI_ATTEMPTS; attempt++) {
           try {
-            if (emittedAnyDelta) {
+            if (tokensStarted) {
               const retry = await getOpenAIClient().chat.completions.create(baseParams);
               fullText = retry.choices[0]?.message?.content ?? "";
             } else {
@@ -1215,8 +1228,14 @@ export async function POST(req: NextRequest) {
                 const delta = chunk.choices[0]?.delta?.content ?? "";
                 if (delta) {
                   fullText += delta;
-                  emittedAnyDelta = true;
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+                  tokensStarted = true;
+                  const now = Date.now();
+                  if (now - lastBeat >= HEARTBEAT_MS) {
+                    lastBeat = now;
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ progress: fullText.length })}\n\n`)
+                    );
+                  }
                 }
               }
             }

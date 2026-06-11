@@ -60,6 +60,10 @@ function getGlobeHash(): Promise<string | null> {
   return globeHashPromise;
 }
 
+// Tope de respuesta: un logo real pesa KBs; un upstream que devuelva un
+// archivo gigante no debe consumir la memoria del isolate.
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
 async function tryFetch(
   url: string,
   minBytes: number,
@@ -70,8 +74,10 @@ async function tryFetch(
       redirect: "follow",
     });
     if (res.status !== 200) return null;
+    const declared = Number(res.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > MAX_LOGO_BYTES) return null;
     const buf = await res.arrayBuffer();
-    if (buf.byteLength < minBytes) return null;
+    if (buf.byteLength < minBytes || buf.byteLength > MAX_LOGO_BYTES) return null;
     // Only ever reflect image/* upstream content types into our response —
     // anything else (text/html, application/*) gets coerced to a safe default.
     const upstreamType = res.headers.get("content-type") ?? "";
@@ -106,8 +112,11 @@ export async function GET(request: Request) {
   // logo providers never receive arbitrary user-controlled strings as part
   // of an outbound request URL.
   const ticker = normalizeTicker(searchParams.get("ticker"));
+  // Cap de longitud antes del regex: un FQDN válido no pasa de 253 chars y
+  // así el input del backtracking queda acotado sin depender del lookahead.
   const rawDomain = searchParams.get("domain")?.trim().toLowerCase() ?? null;
-  const domain = rawDomain && DOMAIN_RE.test(rawDomain) ? rawDomain : null;
+  const domain =
+    rawDomain && rawDomain.length <= 253 && DOMAIN_RE.test(rawDomain) ? rawDomain : null;
   if (!ticker && !domain) {
     return new Response("Missing or invalid ticker/domain", { status: 400 });
   }

@@ -61,7 +61,6 @@ export async function GET(req: NextRequest) {
         symbol: item.symbol as string,
         name: (item.shortname ?? item.longname ?? item.symbol) as string,
         exchange: (item.exchDisp ?? item.exchange) as string,
-        quoteType: (item.quoteType ?? "EQUITY") as string,
       }));
 
     return NextResponse.json({ results });

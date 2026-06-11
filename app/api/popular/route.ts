@@ -44,8 +44,6 @@ export async function GET(req: NextRequest) {
   // Yahoo throttle (~16s total) which timed out on Cloudflare edge. The
   // logo endpoint resolves brand marks from the ticker alone, so we no
   // longer need quoteSummary just to get the website domain here.
-  const trackedCounts = new Map(top.map((t) => [t.symbol, t.count]));
-
   type BatchQuote = {
     symbol: string;
     longName?: string;
@@ -74,8 +72,6 @@ export async function GET(req: NextRequest) {
         price: q.regularMarketPrice ?? null,
         changePercent: q.regularMarketChangePercent ?? null,
         currency: q.currency ?? null,
-        domain: null as string | null,
-        viewCount: trackedCounts.get(sym) ?? null,
       };
     })
     .filter((q): q is NonNullable<typeof q> => q !== null);

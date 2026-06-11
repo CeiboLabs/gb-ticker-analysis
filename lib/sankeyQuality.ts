@@ -280,7 +280,11 @@ export function scoreSankey(
   // which the chart clamps to 0 (no negative flow rendering). That clamp
   // breaks reconciliation by design, not a parser bug.
   let costBalancePct: number | null = null;
-  const grossLossLikely = d.costOfRevenue >= rev * 0.97;
+  // Gross loss real = cogs ≥ revenue. Un umbral < 1 (antes 0.97) marcaba como
+  // "pérdida bruta" a distribuidores low-margin legítimos (COGS 97-99% con GP
+  // y NI positivos), salteándoles la reconciliación de costos y disparando
+  // loss_not_represented falso.
+  const grossLossLikely = d.costOfRevenue >= rev;
   if (!lacksCostLayer(d) && !grossLossLikely) {
     const sum = d.costOfRevenue + d.grossProfit;
     costBalancePct = pctDiff(rev, sum);
@@ -368,7 +372,10 @@ export function scoreSankey(
     // so for the chain reconciliation we credit the same magnitude.
     const nob = (d as { nonOpBreakdown?: { interestExpense?: number; interestIncome?: number } }).nonOpBreakdown;
     const netIntExp = Math.max(0, (nob?.interestExpense ?? 0) - (nob?.interestIncome ?? 0));
-    const reconstructed = d.netProfit + tax + nonOp + netIntExp;
+    // Identidad: op = NI + tax + netIntExp − nonOpIncome. El non-operating
+    // income SUMA a NI (el renderer lo trata igual: subLabel "+ non-operating"
+    // sobre Net Income), así que al reconstruir op desde NI hay que restarlo.
+    const reconstructed = d.netProfit + tax + netIntExp - nonOp;
     opChainBalancePct = pctDiff(d.operatingProfit, reconstructed);
     if (opChainBalancePct > 10) {
       const gap = d.operatingProfit - reconstructed;
@@ -377,7 +384,7 @@ export function scoreSankey(
         severity: opChainBalancePct > 25 ? "error" : "warn",
         message:
           `[${T}] La cadena Op Income → NI + Tax + Net Interest no reconcilia: operatingProfit ${fmt(d.operatingProfit, unit)} ` +
-          `≠ netProfit ${fmt(d.netProfit, unit)} + tax ${fmt(tax, unit)} + nonOp ${fmt(nonOp, unit)} + netIntExp ${fmt(netIntExp, unit)} ` +
+          `≠ netProfit ${fmt(d.netProfit, unit)} + tax ${fmt(tax, unit)} + netIntExp ${fmt(netIntExp, unit)} − nonOp ${fmt(nonOp, unit)} ` +
           `(suma ${fmt(reconstructed, unit)}, gap ${fmt(gap, unit)} = ${opChainBalancePct.toFixed(1)}%). ` +
           `Para ${T} probablemente falta una línea below-the-line no capturada (FX loss, equity-method, impairment), ` +
           `el parser leyó mal incomeTaxExpense, o nonOpBreakdown está incompleto. ` +

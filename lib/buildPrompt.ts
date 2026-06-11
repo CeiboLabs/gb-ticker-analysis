@@ -354,9 +354,12 @@ export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | n
       const fn = PLACEHOLDER_MAP[key];
       return fn ? fn(data) : match;
     })
-    .replace("{{SEGMENT_DATA}}", fmtSegmentData(segmentData, data.earningsHistory.at(-1)?.quarter ?? null))
-    .replace("{{INDUSTRY_HINT}}", industryBlock || "(framework estándar — sin hint específico de industria)")
-    .replace("{{SANKEY_QUALITY}}", sankeyQ || "(segmentos cubren ≥95% del revenue — sin caveat de cobertura)");
+    // Replacer como función: con replacement string, JS interpreta patrones $
+    // ($', $&...) y cualquier valor que los contenga (un nombre de segmento SEC,
+    // texto de hint) corrompería el template. La función los inserta literales.
+    .replace("{{SEGMENT_DATA}}", () => fmtSegmentData(segmentData, data.earningsHistory.at(-1)?.quarter ?? null))
+    .replace("{{INDUSTRY_HINT}}", () => industryBlock || "(framework estándar — sin hint específico de industria)")
+    .replace("{{SANKEY_QUALITY}}", () => sankeyQ || "(segmentos cubren ≥95% del revenue — sin caveat de cobertura)");
 
   return {
     systemPrompt: ANALYSIS_SYSTEM_PROMPT,

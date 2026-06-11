@@ -40,7 +40,33 @@ export interface EdgarSegmentResult {
 
 // In-memory cache for SEC responses (Next.js data cache has a 2MB limit,
 // XBRL filings regularly exceed that).
+// Acotado: los XBRL de emisores grandes pesan decenas de MB y un isolate de
+// Workers tiene ~128 MB — sin tope ni evicción, un isolate caliente que
+// analiza varios tickers grandes agota memoria. Los cuerpos enormes no se
+// cachean acá (el edge cache de Cloudflare en secFetchShared los absorbe).
 const memCache = new Map<string, { body: string; status: number; ts: number }>();
+const MAX_ENTRY_BYTES = 2 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
+let memCacheBytes = 0;
+
+function memCacheDelete(url: string): void {
+  const prev = memCache.get(url);
+  if (!prev) return;
+  memCache.delete(url);
+  memCacheBytes -= prev.body.length;
+}
+
+function memCacheSet(url: string, entry: { body: string; status: number; ts: number }): void {
+  if (entry.body.length > MAX_ENTRY_BYTES) return;
+  memCacheDelete(url);
+  memCache.set(url, entry);
+  memCacheBytes += entry.body.length;
+  // Evicción FIFO (Map preserva orden de inserción) hasta volver al presupuesto.
+  for (const key of memCache.keys()) {
+    if (memCacheBytes <= MAX_TOTAL_BYTES) break;
+    memCacheDelete(key);
+  }
+}
 
 // Leaky-bucket rate limiter for SEC fetches. SEC's published cap is 10 req/s
 // per IP; exceeding it triggers a 10-minute IP ban that extends on further
@@ -67,11 +93,15 @@ async function acquireSecToken(): Promise<void> {
   return job;
 }
 
-export async function secFetch(url: string, ttl = 21600): Promise<Response> {
-  const cached = memCache.get(url);
-  if (cached && Date.now() - cached.ts < ttl * 1000) {
-    return new Response(cached.body, { status: cached.status });
-  }
+// In-flight dedup: an analysis runs segments + 8-K in parallel and both
+// resolve CIK / read the submissions JSON. memCache only fills once a
+// response lands, so without this every concurrent caller of the same URL
+// fires its own SEC request (company_tickers.json alone is ~1 MB). Coalesce
+// them onto one fetch; each caller gets its own Response built from the
+// shared body.
+const inFlight = new Map<string, Promise<{ body: string; status: number }>>();
+
+async function secFetchShared(url: string, ttl: number): Promise<{ body: string; status: number }> {
   await acquireSecToken();
   // Cloudflare Workers / Pages: `cf.cacheEverything` makes the response
   // shareable across instances in the same colo via the edge cache. SEC
@@ -83,18 +113,36 @@ export async function secFetch(url: string, ttl = 21600): Promise<Response> {
     headers: H,
     cf: { cacheTtl: ttl, cacheEverything: true },
   } as RequestInit & { cf?: { cacheTtl: number; cacheEverything: boolean } });
+  const body = await r.text();
   if (r.ok) {
-    const body = await r.text();
     // Detect SEC's HTML rate-limit page returned with 200 status. Don't cache
     // it — the next legitimate request would hit the cache and silently get
     // the error page. Surface as a 429 so callers fail fast.
     if (body.includes("Request Rate Threshold Exceeded")) {
-      return new Response(body, { status: 429 });
+      return { body, status: 429 };
     }
-    memCache.set(url, { body, status: r.status, ts: Date.now() });
-    return new Response(body, { status: r.status });
+    memCacheSet(url, { body, status: r.status, ts: Date.now() });
   }
-  return r;
+  return { body, status: r.status };
+}
+
+export async function secFetch(url: string, ttl = 21600): Promise<Response> {
+  const cached = memCache.get(url);
+  if (cached) {
+    if (Date.now() - cached.ts < ttl * 1000) {
+      return new Response(cached.body, { status: cached.status });
+    }
+    // El TTL solo se chequeaba en lectura: la entrada vencida quedaba ocupando
+    // memoria para siempre. Liberarla al detectarla.
+    memCacheDelete(url);
+  }
+  let pending = inFlight.get(url);
+  if (!pending) {
+    pending = secFetchShared(url, ttl).finally(() => inFlight.delete(url));
+    inFlight.set(url, pending);
+  }
+  const { body, status } = await pending;
+  return new Response(body, { status });
 }
 
 // Returns the 4-digit SIC industry code for a CIK, or null. The submissions

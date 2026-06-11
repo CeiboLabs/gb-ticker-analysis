@@ -2090,7 +2090,7 @@ export function SankeyChart({ data, svgRef }: { data: SegmentSankeyData; svgRef?
 // the label only if measurement confirms it fits. A brief flash of "no
 // label" is acceptable; a flash of "overlapping label" is not.
 function RightSideMidColLabel({
-  x, y, maxX, name, value, color,
+  x, y, maxX, name, value, color, subLabel, stacked,
 }: {
   x: number;
   y: number;
@@ -2101,33 +2101,82 @@ function RightSideMidColLabel({
   subLabel?: string;
   stacked?: boolean;
 }) {
+  // Keep in sync with the chart's LINE_H — the caller positions mid.topY
+  // assuming this stacking pitch.
+  const LINE_H = 20;
   const probeRef = useRef<SVGTextElement>(null);
+  const valueProbeRef = useRef<SVGTextElement>(null);
+  const subProbeRef = useRef<SVGTextElement>(null);
   const [visible, setVisible] = useState(false);
+  const [subVisible, setSubVisible] = useState(false);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useLayoutEffect(() => {
     if (!Number.isFinite(maxX)) {
       // Unconstrained channel: always show.
       setVisible(true);
+      setSubVisible(stacked === true && subLabel != null);
       return;
     }
-    const w = probeRef.current?.getComputedTextLength() ?? Infinity;
     const FIT_BUFFER = 8; // visual gap to neighbor rect / ribbon edge
-    setVisible(x + w + FIT_BUFFER <= maxX);
-  }, [x, maxX, name, value]);
+    const fits = (el: SVGTextElement | null) =>
+      el != null && x + el.getComputedTextLength() + FIT_BUFFER <= maxX;
+    if (stacked) {
+      // Each line lives on its own row: measure separately and hide only
+      // the lines that overflow (mirrors the single-line fallback).
+      setVisible(fits(probeRef.current) && (value == null || fits(valueProbeRef.current)));
+      setSubVisible(subLabel != null && fits(subProbeRef.current));
+    } else {
+      setVisible(fits(probeRef.current));
+      setSubVisible(false);
+    }
+  }, [x, maxX, name, value, subLabel, stacked]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Offscreen probe rendered always (when constraint exists) so the
+  // Offscreen probes rendered always (when constraint exists) so the
   // measurement can run on every mount/update.
   const probe = Number.isFinite(maxX) ? (
-    <text ref={probeRef} x={-99999} y={-99999}
-      fontSize={11} aria-hidden="true" pointerEvents="none">
-      <tspan fontWeight="800">{name}</tspan>
-      {value && <tspan fontWeight="600">{"  " + value}</tspan>}
-    </text>
+    <g aria-hidden="true" pointerEvents="none">
+      {stacked ? (
+        <>
+          <text ref={probeRef} x={-99999} y={-99999} fontSize={11} fontWeight="800">{name}</text>
+          {value && (
+            <text ref={valueProbeRef} x={-99999} y={-99999} fontSize={11} fontWeight="600">{value}</text>
+          )}
+          {subLabel && (
+            <text ref={subProbeRef} x={-99999} y={-99999} fontSize={10}>{subLabel}</text>
+          )}
+        </>
+      ) : (
+        <text ref={probeRef} x={-99999} y={-99999} fontSize={11}>
+          <tspan fontWeight="800">{name}</tspan>
+          {value && <tspan fontWeight="600">{"  " + value}</tspan>}
+        </text>
+      )}
+    </g>
   ) : null;
 
   if (!visible) return probe;
+
+  if (stacked) {
+    // Multi-line block: name / value / subLabel on LINE_H rows, mirroring
+    // labelBlock's weights and the #666 sub fill.
+    return (
+      <>
+        {probe}
+        <text x={x} y={y} fontSize={11} fontWeight="800" fill={color}
+          textAnchor="start" dominantBaseline="middle">{name}</text>
+        {value && (
+          <text x={x} y={y + LINE_H} fontSize={11} fontWeight="600" fill={color}
+            textAnchor="start" dominantBaseline="middle">{value}</text>
+        )}
+        {subLabel && subVisible && (
+          <text x={x} y={y + LINE_H * (value ? 2 : 1)} fontSize={10} fill="#666"
+            textAnchor="start" dominantBaseline="middle">{subLabel}</text>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
