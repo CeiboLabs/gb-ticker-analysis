@@ -40,7 +40,33 @@ export interface EdgarSegmentResult {
 
 // In-memory cache for SEC responses (Next.js data cache has a 2MB limit,
 // XBRL filings regularly exceed that).
+// Acotado: los XBRL de emisores grandes pesan decenas de MB y un isolate de
+// Workers tiene ~128 MB — sin tope ni evicción, un isolate caliente que
+// analiza varios tickers grandes agota memoria. Los cuerpos enormes no se
+// cachean acá (el edge cache de Cloudflare en secFetchShared los absorbe).
 const memCache = new Map<string, { body: string; status: number; ts: number }>();
+const MAX_ENTRY_BYTES = 2 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
+let memCacheBytes = 0;
+
+function memCacheDelete(url: string): void {
+  const prev = memCache.get(url);
+  if (!prev) return;
+  memCache.delete(url);
+  memCacheBytes -= prev.body.length;
+}
+
+function memCacheSet(url: string, entry: { body: string; status: number; ts: number }): void {
+  if (entry.body.length > MAX_ENTRY_BYTES) return;
+  memCacheDelete(url);
+  memCache.set(url, entry);
+  memCacheBytes += entry.body.length;
+  // Evicción FIFO (Map preserva orden de inserción) hasta volver al presupuesto.
+  for (const key of memCache.keys()) {
+    if (memCacheBytes <= MAX_TOTAL_BYTES) break;
+    memCacheDelete(key);
+  }
+}
 
 // Leaky-bucket rate limiter for SEC fetches. SEC's published cap is 10 req/s
 // per IP; exceeding it triggers a 10-minute IP ban that extends on further
@@ -95,15 +121,20 @@ async function secFetchShared(url: string, ttl: number): Promise<{ body: string;
     if (body.includes("Request Rate Threshold Exceeded")) {
       return { body, status: 429 };
     }
-    memCache.set(url, { body, status: r.status, ts: Date.now() });
+    memCacheSet(url, { body, status: r.status, ts: Date.now() });
   }
   return { body, status: r.status };
 }
 
 export async function secFetch(url: string, ttl = 21600): Promise<Response> {
   const cached = memCache.get(url);
-  if (cached && Date.now() - cached.ts < ttl * 1000) {
-    return new Response(cached.body, { status: cached.status });
+  if (cached) {
+    if (Date.now() - cached.ts < ttl * 1000) {
+      return new Response(cached.body, { status: cached.status });
+    }
+    // El TTL solo se chequeaba en lectura: la entrada vencida quedaba ocupando
+    // memoria para siempre. Liberarla al detectarla.
+    memCacheDelete(url);
   }
   let pending = inFlight.get(url);
   if (!pending) {

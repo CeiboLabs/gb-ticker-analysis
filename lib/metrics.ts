@@ -18,7 +18,12 @@ export interface D1Database {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS ?? "90", 10);
+// Validado: un env mal seteado ("90d", vacío) daría NaN, que llegaría al
+// bind() del DELETE y la purga fallaría silenciosamente.
+const RETENTION_DAYS = (() => {
+  const n = parseInt(process.env.RETENTION_DAYS ?? "90", 10);
+  return Number.isFinite(n) && n > 0 ? n : 90;
+})();
 
 // Drop analyze_events past retention and rate-limit windows that ended more
 // than 2 days ago (the longest window is the daily fresh cap). Idempotent and
@@ -223,7 +228,12 @@ export function eventBaseFromRequest(req: Request): {
   country: string | null;
   ipHash: string | null;
 } {
+  // cf-connecting-ip primero (Cloudflare lo reescribe, el cliente no puede
+  // falsificarlo) — igual que clientIpFrom en el rate limiter. Con
+  // x-forwarded-for primero, el COUNT(DISTINCT ip_hash) de "usuarios únicos"
+  // del dashboard era inflable a voluntad.
   const ip =
+    req.headers.get("cf-connecting-ip") ??
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("x-real-ip") ??
     null;

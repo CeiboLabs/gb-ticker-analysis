@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import OpenAI from "openai";
+import { z } from "zod";
 import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
@@ -694,6 +695,25 @@ function serializeField(value: unknown): string {
   return parts.join(". ") || JSON.stringify(obj);
 }
 
+// Parte estructurada de la respuesta del modelo. Se valida ANTES de cachear:
+// el reporte vive 24h en cache compartida entre usuarios, así que un rating
+// fuera del enum o un case malformado no debe persistirse ni renderizarse.
+// Un fallo acá cae en el catch de parseo existente (errorStage "parse").
+const toUpper = (v: unknown) => (typeof v === "string" ? v.trim().toUpperCase() : v);
+const BullBearCaseSchema = z.object({
+  narrative: z.string().min(1),
+  priceTarget: z.union([z.string(), z.number()]).transform(String),
+});
+const ModelStructuredSchema = z.object({
+  bullCase: BullBearCaseSchema,
+  bearCase: BullBearCaseSchema,
+  verdict: z.object({
+    rating: z.preprocess(toUpper, z.enum(["BUY", "HOLD", "AVOID"])),
+    conviction: z.preprocess(toUpper, z.enum(["HIGH", "MEDIUM", "LOW"])),
+    rationale: z.string().min(1),
+  }),
+});
+
 export async function POST(req: NextRequest) {
   // Monitor: capture request-level metadata once. Each exit path fills in the
   // outcome and fires recordAnalyzeEvent — D1 write is best-effort.
@@ -734,6 +754,13 @@ export async function POST(req: NextRequest) {
     null;
 
   // 1. Parse + validate
+  // El body legítimo es {ticker, refresh} — rechazar payloads grandes antes
+  // de deserializarlos.
+  const contentLength = Number(req.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > 2048) {
+    fireEvent({ ticker: "-", status: "bad_request", errorStage: "parse", errorMsg: "body too large" });
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 413 });
+  }
   let body: unknown;
   try {
     body = await req.json();
@@ -1177,7 +1204,8 @@ export async function POST(req: NextRequest) {
               raw[field] = serializeField(raw[field]);
             }
           }
-          report = raw as unknown as StructuredReport;
+          const structured = ModelStructuredSchema.parse(raw);
+          report = { ...(raw as unknown as StructuredReport), ...structured };
           // EDGAR XBRL / 8-K / Yahoo-quarter (real fields only). When none of
           // those produce a Sankey we leave segmentData null — better than
           // fabricating a TTM-margin chart that doesn't represent any real

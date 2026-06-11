@@ -89,11 +89,13 @@ function fmtTime(time: string | number): string {
     });
     return `${fmt.format(d)} UY`;
   }
+  // "YYYY-MM-DD" parsea como medianoche UTC; formatear con getters UTC para
+  // no retroceder un día en timezones al oeste de UTC (UY incluido).
   const d = new Date(time);
   if (isNaN(d.getTime())) return time;
-  const day = d.getDate();
-  const month = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
-  const year = String(d.getFullYear()).slice(-2);
+  const day = d.getUTCDate();
+  const month = d.toLocaleDateString("es-AR", { month: "short", timeZone: "UTC" }).replace(".", "");
+  const year = String(d.getUTCFullYear()).slice(-2);
   return `${day} ${month} '${year}`;
 }
 
@@ -151,7 +153,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
     setError(null);
     /* eslint-enable react-hooks/set-state-in-effect */
     fetch(`/api/chart-range?ticker=${encodeURIComponent(ticker)}&range=${range}`)
-      .then((r) => r.json())
+      .then((r) => r.json().catch(() => null))
       .then((data) => {
         if (cancelled) return;
         if (data?.error || !Array.isArray(data?.prices)) {
@@ -599,7 +601,7 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
   const noData = !loading && payload && payload.prices.length === 0;
 
   const diff =
-    pinned.length === 2
+    pinned.length === 2 && pinned[0].price !== 0
       ? {
           abs: pinned[1].price - pinned[0].price,
           pct: ((pinned[1].price - pinned[0].price) / pinned[0].price) * 100,

@@ -11,7 +11,10 @@
 // already rounded to billions / millions on the chart.
 
 const TTL_MS = 24 * 60 * 60 * 1000;
-const cache = new Map<string, { rate: number; fetchedAt: number }>();
+// TTL corto para valores de fallback (estático o stale): reintenta Frankfurter
+// cada hora, pero sin repetir el fetch + timeout de 5s en cada request.
+const FALLBACK_TTL_MS = 60 * 60 * 1000;
+const cache = new Map<string, { rate: number; fetchedAt: number; ttlMs: number }>();
 
 // Conservative static fallback rates (as of 2026-05) for currencies the
 // primary Frankfurter feed doesn't list. Frankfurter is sourced from ECB
@@ -27,12 +30,24 @@ const STATIC_USD_RATES: Record<string, number> = {
   RUB: 0.0119,   // ≈ 84 RUB/USD
 };
 
+// Fallback (rate stale o tabla estática) cacheado con TTL corto — sin esto,
+// cada moneda que Frankfurter no lista (TWD siempre) repetía el fetch y
+// esperaba el timeout completo en cada build de Sankey, para siempre.
+function fallbackRate(code: string, staleRate: number | undefined): number | null {
+  const rate = staleRate ?? STATIC_USD_RATES[code] ?? null;
+  if (rate != null) cache.set(code, { rate, fetchedAt: Date.now(), ttlMs: FALLBACK_TTL_MS });
+  return rate;
+}
+
 export async function fetchUsdRate(currency: string): Promise<number | null> {
   const code = currency.toUpperCase();
   if (code === "USD") return 1;
+  // El código viene de datos de terceros (Yahoo financialCurrency) — solo
+  // codigos ISO-4217 plausibles llegan a la URL de Frankfurter.
+  if (!/^[A-Z]{3}$/.test(code)) return null;
 
   const cached = cache.get(code);
-  if (cached && Date.now() - cached.fetchedAt < TTL_MS) {
+  if (cached && Date.now() - cached.fetchedAt < cached.ttlMs) {
     return cached.rate;
   }
 
@@ -43,16 +58,16 @@ export async function fetchUsdRate(currency: string): Promise<number | null> {
       // Frankfurter returns 404 for currencies it doesn't carry (e.g. TWD).
       // Use the static fallback if we have one for this code; otherwise
       // give up and let the caller fall back to Yahoo.
-      return cached?.rate ?? STATIC_USD_RATES[code] ?? null;
+      return fallbackRate(code, cached?.rate);
     }
     const data = (await r.json()) as { rates?: { USD?: number } };
     const rate = data?.rates?.USD;
     if (typeof rate !== "number" || !isFinite(rate) || rate <= 0) {
-      return cached?.rate ?? STATIC_USD_RATES[code] ?? null;
+      return fallbackRate(code, cached?.rate);
     }
-    cache.set(code, { rate, fetchedAt: Date.now() });
+    cache.set(code, { rate, fetchedAt: Date.now(), ttlMs: TTL_MS });
     return rate;
   } catch {
-    return cached?.rate ?? STATIC_USD_RATES[code] ?? null;
+    return fallbackRate(code, cached?.rate);
   }
 }

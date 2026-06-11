@@ -35,6 +35,17 @@ const HOLIDAYS_FULL_CLOSE: Record<string, string> = {
   "2027-09-06": "Día del Trabajo",
   "2027-11-25": "Día de Acción de Gracias",
   "2027-12-24": "Navidad (observado)",
+  // 2028 — Año Nuevo cae sábado y NYSE no lo observa el viernes 2027-12-31
+  // (regla: no se cierra el último día hábil del ejercicio anual).
+  "2028-01-17": "Día de Martin Luther King Jr.",
+  "2028-02-21": "Día de los Presidentes",
+  "2028-04-14": "Viernes Santo",
+  "2028-05-29": "Día de los Caídos",
+  "2028-06-19": "Juneteenth",
+  "2028-07-04": "Día de la Independencia",
+  "2028-09-04": "Día del Trabajo",
+  "2028-11-23": "Día de Acción de Gracias",
+  "2028-12-25": "Navidad",
 };
 
 const EARLY_CLOSE_DAYS: Record<string, string> = {
@@ -44,6 +55,9 @@ const EARLY_CLOSE_DAYS: Record<string, string> = {
   "2026-11-27": "Día después de Acción de Gracias",
   "2026-12-24": "Nochebuena",
   "2027-11-26": "Día después de Acción de Gracias",
+  // 2028 — Nochebuena cae domingo, no hay early close de diciembre.
+  "2028-07-03": "Víspera del Día de la Independencia",
+  "2028-11-24": "Día después de Acción de Gracias",
 };
 
 const OPEN_MINUTES = 9 * 60 + 30; // 09:30 ET
@@ -138,6 +152,7 @@ function nextTradingDateKey(dateKey: string, weekday: string): { dateKey: string
   const order = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   let idx = order.indexOf(weekday);
   const cursor = new Date(Date.UTC(y, m - 1, d));
+  let firstWeekday: { dateKey: string; weekday: string } | null = null;
   for (let i = 1; i <= 10; i++) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
     idx = (idx + 1) % 7;
@@ -147,10 +162,15 @@ function nextTradingDateKey(dateKey: string, weekday: string): { dateKey: string
     const dd = pad(cursor.getUTCDate());
     const key = `${yyyy}-${mm}-${dd}`;
     if (nextWd === "Sat" || nextWd === "Sun") continue;
+    if (!firstWeekday) firstWeekday = { dateKey: key, weekday: nextWd };
     if (HOLIDAYS_FULL_CLOSE[key]) continue;
     return { dateKey: key, weekday: nextWd };
   }
-  return { dateKey, weekday: "Mon" };
+  // Inalcanzable con el calendario actual (máx. 4 días no hábiles seguidos),
+  // pero si la tabla creciera con un cierre prolongado: el primer día hábil
+  // (aunque figure feriado) es mejor que devolver el día de partida con un
+  // weekday inventado.
+  return firstWeekday ?? { dateKey, weekday };
 }
 
 function isWeekend(weekday: string): boolean {

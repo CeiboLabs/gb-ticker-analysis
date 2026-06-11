@@ -333,7 +333,9 @@ export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | n
       const fn = PLACEHOLDER_MAP[key];
       return fn ? fn(data) : match;
     })
-    .replace("{{SEGMENT_DATA}}", fmtSegmentData(segmentData, data.earningsHistory.at(-1)?.quarter ?? null));
+    // Replacer function: con replacement string, JS interpreta patrones $ ($', $&...)
+    // y un nombre de segmento SEC que los contenga corrompería el template.
+    .replace("{{SEGMENT_DATA}}", () => fmtSegmentData(segmentData, data.earningsHistory.at(-1)?.quarter ?? null));
 
   return {
     systemPrompt: ANALYSIS_SYSTEM_PROMPT,
