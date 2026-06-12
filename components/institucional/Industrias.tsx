@@ -93,7 +93,7 @@ export function Industrias() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="band site-section">
+    <section className="band-muted site-section">
       <div className="site-wrap">
         <Reveal className="split-label">
           <div className="eyebrow-sm">Oportunidades</div>
@@ -102,8 +102,8 @@ export function Industrias() {
               Las industrias que mueven el mundo, en tu cartera.
             </h2>
             <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-              Desde Montevideo accedés a los sectores que definen la economía global.
-              Estas son algunas de las industrias en las que podés invertir.
+              Accedé a los sectores que definen la economía global. Estas son
+              algunas de las industrias en las que podés invertir.
             </p>
           </div>
         </Reveal>

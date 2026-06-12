@@ -5,7 +5,7 @@ import { PinnedSection, scrollWindow } from "@/components/scroll";
 
 /**
  * Escena-firma del fondo: "De muchos fondos, una sola cartera".
- * Pinned (patrón TrayectoriaScene/PlazasStack). Al scrollear, varias piezas
+ * Pinned (patrón TrayectoriaScene). Al scrollear, varias piezas
  * de rompecabezas ASIMÉTRICAS entran dispersas y rotadas, vuelan a su lugar y
  * ENCAJAN exacto formando un cuadrado (la cartera). Un marco dorado lo enmarca
  * al cerrarse y aparece la declaración "De muchos fondos, una sola cartera."

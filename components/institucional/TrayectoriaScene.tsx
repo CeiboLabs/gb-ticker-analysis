@@ -18,23 +18,24 @@ import { Glass } from "@/components/institucional/LiquidGlass";
  */
 export function TrayectoriaScene() {
   return (
-    <PinnedSection height={380} className="band">
+    <PinnedSection height={240} className="band">
       {(p) => <Inner p={p} />}
     </PinnedSection>
   );
 }
 
-/* Fases del progress:
-   0.00–0.42  palabras entran (la cinta ya está presente)
-   0.42–0.56  palabras salen hacia arriba
-   0.46–0.74  panel se expande de cinta a casi fullscreen
-   0.66–0.86  párrafo + CTA aparecen                                   */
+/* Fases del progress (comprimidas: las palabras resuelven temprano y la
+   expansión arranca enseguida — sin tiempo muerto entre fases):
+   0.00–0.26  palabras entran (la cinta ya está presente)
+   0.32–0.50  palabras salen hacia arriba
+   0.36–0.62  panel se expande de cinta a casi fullscreen
+   0.54–0.72  párrafo + CTA aparecen                                   */
 function Inner({ p }: { p: MotionValue<number> }) {
   // Panel: full-size con clip-path animado (sin layout thrash; los arcos
   // 1px no se estiran como pasaría con scale).
   const clip = useTransform(
     p,
-    [0, 0.46, 0.74, 1],
+    [0, 0.36, 0.62, 1],
     [
       "inset(26% 17% 26% 17%)",
       "inset(26% 17% 26% 17%)",
@@ -44,16 +45,16 @@ function Inner({ p }: { p: MotionValue<number> }) {
   );
 
   // Palabra 1 — entra desde abajo, sale hacia arriba
-  const w1Opacity = useTransform(p, [0, 0.06, 0.22, 0.44, 0.56, 1], [0, 0, 1, 1, 0, 0]);
-  const w1Y = useTransform(p, [0, 0.06, 0.22, 0.44, 0.56, 1], [70, 70, 0, 0, -130, -130]);
+  const w1Opacity = useTransform(p, [0, 0.04, 0.16, 0.32, 0.44, 1], [0, 0, 1, 1, 0, 0]);
+  const w1Y = useTransform(p, [0, 0.04, 0.16, 0.32, 0.44, 1], [70, 70, 0, 0, -130, -130]);
   // Palabra 2 — igual, con delay
-  const w2Opacity = useTransform(p, [0, 0.18, 0.34, 0.46, 0.58, 1], [0, 0, 1, 1, 0, 0]);
-  const w2Y = useTransform(p, [0, 0.18, 0.34, 0.46, 0.58, 1], [70, 70, 0, 0, -130, -130]);
+  const w2Opacity = useTransform(p, [0, 0.12, 0.26, 0.36, 0.50, 1], [0, 0, 1, 1, 0, 0]);
+  const w2Y = useTransform(p, [0, 0.12, 0.26, 0.36, 0.50, 1], [70, 70, 0, 0, -130, -130]);
 
   // Párrafo + CTA sobre el panel expandido
-  const tw = scrollWindow(0.66, 0.84, 0, 1);
+  const tw = scrollWindow(0.54, 0.72, 0, 1);
   const textOpacity = useTransform(p, tw.times, tw.values);
-  const tyw = scrollWindow(0.66, 0.84, 36, 0);
+  const tyw = scrollWindow(0.54, 0.72, 36, 0);
   const textY = useTransform(p, tyw.times, tyw.values);
 
   // Los arcos respiran apenas con el progreso
@@ -102,7 +103,7 @@ function Inner({ p }: { p: MotionValue<number> }) {
           width: 100%;
           height: 100%;
           /* En reduce-motion no hay pin: el panel necesita su alto propio */
-          min-height: 88vh;
+          min-height: 88dvh;
           display: grid;
           place-items: center;
         }
@@ -111,7 +112,7 @@ function Inner({ p }: { p: MotionValue<number> }) {
           inset: 0;
           margin: auto;
           width: min(96vw, 1480px);
-          height: 88vh;
+          height: 88dvh;
           background:
             radial-gradient(120% 100% at 78% 10%, rgba(201,168,76,0.10), transparent 55%),
             linear-gradient(118deg, #0a1838 0%, var(--navy) 48%, #16294f 100%);
@@ -138,10 +139,10 @@ function Inner({ p }: { p: MotionValue<number> }) {
           z-index: 2;
           text-shadow: 0 2px 28px rgba(2, 4, 40, 0.35);
         }
-        /* Dentro de la cinta navy (±21vh del centro): blancas sobre navy,
+        /* Dentro de la cinta navy (±21dvh del centro): blancas sobre navy,
            una arriba y otra abajo, como la referencia */
-        .tray-word-1 { top: calc(50% - 20vh); }
-        .tray-word-2 { top: calc(50% + 4vh); }
+        .tray-word-1 { top: calc(50% - 20dvh); }
+        .tray-word-2 { top: calc(50% + 4dvh); }
         .tray-copy {
           position: relative;
           z-index: 2;
@@ -162,17 +163,19 @@ function Inner({ p }: { p: MotionValue<number> }) {
           letter-spacing: -0.01em;
           color: #fff;
         }
+        /* Énfasis moderno: dorado sin itálica (pedido del cliente — nada
+           de cursivas decorativas) */
         .tray-lede em {
-          font-style: italic;
-          font-weight: 300;
+          font-style: normal;
+          font-weight: 400;
           color: var(--gold-soft);
         }
         @media (max-width: 760px) {
           .site .tray-word { white-space: normal; text-align: center; width: 100%; }
-          /* Cinta mobile: panel 80vh con inset 26% → visible ±19.2vh */
-          .tray-word-1 { top: calc(50% - 16vh); }
-          .tray-word-2 { top: calc(50% + 5vh); }
-          .tray-panel { height: 80vh; }
+          /* Cinta mobile: panel 80dvh con inset 26% → visible ±19.2dvh */
+          .tray-word-1 { top: calc(50% - 16dvh); }
+          .tray-word-2 { top: calc(50% + 5dvh); }
+          .tray-panel { height: 80dvh; }
         }
       `}</style>
     </div>

@@ -1,6 +1,7 @@
 import { HeroInstitucional } from "@/components/institucional/HeroInstitucional";
 import { TrayectoriaScene } from "@/components/institucional/TrayectoriaScene";
-import { PlazasStack } from "@/components/institucional/PlazasStack";
+import { MercadosGlobal } from "@/components/institucional/MercadosGlobal";
+import { EquipoHome } from "@/components/institucional/EquipoHome";
 import { Industrias } from "@/components/institucional/Industrias";
 import { ReportPreviewMini } from "@/components/institucional/ReportPreviewMini";
 import { Reveal } from "@/components/motion";
@@ -14,7 +15,7 @@ const PILARES: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Globe />, title: "Una mirada global", body: "Locales con foco global. Invertimos en el mundo desde Uruguay, con acceso al mercado local y al internacional." },
   { icon: <Scales />, title: "Regulación", body: "Operamos como compañía regulada por el Banco Central del Uruguay y como miembros activos de la Bolsa de Valores de Montevideo." },
   { icon: <Lock />, title: "Seguridad", body: "Cuentas segregadas a nombre del cliente. El inversor es el propietario legal de los activos en su cuenta, separados del patrimonio de la firma." },
-  { icon: <Waveform />, title: "Escucha activa", body: "Te escuchamos antes de hablar. Proponemos una cartera individual alineada a los objetivos y restricciones de cada inversor." },
+  { icon: <Waveform />, title: "Escucha activa", body: "Te escuchamos antes de hablar. Entender qué buscás —y qué preferís evitar— viene antes que cualquier propuesta." },
   { icon: <Compass />, title: "Dedicación", body: "Explicamos el funcionamiento del mercado y de cada activo en el que invertís, y por qué creemos que debe formar parte de tu cartera." },
 ];
 
@@ -23,13 +24,6 @@ const PROCESO: [string, string, string][] = [
   ["02", "Propuesta a medida", "Diseñamos una cartera individual alineada a tu perfil."],
   ["03", "Ejecución directa", "Operamos las plazas locales e internacionales por vos."],
   ["04", "Seguimiento", "Explicamos cada activo y acompañamos la evolución de tu cartera."],
-];
-
-const ECOSISTEMA: [string, string, string][] = [
-  ["Mercado local", "Bonos globales uruguayos, Notas en UI, fideicomisos, LRM y obligaciones negociables.", "/servicios#local"],
-  ["Mercado internacional", "Renta fija soberana y corporativa, acciones, fondos y derivados globales.", "/servicios#internacional"],
-  ["Proceso de inversión", "Una cartera individual, construida con escucha activa y asesoramiento de la casa.", "/servicios#proceso"],
-  ["Análisis de acciones", "Equity research a pedido: veredicto, KPIs y consenso en segundos.", "/analisis"],
 ];
 
 export default function HomePage() {
@@ -70,45 +64,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Ecosistema — split con lista de filas */}
-      <section className="band site-section">
-        <div className="site-wrap">
-          <div className="split">
-            <Reveal>
-              <div className="eyebrow-sm">Ecosistema</div>
-              <SplitText
-                text="Accedé a nuestro amplio ecosistema de inversiones."
-                as="h2"
-                className="t-h2"
-                style={{ marginTop: 16 }}
-              />
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "32em" }}>
-                Operativa local con la plaza uruguaya e internacional con el resto del mundo. Una sola mesa para ambas.
-              </p>
-              <Link href="/servicios" className="link-arrow" style={{ marginTop: 28 }}>
-                Ver el ecosistema completo <ArrowRight />
-              </Link>
-            </Reveal>
+      {/* Mercados — editorial sin pin: mapa mundial + los dos accesos de la mesa */}
+      <MercadosGlobal />
 
-            <div className="ui-list">
-              {ECOSISTEMA.map(([title, desc, href]) => (
-                <ClipReveal key={title} from="left">
-                  <Link href={href} className="ui-list-row">
-                    <span>
-                      <span className="row-title">{title}</span>
-                      <span className="row-desc" style={{ display: "block" }}>{desc}</span>
-                    </span>
-                    <span className="link-arrow" style={{ pointerEvents: "none" }}><ArrowRight /></span>
-                  </Link>
-                </ClipReveal>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Industrias — sectores invertibles con video */}
+      <Industrias />
 
       {/* Proceso — cómo trabajamos */}
-      <section className="band-muted site-section">
+      <section className="band site-section">
         <div className="site-wrap">
           <Reveal>
             <div className="eyebrow-sm">Cómo trabajamos</div>
@@ -141,14 +104,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Mercados — stack pinned: los instrumentos reales aparecen uno a uno */}
-      <PlazasStack />
+      {/* La casa — el momento humano: los cinco socios con foto real */}
+      <EquipoHome />
 
-      {/* Industrias — sectores invertibles con video */}
-      <Industrias />
-
-      {/* Análisis — split con media */}
-      <section className="band-muted site-section">
+      {/* Análisis — split con media: la "prueba interactiva", última parada
+          antes de los CTAs del footer */}
+      <section className="band site-section">
         <div className="site-wrap">
           <div className="split">
             <Reveal>

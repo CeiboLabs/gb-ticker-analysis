@@ -225,7 +225,9 @@ export function PinnedSection({
         style={{
           position: "sticky",
           top: 0,
-          height: "100vh",
+          // dvh: en mobile el 100vh clásico desborda el viewport visible
+          // cuando la barra de dirección está presente y recorta el pin.
+          height: "100dvh",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
