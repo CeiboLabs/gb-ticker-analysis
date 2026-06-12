@@ -40,13 +40,39 @@ const g = globalThis as Record<string, unknown>;
 if (!g.__tickerCache) g.__tickerCache = new Map<string, CacheEntry>();
 const memCache = g.__tickerCache as Map<string, CacheEntry>;
 
+// Gate for what we're willing to serve from the shared 24h cache. The earlier
+// version only checked that a handful of report keys *existed* (`"x" in report`),
+// which passed for entries with a null/empty verdict, missing price targets, or
+// no stockData at all — any of those then gets served to every user in the
+// datacenter for 24h, and a missing stockData breaks the isAnalysisStale() call
+// in the analyze route. Writes only ever come from our own pipeline (not user
+// input), so this is a robustness gate, not an injection defense — but a partial
+// report is still a broken report. Require the fields the UI and route actually
+// depend on to be present AND non-empty.
+function isNonEmptyString(v: unknown): boolean {
+  return typeof v === "string" && v.length > 0;
+}
 function isValidEntry(entry: unknown): entry is CacheEntry {
   if (!entry || typeof entry !== "object") return false;
   const e = entry as Record<string, unknown>;
   const report = e.report as Record<string, unknown> | undefined;
+  const stockData = e.stockData as Record<string, unknown> | undefined;
+  if (!report || !stockData) return false;
+
+  // Verdict must be a populated object — a null/empty verdict renders a blank
+  // recommendation card.
+  const verdict = report.verdict as Record<string, unknown> | undefined;
+  if (!verdict || isNonEmptyString(verdict.rating) === false) return false;
+
+  // Bull/bear cases must carry a price target — the report's headline numbers.
+  const bull = report.bullCase as Record<string, unknown> | undefined;
+  const bear = report.bearCase as Record<string, unknown> | undefined;
+  if (!bull || !bear) return false;
+  if (bull.priceTarget == null || bear.priceTarget == null) return false;
+
+  // Narrative sections the schema guarantees — presence is enough here (they're
+  // validated as strings before caching in the analyze route).
   return (
-    !!report &&
-    typeof report.bullCase === "object" && report.bullCase !== null &&
     "recentEarnings" in report &&
     "riskFactors" in report &&
     "catalysts" in report &&

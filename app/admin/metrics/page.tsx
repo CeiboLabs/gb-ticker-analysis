@@ -262,6 +262,21 @@ function fmtTs(ts: number): string {
   return new Date(ts).toLocaleString("es-UY", { timeZone: "America/Montevideo" });
 }
 
+// Only treat http(s) URLs as clickable. The snapshot's filingIndexUrl is derived
+// from external SEC data; rendering it as an <a href> without checking the scheme
+// would make a javascript:/data: URL a clickable XSS against the admin (whose
+// token lives in sessionStorage). Today the parser only emits sec.gov https URLs,
+// but this keeps the sink safe regardless of what upstream ever feeds in.
+function isSafeHttpUrl(u: string | null | undefined): boolean {
+  if (!u) return false;
+  try {
+    const p = new URL(u);
+    return p.protocol === "http:" || p.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function statusCount(rows: StatusRow[], status: string): number {
   return rows.find((r) => r.status === status)?.n ?? 0;
 }
@@ -1054,14 +1069,20 @@ function SnapshotView({ snap }: { snap: EventSnapshot }) {
         {snap.filingIndexUrl && (
           <p>
             <span className="text-xs text-[#03065E]/60">Source URL:</span>{" "}
-            <a
-              href={snap.filingIndexUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="font-mono text-[#03065E] underline break-all"
-            >
-              {snap.filingIndexUrl}
-            </a>
+            {isSafeHttpUrl(snap.filingIndexUrl) ? (
+              <a
+                href={snap.filingIndexUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-[#03065E] underline break-all"
+              >
+                {snap.filingIndexUrl}
+              </a>
+            ) : (
+              // Non-http(s) scheme (javascript:/data:/…) — show as inert text,
+              // never as a clickable link.
+              <span className="font-mono text-[#03065E]/70 break-all">{snap.filingIndexUrl}</span>
+            )}
           </p>
         )}
       </div>

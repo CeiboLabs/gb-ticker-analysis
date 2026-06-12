@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchChartRange, type ChartRange } from "@/lib/fetchChartRange";
 import { normalizeTicker } from "@/lib/validators";
-import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
+import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 
 export const runtime = "edge";
 
@@ -18,7 +18,7 @@ const CACHE_SECONDS: Record<ChartRange, number> = {
 };
 
 export async function GET(req: NextRequest) {
-  const gate = checkPublicGetLimit("chart-range", clientIpFrom(req), PUBLIC_LIMIT_DEFAULT);
+  const gate = checkPublicGetLimit("chart-range", trustedClientIp(req), PUBLIC_LIMIT_DEFAULT);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },

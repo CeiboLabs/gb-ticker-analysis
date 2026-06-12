@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminFailedAuthLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { checkAdminFailedAuthLimit, trustedClientIp } from "@/lib/rateLimiter";
 
 // Constant-time string compare that works in the edge runtime (no node:crypto).
 // Returns false on any length mismatch but still iterates over `a` so the wall
@@ -36,7 +36,7 @@ export async function requireAdminToken(req: NextRequest): Promise<NextResponse 
   // isolate recycling, no allowlist bypass). Once exhausted, even a request
   // with a valid token (above) still gets in; only attackers guessing tokens
   // hit this branch.
-  const gate = await checkAdminFailedAuthLimit(clientIpFrom(req), ADMIN_HOURLY_MAX);
+  const gate = await checkAdminFailedAuthLimit(trustedClientIp(req), ADMIN_HOURLY_MAX);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },

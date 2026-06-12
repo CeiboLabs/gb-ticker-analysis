@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { yahooFinance } from "@/lib/fetchStockData";
 import { getTopTickers } from "@/lib/tickerStats";
-import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
+import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 import { reportError } from "@/lib/errorReporter";
 
 export const runtime = "edge";
@@ -11,7 +11,7 @@ const DEFAULT_LIMIT = 8;
 const LOOKBACK_DAYS = 7;
 
 export async function GET(req: NextRequest) {
-  const gate = checkPublicGetLimit("popular", clientIpFrom(req), PUBLIC_LIMIT_DEFAULT);
+  const gate = checkPublicGetLimit("popular", trustedClientIp(req), PUBLIC_LIMIT_DEFAULT);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },
