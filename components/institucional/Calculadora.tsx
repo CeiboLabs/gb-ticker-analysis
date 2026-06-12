@@ -10,9 +10,14 @@ function formatUSD(n: number): string {
 function AnimatedValue({
   value,
   format,
+  fit,
 }: {
   value: number;
   format: (n: number) => string;
+  // Tamaño máximo en px. Si está definido, la cifra se renderiza en una sola
+  // línea: el font-size cede según el largo del texto y el ancho de la celda
+  // (cqw — la celda es un container), en lugar de romper de línea.
+  fit?: number;
 }) {
   const [display, setDisplay] = useState(value);
   const prev = useRef(value);
@@ -36,11 +41,20 @@ function AnimatedValue({
     requestAnimationFrame(tick);
   }, [value]);
 
-  return <>{format(display)}</>;
+  const text = format(display);
+  if (!fit) return <>{text}</>;
+  // ~0,6em por carácter con ~92cqw útiles ⇒ 145/len cqw como techo fluido.
+  const cap = (145 / Math.max(text.length, 1)).toFixed(1);
+  return (
+    <span style={{ whiteSpace: "nowrap", fontSize: `min(${fit}px, ${cap}cqw)` }}>
+      {text}
+    </span>
+  );
 }
 
 interface SliderProps {
   label: string;
+  labelExtra?: React.ReactNode;
   value: number;
   displayValue: string;
   min: number;
@@ -53,6 +67,7 @@ interface SliderProps {
 
 function Slider({
   label,
+  labelExtra,
   value,
   displayValue,
   min,
@@ -67,7 +82,10 @@ function Slider({
   return (
     <div className="calc-slider">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-        <label className="ui-label" style={{ marginBottom: 0 }}>{label}</label>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+          <label className="ui-label" style={{ marginBottom: 0 }}>{label}</label>
+          {labelExtra}
+        </span>
         <span style={{ fontSize: 20, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--site-ink)" }}>
           {displayValue}
         </span>
@@ -135,25 +153,46 @@ interface YearData {
   gains: number;
 }
 
-export function Calculadora() {
-  const [initial, setInitial] = useState(200000);
-  const [monthly, setMonthly] = useState(500);
-  const [rate, setRate] = useState(8);
-  const [years, setYears] = useState(25);
+// Núcleo del simulador (cifras + sliders + gráfico + hitos), sin header ni
+// site-wrap: lo embebe la página /calculadora con su propio encabezado y la
+// página del fondo dentro de su sección #calculadora, cada una con los
+// defaults que le hacen sentido a su audiencia.
+export function CalculadoraSim({
+  defaults = {},
+  rateLocked = false,
+}: {
+  defaults?: Partial<{ initial: number; monthly: number; rate: number; years: number }>;
+  // Con rateLocked el retorno anual no es editable: se muestra como dato fijo
+  // (la página del fondo lo fija en el promedio anualizado del fondo).
+  rateLocked?: boolean;
+}) {
+  const [initial, setInitial] = useState(defaults.initial ?? 200000);
+  const [aporte, setAporte] = useState(defaults.monthly ?? 500);
+  const [freq, setFreq] = useState<"mensual" | "anual">("mensual");
+  const [rate, setRate] = useState(defaults.rate ?? 8);
+  const [years, setYears] = useState(defaults.years ?? 25);
+
+  // Al cambiar la frecuencia se convierte el monto (×12 / ÷12) para que la
+  // simulación siga representando el mismo flujo de aportes.
+  function changeFreq(f: "mensual" | "anual") {
+    if (f === freq) return;
+    setFreq(f);
+    setAporte(f === "anual" ? aporte * 12 : Math.round(aporte / 12 / 100) * 100);
+  }
 
   const data = useMemo<YearData[]>(() => {
-    const result: YearData[] = [];
+    // Simulación mes a mes: el aporte mensual se acredita al cierre de cada
+    // mes; el anual, al cierre de cada año.
+    const result: YearData[] = [{ year: 0, invested: initial, total: Math.round(initial), gains: 0 }];
     const monthlyRate = rate / 100 / 12;
+    let total = initial;
 
-    for (let y = 0; y <= years; y++) {
-      const months = y * 12;
-      let total = initial * Math.pow(1 + monthlyRate, months);
-      if (monthlyRate > 0) {
-        total += monthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
-      } else {
-        total += monthly * months;
+    for (let y = 1; y <= years; y++) {
+      for (let m = 0; m < 12; m++) {
+        total = total * (1 + monthlyRate) + (freq === "mensual" ? aporte : 0);
       }
-      const invested = initial + monthly * months;
+      if (freq === "anual") total += aporte;
+      const invested = initial + aporte * (freq === "mensual" ? y * 12 : y);
       result.push({
         year: y,
         invested,
@@ -162,7 +201,7 @@ export function Calculadora() {
       });
     }
     return result;
-  }, [initial, monthly, rate, years]);
+  }, [initial, aporte, freq, rate, years]);
 
   const final = data[data.length - 1];
   const maxTotal = final.total;
@@ -171,19 +210,9 @@ export function Calculadora() {
   const hitos = [5, 10, 15, 20, years].filter((y, i, arr) => y <= years && arr.indexOf(y) === i);
 
   return (
-    <div className="site site-wrap">
-      <div className="split-label">
-        <div className="eyebrow-sm">Proyección</div>
-        <div>
-          <h2 className="t-h2" style={{ maxWidth: "14em" }}>El interés compuesto, paso a paso.</h2>
-          <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-            Configurá monto inicial, aporte mensual, tasa esperada y horizonte. Las cifras son indicativas y asumen rendimiento constante.
-          </p>
-        </div>
-      </div>
-
+    <div>
       {/* Cifras destacadas — hairline grid */}
-      <div className="calc-figures" style={{ marginTop: 56 }}>
+      <div className="calc-figures">
         {[
           ["Valor final", final.total, formatUSD, "gold"] as const,
           ["Ganancia compuesta", final.gains, formatUSD, "pos"] as const,
@@ -196,7 +225,7 @@ export function Calculadora() {
             <div key={cap} className="calc-figure">
               <div className="eyebrow-sm" style={{ marginBottom: 12 }}>{cap}</div>
               <div className="calc-figure-value" style={{ fontWeight: 400, fontSize: 40, letterSpacing: "-0.025em", color }}>
-                <AnimatedValue value={value} format={format} />
+                <AnimatedValue value={value} format={format} fit={40} />
               </div>
             </div>
           );
@@ -220,27 +249,50 @@ export function Calculadora() {
             onChange={setInitial}
           />
           <Slider
-            label="Aporte mensual"
-            value={monthly}
-            displayValue={formatUSD(monthly)}
+            label="Aporte"
+            labelExtra={
+              <span className="calc-freq" role="tablist" aria-label="Frecuencia del aporte">
+                {(["mensual", "anual"] as const).map((f) => (
+                  <button
+                    key={f} type="button" role="tab" aria-selected={freq === f}
+                    data-active={freq === f ? "1" : "0"} onClick={() => changeFreq(f)}
+                  >
+                    {f === "mensual" ? "Mensual" : "Anual"}
+                  </button>
+                ))}
+              </span>
+            }
+            value={aporte}
+            displayValue={formatUSD(aporte)}
             min={0}
-            max={10000}
-            step={100}
+            max={freq === "mensual" ? 10000 : 120000}
+            step={freq === "mensual" ? 100 : 1200}
             minLabel="USD 0"
-            maxLabel="USD 10 K"
-            onChange={setMonthly}
+            maxLabel={freq === "mensual" ? "USD 10 K" : "USD 120 K"}
+            onChange={setAporte}
           />
-          <Slider
-            label="Retorno anual esperado"
-            value={rate}
-            displayValue={`${rate} %`}
-            min={1}
-            max={20}
-            step={0.5}
-            minLabel="1 %"
-            maxLabel="20 %"
-            onChange={setRate}
-          />
+          {rateLocked ? (
+            <div className="calc-slider">
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                <label className="ui-label" style={{ marginBottom: 0 }}>Retorno anual</label>
+                <span style={{ fontSize: 20, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--site-ink)" }}>
+                  {rate.toLocaleString("es-UY", { maximumFractionDigits: 2 })} %
+                </span>
+              </div>
+            </div>
+          ) : (
+            <Slider
+              label="Retorno anual esperado"
+              value={rate}
+              displayValue={`${rate} %`}
+              min={1}
+              max={20}
+              step={0.5}
+              minLabel="1 %"
+              maxLabel="20 %"
+              onChange={setRate}
+            />
+          )}
           <Slider
             label="Horizonte temporal"
             value={years}
@@ -403,11 +455,23 @@ export function Calculadora() {
           padding: 28px 28px 28px 0;
           border-left: 1px solid var(--site-border);
           padding-left: 28px;
+          container-type: inline-size;
         }
         .calc-figure:first-child { border-left: 0; padding-left: 0; }
         .calc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: clamp(32px, 6vw, 72px); align-items: start; }
         .calc-panel { min-width: 0; }
         .calc-slider { padding: 16px 0; border-bottom: 1px solid var(--site-border); }
+        .calc-freq {
+          display: inline-flex; gap: 2px; padding: 2px;
+          background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
+        }
+        .calc-freq button {
+          border: 0; background: none; cursor: pointer;
+          font-size: 11.5px; font-weight: 600; color: var(--site-ink-3);
+          padding: 3px 10px; border-radius: 999px; transition: background 160ms ease, color 160ms ease;
+        }
+        .calc-freq button[data-active="1"] { background: var(--navy); color: #fff; }
+        .calc-freq button:not([data-active="1"]):hover { color: var(--navy); }
         .calc-slider:last-child { border-bottom: 0; padding-bottom: 0; }
         .calc-table { width: 100%; border-collapse: collapse; min-width: 460px; }
         .calc-table th {
@@ -428,9 +492,42 @@ export function Calculadora() {
         @media (max-width: 540px) {
           .calc-figures { grid-template-columns: 1fr; }
           .calc-figure, .calc-figure:nth-child(3) { border-left: 0; padding-left: 0; }
-          .calc-figure-value { font-size: 32px !important; }
+        }
+        /* En teléfonos angostos las 4 columnas de hitos no caben con el ancho
+           base (min-width 460): la columna Valor total quedaba fuera de pantalla.
+           Compactamos tipografía y padding y soltamos el min-width para que la
+           tabla entre completa sin scroll horizontal. */
+        @media (max-width: 520px) {
+          .calc-table { min-width: 0; table-layout: fixed; }
+          .calc-table th {
+            font-size: 9.5px; letter-spacing: 0.02em; padding: 12px 8px 12px 0;
+          }
+          .calc-table th:first-child { width: 2.5em; }
+          .calc-table td {
+            font-size: 12.5px; padding: 14px 8px 14px 0;
+            font-variant-numeric: tabular-nums; white-space: nowrap;
+          }
         }
       `}</style>
+    </div>
+  );
+}
+
+export function Calculadora() {
+  return (
+    <div className="site site-wrap">
+      <div className="split-label">
+        <div className="eyebrow-sm">Proyección</div>
+        <div>
+          <h2 className="t-h2" style={{ maxWidth: "14em" }}>El interés compuesto, paso a paso.</h2>
+          <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+            Configurá monto inicial, aporte periódico, tasa esperada y horizonte. Las cifras son indicativas y asumen rendimiento constante.
+          </p>
+        </div>
+      </div>
+      <div style={{ marginTop: 56 }}>
+        <CalculadoraSim />
+      </div>
     </div>
   );
 }

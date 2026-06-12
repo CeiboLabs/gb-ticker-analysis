@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TickerSearch } from "@/components/TickerSearch";
+import { AnalisisHero } from "@/components/institucional/AnalisisHero";
 import { Verdict, BarChart, LineChart, Flow, Poll, FileDown } from "@/components/institucional/icons";
 
 const FEATURES: { icon: ReactNode; title: string; body: string }[] = [
@@ -35,35 +36,9 @@ export default function AnalisisPage() {
 
   return (
     <main className="site">
-      {/* Hero split — contenido (con buscador) + imagen */}
-      <div className="hero-split">
-        <div className="hero-copy">
-          <div className="kicker" style={{ color: "var(--gold-soft)" }}>
-            Herramienta · Análisis de acciones
-          </div>
-
-          <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
-            Equity research, en segundos.
-          </h1>
-
-          <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
-            Cargá un ticker y obtené un reporte con veredicto, doce KPIs, Sankey del estado de resultados
-            y consenso de Wall Street. Mismo rigor que un research sell-side, en lenguaje propio.
-          </p>
-
-          <div style={{ marginTop: 36 }}>
-            <TickerSearch variant="hero" onSubmit={handleSearch} />
-          </div>
-
-          <p className="t-small" style={{ marginTop: 16, color: "rgba(255,255,255,0.7)" }}>
-            Probá con AAPL · TSLA · MELI · KO
-          </p>
-        </div>
-        <div className="hero-figure">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero/analisis.jpg" alt="Tablero de cotizaciones del mercado" />
-        </div>
-      </div>
+      {/* Hero pinneado — la preview del reporte emerge desde abajo al
+          scrollear, estilo "plataforma que se despliega" */}
+      <AnalisisHero onSearch={handleSearch} />
 
       {/* Funcionalidades — split (intro a la izquierda, lista de filas a la derecha) */}
       <section className="band site-section">

@@ -7,16 +7,16 @@ import {
   Scales, Layers, Globe, Building, TrendingUp, FileDown, ArrowRight,
 } from "@/components/institucional/icons";
 import { FondoHero } from "@/components/institucional/FondoHero";
-import { FondoFactsheet } from "@/components/institucional/FondoFactsheet";
+import { FondoNav } from "@/components/institucional/FondoNav";
 import { FondoPerformance } from "@/components/institucional/FondoPerformance";
-import { FondoRiesgo } from "@/components/institucional/FondoRiesgo";
+import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FONDO } from "@/lib/fondo";
 
 export const metadata: Metadata = {
   title: "BNG Selección Global · Bengochea & Cía.",
   description:
-    "BNG Selección Global: fondo de fondos balanceado, con exposición a renta variable y fija a nivel global, domiciliado en Uruguay. Ficha técnica, estrategia, performance y documentos.",
+    "BNG Selección Global: fondo de fondos balanceado, con exposición a renta variable y fija a nivel global, domiciliado en Uruguay. Estrategia, performance y documentos.",
 };
 
 const Check = () => (
@@ -49,65 +49,33 @@ const DOCUMENTOS: { titulo: string; desc: string }[] = [
 export default function FondoPage() {
   return (
     <main className="site fondo-page">
-      {/* ── Header propio del fondo (navy, data-forward; NO el hero-split común) ── */}
+      {/* ── Header data-rich: claim editorial + cotización viva ───────── */}
       <FondoHero />
 
-      {/* ── Resumen: objetivo + ficha sticky (snapshot vivo) ──────────── */}
+      {/* ── Nav interna sticky con anclas (patrón Vontobel/SSGA) ──────── */}
+      <FondoNav />
+
+      {/* ── Resumen: estrategia + características ─────────────────────── */}
       <section id="resumen" className="band site-section">
         <div className="site-wrap">
-          <div className="resumen-grid">
-            <div className="resumen-main">
-              <Reveal as="div">
-                <div className="eyebrow-sm">Objetivo de inversión</div>
-                <h2 className="t-h2" style={{ marginTop: 16, maxWidth: "15em" }}>
-                  Una cartera global y balanceada, en un solo vehículo.
-                </h2>
-                <p className="t-lead" style={{ marginTop: 22, maxWidth: "34em" }}>{FONDO.objetivo}</p>
-              </Reveal>
-              <Reveal as="div" style={{ marginTop: 40 }}>
-                <div className="eyebrow-sm">Características principales</div>
-                <ul className="resumen-feats">
-                  {CARACTERISTICAS.map((c) => (
-                    <li key={c}>
-                      <span className="resumen-check" aria-hidden><Check /></span>
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Reveal>
-            </div>
-            <div className="resumen-aside">
-              <div className="resumen-sticky"><FondoFactsheet /></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* La escena-firma del cuadrado ahora vive en el header (FondoHero):
-          se ensambla con el scroll del hero. */}
-
-      {/* ── Ficha técnica densa (el bloque "más técnico") ─────────────── */}
-      <section id="ficha-tecnica" className="band site-section">
-        <div className="site-wrap">
           <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Ficha técnica</div>
+            <div className="eyebrow-sm">Estrategia de inversión</div>
             <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Los datos del producto.</h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Las características del fondo, de un vistazo. El valor cuota y los activos bajo
-                manejo se actualizan a diario en la ficha de arriba.
-              </p>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>
+                Una cartera global y balanceada, en un solo vehículo.
+              </h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>{FONDO.objetivo}</p>
             </div>
           </Reveal>
-          <Reveal as="div" className="ficha-tecnica">
-            <dl className="ficha-grid">
-              {FONDO.fichaTecnica.map(([k, v]) => (
-                <div key={k} className="ficha-row">
-                  <dt>{k}</dt>
-                  <dd>{v}</dd>
-                </div>
+          <Reveal as="div" style={{ marginTop: 44 }}>
+            <ul className="resumen-feats">
+              {CARACTERISTICAS.map((c) => (
+                <li key={c}>
+                  <span className="resumen-check" aria-hidden><Check /></span>
+                  <span>{c}</span>
+                </li>
               ))}
-            </dl>
+            </ul>
           </Reveal>
         </div>
       </section>
@@ -118,9 +86,10 @@ export default function FondoPage() {
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Cómo invierte</div>
             <div>
-              <SplitText text="La lógica del fondo, en cuatro ideas." as="h2" className="t-h2" style={{ maxWidth: "16em" }} />
+              <SplitText text="Muchos fondos. Una sola cartera." as="h2" className="t-h2" style={{ maxWidth: "16em" }} />
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                El detalle de la estrategia se conversa con un asesor de la casa.
+                El fondo selecciona y combina fondos de managers especializados: piezas distintas
+                que encajan en una única cartera diversificada y global.
               </p>
             </div>
           </Reveal>
@@ -145,7 +114,8 @@ export default function FondoPage() {
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>El estado del fondo, al día.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Valor cuota, rendimientos acumulados y por año calendario, con actualización diaria.
+                Valor cuota, rendimientos acumulados, por año calendario y estadísticas de la serie,
+                con actualización diaria.
               </p>
             </div>
           </Reveal>
@@ -153,8 +123,29 @@ export default function FondoPage() {
         </div>
       </section>
 
+      {/* ── Calculadora de inversión ──────────────────────────────── */}
+      <section id="calculadora" className="band-muted site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Calculadora</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Proyectá una inversión en el tiempo.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Configurá monto inicial, aporte periódico y horizonte para ver el efecto del
+                interés compuesto, aplicando el retorno promedio del fondo desde su inicio.
+                Las cifras son indicativas y asumen rendimiento constante — no una promesa
+                del fondo.
+              </p>
+            </div>
+          </Reveal>
+          <div style={{ marginTop: 48 }}>
+            <FondoCalculadora />
+          </div>
+        </div>
+      </section>
+
       {/* ── Cartera · estructura (cualitativa, sin cifras inventadas) ── */}
-      <section id="cartera" className="band-muted site-section">
+      <section id="cartera" className="band site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Cartera</div>
@@ -180,23 +171,6 @@ export default function FondoPage() {
             ))}
           </div>
           <p className="cartera-nota">{FONDO.cartera.nota}</p>
-        </div>
-      </section>
-
-      {/* ── Riesgo ────────────────────────────────────────────────── */}
-      <section id="riesgo" className="band site-section">
-        <div className="site-wrap">
-          <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Perfil de riesgo</div>
-            <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Cuánto riesgo implica.</h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Toda inversión conlleva riesgo. Un fondo balanceado se ubica en una zona intermedia entre
-                la renta fija conservadora y la renta variable pura.
-              </p>
-            </div>
-          </Reveal>
-          <div style={{ marginTop: 48, maxWidth: 720 }}><FondoRiesgo /></div>
         </div>
       </section>
 
@@ -255,7 +229,7 @@ export default function FondoPage() {
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────────────── */}
-      <section className="band-muted site-section">
+      <section id="faq" className="band-muted site-section">
         <div className="site-wrap">
           <div className="split-label">
             <div className="eyebrow-sm">Preguntas frecuentes</div>
@@ -270,7 +244,7 @@ export default function FondoPage() {
         </div>
       </section>
 
-      {/* ── CTA (único momento navy) ──────────────────────────────── */}
+      {/* ── CTA (único momento navy tras el hero) ─────────────────── */}
       <section className="band-navy site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
@@ -304,37 +278,23 @@ export default function FondoPage() {
       </section>
 
       <style>{`
+        /* Anclas de la nav interna: el tope de cada sección queda por debajo
+           del navbar fijo + la barra sticky del fondo. */
+        .fondo-page section[id] { scroll-margin-top: calc(var(--nav-h) + 56px); }
+
         /* ── Resumen ── */
-        .resumen-grid {
-          display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
-          gap: clamp(32px, 5vw, 72px); align-items: start;
+        .resumen-feats {
+          list-style: none; margin: 0; padding: 0;
+          display: grid; grid-template-columns: 1fr 1fr; gap: 0 clamp(32px, 5vw, 72px);
+          border-top: 1px solid var(--site-border);
         }
-        .resumen-feats { list-style: none; margin: 24px 0 0; padding: 0; display: flex; flex-direction: column; }
         .resumen-feats li {
           display: flex; gap: 14px; align-items: flex-start; padding: 18px 0;
           border-bottom: 1px solid var(--site-border); font-size: 17px; line-height: 1.5; color: var(--site-ink-2);
         }
-        .resumen-feats li:last-child { border-bottom: 0; }
         .resumen-check {
           flex: none; width: 28px; height: 28px; border-radius: 999px; display: inline-flex;
           align-items: center; justify-content: center; background: rgba(176,141,87,0.14); color: var(--gold-deep);
-        }
-        .resumen-sticky { position: sticky; top: calc(var(--nav-h) + 24px); }
-
-        /* ── Ficha técnica densa ── */
-        .ficha-tecnica { margin-top: 48px; }
-        .ficha-grid {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 0 clamp(40px, 6vw, 96px);
-          margin: 0; border-top: 1px solid var(--site-border);
-        }
-        .ficha-row {
-          display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
-          padding: 17px 0; border-bottom: 1px solid var(--site-border);
-        }
-        .ficha-row dt { font-size: 14px; color: var(--site-ink-3); flex: none; }
-        .ficha-row dd {
-          font-size: 15px; font-weight: 500; color: var(--site-ink); margin: 0; text-align: right;
-          font-variant-numeric: tabular-nums;
         }
 
         /* ── Estrategia grid ── */
@@ -384,12 +344,8 @@ export default function FondoPage() {
           padding-top: 24px; border-top: 1px solid var(--site-border);
         }
 
-        @media (max-width: 920px) {
-          .resumen-grid { grid-template-columns: 1fr; }
-          .resumen-sticky { position: static; }
-        }
         @media (max-width: 760px) {
-          .ficha-grid { grid-template-columns: 1fr; }
+          .resumen-feats { grid-template-columns: 1fr; }
           .estrategia-grid { grid-template-columns: 1fr; }
           .estrategia-cell, .estrategia-cell:nth-child(2n) {
             padding: 28px 0; border-right: 0; padding-left: 0; padding-right: 0;

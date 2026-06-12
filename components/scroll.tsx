@@ -76,6 +76,12 @@ type SplitTextProps = {
   stagger?: number;
   delay?: number;
   /**
+   * Las palabras entran desenfocadas y se enfocan al llegar (blur-reveal).
+   * Reemplaza el rise enmascarado por un rise corto sin máscara: el blur
+   * sangra fuera del box de la palabra y el overflow:hidden lo recortaría.
+   */
+  blur?: boolean;
+  /**
    * Solo mode="scrub": progress externo (p.ej. el de una PinnedSection,
    * donde el elemento queda clavado y su propio scroll no avanza) y la
    * ventana [start, end] de ese progress en la que ocurre el reveal.
@@ -92,6 +98,7 @@ export function SplitText({
   style,
   stagger = 0.07,
   delay = 0,
+  blur = false,
   progress,
   window: win = [0, 1],
 }: SplitTextProps) {
@@ -125,12 +132,24 @@ export function SplitText({
     >
       {words.map((word, i) => (
         <Fragment key={i}>
-          <span aria-hidden className="st-mask">
+          <span
+            aria-hidden
+            className="st-mask"
+            style={blur ? { overflow: "visible" } : undefined}
+          >
             {mode === "enter" ? (
               <motion.span
                 className="st-word"
-                initial={{ y: "112%" }}
-                animate={{ y: "0%" }}
+                initial={
+                  blur
+                    ? { y: "34%", opacity: 0, filter: "blur(10px)" }
+                    : { y: "112%" }
+                }
+                animate={
+                  blur
+                    ? { y: "0%", opacity: 1, filter: "blur(0px)" }
+                    : { y: "0%" }
+                }
                 transition={{ duration: 0.9, ease: EASE, delay: delay + i * stagger }}
               >
                 {word}
@@ -139,6 +158,7 @@ export function SplitText({
               <ScrubWord
                 word={word}
                 progress={driver}
+                blur={blur}
                 start={winStart + (i / words.length) * 0.65 * span}
                 end={winStart + ((i / words.length) * 0.65 + 0.35) * span}
               />
@@ -157,18 +177,25 @@ function ScrubWord({
   progress,
   start,
   end,
+  blur = false,
 }: {
   word: string;
   progress: MotionValue<number>;
   start: number;
   end: number;
+  blur?: boolean;
 }) {
-  const yw = scrollWindow(start, end, "112%", "0%");
+  const yw = scrollWindow(start, end, blur ? "34%" : "112%", "0%");
   const ow = scrollWindow(start, end, 0, 1);
+  const fw = scrollWindow(start, end, "blur(10px)", "blur(0px)");
   const y = useTransform(progress, yw.times, yw.values);
   const opacity = useTransform(progress, ow.times, ow.values);
+  const filter = useTransform(progress, fw.times, fw.values);
   return (
-    <motion.span className="st-word" style={{ y, opacity }}>
+    <motion.span
+      className="st-word"
+      style={blur ? { y, opacity, filter } : { y, opacity }}
+    >
       {word}
     </motion.span>
   );

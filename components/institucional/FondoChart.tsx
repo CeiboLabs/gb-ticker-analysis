@@ -74,7 +74,11 @@ function syncPinnedVisuals(
   });
 }
 
-export function FondoChart({ series }: { series: FundNavPoint[] }) {
+export function FondoChart({ series, formatValue = fmtNav }: {
+  series: FundNavPoint[];
+  /** Formato de los valores en eje, crosshair y puntos fijados (default: valor cuota). */
+  formatValue?: (n: number) => string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState<PinnedMarker[]>([]);
   const pinnedRef = useRef<PinnedMarker[]>([]);
@@ -114,7 +118,7 @@ export function FondoChart({ series }: { series: FundNavPoint[] }) {
         },
         localization: {
           locale: "es-UY",
-          priceFormatter: (p: number) => fmtNav(p),
+          priceFormatter: (p: number) => formatValue(p),
           timeFormatter: (time: import("lightweight-charts").Time) =>
             typeof time === "string" ? fmtFechaCorta(time) : String(time),
         },
@@ -167,7 +171,7 @@ export function FondoChart({ series }: { series: FundNavPoint[] }) {
         priceScaleId: "right",
         priceLineVisible: false,
         lastValueVisible: true,
-        priceFormat: { type: "custom", formatter: (p: number) => fmtNav(p), minMove: 0.0001 },
+        priceFormat: { type: "custom", formatter: (p: number) => formatValue(p), minMove: 0.0001 },
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
         crosshairMarkerBorderColor: PALETTE.paper,
@@ -223,7 +227,7 @@ export function FondoChart({ series }: { series: FundNavPoint[] }) {
       lineSeriesRef.current = null;
       priceLinesRef.current = [];
     };
-  }, [series]);
+  }, [series, formatValue]);
 
   // Repintar los marcadores fijados sin recrear el gráfico.
   useEffect(() => {
@@ -260,14 +264,14 @@ export function FondoChart({ series }: { series: FundNavPoint[] }) {
                 <span key={`${p.time}-${i}`} className="fondo-chart-pin">
                   <span className="fondo-chart-pin-dot" style={{ background: MARKER_COLORS[i] }} />
                   <span className="fondo-chart-pin-date">{fmtFechaCorta(p.time)}</span>
-                  <span className="fondo-chart-pin-nav">{fmtNav(p.nav)}</span>
+                  <span className="fondo-chart-pin-nav">{formatValue(p.nav)}</span>
                   {i < pinned.length - 1 && <span className="fondo-chart-pin-arrow">→</span>}
                 </span>
               ))}
               {diff && (
                 <span className="fondo-chart-diff" data-dir={diff.abs >= 0 ? "up" : "down"}>
                   <strong>{diff.pct >= 0 ? "+" : ""}{diff.pct.toFixed(2)}%</strong>
-                  <em>{diff.abs >= 0 ? "+" : ""}{fmtNav(diff.abs)}</em>
+                  <em>{diff.abs >= 0 ? "+" : ""}{formatValue(diff.abs)}</em>
                 </span>
               )}
             </div>

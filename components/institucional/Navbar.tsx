@@ -34,10 +34,10 @@ export function Navbar() {
 
   useEffect(() => {
     // El modo oscuro dura mientras el hero (oscuro) esté detrás de la barra:
-    // recién al pasarlo flipea a claro. Sin hero (p.ej. /analyze) → claro casi
-    // de entrada.
+    // recién al pasarlo flipea a claro. Sin hero que participe (p.ej. /analyze,
+    // o el fondo, que flipea apenas arranca el scroll) → claro casi de entrada.
     const heroBottom = () => {
-      const hero = document.querySelector(".hero-media, .hero-split, .dossier-hero, .fondo-hero");
+      const hero = document.querySelector(".hero-media, .hero-split, .dossier-hero");
       if (!hero) return 8;
       const navH = 72;
       return Math.max(hero.getBoundingClientRect().height - navH, 8);

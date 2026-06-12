@@ -78,6 +78,18 @@ export type PeriodReturn = {
 
 export type CalendarReturn = { year: number; pct: number };
 
+// Estadísticas derivadas de la serie NAV — nada se carga a mano: todo se
+// computa de los cierres diarios, así que cuando entre el feed real del
+// custodio estas cifras se corrigen solas.
+export type FundStats = {
+  vol1y: number | null;          // volatilidad anualizada (12 meses), en %
+  bestMonth: { ym: string; pct: number } | null;   // ym = 'YYYY-MM'
+  worstMonth: { ym: string; pct: number } | null;
+  maxDrawdown: number | null;    // caída máxima desde un pico, en % (negativo)
+  positiveMonths: number | null; // % de meses calendario con retorno positivo
+  annualizedSI: number | null;   // retorno anualizado desde el inicio (CAGR), en %
+};
+
 export type FundSnapshot = {
   // 'pre-launch' mientras no haya ninguna fila en fund_nav.
   status: "pre-launch" | "live";
@@ -92,6 +104,7 @@ export type FundSnapshot = {
   } | null;
   returns: PeriodReturn[];
   calendar: CalendarReturn[];
+  stats: FundStats;
   // Serie completa ordenada por fecha ascendente, para el gráfico.
   series: FundNavPoint[];
 };
@@ -104,12 +117,22 @@ const EMPTY_RETURNS: PeriodReturn[] = [
   { key: "SI", label: "Desde inicio", pct: null },
 ];
 
+const EMPTY_STATS: FundStats = {
+  vol1y: null,
+  bestMonth: null,
+  worstMonth: null,
+  maxDrawdown: null,
+  positiveMonths: null,
+  annualizedSI: null,
+};
+
 const EMPTY_SNAPSHOT: FundSnapshot = {
   status: "pre-launch",
   asOf: null,
   latest: null,
   returns: EMPTY_RETURNS,
   calendar: [],
+  stats: EMPTY_STATS,
   series: [],
 };
 
@@ -169,6 +192,64 @@ function computeCalendar(series: FundNavPoint[]): CalendarReturn[] {
   return out.reverse(); // más reciente primero
 }
 
+function computeStats(series: FundNavPoint[]): FundStats {
+  if (series.length < 2) return EMPTY_STATS;
+  const last = series[series.length - 1];
+
+  // Volatilidad anualizada: desvío de los retornos diarios de los últimos 12
+  // meses × √252. Exige una ventana mínima para no anualizar ruido.
+  let vol1y: number | null = null;
+  const win = series.filter((p) => p.dia >= isoMinusMonths(last.dia, 12));
+  if (win.length >= 60) {
+    const rets: number[] = [];
+    for (let i = 1; i < win.length; i++) {
+      if (win[i - 1].nav !== 0) rets.push(win[i].nav / win[i - 1].nav - 1);
+    }
+    const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1);
+    vol1y = Math.sqrt(variance) * Math.sqrt(252) * 100;
+  }
+
+  // Retornos por mes calendario: cierre de cada mes contra el cierre del mes
+  // anterior (serie ascendente ⇒ la última fila de cada mes queda en el Map).
+  // El mes en curso cuenta aunque esté parcial: es el dato a la fecha.
+  const closes = new Map<string, number>();
+  for (const p of series) closes.set(p.dia.slice(0, 7), p.nav);
+  const months = [...closes.keys()].sort();
+  const monthly: { ym: string; pct: number }[] = [];
+  for (let i = 1; i < months.length; i++) {
+    const base = closes.get(months[i - 1])!;
+    if (base !== 0) monthly.push({ ym: months[i], pct: (closes.get(months[i])! / base - 1) * 100 });
+  }
+  let bestMonth: FundStats["bestMonth"] = null;
+  let worstMonth: FundStats["worstMonth"] = null;
+  let positiveMonths: number | null = null;
+  if (monthly.length >= 3) {
+    bestMonth = monthly.reduce((a, b) => (b.pct > a.pct ? b : a));
+    worstMonth = monthly.reduce((a, b) => (b.pct < a.pct ? b : a));
+    positiveMonths = (monthly.filter((m) => m.pct > 0).length / monthly.length) * 100;
+  }
+
+  // Máximo drawdown sobre toda la historia: peor caída desde un pico previo.
+  let peak = series[0].nav;
+  let mdd = 0;
+  for (const p of series) {
+    if (p.nav > peak) peak = p.nav;
+    else if (peak > 0) mdd = Math.min(mdd, (p.nav / peak - 1) * 100);
+  }
+
+  // Retorno anualizado desde el inicio (CAGR). Sólo con ≥ 1 año de historia:
+  // anualizar una ventana corta amplifica el ruido.
+  let annualizedSI: number | null = null;
+  const first = series[0];
+  const days = (Date.parse(last.dia) - Date.parse(first.dia)) / 86400000;
+  if (days >= 365 && first.nav > 0) {
+    annualizedSI = (Math.pow(last.nav / first.nav, 365.25 / days) - 1) * 100;
+  }
+
+  return { vol1y, bestMonth, worstMonth, maxDrawdown: mdd === 0 ? null : mdd, positiveMonths, annualizedSI };
+}
+
 // Arma el snapshot completo (latest + rendimientos + calendario) a partir de
 // una serie ascendente. Pura y testeable; la usan tanto la lectura de D1 como
 // cualquier fuente alternativa.
@@ -184,6 +265,7 @@ export function snapshotFromSeries(series: FundNavPoint[]): FundSnapshot {
     latest: { dia: last.dia, nav: last.nav, aum: last.aum, changeAbs, changePct },
     returns: computeReturns(series),
     calendar: computeCalendar(series),
+    stats: computeStats(series),
     series,
   };
 }

@@ -66,3 +66,9 @@ export function fmtFechaCorta(dia: string): string {
   const [y, m, d] = dia.split("-").map(Number);
   return `${d} ${MESES_CORTO[(m ?? 1) - 1]} ${y}`;
 }
+
+/** 'YYYY-MM' → 'mar 2025' (para las estadísticas de mejor/peor mes). */
+export function fmtMesAnio(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MESES_CORTO[(m ?? 1) - 1]} ${y}`;
+}
