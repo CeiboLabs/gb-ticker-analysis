@@ -3,6 +3,16 @@ import type { StockData, InsiderTransaction } from "@/types/StockData";
 import type { SegmentSankeyData, IndustryProfile } from "@/types/Report";
 import { classifyPublisher, tierLabel, tierDescriptor } from "@/lib/publisherTiers";
 
+// Cap free-text fields coming from external feeds (Yahoo/SEC) before they land
+// in the user prompt. Counts are already bounded (7 news, 5 insiders, etc.) but
+// individual field LENGTH wasn't — an anomalously long news title or segment
+// name inflates the prompt (and OpenAI input-token cost) unchecked. Limits are
+// generous so legitimate values are never touched.
+function clip(s: string | null | undefined, max: number): string {
+  if (s == null) return "";
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
 // ── Scalar formatters ────────────────────────────────────────────────────────
 
 function fmt(n: number | null | undefined): string {
@@ -64,7 +74,7 @@ function fmtAnalystActions(d: StockData): string {
   return d.analystActions.map((a) => {
     const actionLabel = { up: "Upgrade", down: "Downgrade", init: "Inicio cobertura", main: "Mantiene", reit: "Reitera" }[a.action] ?? a.action;
     const change = a.fromGrade && a.fromGrade !== "—" ? `${a.fromGrade} → ${a.toGrade}` : a.toGrade;
-    return `  ${a.date} | ${a.firm} | ${actionLabel}: ${change}`;
+    return `  ${a.date} | ${clip(a.firm, 80)} | ${actionLabel}: ${clip(change, 60)}`;
   }).join("\n");
 }
 
@@ -72,7 +82,7 @@ function fmtInsiderTransactions(d: StockData): string {
   if (!d.insiderTransactions.length) return "N/A";
   return d.insiderTransactions.map((t) => {
     const val = t.value != null ? ` | Valor: ${fmtLargeNum(t.value)}` : "";
-    return `  ${t.date} | ${t.name} (${t.relation}) | ${t.transactionText}${val}`;
+    return `  ${t.date} | ${clip(t.name, 80)} (${clip(t.relation, 60)}) | ${clip(t.transactionText, 80)}${val}`;
   }).join("\n");
 }
 
@@ -100,7 +110,7 @@ function fmtPeerComparison(d: StockData): string {
   for (const p of pc.peers) {
     const tpe = p.trailingPE != null ? `${p.trailingPE.toFixed(2)}x` : "N/A";
     const fpe = p.forwardPE != null ? `${p.forwardPE.toFixed(2)}x` : "N/A";
-    lines.push(`  ${p.symbol} (${p.name}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
+    lines.push(`  ${clip(p.symbol, 12)} (${clip(p.name, 80)}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
   }
   const avgT = pc.avgTrailingPE != null ? `${pc.avgTrailingPE.toFixed(2)}x` : "N/A";
   const avgF = pc.avgForwardPE != null ? `${pc.avgForwardPE.toFixed(2)}x` : "N/A";
@@ -113,12 +123,14 @@ function fmtRecentNews(d: StockData): string {
   if (!news || news.length === 0) return "N/A — no hay noticias recientes disponibles.";
   return news.slice(0, 7).map((n) => {
     const tier = classifyPublisher(n.publisher);
-    const head = `  [${n.publishedAt}] (${tierLabel(tier)} · ${tierDescriptor(tier)} · ${n.publisher}) ${n.title}`;
+    const head = `  [${n.publishedAt}] (${tierLabel(tier)} · ${tierDescriptor(tier)} · ${clip(n.publisher, 60)}) ${clip(n.title, 200)}`;
     // When we have a snippet, indent it below the headline so the model gets
     // 1-2 lines of context instead of just a headline (vital for judging
     // materiality on ambiguous headlines like "Apple sued over App Store").
+    // clip() caps each free-text field from the news feed so an anomalously long
+    // title/snippet can't inflate the prompt (and OpenAI input-token cost).
     if (n.description) {
-      return `${head}\n      → ${n.description}`;
+      return `${head}\n      → ${clip(n.description, 300)}`;
     }
     return head;
   }).join("\n");
@@ -183,7 +195,7 @@ function fmtSegmentData(
     lines.push("Segmentos de ingresos:");
     for (const s of sd.segments) {
       const yoy = s.yoy ? ` (YoY: ${s.yoy})` : "";
-      lines.push(`  ${s.name}: ${v(s.value)}${yoy}`);
+      lines.push(`  ${clip(s.name, 80)}: ${v(s.value)}${yoy}`);
     }
   }
 
@@ -219,9 +231,9 @@ type Formatter = (d: StockData) => string;
 
 const PLACEHOLDER_MAP: Record<string, Formatter> = {
   TICKER:        (d) => d.ticker,
-  COMPANY_NAME:  (d) => d.companyName,
-  SECTOR:        (d) => d.sector ?? "N/A",
-  INDUSTRY:      (d) => d.industry ?? "N/A",
+  COMPANY_NAME:  (d) => clip(d.companyName, 120),
+  SECTOR:        (d) => clip(d.sector, 80) || "N/A",
+  INDUSTRY:      (d) => clip(d.industry, 80) || "N/A",
   DESCRIPTION:   (d) => {
     const desc = d.description ?? "No description available.";
     return desc.length > 600 ? desc.slice(0, 597) + "..." : desc;
@@ -431,7 +443,7 @@ function fmtInsiderTransactionsClassified(d: StockData): string {
       other: "[OTRO]",
     }[c];
     const val = t.value != null ? ` | Valor: ${fmtLargeNum(t.value)}` : "";
-    lines.push(`  ${t.date} | ${t.name} (${t.relation}) | ${t.transactionText} ${tag}${val}`);
+    lines.push(`  ${t.date} | ${clip(t.name, 80)} (${clip(t.relation, 60)}) | ${clip(t.transactionText, 80)} ${tag}${val}`);
   }
   const sum = summarizeInsiderPattern(d.insiderTransactions);
   lines.push("");
@@ -461,7 +473,7 @@ function fmtPeerComparisonRich(d: StockData): string {
   for (const p of pc.peers) {
     const tpe = p.trailingPE != null ? `${p.trailingPE.toFixed(2)}x` : "N/A";
     const fpe = p.forwardPE != null ? `${p.forwardPE.toFixed(2)}x` : "N/A";
-    lines.push(`  ${p.symbol} (${p.name}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
+    lines.push(`  ${clip(p.symbol, 12)} (${clip(p.name, 80)}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
   }
   const avgT = pc.avgTrailingPE != null ? `${pc.avgTrailingPE.toFixed(2)}x` : "N/A";
   const avgF = pc.avgForwardPE != null ? `${pc.avgForwardPE.toFixed(2)}x` : "N/A";

@@ -34,7 +34,17 @@ const UY_OFFSET_MS = 3 * 60 * 60 * 1000;
 // stays far above any honest single user without letting one address
 // monopolize the worker.
 const HOURLY_IP_MAX = parseInt(process.env.RATE_LIMIT_IP_MAX ?? "100", 10);
-const DAILY_FRESH_MAX = parseInt(process.env.RATE_LIMIT_DAILY_FRESH_MAX ?? "150", 10);
+const DAILY_FRESH_MAX = parseInt(process.env.RATE_LIMIT_DAILY_FRESH_MAX ?? "50", 10);
+
+// GLOBAL daily ceiling on fresh analyses across ALL IPs — the only barrier a
+// distributed attacker (rotating IPs / botnet) cannot sidestep, since every
+// per-IP gate is, by definition, per-IP. Each fresh analysis bills OpenAI, so
+// this is the hard cap on total daily OpenAI spend. Sized well above honest
+// aggregate traffic for an institutional tool but far below a runaway bill:
+// 1500 × ~$0.06 ≈ $90/day worst case. Tune via env as real traffic grows.
+// No allowlist, no per-IP scaling — it's a money kill-switch, not a fairness
+// knob. Window resets at midnight Uruguay, same as the per-IP daily cap.
+const GLOBAL_DAILY_FRESH_MAX = parseInt(process.env.RATE_LIMIT_GLOBAL_DAILY_MAX ?? "1500", 10);
 
 // Allowlisted IPs (corporate NATs) get N× the analyze caps instead of a full
 // bypass — a single abusive browser inside a "trusted" office still hits a
@@ -172,6 +182,17 @@ export function checkContactLimit(ip: string | null): Promise<Gate> {
   return checkDurable(`contact:${ip ?? "noip"}`, CONTACT_HOURLY_MAX, HOUR_MS);
 }
 
+// GLOBAL daily cap on fresh analyses across every IP. One shared durable
+// counter (key "gdfresh:all") incremented once per fresh analysis, regardless
+// of source IP. When it trips, EVERY caller gets 503 until midnight Uruguay —
+// the backstop against IP rotation that the per-IP gates can't provide. Falls
+// back to the in-memory check when D1 is absent (local dev). Returns allowed
+// when there's no usable counter rather than failing closed, so a D1 outage
+// degrades to "per-IP gates only" instead of taking analyze offline.
+export function checkGlobalDailyFreshLimit(): Promise<Gate> {
+  return checkDurable("gdfresh:all", GLOBAL_DAILY_FRESH_MAX, DAY_MS, UY_OFFSET_MS);
+}
+
 // Brute-force cap on FAILED admin auth attempts, per IP. Durable on purpose:
 // an in-memory bucket let an attacker reset their budget by rotating isolates
 // (or just waiting for a redeploy). No allowlist bypass here — auth guessing
@@ -196,8 +217,11 @@ export function checkPublicGetLimit(
   return check(`pub:${endpoint}:${ip}`, max, HOUR_MS);
 }
 
-// Convenience: pull the client IP off a Request the way the analyze route
-// does. Returns null if no header is present (local dev, direct internal call).
+// Convenience: pull the client IP off a Request for CHEAP public GETs and
+// best-effort analytics. Falls back to spoofable proxy headers, which is fine
+// for in-memory per-endpoint GET buckets (worst case an attacker gets their
+// own bucket) but NEVER acceptable as a key for money/auth gates — use
+// trustedClientIp for those.
 export function clientIpFrom(req: { headers: { get(name: string): string | null } }): string | null {
   return (
     req.headers.get("cf-connecting-ip") ??
@@ -205,4 +229,15 @@ export function clientIpFrom(req: { headers: { get(name: string): string | null 
     req.headers.get("x-real-ip") ??
     null
   );
+}
+
+// IP key for SECURITY gates (analyze cost caps, admin brute-force). Trusts ONLY
+// cf-connecting-ip — set by Cloudflare's edge, unforgeable by the client. The
+// x-forwarded-for / x-real-ip fallbacks are deliberately omitted: those are
+// client-controllable, so keying a rate limit on them lets an attacker mint a
+// fresh "IP" per request (X-Forwarded-For: <random>) and dodge the limit
+// entirely. Returns null when cf-connecting-ip is absent; callers route null
+// into a single shared conservative bucket instead of trusting a spoofed value.
+export function trustedClientIp(req: { headers: { get(name: string): string | null } }): string | null {
+  return req.headers.get("cf-connecting-ip");
 }

@@ -1,4 +1,4 @@
-import { checkPublicGetLimit, clientIpFrom, PUBLIC_LIMIT_LOGO } from "@/lib/rateLimiter";
+import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_LOGO } from "@/lib/rateLimiter";
 import { normalizeTicker } from "@/lib/validators";
 
 export const runtime = "edge";
@@ -102,7 +102,7 @@ function ok(
 }
 
 export async function GET(request: Request) {
-  const gate = checkPublicGetLimit("logo", clientIpFrom(request), PUBLIC_LIMIT_LOGO);
+  const gate = checkPublicGetLimit("logo", trustedClientIp(request), PUBLIC_LIMIT_LOGO);
   if (!gate.allowed) {
     return new Response("rate_limited", { status: 429, headers: { "Retry-After": String(gate.retryAfter) } });
   }

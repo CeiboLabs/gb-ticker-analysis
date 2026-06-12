@@ -609,16 +609,21 @@ const NAMED_ENTITIES: Record<string, string> = {
 
 function decodeEntities(s: string): string {
   return s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => {
       // Hex numeric entities — used heavily by IFRS/foreign filers (RYAAY
       // Ryanair encodes –, €, and nbsp as &#x2013;, &#x20AC;, &#xA0;).
       // Without this branch labels keep the literal "&#x2013;" text and
       // every netIncome regex anchored on a clean dash fails to match.
       const code = parseInt(h, 16);
+      // Out-of-range codepoint (malformed remote HTML, e.g. &#xFFFFFFFF;) makes
+      // String.fromCodePoint throw RangeError, aborting the whole parse and
+      // silently dropping EDGAR data for this ticker. Keep the literal instead.
+      if (!Number.isFinite(code) || code > 0x10ffff) return m;
       return code === 0xA0 ? " " : String.fromCodePoint(code);
     })
-    .replace(/&#(\d+);/g, (_, n) => {
+    .replace(/&#(\d+);/g, (m, n) => {
       const code = parseInt(n, 10);
+      if (!Number.isFinite(code) || code > 0x10ffff) return m;
       return code === 160 ? " " : String.fromCodePoint(code);
     })
     .replace(/&([a-z]+);/gi, (m, e) => NAMED_ENTITIES[e.toLowerCase()] ?? m);

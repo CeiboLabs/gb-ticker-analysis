@@ -14,6 +14,10 @@ export function getOpenAIClient(): OpenAI {
       // backoff for sustained outages. Connection failures fail fast (DNS
       // resolution < 1s), so extra retries don't eat the generation budget.
       maxRetries: 4,
+      // Hard per-request timeout below the 60s worker ceiling. Without it a
+      // hung connection holds the isolate (and a paid generation) until the
+      // runtime force-kills it.
+      timeout: 55_000,
     });
   }
   return _client;

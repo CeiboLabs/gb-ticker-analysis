@@ -568,8 +568,14 @@ function parseXbrl(
   // equal to total revenue — uninformative. Prefer the geographical axis if
   // it has ≥ 2 members with revenue data so the chart renders a meaningful
   // US / Non-US (or regional) split instead.
+  // NOTE: middle is a flat `[A-Za-z]*`, NOT `(?:[A-Z][a-zA-Z]+)*`. The nested
+  // quantifier caused catastrophic backtracking (ReDoS): a legitimate XBRL
+  // member like "OperatingSegmentFor...DivisionMember" (camelCase, not ending
+  // in the literal suffix) took ~42s and hung the edge worker — a try/catch
+  // does NOT stop a CPU loop. The flat class is linear and matches the same
+  // generic-marker names. Same fix applied to isGenericAggregateMember below.
   const isGenericSingleSegmentMarker = (s: string) =>
-    /^(?:Reportable|Operating|All|Total)(?:[A-Z][a-zA-Z]+)*Segments?Member$/i.test(s);
+    /^(?:Reportable|Operating|All|Total)[A-Za-z]*Segments?Member$/i.test(s);
   const GEO_AXES = ["StatementGeographicalAxis", "GeographicalAreasAxis"];
   if (!GEO_AXES.includes(chosenAxis)) {
     // Count UNIQUE members on the chosen axis. A single member can appear in
@@ -719,10 +725,13 @@ function parseXbrl(
   // the only member. If we still see a singular marker here it's because
   // geography wasn't available, so admit it instead of producing zero
   // segments.
+  // Flat `[A-Za-z]*` instead of `(?:[A-Z][a-zA-Z]+)*` — ReDoS fix, see
+  // isGenericSingleSegmentMarker above. memberLocal comes straight from remote
+  // SEC XBRL, so a backtracking blow-up here is a remote-triggerable worker DoS.
   const isGenericAggregateMember = (memberLocal: string): boolean =>
-    /^(?:Reportable|Operating|All|Total)(?:[A-Z][a-zA-Z]+)*SegmentsMember$/i.test(memberLocal)
-    || /(?:^|[A-Z])Eliminations?(?:[A-Z][a-zA-Z]+)*Member$/i.test(memberLocal)
-    || /^IntersegmentEliminations?(?:[A-Z][a-zA-Z]+)*Member$/i.test(memberLocal);
+    /^(?:Reportable|Operating|All|Total)[A-Za-z]*SegmentsMember$/i.test(memberLocal)
+    || /(?:^|[A-Z])Eliminations?[A-Za-z]*Member$/i.test(memberLocal)
+    || /^IntersegmentEliminations?[A-Za-z]*Member$/i.test(memberLocal);
 
   const segments: EdgarSegmentRaw[] = [];
 
@@ -838,12 +847,16 @@ function parseXbrl(
 // dependency for a single-file helper.
 function decodeTextBlockEntities(s: string): string {
   return s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => {
       const code = parseInt(h, 16);
+      // Guard against out-of-range codepoints (String.fromCodePoint throws a
+      // RangeError that would abort the parse) — keep the literal entity.
+      if (!Number.isFinite(code) || code > 0x10ffff) return m;
       return code === 0xA0 ? " " : String.fromCodePoint(code);
     })
-    .replace(/&#(\d+);/g, (_, n) => {
+    .replace(/&#(\d+);/g, (m, n) => {
       const code = parseInt(n, 10);
+      if (!Number.isFinite(code) || code > 0x10ffff) return m;
       return code === 160 ? " " : String.fromCodePoint(code);
     })
     .replace(/&(amp|lt|gt|nbsp|quot|apos);/gi, (m, e) => {

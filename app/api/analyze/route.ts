@@ -15,7 +15,12 @@ import {
 } from "@/lib/analysisSchemas";
 import { cacheGet, cacheSet, cacheClear, SHORT_TTL } from "@/lib/cache";
 import { recordTickerView } from "@/lib/tickerStats";
-import { checkIpHourlyLimit, checkDailyFreshLimit } from "@/lib/rateLimiter";
+import {
+  checkIpHourlyLimit,
+  checkDailyFreshLimit,
+  checkGlobalDailyFreshLimit,
+  trustedClientIp,
+} from "@/lib/rateLimiter";
 import {
   recordAnalyzeEvent,
   eventBaseFromRequest,
@@ -700,6 +705,25 @@ function serializeField(value: unknown): string {
   return parts.join(". ") || JSON.stringify(obj);
 }
 
+// Best-effort in-flight dedup, per isolate. A fresh analysis takes 40-90s and
+// the cache isn't written until it finishes, so a burst of concurrent requests
+// for the same uncached ticker (double-clicks, retries, scripted floods) would
+// otherwise each launch a separate paid OpenAI call. We track the generation
+// promise per ticker; a second concurrent request for the same ticker waits on
+// it and serves the freshly-cached result instead of billing OpenAI again.
+// Only dedupes within one isolate (Cloudflare may spread requests across
+// several) — the global daily cap is the cross-isolate backstop. The bounded
+// wait above guarantees a stuck entry can never hang a request.
+const gAnalyze = globalThis as Record<string, unknown>;
+if (!gAnalyze.__analyzeInflight) gAnalyze.__analyzeInflight = new Map<string, Promise<void>>();
+const inflight = gAnalyze.__analyzeInflight as Map<string, Promise<void>>;
+
+function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
 export async function POST(req: NextRequest) {
   // Monitor: capture request-level metadata once. Each exit path fills in the
   // outcome and fires recordAnalyzeEvent — D1 write is best-effort.
@@ -733,11 +757,12 @@ export async function POST(req: NextRequest) {
   // No session cookie: a cookie-keyed bucket is one the client rotates for
   // free. Shared NATs get headroom via RATE_LIMIT_IP_ALLOWLIST (multiplier,
   // not bypass).
-  const clientIp =
-    req.headers.get("cf-connecting-ip") ??
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    null;
+  // Trust ONLY cf-connecting-ip (set by Cloudflare's edge, unforgeable). The
+  // x-forwarded-for / x-real-ip fallbacks were removed: they're client-supplied,
+  // so an attacker could send a random one per request to mint a fresh "IP" and
+  // skip every per-IP cost gate. When absent, clientIp is null and the limiter
+  // funnels the request into a single shared conservative bucket.
+  const clientIp = trustedClientIp(req);
 
   // 1. Parse + validate
   // El body legítimo es {ticker, refresh} — rechazar payloads grandes antes
@@ -858,6 +883,45 @@ export async function POST(req: NextRequest) {
       },
       { status: 429, headers: { "Retry-After": String(freshGate.retryAfter) } }
     );
+  }
+
+  // 2c. GLOBAL daily ceiling — the cross-IP backstop. Per-IP gates can't stop a
+  // distributed attacker rotating IPs; this single shared counter caps total
+  // daily OpenAI spend regardless of how many addresses hit us. When it trips,
+  // everyone gets 503 until midnight Uruguay. Checked last so an attacker can't
+  // burn the global budget with requests that would've been blocked per-IP.
+  const globalGate = await checkGlobalDailyFreshLimit();
+  if (!globalGate.allowed) {
+    fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "global daily cap" });
+    return NextResponse.json(
+      {
+        error: "Análisis no disponible por el momento. Intente más tarde.",
+        code: "analysis_unavailable",
+      },
+      { status: 503, headers: { "Retry-After": String(globalGate.retryAfter) } }
+    );
+  }
+
+  // 2d. In-flight dedup — if this isolate is already generating this ticker,
+  // wait for it and serve the fresh cache instead of launching a second paid
+  // OpenAI call. Bounded wait (never exceeds the worker ceiling) so a stuck
+  // entry can't hang the request; on miss we fall through and generate.
+  const pending = inflight.get(ticker);
+  if (pending) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const guard = new Promise<void>((r) => { timer = setTimeout(r, (maxDuration + 5) * 1000); });
+    await Promise.race([pending, guard]).finally(() => { if (timer) clearTimeout(timer); });
+    const recached = await cacheGet(ticker);
+    if (recached && !isAnalysisStale(recached.stockData, recached.report.segmentData ?? null)) {
+      void recordTickerView(ticker).catch(() => {});
+      fireEvent({
+        ticker,
+        status: "cache_hit",
+        sankeySource: classifySankeySource(recached.report.segmentData ?? null),
+        errorMsg: "inflight dedup",
+      });
+      return NextResponse.json({ report: recached.report, stockData: recached.stockData, cached: true });
+    }
   }
 
   // 3. Fetch financial data
@@ -1165,6 +1229,22 @@ export async function POST(req: NextRequest) {
 
   const encoder = new TextEncoder();
 
+  // Register this generation so concurrent same-ticker requests (2d above) wait
+  // for it instead of launching their own paid call. Resolved in `finally` on
+  // every exit path; the entry is deleted there too so it never goes stale.
+  const deferred = createDeferred();
+  inflight.set(ticker, deferred.promise);
+
+  // Abort the OpenAI generation when the client disconnects. Without this, a
+  // client that opens /api/analyze and walks away leaves the generation loop
+  // draining to the end — billing the full output. req.signal fires on
+  // disconnect; the stream's cancel() (client closed the SSE) aborts too.
+  const ac = new AbortController();
+  if (req.signal) {
+    if (req.signal.aborted) ac.abort();
+    else req.signal.addEventListener("abort", () => ac.abort(), { once: true });
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -1216,14 +1296,14 @@ export async function POST(req: NextRequest) {
         for (let attempt = 1; attempt <= MAX_OPENAI_ATTEMPTS; attempt++) {
           try {
             if (tokensStarted) {
-              const retry = await getOpenAIClient().chat.completions.create(baseParams);
+              const retry = await getOpenAIClient().chat.completions.create(baseParams, { signal: ac.signal });
               fullText = retry.choices[0]?.message?.content ?? "";
             } else {
               fullText = "";
               const completion = await getOpenAIClient().chat.completions.create({
                 ...baseParams,
                 stream: true,
-              });
+              }, { signal: ac.signal });
               for await (const chunk of completion) {
                 const delta = chunk.choices[0]?.delta?.content ?? "";
                 if (delta) {
@@ -1241,6 +1321,11 @@ export async function POST(req: NextRequest) {
             }
             break; // success
           } catch (streamErr) {
+            // Client disconnected (we aborted on purpose) — stop immediately,
+            // never retry. An abort surfaces as APIUserAbortError with no
+            // status, which would otherwise look "retriable" below and burn a
+            // second paid call for a request nobody is listening to.
+            if (ac.signal.aborted) throw streamErr;
             // Retry only transient transport/server failures — never a 4xx
             // (bad key, malformed request) that would just fail identically.
             const retriable =
@@ -1302,7 +1387,7 @@ export async function POST(req: NextRequest) {
                     `No agregues markdown exterior, sólo JSON puro.`,
                 },
               ],
-            });
+            }, { signal: ac.signal });
             const retryText = retry.choices[0]?.message?.content ?? "";
             const raw = JSON.parse(retryText) as Record<string, unknown>;
             const coerced = coerceStringFields(raw, STRING_FIELDS as unknown as (keyof typeof raw)[]);
@@ -1405,24 +1490,42 @@ export async function POST(req: NextRequest) {
         // unexpected throw here can carry internals (upstream URLs, parse
         // details) that don't belong in a public response.
         const rawMsg = err instanceof Error ? err.message : "Unknown error";
+        // Client disconnect (we aborted the generation on purpose) is not a
+        // service error — don't dress it up as one in metrics, and don't try to
+        // write to a controller the runtime already tore down.
+        const clientAborted = ac.signal.aborted;
         const payload = {
           error: "Análisis no disponible por el momento. Intente en unos minutos.",
           code: "analysis_unavailable",
         };
         fireEvent({
           ticker,
-          status: "error",
-          errorStage: isOpenAIError ? "openai" : "unknown",
-          errorMsg: rawMsg,
+          status: clientAborted ? "bad_request" : "error",
+          errorStage: clientAborted ? "parse" : isOpenAIError ? "openai" : "unknown",
+          errorMsg: clientAborted ? "client disconnected" : rawMsg,
           sankeySource: classifySankeySource(segmentData ?? null),
           edgar8kOk,
           segmentsOk,
         });
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
-        );
-        controller.close();
+        // enqueue/close throw if the stream was already canceled by the client;
+        // swallow so the abort path doesn't surface as an unhandled rejection.
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)
+          );
+          controller.close();
+        } catch { /* controller already closed (client gone) */ }
+      } finally {
+        // Release the in-flight slot on every exit path (success, parse error,
+        // OpenAI error, abort) so waiters wake and the entry never goes stale.
+        deferred.resolve();
+        if (inflight.get(ticker) === deferred.promise) inflight.delete(ticker);
       }
+    },
+    // Client closed the SSE connection — abort the OpenAI generation so we stop
+    // paying for tokens that will never be delivered.
+    cancel() {
+      ac.abort();
     },
   });
 
