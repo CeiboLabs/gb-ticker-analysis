@@ -5,17 +5,14 @@ import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { FONDO } from "@/lib/fondo";
 
-// Hero del fondo — versión FACHADA full-bleed (prototipo). El header entero es
-// un mosaico de paneles embutidos (tesela 6×4 con vértices interiores
-// desplazados → 24 cuadriláteros irregulares) graduado por valor: arriba más
-// claro (renta variable, crece), abajo grave y anclado (renta fija, base). Las
-// teselas asientan en 2D (crecen y cierran las juntas — sin vuelos 3D pesados a
-// esta escala). Un scrim oscurece la izquierda para que el claim se lea; el oro
-// es un único HORIZONTE que cruza todo el ancho (el equilibrio RV/RF); y la
-// firma BNG se revela a la derecha, sobre el horizonte, como remate.
-// reduce-motion ⇒ todo en su lugar, estático.
-
-const EASE = [0.16, 1, 0.3, 1] as const;
+// Hero del fondo — versión FACHADA full-bleed. El header entero es un mosaico
+// de paneles embutidos (tesela 6×4 con vértices interiores desplazados → 24
+// cuadriláteros irregulares) graduado por valor: arriba más claro (renta
+// variable, crece), abajo grave y anclado (renta fija, base). Un scrim oscurece
+// la izquierda para que el claim se lea; el oro es un único HORIZONTE que cruza
+// todo el ancho (el equilibrio RV/RF); y la firma BNG a la derecha, sobre el
+// horizonte, como remate. SIN animación de entrada: todo renderiza en su estado
+// final; sólo queda un push-out sutil al scroll (atenuado en reduce-motion).
 
 // ── Lienzo y malla ──
 const VW = 1440, VH = 780;
@@ -70,7 +67,7 @@ for (let cj = 0; cj < NY; cj++) {
 const HJ = NY / 2;
 const horizonPts = Array.from({ length: NX + 1 }, (_, i) => lat(i, HJ).join(",")).join(" ");
 
-function Fachada({ reduce }: { reduce: boolean }) {
+function Fachada() {
   return (
     <svg className="ffac-svg" viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
       <defs>
@@ -78,31 +75,23 @@ function Fachada({ reduce }: { reduce: boolean }) {
           <line x1="0" y1="0" x2="0" y2="9" stroke="rgba(255,255,255,0.045)" strokeWidth="1" />
         </pattern>
       </defs>
-      {/* Teselas: asientan creciendo desde su centro (cierran las juntas) +
-          fade + micro-rotación. Stagger por índice. */}
+      {/* Teselas estáticas (sin animación de entrada). */}
       {PIECES.map((p, idx) => (
-        <motion.polygon
+        <polygon
           key={idx}
           points={p.pts}
           fill={p.fill}
           stroke="rgba(255,255,255,0.085)"
           strokeWidth={1}
           strokeLinejoin="round"
-          style={{ transformBox: "fill-box", transformOrigin: "center" }}
-          initial={reduce ? false : { opacity: 0, scale: 0.86, rotate: Math.round((rand(idx, idx, 4) - 0.5) * 60) / 10 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 0.85, ease: EASE, delay: 0.1 + idx * 0.032 }}
         />
       ))}
       {/* Grabado fino sobre toda la fachada (textura material, no patrón). */}
       <rect x={0} y={0} width={VW} height={VH} fill="url(#ffac-hatch)" />
       {/* Horizonte dorado: único acento — el equilibrio RV/RF, de lado a lado. */}
-      <motion.polyline
+      <polyline
         points={horizonPts} fill="none" stroke="var(--gold)" strokeWidth={2}
-        strokeLinejoin="round" strokeLinecap="round"
-        initial={reduce ? false : { pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 0.92 }}
-        transition={{ pathLength: { duration: 1.3, ease: "easeInOut", delay: 1.5 }, opacity: { duration: 0.3, delay: 1.5 } }}
+        strokeLinejoin="round" strokeLinecap="round" opacity={0.92}
       />
     </svg>
   );
@@ -118,20 +107,11 @@ export function FondoHero() {
   const stageScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
   const signOpacity = useTransform(scrollYProgress, [0, 0.45], [1, 0]);
 
-  const rise = (delay: number) =>
-    reduce
-      ? {}
-      : {
-          initial: { opacity: 0, y: 14 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.7, ease: EASE, delay },
-        };
-
   return (
     <header className="ffac-hero" ref={heroRef}>
       {/* ── Fachada (mosaico + horizonte) ── */}
       <motion.div className="ffac-stage" style={reduce ? undefined : { scale: stageScale }}>
-        <Fachada reduce={!!reduce} />
+        <Fachada />
       </motion.div>
 
       {/* ── Scrim: legibilidad del claim a la izquierda + profundidad ── */}
@@ -141,9 +121,6 @@ export function FondoHero() {
       <motion.div
         className="ffac-sign" aria-hidden
         style={reduce ? undefined : { opacity: signOpacity }}
-        initial={reduce ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.95 }}
       >
         <span className="ffac-sign-bng">BNG</span>
         <span className="ffac-sign-sub">SELECCIÓN GLOBAL</span>
@@ -152,20 +129,20 @@ export function FondoHero() {
       {/* ── Claim editorial ── */}
       <motion.div className="site-wrap ffac-content" style={reduce ? undefined : { y: contentY, opacity: contentOpacity }}>
         <div className="ffac-copy">
-          <motion.p className="fh-eyebrow" {...rise(0.1)}>BNG Selección Global</motion.p>
-          <motion.h1 className="fh-h1 t-serif-display" {...rise(0.18)}>
+          <p className="fh-eyebrow">BNG Selección Global</p>
+          <h1 className="fh-h1 t-serif-display">
             Una cartera global y balanceada, en un solo vehículo.
-          </motion.h1>
-          <motion.p className="fh-lead" {...rise(0.26)}>{FONDO.tagline}</motion.p>
-          <motion.ul className="fh-ledger" {...rise(0.32)}>
+          </h1>
+          <p className="fh-lead">{FONDO.tagline}</p>
+          <ul className="fh-ledger">
             <li>Renta variable + renta fija</li>
             <li>Exposición global</li>
             <li>Domiciliado en Uruguay</li>
-          </motion.ul>
-          <motion.div className="fh-actions" {...rise(0.4)}>
+          </ul>
+          <div className="fh-actions">
             <Link href="/contacto" className="ui-btn ui-btn-on-navy">Hablar con un asesor</Link>
             <a href="#performance" className="fh-link">Ver performance →</a>
-          </motion.div>
+          </div>
         </div>
       </motion.div>
 
