@@ -11,12 +11,14 @@ import { FondoNav } from "@/components/institucional/FondoNav";
 import { FondoPerformance } from "@/components/institucional/FondoPerformance";
 import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
+import { FondoTenencias } from "@/components/institucional/FondoTenencias";
+import { FondoGeografia } from "@/components/institucional/FondoGeografia";
 import { FONDO } from "@/lib/fondo";
 
 export const metadata: Metadata = {
   title: "BNG Selección Global · Bengochea & Cía.",
   description:
-    "BNG Selección Global: fondo de fondos balanceado, con exposición a renta variable y fija a nivel global, domiciliado en Uruguay. Estrategia, performance y documentos.",
+    "BNG Selección Global: estrategia diversificada, con exposición a renta variable y fija a nivel global, domiciliada en Uruguay. Estrategia, performance y documentos.",
 };
 
 const Check = () => (
@@ -34,7 +36,7 @@ const CARACTERISTICAS: string[] = [
 
 const ESTRATEGIA: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Scales />, title: "Cartera balanceada", body: "Combina renta variable y renta fija en un mismo vehículo, buscando un equilibrio entre crecimiento y estabilidad según el contexto de mercado." },
-  { icon: <Layers />, title: "Fondo de fondos", body: "Invierte a través de una selección de fondos gestionados por managers especializados, sumando diversificación y gestión profesional en cada clase de activo." },
+  { icon: <Layers />, title: "Selección de fondos", body: "Invierte a través de una selección de fondos gestionados por managers especializados, sumando diversificación y gestión profesional en cada clase de activo." },
   { icon: <Globe />, title: "Exposición global", body: "Acceso a mercados de todo el mundo desde un solo producto, sin tener que seleccionar y rebalancear instrumentos uno por uno." },
   { icon: <Building />, title: "Domiciliado en Uruguay", body: "Estructurado localmente y operado por Gastón Bengochea, sociedad de bolsa regulada por el Banco Central del Uruguay." },
 ];
@@ -62,7 +64,7 @@ export default function FondoPage() {
             <div className="eyebrow-sm">Estrategia de inversión</div>
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>
-                Una cartera global y balanceada, en un solo vehículo.
+                Una estrategia global y diversificada, en un solo vehículo.
               </h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>{FONDO.objetivo}</p>
             </div>
@@ -103,6 +105,12 @@ export default function FondoPage() {
               </ClipReveal>
             ))}
           </div>
+
+          {/* Mayores tenencias — comparación de estilo (datos ilustrativos) */}
+          <FondoTenencias />
+
+          {/* Exposición geográfica — choropleth de puntos (datos ilustrativos) */}
+          <FondoGeografia />
         </div>
       </section>
 

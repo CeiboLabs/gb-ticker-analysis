@@ -251,15 +251,20 @@ export function CalculadoraSim({
           <Slider
             label="Aporte"
             labelExtra={
-              <span className="calc-freq" role="tablist" aria-label="Frecuencia del aporte">
-                {(["mensual", "anual"] as const).map((f) => (
-                  <button
-                    key={f} type="button" role="tab" aria-selected={freq === f}
-                    data-active={freq === f ? "1" : "0"} onClick={() => changeFreq(f)}
-                  >
-                    {f === "mensual" ? "Mensual" : "Anual"}
-                  </button>
-                ))}
+              <span className="calc-freq" data-active={freq} role="tablist" aria-label="Frecuencia del aporte">
+                <span className="calc-freq-thumb" aria-hidden />
+                <button
+                  type="button" role="tab" aria-selected={freq === "mensual"}
+                  className="calc-freq-btn" onClick={() => changeFreq("mensual")}
+                >
+                  Mensual
+                </button>
+                <button
+                  type="button" role="tab" aria-selected={freq === "anual"}
+                  className="calc-freq-btn" onClick={() => changeFreq("anual")}
+                >
+                  Anual
+                </button>
               </span>
             }
             value={aporte}
@@ -461,17 +466,26 @@ export function CalculadoraSim({
         .calc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: clamp(32px, 6vw, 72px); align-items: start; }
         .calc-panel { min-width: 0; }
         .calc-slider { padding: 16px 0; border-bottom: 1px solid var(--site-border); }
+        /* Toggle mensual/anual — mismo patrón que el toggle de "Mayores
+           tenencias" (.ten-toggle): pastilla con thumb navy deslizante. */
         .calc-freq {
-          display: inline-flex; gap: 2px; padding: 2px;
+          position: relative; display: inline-flex; padding: 3px;
           background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
         }
-        .calc-freq button {
-          border: 0; background: none; cursor: pointer;
-          font-size: 11.5px; font-weight: 600; color: var(--site-ink-3);
-          padding: 3px 10px; border-radius: 999px; transition: background 160ms ease, color 160ms ease;
+        .calc-freq-thumb {
+          position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+          background: var(--navy); border-radius: 999px;
+          box-shadow: 0 6px 16px -6px rgba(15,34,73,0.6);
+          transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
         }
-        .calc-freq button[data-active="1"] { background: var(--navy); color: #fff; }
-        .calc-freq button:not([data-active="1"]):hover { color: var(--navy); }
+        .calc-freq[data-active="anual"] .calc-freq-thumb { transform: translateX(100%); }
+        .calc-freq-btn {
+          position: relative; z-index: 1; border: 0; background: none; cursor: pointer;
+          font-size: 12px; font-weight: 600; color: var(--site-ink-3);
+          padding: 5px 18px; border-radius: 999px; transition: color 220ms ease; min-width: 78px;
+        }
+        .calc-freq-btn[aria-selected="true"] { color: #fff; }
+        .calc-freq-btn:not([aria-selected="true"]):hover { color: var(--navy); }
         .calc-slider:last-child { border-bottom: 0; padding-bottom: 0; }
         .calc-table { width: 100%; border-collapse: collapse; min-width: 460px; }
         .calc-table th {

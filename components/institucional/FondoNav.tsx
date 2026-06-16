@@ -23,8 +23,13 @@ const LINKS = [
 export function FondoNav() {
   const [active, setActive] = useState<string>("");
   const raf = useRef<number>(0);
+  const navRef = useRef<HTMLElement>(null);
+  const lastShift = useRef<number>(-1);
 
   useEffect(() => {
+    // Nodo del navbar global (se desplaza para meterse detrás de esta barra).
+    const navRoot = document.querySelector<HTMLElement>(".nav-root");
+
     const onScroll = () => {
       cancelAnimationFrame(raf.current);
       raf.current = requestAnimationFrame(() => {
@@ -36,6 +41,30 @@ export function FondoNav() {
           if (el && el.getBoundingClientRect().top <= line) current = id;
         }
         setActive(current);
+
+        // El navbar global se mete detrás de esta barra a medida que sube: lo
+        // desplazamos hacia arriba en lockstep con el borde superior de la
+        // sub-navbar, de modo que su borde inferior nunca quede por debajo de
+        // ella (la sub-navbar es más baja, así que taparlo no alcanzaría).
+        const nav = navRef.current;
+        if (nav && navRoot) {
+          const top = nav.getBoundingClientRect().top; // distancia de la sub-navbar al tope
+          const shift = Math.round(Math.min(72, Math.max(0, 72 - top))); // 0 → navbar entera, 72 → fuera
+          if (shift !== lastShift.current) {
+            const wasShifting = lastShift.current > 0;
+            const isShifting = shift > 0;
+            lastShift.current = shift;
+            // transform DIRECTO sobre el navbar (un solo nodo, costo de
+            // compositor). Evitamos una CSS var en :root: cambiarla por frame
+            // recalcula el estilo de TODO el documento → eso trababa la PC.
+            navRoot.style.transform = shift ? `translateY(-${shift}px)` : "";
+            // Mientras se desliza apagamos su backdrop-filter (clase en el mismo
+            // nodo): animar el blur por frame es el otro costo que la fundía.
+            if (isShifting !== wasShifting) {
+              navRoot.classList.toggle("nav-tucking", isShifting);
+            }
+          }
+        }
       });
     };
     onScroll();
@@ -45,11 +74,15 @@ export function FondoNav() {
       cancelAnimationFrame(raf.current);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
+      if (navRoot) {
+        navRoot.style.transform = "";
+        navRoot.classList.remove("nav-tucking");
+      }
     };
   }, []);
 
   return (
-    <nav className="fnav" aria-label="Secciones del fondo">
+    <nav ref={navRef} className="fnav" aria-label="Secciones del fondo">
       <div className="site-wrap fnav-row">
         <div className="fnav-links">
           {LINKS.map((l) => (
@@ -63,7 +96,7 @@ export function FondoNav() {
 
       <style>{`
         .fnav {
-          position: sticky; top: var(--nav-h); z-index: 40;
+          position: sticky; top: 0; z-index: 60;
           background: rgba(255,255,255,0.92);
           backdrop-filter: blur(10px);
           border-bottom: 1px solid var(--site-border);

@@ -82,6 +82,7 @@ export function FondoPerformance() {
 
   const latest = data?.latest ?? null;
   const dayPct = latest?.changePct ?? null;
+  const activeIndex = PERIODS.findIndex((p) => p.id === period);
 
   return (
     <div className="perf">
@@ -109,7 +110,17 @@ export function FondoPerformance() {
 
       <div className="perf-bar">
         <span className="perf-bar-label">Evolución del valor cuota</span>
-        <div className="perf-periods" role="tablist" aria-label="Período">
+        <div
+          className="perf-periods"
+          role="tablist"
+          aria-label="Período"
+          style={{ ["--perf-count" as string]: PERIODS.length }}
+        >
+          <span
+            className="perf-period-thumb"
+            aria-hidden
+            style={{ transform: `translateX(${activeIndex * 100}%)` }}
+          />
           {PERIODS.map((p) => (
             <button
               key={p.id}
@@ -236,15 +247,23 @@ export function FondoPerformance() {
           color: var(--site-ink-3);
         }
         .perf-periods {
-          display: inline-flex; gap: 2px; padding: 3px;
+          position: relative; display: inline-flex; padding: 3px;
           background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
         }
+        .perf-period-thumb {
+          position: absolute; top: 3px; bottom: 3px; left: 3px;
+          width: calc((100% - 6px) / var(--perf-count, 5));
+          background: var(--navy); border-radius: 999px;
+          box-shadow: 0 6px 16px -6px rgba(15,34,73,0.6);
+          transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
+        }
         .perf-period {
+          position: relative; z-index: 1; flex: 1 0 0; text-align: center;
           border: 0; background: none; cursor: pointer;
           font-size: 13px; font-weight: 600; color: var(--site-ink-3);
-          padding: 6px 14px; border-radius: 999px; transition: background 160ms ease, color 160ms ease;
+          padding: 6px 14px; border-radius: 999px; transition: color 220ms ease;
         }
-        .perf-period[data-active="1"] { background: var(--navy); color: #fff; }
+        .perf-period[data-active="1"] { color: #fff; }
         .perf-period:disabled { cursor: not-allowed; opacity: 0.5; }
         .perf-period:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
 

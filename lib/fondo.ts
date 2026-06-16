@@ -20,7 +20,7 @@ import type { D1Database } from "@/lib/metrics";
 export const FONDO = {
   nombre: "BNG Selección Global",
   // Una línea — confirmado por el responsable del fondo.
-  tagline: "Fondo de fondos balanceado, con exposición global y domiciliado en Uruguay.",
+  tagline: "Estrategia balanceada con exposición global, domiciliada en Uruguay.",
   responsable: "Adrián Moreira",
   objetivo:
     "Construir una cartera diversificada y global en un solo vehículo, combinando renta variable y renta fija a través de una selección de fondos de terceros, para acompañar el crecimiento del capital a lo largo de un ciclo completo de mercado.",
@@ -28,7 +28,7 @@ export const FONDO = {
   // y verificable del producto; nada de cifras de cartera o performance (el
   // fondo está en pre-lanzamiento). El SRI 4/7 es provisional (ver FondoRiesgo).
   fichaTecnica: [
-    ["Tipo", "Fondo de fondos balanceado"],
+    ["Tipo", "Estrategia balanceada"],
     ["Clases de activo", "Renta variable y renta fija"],
     ["Estructura", "Selección de fondos de terceros"],
     ["Alcance", "Exposición global"],

@@ -222,6 +222,17 @@ export function Navbar() {
           transition: background 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
           border-bottom: 1px solid transparent;
         }
+        /* En la página del fondo, FondoNav desplaza este navbar hacia arriba
+           (transform inline sobre este nodo) para que se meta detrás de su
+           sub-navbar. Mientras se desliza apagamos el backdrop-filter: animar el
+           blur por frame es lo que fundía la máquina. Al deslizarse queda oculto
+           detrás de la sub-navbar, así que la pérdida del glass no se percibe. */
+        .nav-root.nav-tucking {
+          -webkit-backdrop-filter: none !important;
+          backdrop-filter: none !important;
+          box-shadow: none !important;
+          will-change: transform;
+        }
         /* Modo claro: barra liquid-glass al scrollear
            (blur alto + saturación, brillo especular en el borde superior) */
         .nav-root[data-mode="light"] {

@@ -9,7 +9,7 @@ import { useState } from "react";
 const ITEMS: { q: string; a: string }[] = [
   {
     q: "¿Qué es BNG Selección Global?",
-    a: "Es un fondo de fondos balanceado: invierte en una selección de fondos de terceros para construir una cartera con exposición a renta variable y renta fija a nivel global. Está domiciliado en Uruguay.",
+    a: "Es una estrategia balanceada que invierte en una selección de fondos de terceros para construir una cartera con exposición a renta variable y renta fija a nivel global. Está domiciliada en Uruguay.",
   },
   {
     q: "¿Para qué perfil de inversor está pensado?",

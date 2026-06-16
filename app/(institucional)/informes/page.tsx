@@ -3,103 +3,13 @@ import type { Metadata } from "next";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { ArrowRight, Calendar, Clock } from "@/components/institucional/icons";
 import { CarpetaInformes } from "@/components/institucional/CarpetaInformes";
+import { INFORMES, AUTORES } from "@/lib/informes";
 
 export const metadata: Metadata = {
   title: "Informes · Bengochea & Cía.",
   description:
     "Informes mensuales y semanales de mercado de Gastón Bengochea CB. Recomendaciones, lectura macro y oportunidades de inversión.",
 };
-
-type Informe = {
-  fecha: string;
-  fechaTexto: string;
-  titulo: string;
-  categoria: "Mensual" | "Semanal";
-  pdf: string;
-};
-
-const INFORMES: Informe[] = [
-  {
-    fecha: "2026-05-29",
-    fechaTexto: "29 de mayo, 2026",
-    titulo: "Informe semanal · 29 de mayo",
-    categoria: "Semanal",
-    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 29-05-2026.pdf",
-  },
-  {
-    fecha: "2026-05-22",
-    fechaTexto: "22 de mayo, 2026",
-    titulo: "Informe semanal · 22 de mayo",
-    categoria: "Semanal",
-    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 22-05-2026.pdf",
-  },
-  {
-    fecha: "2026-05-18",
-    fechaTexto: "18 de mayo, 2026",
-    titulo: "Informe mensual · Mayo 2026",
-    categoria: "Mensual",
-    pdf: "https://gbengochea.com.uy/img/informes/Bengochea Inversiones - Informe mensual Mayo 2026.pdf",
-  },
-  {
-    fecha: "2026-05-15",
-    fechaTexto: "15 de mayo, 2026",
-    titulo: "Informe semanal · 15 de mayo",
-    categoria: "Semanal",
-    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 15-05-2026.pdf",
-  },
-  {
-    fecha: "2026-05-11",
-    fechaTexto: "11 de mayo, 2026",
-    titulo: "Informe semanal · 11 de mayo",
-    categoria: "Semanal",
-    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 11-05-2026.pdf",
-  },
-  {
-    fecha: "2026-04-24",
-    fechaTexto: "24 de abril, 2026",
-    titulo: "Informe semanal · 24 de abril",
-    categoria: "Semanal",
-    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 24-04-2026.pdf",
-  },
-  {
-    fecha: "2026-04-20",
-    fechaTexto: "20 de abril, 2026",
-    titulo: "Informe semanal · 20 de abril",
-    categoria: "Semanal",
-    pdf: "https://gbengochea.com.uy/img/informes/GB INFORME SEMANAL 20-04-2026.pdf",
-  },
-];
-
-type Autor = {
-  nombre: string;
-  cadencia: string;
-  tag: "Mensual" | "Semanal";
-  foto: string;
-  bio: string;
-};
-
-// NOTA: bios placeholder — reemplazar por la versión definitiva del cliente.
-// Falta el retrato de Paula Bujia: dejar el archivo en public/equipo/paula-bujia.jpg
-const AUTORES: Autor[] = [
-  {
-    nombre: "Paula Bujia",
-    cadencia: "Informes mensuales",
-    tag: "Mensual",
-    // Sin retrato todavía: dejar el archivo en public/equipo/paula-bujia.jpg
-    // y completar el path para que reemplace el placeholder.
-    foto: "",
-    bio:
-      "Lidera el informe mensual: la visión macro internacional, la lectura de la renta fija uruguaya y el posicionamiento de cartera que ordena el mes en la mesa.",
-  },
-  {
-    nombre: "Adrián Moreira",
-    cadencia: "Informes semanales",
-    tag: "Semanal",
-    foto: "/equipo/adrian-moreira.jpeg",
-    bio:
-      "Desde la mesa de operaciones firma el informe semanal: el seguimiento de cada cierre de mercado y los movimientos relevantes de la semana en las plazas locales e internacionales.",
-  },
-];
 
 export default function InformesPage() {
   const destacado = INFORMES[0];
@@ -121,12 +31,12 @@ export default function InformesPage() {
           </p>
           <div style={{ marginTop: 32 }}>
             <a
-              href={destacado.pdf}
+              href={`/informes/${destacado.slug}/pdf`}
               target="_blank"
               rel="noopener noreferrer"
               className="ui-btn ui-btn-on-navy"
             >
-              Descargar último informe
+              Ver último informe
             </a>
           </div>
         </Reveal>
@@ -175,9 +85,11 @@ export default function InformesPage() {
 
           <Stagger as="div" className="ui-list" style={{ marginTop: 56 }}>
             {INFORMES.map((it) => (
-              <StaggerItem as="div" key={it.pdf}>
+              <StaggerItem as="div" key={it.slug}>
+                {/* Abre el PDF directo en el visor nativo, servido desde nuestro
+                    dominio vía el proxy (no salta a gbengochea). */}
                 <a
-                  href={it.pdf}
+                  href={`/informes/${it.slug}/pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ui-list-row informe-row"
@@ -195,7 +107,7 @@ export default function InformesPage() {
                     </span>
                   </span>
                   <span className="link-arrow informe-cta">
-                    Descargar PDF <ArrowRight />
+                    Ver informe <ArrowRight />
                   </span>
                 </a>
               </StaggerItem>

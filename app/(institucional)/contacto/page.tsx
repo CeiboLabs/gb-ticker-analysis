@@ -15,11 +15,11 @@ const CONTACTO_DATA: { icon: ReactNode; label: string; value: string; href: stri
   { icon: <Phone />, label: "Teléfono", value: "+598 2628 6447", href: "tel:+59826286447" },
   { icon: <Mail />, label: "Email general", value: "info@gbengochea.com.uy", href: "mailto:info@gbengochea.com.uy" },
   { icon: <Message />, label: "Reclamos", value: "reclamos@gbengochea.com.uy", href: "mailto:reclamos@gbengochea.com.uy" },
-  { icon: <Pin />, label: "Dirección", value: "Luis A. de Herrera 1248 · WTC Torre I, Of. 707 · Montevideo", href: "https://maps.google.com/?q=World+Trade+Center+Montevideo+Torre+1" },
+  { icon: <Pin />, label: "Dirección", value: "Luis A. de Herrera 1248 · WTC Torre I, Of. 707 · Montevideo", href: "https://www.google.com/maps/place/Gast%C3%B3n+Bengochea+CB/@-34.9043598,-56.1360758,1434m/data=!3m2!1e3!4b1!4m6!3m5!1s0x959f811e524a3fe9:0x397e7b1dcf825247!8m2!3d-34.9043598!4d-56.1360758!16s%2Fg%2F11smqv30hx" },
 ];
 
 const HORARIOS = [
-  ["Lunes a viernes", "9 : 00 — 18 : 00"],
+  ["Lunes a viernes", "10 : 00 — 18 : 00"],
   ["Sábados", "Cerrado"],
   ["Domingos y feriados", "Cerrado"],
 ];
@@ -159,7 +159,7 @@ export default function ContactoPage() {
           >
             <iframe
               title="Ubicación Bengochea & Cía."
-              src="https://maps.google.com/maps?q=Luis+Alberto+de+Herrera+1248,+World+Trade+Center+Montevideo&z=16&hl=es&output=embed"
+              src="https://maps.google.com/maps?q=Gast%C3%B3n+Bengochea+CB&ll=-34.9043598,-56.1360758&z=16&hl=es&output=embed"
               width="100%"
               height="420"
               style={{ border: 0, display: "block", filter: "grayscale(60%) contrast(0.98)" }}
