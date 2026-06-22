@@ -60,6 +60,21 @@ export const FONDO = {
   },
 } as const;
 
+// Benchmark de referencia — confirmado por el responsable del fondo: compuesto
+// 60/40 que imita la estructura del balanceado (renta variable global + renta
+// fija). Es la vara contra la cual se compara el valor cuota en el gráfico
+// (el benchmark se reescala al valor cuota inicial del fondo). La composición
+// exacta del tramo de renta fija (Global vs US Aggregate) está pendiente de
+// confirmar; el nombre largo se
+// finaliza cuando se cierre. NO se grafica con datos inventados: la serie del
+// benchmark sólo se muestra cuando hay data real de índices (o, en
+// pre-lanzamiento, junto al placeholder del fondo y claramente marcada).
+export const BENCHMARK = {
+  corto: "Benchmark",
+  nombre: "60% MSCI World · 40% Bloomberg Aggregate",
+  pesos: { rv: 0.6, rf: 0.4 },
+} as const;
+
 // ── Serie diaria + rendimientos ──────────────────────────────────────────────
 
 export type FundNavPoint = {
@@ -107,6 +122,17 @@ export type FundSnapshot = {
   stats: FundStats;
   // Serie completa ordenada por fecha ascendente, para el gráfico.
   series: FundNavPoint[];
+  // Serie del benchmark de referencia, alineada por fecha con `series` para la
+  // comparación en el gráfico (se reescala al valor cuota inicial del fondo).
+  // Vacía si no hay data de índices todavía: en ese caso el gráfico muestra
+  // sólo la línea del fondo.
+  benchmark: FundNavPoint[];
+  // Rendimientos del benchmark, en el mismo orden/clave que `returns` y
+  // `calendar` del fondo, para la fila comparativa de las tablas. Vacíos cuando
+  // no hay serie de benchmark (data real sin feed de índices): la tabla degrada
+  // a sólo la fila del fondo.
+  benchReturns: PeriodReturn[];
+  benchCalendar: CalendarReturn[];
 };
 
 const EMPTY_RETURNS: PeriodReturn[] = [
@@ -134,6 +160,9 @@ const EMPTY_SNAPSHOT: FundSnapshot = {
   calendar: [],
   stats: EMPTY_STATS,
   series: [],
+  benchmark: [],
+  benchReturns: [],
+  benchCalendar: [],
 };
 
 type Row = { dia: string; nav: number; aum: number | null };
@@ -253,7 +282,10 @@ function computeStats(series: FundNavPoint[]): FundStats {
 // Arma el snapshot completo (latest + rendimientos + calendario) a partir de
 // una serie ascendente. Pura y testeable; la usan tanto la lectura de D1 como
 // cualquier fuente alternativa.
-export function snapshotFromSeries(series: FundNavPoint[]): FundSnapshot {
+export function snapshotFromSeries(
+  series: FundNavPoint[],
+  benchmark: FundNavPoint[] = [],
+): FundSnapshot {
   if (series.length === 0) return EMPTY_SNAPSHOT;
   const last = series[series.length - 1];
   const prev = series.length > 1 ? series[series.length - 2] : null;
@@ -267,6 +299,9 @@ export function snapshotFromSeries(series: FundNavPoint[]): FundSnapshot {
     calendar: computeCalendar(series),
     stats: computeStats(series),
     series,
+    benchmark,
+    benchReturns: benchmark.length > 1 ? computeReturns(benchmark) : [],
+    benchCalendar: benchmark.length > 1 ? computeCalendar(benchmark) : [],
   };
 }
 
@@ -296,24 +331,49 @@ function placeholderSeries(): FundNavPoint[] {
   return out;
 }
 
+// PLACEHOLDER del benchmark 60/40, alineado por fecha con placeholderSeries().
+// Se DERIVA de la serie del fondo para que ambas líneas estén correlacionadas
+// (como en la realidad): el benchmark amplifica el retorno diario del fondo
+// (beta > 1 ⇒ se ve más volátil) y le resta un pequeño drag, de modo que la
+// selección activa termina un poco por encima con menos vaivén. Determinista,
+// sin Math.random. ⚠️ Reemplazar por la serie real de los índices (MSCI World
+// + Bloomberg Aggregate) antes de prod.
+function placeholderBenchmark(fund: FundNavPoint[]): FundNavPoint[] {
+  let nav = 100;
+  return fund.map((p, i) => {
+    if (i > 0) {
+      const fundRet = fund[i - 1].nav !== 0 ? fund[i].nav / fund[i - 1].nav - 1 : 0;
+      nav *= 1 + fundRet * 1.18 - 0.00013; // beta 1.18 + drag diario
+    }
+    return { dia: p.dia, nav: Math.round(nav * 1e4) / 1e4, aum: null };
+  });
+}
+
 // Lee la serie completa de fund_nav y arma el snapshot. Si no hay datos reales
 // todavía (sin binding D1, tabla vacía o error de query) cae al PLACEHOLDER
 // estático — la página siempre muestra el fondo operativo. Apenas existan filas
 // reales en fund_nav, esas mandan.
 export async function getFundSnapshot(db: D1Database | null): Promise<FundSnapshot> {
-  if (!db) return snapshotFromSeries(placeholderSeries());
+  const placeholder = () => {
+    const fund = placeholderSeries();
+    return snapshotFromSeries(fund, placeholderBenchmark(fund));
+  };
+  if (!db) return placeholder();
   try {
     const { results } = await db
       .prepare("SELECT dia, nav, aum FROM fund_nav ORDER BY dia ASC")
       .all<Row>();
-    if (!results || results.length === 0) return snapshotFromSeries(placeholderSeries());
+    if (!results || results.length === 0) return placeholder();
     const series: FundNavPoint[] = results.map((r) => ({
       dia: r.dia,
       nav: Number(r.nav),
       aum: r.aum == null ? null : Number(r.aum),
     }));
+    // Con datos reales del fondo el benchmark queda vacío hasta que exista un
+    // feed real de índices (seam pendiente, análogo a fund_nav): no se grafica
+    // el benchmark con cifras inventadas junto a data real. Ver lib BENCHMARK.
     return snapshotFromSeries(series);
   } catch {
-    return snapshotFromSeries(placeholderSeries());
+    return placeholder();
   }
 }

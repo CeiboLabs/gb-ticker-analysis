@@ -151,6 +151,12 @@ export function PageTransitions() {
             inset 1px 0 0 rgba(255, 255, 255, 0.05),
             inset -1px 0 0 rgba(0, 0, 0, 0.22);
         }
+        /* El reparto flex 1/3 redondea a sub-píxel y deja una costura hueca
+           entre slats (donde el error de redondeo cae se ve el fondo). Cada
+           slat solapa 1px sobre el siguiente para que nunca asome la página. */
+        .page-blinds-bar:not(:last-child) {
+          margin-right: -1px;
+        }
       `}</style>
     </motion.div>
   );

@@ -5,7 +5,7 @@ import { EquipoHome } from "@/components/institucional/EquipoHome";
 import { Industrias } from "@/components/institucional/Industrias";
 import { ReportPreviewMini } from "@/components/institucional/ReportPreviewMini";
 import { Reveal } from "@/components/motion";
-import { SplitText, ClipReveal, ParallaxLayer } from "@/components/scroll";
+import { SplitText, ParallaxLayer } from "@/components/scroll";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight, Columns, Globe, Scales, Lock, Waveform, Compass } from "@/components/institucional/icons";
@@ -54,11 +54,11 @@ export default function HomePage() {
 
           <div className="pilar-grid">
             {PILARES.map(({ icon, title, body }) => (
-              <ClipReveal key={title} from="bottom" className="pilar-item">
+              <div key={title} className="pilar-item">
                 <span className="feat-icon" aria-hidden>{icon}</span>
                 <h3 className="t-h4">{title}</h3>
                 <p className="t-body" style={{ marginTop: 10, marginBottom: 0 }}>{body}</p>
-              </ClipReveal>
+              </div>
             ))}
           </div>
         </div>
@@ -86,18 +86,14 @@ export default function HomePage() {
           <div className="proceso-grid">
             {PROCESO.map(([num, title, desc], i) => (
               <div key={num} style={{ position: "relative" }}>
-                {/* La flecha vive fuera del clip: se posiciona más allá del
-                    borde del paso y un clip-path la recortaría para siempre. */}
                 {i < PROCESO.length - 1 && (
                   <span className="proceso-arrow" aria-hidden><ArrowRight /></span>
                 )}
-                {/* from="left": el border-top del paso se "dibuja" de
-                    izquierda a derecha al revelarse con el scroll. */}
-                <ClipReveal from="left" className="proceso-step">
+                <div className="proceso-step">
                   <span className="proceso-num">{num}</span>
                   <h3 className="t-h4" style={{ marginTop: 18 }}>{title}</h3>
                   <p className="t-small" style={{ marginTop: 8, marginBottom: 0 }}>{desc}</p>
-                </ClipReveal>
+                </div>
               </div>
             ))}
           </div>

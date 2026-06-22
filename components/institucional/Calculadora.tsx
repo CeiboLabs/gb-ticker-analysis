@@ -160,11 +160,26 @@ interface YearData {
 export function CalculadoraSim({
   defaults = {},
   rateLocked = false,
+  fees,
+  omitGenericLegal = false,
 }: {
   defaults?: Partial<{ initial: number; monthly: number; rate: number; years: number }>;
   // Con rateLocked el retorno anual no es editable: se muestra como dato fijo
   // (la página del fondo lo fija en el promedio anualizado del fondo).
   rateLocked?: boolean;
+  // Costos opcionales del fondo (los pasa la página del fondo desde el
+  // Tarifario). Cuando se proveen, la proyección se muestra neta de costos:
+  //   buyPct          comisión de compraventa por operación (p.ej. 0,0075 = 0,75 %)
+  //   maintAnnualPct  costo de mantenimiento anual sobre valores en cartera
+  //   iva             IVA aplicable a ambos (Uruguay = 0,22)
+  // La calculadora genérica (/calculadora) no los pasa y simula sin costos.
+  fees?: { buyPct: number; maintAnnualPct: number; iva: number };
+  // Cuando la página ya carga el aviso legal genérico en otro lado (la del
+  // fondo lo tiene al pie + en el lead de la sección), se omite acá el
+  // "no constituye asesoramiento / rendimientos pasados" para no repetirlo, y
+  // queda sólo la nota de método (tasa constante) y de costos. La calculadora
+  // genérica (/calculadora) no tiene ese bloque, así que mantiene el texto completo.
+  omitGenericLegal?: boolean;
 }) {
   const [initial, setInitial] = useState(defaults.initial ?? 200000);
   const [aporte, setAporte] = useState(defaults.monthly ?? 500);
@@ -183,15 +198,29 @@ export function CalculadoraSim({
   const data = useMemo<YearData[]>(() => {
     // Simulación mes a mes: el aporte mensual se acredita al cierre de cada
     // mes; el anual, al cierre de cada año.
-    const result: YearData[] = [{ year: 0, invested: initial, total: Math.round(initial), gains: 0 }];
+    //
+    // Costos (sólo si `fees`): la comisión de compraventa se descuenta de cada
+    // monto antes de invertirlo (la inicial y cada aporte) y el costo de
+    // mantenimiento se cobra semestralmente sobre el valor en cartera. `invested`
+    // sigue siendo el dinero bruto que puso el cliente, así que `gains` ya
+    // refleja el costo neto y las cifras se muestran netas sin línea aparte.
+    const buyCost = fees ? fees.buyPct * (1 + fees.iva) : 0;
+    const maintSemester = fees ? (fees.maintAnnualPct * (1 + fees.iva)) / 2 : 0;
+    const net = (amount: number) => amount * (1 - buyCost);
+
+    const result: YearData[] = [
+      { year: 0, invested: initial, total: Math.round(net(initial)), gains: Math.round(net(initial) - initial) },
+    ];
     const monthlyRate = rate / 100 / 12;
-    let total = initial;
+    let total = net(initial);
 
     for (let y = 1; y <= years; y++) {
       for (let m = 0; m < 12; m++) {
-        total = total * (1 + monthlyRate) + (freq === "mensual" ? aporte : 0);
+        total = total * (1 + monthlyRate) + (freq === "mensual" ? net(aporte) : 0);
+        // Mantenimiento: cobro semestral (cierres de junio y diciembre).
+        if (m === 5 || m === 11) total -= total * maintSemester;
       }
-      if (freq === "anual") total += aporte;
+      if (freq === "anual") total += net(aporte);
       const invested = initial + aporte * (freq === "mensual" ? y * 12 : y);
       result.push({
         year: y,
@@ -201,7 +230,7 @@ export function CalculadoraSim({
       });
     }
     return result;
-  }, [initial, aporte, freq, rate, years]);
+  }, [initial, aporte, freq, rate, years, fees]);
 
   const final = data[data.length - 1];
   const maxTotal = final.total;
@@ -446,7 +475,13 @@ export function CalculadoraSim({
       </div>
 
       <p className="t-small" style={{ marginTop: 32, maxWidth: "44em" }}>
-        Esta simulación es informativa y no constituye asesoramiento financiero. Los retornos pasados no garantizan resultados futuros. Los cálculos asumen interés compuesto mensual con tasa anual constante.
+        {!omitGenericLegal && "Esta simulación es informativa y no constituye asesoramiento financiero. Los retornos pasados no garantizan resultados futuros. "}
+        Los cálculos asumen interés compuesto mensual con tasa anual constante.
+        {fees && (
+          <>
+            {" "}Las cifras son netas de la comisión de compraventa ({(fees.buyPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % + IVA por operación) y del costo de mantenimiento ({(fees.maintAnnualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % + IVA anual sobre valores en cartera, cobro semestral), según el Tarifario de Gastón Bengochea.
+          </>
+        )}
       </p>
 
       <style>{`

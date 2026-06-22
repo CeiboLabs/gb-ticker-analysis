@@ -2,18 +2,21 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Reveal } from "@/components/motion";
-import { SplitText, ClipReveal } from "@/components/scroll";
+import { SplitText } from "@/components/scroll";
 import {
-  Scales, Layers, Globe, Building, TrendingUp, FileDown, ArrowRight,
+  Scales, Layers, Waveform, Shield, FileDown, ArrowRight,
 } from "@/components/institucional/icons";
 import { FondoHero } from "@/components/institucional/FondoHero";
 import { FondoNav } from "@/components/institucional/FondoNav";
+import { FondoMundo } from "@/components/institucional/FondoMundo";
+import { FondoCasa } from "@/components/institucional/FondoCasa";
+import { FondoDiferencia } from "@/components/institucional/FondoDiferencia";
+import { FondoCartera } from "@/components/institucional/FondoCartera";
 import { FondoPerformance } from "@/components/institucional/FondoPerformance";
 import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FondoTenencias } from "@/components/institucional/FondoTenencias";
 import { FondoGeografia } from "@/components/institucional/FondoGeografia";
-import { FONDO } from "@/lib/fondo";
 
 export const metadata: Metadata = {
   title: "BNG Selección Global · Bengochea & Cía.",
@@ -21,24 +24,15 @@ export const metadata: Metadata = {
     "BNG Selección Global: estrategia diversificada, con exposición a renta variable y fija a nivel global, domiciliada en Uruguay. Estrategia, performance y documentos.",
 };
 
-const Check = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M20 6L9 17l-5-5" />
-  </svg>
-);
-
-const CARACTERISTICAS: string[] = [
-  "Una sola posición para una cartera diversificada y global.",
-  "Combina renta variable y renta fija en un perfil balanceado.",
-  "Invierte a través de fondos gestionados por managers especializados.",
-  "Estructurado en Uruguay y operado por una sociedad de bolsa regulada por el BCU.",
-];
-
+// Estrategia · "Cómo invierte" — las 4 piezas son MECANISMO, no repetición del
+// claim. "Exposición global" y "domicilio en Uruguay" ya viven en el hero, el
+// globo (Resumen) y La casa; acá no se repiten para que la sección haga avanzar
+// el argumento en vez de reafirmarlo.
 const ESTRATEGIA: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Scales />, title: "Cartera balanceada", body: "Combina renta variable y renta fija en un mismo vehículo, buscando un equilibrio entre crecimiento y estabilidad según el contexto de mercado." },
   { icon: <Layers />, title: "Selección de fondos", body: "Invierte a través de una selección de fondos gestionados por managers especializados, sumando diversificación y gestión profesional en cada clase de activo." },
-  { icon: <Globe />, title: "Exposición global", body: "Acceso a mercados de todo el mundo desde un solo producto, sin tener que seleccionar y rebalancear instrumentos uno por uno." },
-  { icon: <Building />, title: "Domiciliado en Uruguay", body: "Estructurado localmente y operado por Gastón Bengochea, sociedad de bolsa regulada por el Banco Central del Uruguay." },
+  { icon: <Waveform />, title: "Gestión activa", body: "El peso entre renta variable y renta fija no es fijo: se ajusta de forma activa según cómo evoluciona el mercado a lo largo del ciclo." },
+  { icon: <Shield />, title: "Diversificación amplia", body: "El riesgo se reparte por clase de activo, por manager y por región — no depende de un solo instrumento ni de una sola apuesta." },
 ];
 
 const DOCUMENTOS: { titulo: string; desc: string }[] = [
@@ -57,32 +51,25 @@ export default function FondoPage() {
       {/* ── Nav interna sticky con anclas (patrón Vontobel/SSGA) ──────── */}
       <FondoNav />
 
-      {/* ── Resumen: estrategia + características ─────────────────────── */}
-      <section id="resumen" className="band site-section">
+      {/* ── Resumen: el mundo en un mapa de puntos (diagonal, sangra a la derecha) ─ */}
+      <section id="resumen" className="band site-section resumen-sec">
+        <div className="resumen-map" aria-hidden>
+          <FondoMundo />
+        </div>
         <div className="site-wrap">
-          <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Estrategia de inversión</div>
-            <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>
-                Una estrategia global y diversificada, en un solo vehículo.
-              </h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>{FONDO.objetivo}</p>
-            </div>
-          </Reveal>
-          <Reveal as="div" style={{ marginTop: 44 }}>
-            <ul className="resumen-feats">
-              {CARACTERISTICAS.map((c) => (
-                <li key={c}>
-                  <span className="resumen-check" aria-hidden><Check /></span>
-                  <span>{c}</span>
-                </li>
-              ))}
-            </ul>
+          <Reveal as="div" className="resumen-copy">
+            <div className="eyebrow-sm">El fondo, de un vistazo</div>
+            <h2 className="t-h2">El mundo, en una sola posición.</h2>
+            <p className="t-lead">
+              Replicar esta diversificación por cuenta propia exige decenas de instrumentos y
+              rebalanceos permanentes. El fondo la reúne en una sola posición — balanceada, global
+              y operada desde Uruguay.
+            </p>
           </Reveal>
         </div>
       </section>
 
-      {/* ── Estrategia ────────────────────────────────────────────── */}
+      {/* ── Estrategia · cómo invierte (mecanismo) ────────────────────── */}
       <section id="estrategia" className="band-muted site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
@@ -98,15 +85,33 @@ export default function FondoPage() {
 
           <div className="estrategia-grid">
             {ESTRATEGIA.map((it) => (
-              <ClipReveal key={it.title} from="bottom" className="estrategia-cell">
+              <div key={it.title} className="estrategia-cell">
                 <span className="feat-icon" aria-hidden>{it.icon}</span>
                 <h3 className="t-h4" style={{ marginTop: 18 }}>{it.title}</h3>
                 <p className="t-body" style={{ marginTop: 10, marginBottom: 0 }}>{it.body}</p>
-              </ClipReveal>
+              </div>
             ))}
           </div>
+        </div>
+      </section>
 
-          {/* Mayores tenencias — comparación de estilo (datos ilustrativos) */}
+      {/* ── Cartera · de qué se compone (cualitativo → concreto) ───────── */}
+      <section id="cartera" className="band site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Cartera</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Cómo está construida.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Un fondo balanceado combina dos clases de activo. Cada una se accede a través de
+                una selección de fondos de terceros.
+              </p>
+            </div>
+          </Reveal>
+
+          <FondoCartera />
+
+          {/* Mayores tenencias — composición ilustrativa (datos ilustrativos) */}
           <FondoTenencias />
 
           {/* Exposición geográfica — choropleth de puntos (datos ilustrativos) */}
@@ -114,8 +119,42 @@ export default function FondoPage() {
         </div>
       </section>
 
+      {/* ── La casa · credibilidad (sustituye el track record ausente) ── */}
+      <section id="casa" className="band-muted site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">La casa</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Detrás del fondo, seis décadas de casa.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
+                BNG Selección Global lo gestiona Gastón Bengochea & Cía. —sociedad de bolsa en la
+                plaza uruguaya desde 1967—, con Adrián Moreira al frente de la gestión del fondo.
+              </p>
+            </div>
+          </Reveal>
+          <div style={{ marginTop: 48 }}><FondoCasa /></div>
+        </div>
+      </section>
+
+      {/* ── Diferenciación · por qué este enfoque y no armarlo solo ──── */}
+      <section id="diferencia" className="band site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Qué lo distingue</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Una cartera global no se arma sola.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Buscar esta diversificación por tu cuenta es posible. La diferencia está en todo lo
+                que el fondo resuelve por vos — y en quién lo hace.
+              </p>
+            </div>
+          </Reveal>
+          <FondoDiferencia />
+        </div>
+      </section>
+
       {/* ── Performance ───────────────────────────────────────────── */}
-      <section id="performance" className="band site-section">
+      <section id="performance" className="band-muted site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Rendimientos</div>
@@ -132,7 +171,7 @@ export default function FondoPage() {
       </section>
 
       {/* ── Calculadora de inversión ──────────────────────────────── */}
-      <section id="calculadora" className="band-muted site-section">
+      <section id="calculadora" className="band site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Calculadora</div>
@@ -149,36 +188,6 @@ export default function FondoPage() {
           <div style={{ marginTop: 48 }}>
             <FondoCalculadora />
           </div>
-        </div>
-      </section>
-
-      {/* ── Cartera · estructura (cualitativa, sin cifras inventadas) ── */}
-      <section id="cartera" className="band site-section">
-        <div className="site-wrap">
-          <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Cartera</div>
-            <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Cómo está construida.</h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Un fondo balanceado combina dos clases de activo. Cada una se accede a través de
-                una selección de fondos de terceros.
-              </p>
-            </div>
-          </Reveal>
-
-          <div className="cartera-grid">
-            {FONDO.cartera.sleeves.map((s, i) => (
-              <ClipReveal key={s.clave} from="bottom" className="cartera-cell">
-                <div className="cartera-cell-top">
-                  <span className="feat-icon" aria-hidden>{i === 0 ? <TrendingUp /> : <Scales />}</span>
-                  <span className="cartera-tag">Clase de activo · {String(i + 1).padStart(2, "0")}</span>
-                </div>
-                <h3 className="t-h4" style={{ marginTop: 18 }}>{s.clave}</h3>
-                <p className="t-body" style={{ marginTop: 10, marginBottom: 0 }}>{s.desc}</p>
-              </ClipReveal>
-            ))}
-          </div>
-          <p className="cartera-nota">{FONDO.cartera.nota}</p>
         </div>
       </section>
 
@@ -290,20 +299,21 @@ export default function FondoPage() {
            del navbar fijo + la barra sticky del fondo. */
         .fondo-page section[id] { scroll-margin-top: calc(var(--nav-h) + 56px); }
 
-        /* ── Resumen ── */
-        .resumen-feats {
-          list-style: none; margin: 0; padding: 0;
-          display: grid; grid-template-columns: 1fr 1fr; gap: 0 clamp(32px, 5vw, 72px);
-          border-top: 1px solid var(--site-border);
+        /* ── Resumen (mapa de puntos en diagonal) ── */
+        .resumen-sec { position: relative; overflow: hidden; min-height: clamp(460px, 56vh, 620px); }
+        .resumen-sec .site-wrap { position: relative; z-index: 2; }
+        .resumen-copy { max-width: 33em; }
+        .resumen-copy .t-h2 { max-width: 11em; }
+        .resumen-copy .t-lead { margin-top: 20px; max-width: 30em; }
+
+        /* Mapa: pinned a la derecha, sangra fuera y se disuelve hacia el texto. */
+        .resumen-map {
+          position: absolute; top: 0; right: 0; bottom: 0;
+          width: min(64%, 820px); z-index: 1; pointer-events: none;
+          -webkit-mask-image: radial-gradient(125% 125% at 80% 42%, #000 36%, transparent 76%);
+          mask-image: radial-gradient(125% 125% at 80% 42%, #000 36%, transparent 76%);
         }
-        .resumen-feats li {
-          display: flex; gap: 14px; align-items: flex-start; padding: 18px 0;
-          border-bottom: 1px solid var(--site-border); font-size: 17px; line-height: 1.5; color: var(--site-ink-2);
-        }
-        .resumen-check {
-          flex: none; width: 28px; height: 28px; border-radius: 999px; display: inline-flex;
-          align-items: center; justify-content: center; background: rgba(176,141,87,0.14); color: var(--gold-deep);
-        }
+        .resumen-map .fmapa { width: 100%; height: 100%; display: block; }
 
         /* ── Estrategia grid ── */
         .estrategia-grid {
@@ -314,23 +324,6 @@ export default function FondoPage() {
           padding: 34px 36px 34px 0; border-bottom: 1px solid var(--site-border); border-right: 1px solid var(--site-border);
         }
         .estrategia-cell:nth-child(2n) { padding-right: 0; padding-left: 36px; border-right: 0; }
-
-        /* ── Cartera · estructura ── */
-        .cartera-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 48px; }
-        .cartera-cell {
-          border: 1px solid var(--site-border); border-radius: 16px; padding: 28px 28px 30px;
-          background: linear-gradient(180deg, #ffffff 0%, #fbfbfe 100%);
-          box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 18px 48px -32px rgba(3,6,94,0.22);
-        }
-        .cartera-cell-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .cartera-tag {
-          font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-          color: var(--site-ink-3); font-variant-numeric: tabular-nums;
-        }
-        .cartera-nota {
-          margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--site-border);
-          font-size: 13.5px; line-height: 1.65; color: var(--site-ink-3); max-width: 60em;
-        }
 
         /* ── Perfil (chips) ── */
         .perfil-chips {
@@ -352,13 +345,20 @@ export default function FondoPage() {
           padding-top: 24px; border-top: 1px solid var(--site-border);
         }
 
+        @media (max-width: 880px) {
+          .resumen-sec { min-height: 0; }
+          .resumen-copy { max-width: none; }
+          /* El mapa pasa detrás del texto, tenue y a todo el ancho. */
+          .resumen-map {
+            width: 100%; opacity: 0.14;
+            -webkit-mask-image: none; mask-image: none;
+          }
+        }
         @media (max-width: 760px) {
-          .resumen-feats { grid-template-columns: 1fr; }
           .estrategia-grid { grid-template-columns: 1fr; }
           .estrategia-cell, .estrategia-cell:nth-child(2n) {
             padding: 28px 0; border-right: 0; padding-left: 0; padding-right: 0;
           }
-          .cartera-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
           .fondo-doc-row { flex-direction: column; align-items: flex-start; gap: 12px; }

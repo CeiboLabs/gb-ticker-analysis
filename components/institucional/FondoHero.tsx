@@ -140,7 +140,7 @@ export function FondoHero() {
           </ul>
           <div className="fh-actions">
             <Link href="/contacto" className="ui-btn ui-btn-on-navy">Hablar con un asesor</Link>
-            <a href="#performance" className="fh-link">Ver performance →</a>
+            <a href="#estrategia" className="fh-link">Cómo invierte →</a>
           </div>
         </div>
       </motion.div>

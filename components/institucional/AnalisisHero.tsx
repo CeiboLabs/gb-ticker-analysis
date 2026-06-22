@@ -7,6 +7,7 @@
    pinneada: todo el recorrido es scrubbing, avanza y retrocede con el scroll. */
 
 import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   motion,
   useReducedMotion,
@@ -114,18 +115,53 @@ function HeroPinned({
   // (y=0) es el centro vertical del viewport — el wrapper centra por flex,
   // así queda centrado en cualquier altura de pantalla, lejos del navbar.
   // Se asienta en 0.52: el resto del recorrido es de los callouts.
-  const py = scrollWindow(0, 0.52, "70vh", "0vh");
+  //
+  // El offset de asomada NO puede ser un `vh` fijo: el copy (kicker + título +
+  // lead + buscador) mide píxeles constantes, así que en pantallas bajas un
+  // `70vh` empuja pocos píxeles y el borde del reporte pisa el input. Lo
+  // medimos: el reporte arranca siempre PEEK px por encima del borde inferior,
+  // pero nunca más arriba que GAP px debajo del copy. Cubre desktop (centrado)
+  // y mobile (anclado arriba) por igual, porque se basa en offsetTop real.
+  const copyRef = useRef<HTMLDivElement>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [peekOffset, setPeekOffset] = useState(520);
+
+  useEffect(() => {
+    const PEEK = 120; // sliver del reporte visible sobre el borde inferior
+    const GAP = 24; //   aire mínimo entre el copy y el tope del reporte
+    const compute = () => {
+      const copy = copyRef.current;
+      const report = reportRef.current;
+      if (!copy || !report) return;
+      // Coords de viewport en reposo (progress 0), independientes del scroll:
+      // offsetTop ignora los transforms de framer y mide el layout real.
+      const copyBottom = copy.offsetTop + copy.offsetHeight;
+      const baseTop = report.offsetTop; // centro (desktop) o padTop (mobile)
+      const reportTop = Math.max(copyBottom + GAP, window.innerHeight - PEEK);
+      setPeekOffset(Math.max(0, reportTop - baseTop));
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    const ro = new ResizeObserver(compute);
+    if (copyRef.current) ro.observe(copyRef.current);
+    if (reportRef.current) ro.observe(reportRef.current);
+    return () => {
+      window.removeEventListener("resize", compute);
+      ro.disconnect();
+    };
+  }, []);
+
+  const py = scrollWindow(0, 0.52, peekOffset, 0);
   const ps = scrollWindow(0, 0.52, 0.96, 1);
   const pr = scrollWindow(0, 0.42, 9, 0);
   const previewY = useTransform(progress, py.times, py.values);
   const previewScale = useTransform(progress, ps.times, ps.values);
   const previewRotateX = useTransform(progress, pr.times, pr.values);
 
-  const cueOpacity = useTransform(progress, [0, 0.08, 1], [1, 0, 0]);
-
   return (
     <div className="site" style={{ position: "relative", width: "100%", height: "100%" }}>
       <motion.div
+        ref={copyRef}
         className="site-wrap"
         style={{
           position: "relative",
@@ -152,6 +188,7 @@ function HeroPinned({
         }}
       >
         <motion.div
+          ref={reportRef}
           style={{ width: "min(820px, 92vw)", position: "relative" }}
           initial={{ opacity: 0, y: 36 }}
           animate={{ opacity: 1, y: 0 }}
@@ -173,6 +210,9 @@ function HeroPinned({
           align-items: center;
           justify-content: center;
           pointer-events: none;
+          /* Centrar en la franja real (debajo del nav → borde inferior), no
+             en el viewport completo: el padding sube el eje de centrado. */
+          padding-top: var(--nav-h);
         }
         /* En mobile el reporte es más alto que el viewport: centrarlo
            escondería el veredicto. Se ancla arriba, bajo el navbar. */
@@ -218,38 +258,6 @@ function HeroPinned({
         /* Sin margen lateral suficiente, los callouts no aportan: fuera. */
         @media (max-width: 1240px) { .ah-callout { display: none; } }
       `}</style>
-
-      <motion.div
-        aria-hidden
-        style={{
-          position: "absolute",
-          bottom: 22,
-          left: 0,
-          right: 0,
-          zIndex: 3,
-          display: "flex",
-          justifyContent: "center",
-          pointerEvents: "none",
-          opacity: cueOpacity,
-        }}
-      >
-        {/* Pill oscura: flota sobre el papel blanco del reporte que asoma. */}
-        <span
-          style={{
-            fontFamily: "var(--font-mono), monospace",
-            fontSize: 10,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.82)",
-            background: "rgba(2,4,40,0.78)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: 999,
-            padding: "9px 18px",
-          }}
-        >
-          Deslizá para ver el reporte
-        </span>
-      </motion.div>
     </div>
   );
 }

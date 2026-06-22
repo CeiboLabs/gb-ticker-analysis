@@ -26,6 +26,7 @@ const PALETTE = {
   paper: "#FBFBFE",    // --paper (texto de etiquetas sobre navy)
   pos: "#15803d",
   neg: "#b91c1c",
+  bench: "#9FA2C0",    // benchmark: línea secundaria, tono apagado (--site-ink-3/4)
 };
 
 // Mismos acentos teal/coral que el gráfico de tickers para los puntos fijados:
@@ -74,10 +75,20 @@ function syncPinnedVisuals(
   });
 }
 
-export function FondoChart({ series, formatValue = fmtNav }: {
+export function FondoChart({
+  series,
+  benchmark = [],
+  formatValue = fmtNav,
+  seriesLabel = "Fondo",
+  benchLabel = "Benchmark",
+}: {
   series: FundNavPoint[];
+  /** Serie del benchmark, alineada por fecha. Vacía ⇒ sólo se dibuja el fondo. */
+  benchmark?: FundNavPoint[];
   /** Formato de los valores en eje, crosshair y puntos fijados (default: valor cuota). */
   formatValue?: (n: number) => string;
+  seriesLabel?: string;
+  benchLabel?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState<PinnedMarker[]>([]);
@@ -152,18 +163,55 @@ export function FondoChart({ series, formatValue = fmtNav }: {
 
       chartInstance = chart;
 
-      const seen = new Set<string>();
-      const points = [...series]
-        .sort((a, b) => a.dia.localeCompare(b.dia))
-        .filter((p) => {
-          if (seen.has(p.dia)) return false;
-          seen.add(p.dia);
-          return true;
-        })
-        .map((p) => ({
+      // Dedup + orden ascendente por fecha.
+      const clean = (arr: FundNavPoint[]) => {
+        const seen = new Set<string>();
+        return [...arr]
+          .sort((a, b) => a.dia.localeCompare(b.dia))
+          .filter((p) => {
+            if (seen.has(p.dia)) return false;
+            seen.add(p.dia);
+            return true;
+          });
+      };
+      const toPoints = (rows: FundNavPoint[], scale = 1) =>
+        rows.map((p) => ({
           time: p.dia as unknown as import("lightweight-charts").Time,
-          value: p.nav,
+          value: p.nav * scale,
         }));
+
+      // El fondo se grafica en su valor cuota real. El benchmark es un índice de
+      // escala arbitraria: lo reescalamos para que arranque en el mismo valor
+      // cuota inicial del fondo, así ambas líneas comparten origen y el eje lee
+      // en valor cuota —no en base 100—.
+      const fundRows = clean(series);
+      const points = toPoints(fundRows);
+      const fundAnchor = fundRows.length > 0 ? fundRows[0].nav : null;
+
+      const benchRows = benchmark.length > 0 ? clean(benchmark) : [];
+      const benchScale =
+        fundAnchor != null && benchRows.length > 0 && benchRows[0].nav !== 0
+          ? fundAnchor / benchRows[0].nav
+          : 1;
+      const benchPoints = toPoints(benchRows, benchScale);
+
+      // Benchmark primero (queda por debajo); la línea del fondo se dibuja encima.
+      if (benchPoints.length > 0) {
+        const benchSeries = chart.addSeries(LineSeries, {
+          color: PALETTE.bench,
+          lineWidth: 2,
+          lineStyle: LineStyle.Dashed,
+          priceScaleId: "right",
+          priceLineVisible: false,
+          lastValueVisible: true,
+          priceFormat: { type: "custom", formatter: (p: number) => formatValue(p), minMove: 0.0001 },
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 3,
+          crosshairMarkerBorderColor: PALETTE.paper,
+          crosshairMarkerBackgroundColor: PALETTE.bench,
+        });
+        benchSeries.setData(benchPoints);
+      }
 
       const lineSeries = chart.addSeries(LineSeries, {
         color: PALETTE.navy,
@@ -227,7 +275,7 @@ export function FondoChart({ series, formatValue = fmtNav }: {
       lineSeriesRef.current = null;
       priceLinesRef.current = [];
     };
-  }, [series, formatValue]);
+  }, [series, benchmark, formatValue]);
 
   // Repintar los marcadores fijados sin recrear el gráfico.
   useEffect(() => {
@@ -252,6 +300,19 @@ export function FondoChart({ series, formatValue = fmtNav }: {
 
   return (
     <div className="fondo-chart">
+      {benchmark.length > 0 && (
+        <div className="fondo-chart-legend">
+          <span className="fondo-chart-leg">
+            <span className="fondo-chart-leg-line" data-kind="fund" />
+            {seriesLabel}
+          </span>
+          <span className="fondo-chart-leg">
+            <span className="fondo-chart-leg-line" data-kind="bench" />
+            {benchLabel}
+          </span>
+        </div>
+      )}
+
       <div ref={containerRef} style={{ height: 300 }} />
 
       <div className="fondo-chart-read">
@@ -283,6 +344,21 @@ export function FondoChart({ series, formatValue = fmtNav }: {
       </div>
 
       <style>{`
+        .fondo-chart-legend {
+          display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+          margin-bottom: 10px;
+        }
+        .fondo-chart-leg {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-size: 12.5px; font-weight: 500; color: var(--site-ink-2);
+        }
+        .fondo-chart-leg-line { width: 18px; height: 0; display: inline-block; }
+        .fondo-chart-leg-line[data-kind="fund"] {
+          border-top: 2px solid var(--navy);
+        }
+        .fondo-chart-leg-line[data-kind="bench"] {
+          border-top: 2px dashed #9FA2C0;
+        }
         .fondo-chart-read {
           margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--site-border);
           min-height: 20px;

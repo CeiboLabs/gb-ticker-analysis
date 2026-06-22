@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FundNavPoint } from "@/lib/fondo";
+import type { FundNavPoint, ReturnKey } from "@/lib/fondo";
+import { BENCHMARK } from "@/lib/fondo";
 import { useFondo, fmtNav, fmtPct, fmtAum, fmtFechaCorta, fmtMesAnio } from "@/lib/useFondo";
 import { FondoChart } from "@/components/institucional/FondoChart";
 
@@ -48,14 +49,49 @@ export function FondoPerformance() {
     () => (live && data ? windowFor(data.series, period) : []),
     [live, data, period],
   );
+  const benchSeries = useMemo(
+    () => (live && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
+    [live, data, period],
+  );
   const returns = data?.returns ?? [];
+  const benchReturns = data?.benchReturns ?? [];
   const calendar = data?.calendar ?? [];
+  const benchCalendar = data?.benchCalendar ?? [];
   const stats = data?.stats ?? null;
+  const hasBench = benchReturns.length > 0;
 
-  const statRows: { label: string; value: string; sub?: string; accent?: "up" | "down" }[] = [
+  // Etiquetas de columna (cortas) por período — convención de ficha en español.
+  const COL_LABEL: Record<ReturnKey, string> = {
+    "1M": "1 mes",
+    "3M": "3 meses",
+    YTD: "En el año",
+    "1Y": "1 año",
+    SI: "Desde inicio",
+  };
+
+  // Año calendario en orden cronológico (columnas izq.→der.) + lookup del bench.
+  const calAsc = [...calendar].reverse();
+  const benchByYear = new Map(benchCalendar.map((c) => [c.year, c.pct]));
+  const asOfYear = data?.asOf ? Number(data.asOf.slice(0, 4)) : null;
+  const lastIsPartial =
+    asOfYear != null &&
+    calAsc.length > 0 &&
+    calAsc[calAsc.length - 1].year === asOfYear &&
+    (data?.asOf ?? "").slice(5) !== "12-31";
+
+  // Indicadores de riesgo — todo derivado de la serie NAV. No hay Sharpe porque
+  // exige un supuesto de tasa libre de riesgo que no vamos a inventar.
+  const riskItems: { label: string; value: string; sub?: string; accent?: "up" | "down" }[] = [
+    { label: "Volatilidad (1A)", value: stats?.vol1y != null ? fmtPct(stats.vol1y, false) : "—" },
     {
-      label: "Volatilidad anualizada (1A)",
-      value: stats?.vol1y != null ? fmtPct(stats.vol1y, false) : "—",
+      label: "Retorno anualizado",
+      value: stats?.annualizedSI != null ? fmtPct(stats.annualizedSI) : "—",
+      accent: stats?.annualizedSI != null ? (stats.annualizedSI >= 0 ? "up" : "down") : undefined,
+    },
+    {
+      label: "Máx. caída",
+      value: stats?.maxDrawdown != null ? fmtPct(stats.maxDrawdown) : "—",
+      accent: stats?.maxDrawdown != null ? "down" : undefined,
     },
     {
       label: "Mejor mes",
@@ -68,11 +104,6 @@ export function FondoPerformance() {
       value: stats?.worstMonth ? fmtPct(stats.worstMonth.pct) : "—",
       sub: stats?.worstMonth ? fmtMesAnio(stats.worstMonth.ym) : undefined,
       accent: stats?.worstMonth ? "down" : undefined,
-    },
-    {
-      label: "Máx. drawdown",
-      value: stats?.maxDrawdown != null ? fmtPct(stats.maxDrawdown) : "—",
-      accent: stats?.maxDrawdown != null ? "down" : undefined,
     },
     {
       label: "Meses positivos",
@@ -109,7 +140,9 @@ export function FondoPerformance() {
       </div>
 
       <div className="perf-bar">
-        <span className="perf-bar-label">Evolución del valor cuota</span>
+        <span className="perf-bar-label">
+          {benchSeries.length > 0 ? "Evolución del valor cuota vs. benchmark" : "Evolución del valor cuota"}
+        </span>
         <div
           className="perf-periods"
           role="tablist"
@@ -139,7 +172,16 @@ export function FondoPerformance() {
 
       <div className="perf-chart-frame">
         {live ? (
-          <FondoChart series={series} formatValue={fmtNav} />
+          benchSeries.length > 0 ? (
+            <FondoChart
+              series={series}
+              benchmark={benchSeries}
+              seriesLabel="BNG Selección Global"
+              benchLabel="Benchmark"
+            />
+          ) : (
+            <FondoChart series={series} />
+          )
         ) : (
           <div className="perf-empty">
             <p className="perf-empty-title">Cargando datos del fondo…</p>
@@ -147,60 +189,123 @@ export function FondoPerformance() {
         )}
       </div>
 
-      <div className="perf-tables">
-        <div className="perf-table">
-          <div className="perf-table-head">Rendimientos acumulados</div>
-          <table>
-            <tbody>
-              {returns.map((r) => (
-                <tr key={r.key}>
-                  <th scope="row">{r.label}</th>
-                  <td data-accent={r.pct == null ? "" : r.pct >= 0 ? "up" : "down"}>{fmtPct(r.pct)}</td>
+      <div className="perf-data">
+        {/* Rentabilidad acumulada — fondo vs benchmark, períodos en columnas. */}
+        <section className="perf-block">
+          <div className="perf-block-head">
+            <h3>Rentabilidad acumulada</h3>
+            {data?.asOf && <span className="perf-asof">al {fmtFechaCorta(data.asOf)}</span>}
+          </div>
+          <div className="perf-table-scroll">
+            <table className="perf-grid">
+              <thead>
+                <tr>
+                  <th scope="col" aria-label="Serie" />
+                  {returns.map((r) => (
+                    <th key={r.key} scope="col">{COL_LABEL[r.key]}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="perf-table">
-          <div className="perf-table-head">Por año calendario</div>
-          {calendar.length > 0 ? (
-            <table>
+              </thead>
               <tbody>
-                {calendar.map((c) => (
-                  <tr key={c.year}>
-                    <th scope="row">{c.year}</th>
-                    <td data-accent={c.pct >= 0 ? "up" : "down"}>{fmtPct(c.pct)}</td>
+                <tr>
+                  <th scope="row">Fondo</th>
+                  {returns.map((r) => (
+                    <td key={r.key} data-accent={r.pct == null ? "" : r.pct >= 0 ? "up" : "down"}>
+                      {fmtPct(r.pct)}
+                    </td>
+                  ))}
+                </tr>
+                {hasBench && (
+                  <tr className="perf-bench">
+                    <th scope="row">{BENCHMARK.corto}</th>
+                    {benchReturns.map((r) => (
+                      <td key={r.key} data-accent={r.pct == null ? "" : r.pct >= 0 ? "up" : "down"}>
+                        {fmtPct(r.pct)}
+                      </td>
+                    ))}
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
-          ) : (
-            <p className="perf-cal-empty">Cargando…</p>
-          )}
-        </div>
+          </div>
+          <p className="perf-foot">
+            Cifras netas en USD. «Desde inicio» es la rentabilidad acumulada desde el inicio del fondo; el resto, del período indicado.
+          </p>
+        </section>
 
-        <div className="perf-table">
-          <div className="perf-table-head">Estadísticas</div>
-          <table>
-            <tbody>
-              {statRows.map((r) => (
-                <tr key={r.label}>
-                  <th scope="row">{r.label}</th>
-                  <td data-accent={r.accent ?? ""}>
-                    {r.value}
-                    {r.sub && <span className="perf-stat-sub">{r.sub}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Rentabilidad por año calendario — años en columnas. */}
+        <section className="perf-block">
+          <div className="perf-block-head">
+            <h3>Rentabilidad por año calendario</h3>
+          </div>
+          {calAsc.length > 0 ? (
+            <>
+              <div className="perf-table-scroll">
+                <table className="perf-grid">
+                  <thead>
+                    <tr>
+                      <th scope="col" aria-label="Serie" />
+                      {calAsc.map((c) => (
+                        <th key={c.year} scope="col">{c.year}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Fondo</th>
+                      {calAsc.map((c) => (
+                        <td key={c.year} data-accent={c.pct >= 0 ? "up" : "down"}>{fmtPct(c.pct)}</td>
+                      ))}
+                    </tr>
+                    {hasBench && (
+                      <tr className="perf-bench">
+                        <th scope="row">{BENCHMARK.corto}</th>
+                        {calAsc.map((c) => {
+                          const b = benchByYear.get(c.year);
+                          return (
+                            <td key={c.year} data-accent={b == null ? "" : b >= 0 ? "up" : "down"}>
+                              {fmtPct(b ?? null)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {lastIsPartial && <p className="perf-foot">El año en curso es parcial, a la fecha indicada.</p>}
+            </>
+          ) : (
+            <p className="perf-foot">Cargando…</p>
+          )}
+        </section>
+
+        {/* Indicadores de riesgo — tira subordinada, derivada de la serie. */}
+        <section className="perf-block">
+          <div className="perf-block-head">
+            <h3>Indicadores de riesgo</h3>
+          </div>
+          <dl className="perf-risk">
+            {riskItems.map((it) => (
+              <div key={it.label} className="perf-risk-item">
+                <dt>{it.label}</dt>
+                <dd data-accent={it.accent ?? ""}>
+                  {it.value}
+                  {it.sub && <em>{it.sub}</em>}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       </div>
 
       <p className="perf-disclaimer">
         Los rendimientos pasados no garantizan resultados futuros. Cifras netas, expresadas en la moneda del fondo.
         Volatilidad, drawdown y retornos mensuales se calculan sobre la serie diaria de valor cuota.
+        {benchSeries.length > 0 && (
+          <> El benchmark es un compuesto de referencia ({BENCHMARK.nombre}); se grafica reescalado al valor
+          cuota inicial del fondo para comparar la evolución de ambas series.</>
+        )}
       </p>
 
       <style>{`
@@ -277,27 +382,68 @@ export function FondoPerformance() {
         }
         .perf-empty-title { font-size: 17px; color: var(--site-ink-2); max-width: 30em; margin: 0; }
 
-        .perf-tables { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 28px; }
-        .perf-table { border: 1px solid var(--site-border); border-radius: 16px; overflow: hidden; }
-        .perf-table-head {
-          font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-          color: var(--site-ink-3); padding: 16px 20px; border-bottom: 1px solid var(--site-border);
-          background: var(--surface-muted, #f7f8fc);
+        .perf-data { margin-top: 30px; display: flex; flex-direction: column; gap: 38px; }
+        .perf-block-head {
+          display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px;
         }
-        .perf-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-        .perf-table tr { border-bottom: 1px solid var(--site-border); }
-        .perf-table tr:last-child { border-bottom: 0; }
-        .perf-table th { text-align: left; font-weight: 400; color: var(--site-ink-2); font-size: 14.5px; padding: 13px 20px; }
-        .perf-table td { text-align: right; font-weight: 500; color: var(--site-ink); font-size: 15px; padding: 13px 20px; white-space: nowrap; }
-        .perf-table td[data-accent="up"] { color: #15803d; }
-        .perf-table td[data-accent="down"] { color: #b91c1c; }
-        .perf-stat-sub { display: block; font-size: 11.5px; font-weight: 400; color: var(--site-ink-3); }
-        .perf-cal-empty { font-size: 14px; color: var(--site-ink-3); padding: 22px 20px; margin: 0; }
+        .perf-block-head h3 {
+          margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+          text-transform: uppercase; color: var(--site-ink-3);
+        }
+        .perf-asof { font-size: 12px; color: var(--site-ink-3); font-variant-numeric: tabular-nums; }
+
+        /* Tablas planas de ficha técnica: regla superior navy, hairlines por fila,
+           sin reglas verticales ni cajas redondeadas. */
+        .perf-table-scroll { overflow-x: auto; }
+        .perf-grid {
+          width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums;
+          border-top: 1.5px solid var(--navy);
+        }
+        .perf-grid thead th {
+          text-align: right; font-size: 12px; font-weight: 600; color: var(--site-ink-3);
+          padding: 11px 0 11px 28px; border-bottom: 1px solid var(--site-border); white-space: nowrap;
+        }
+        .perf-grid thead th:first-child { padding-left: 0; }
+        .perf-grid tbody tr { border-bottom: 1px solid var(--site-border); }
+        .perf-grid tbody tr:last-child { border-bottom: 0; }
+        .perf-grid tbody th {
+          text-align: left; font-weight: 500; color: var(--site-ink); font-size: 14.5px;
+          padding: 14px 0; white-space: nowrap;
+        }
+        .perf-grid tbody td {
+          text-align: right; font-weight: 500; color: var(--site-ink); font-size: 15px;
+          padding: 14px 0 14px 28px; white-space: nowrap;
+        }
+        .perf-grid td[data-accent="up"] { color: #15803d; }
+        .perf-grid td[data-accent="down"] { color: #b91c1c; }
+        .perf-grid tr.perf-bench th { color: var(--site-ink-2); font-weight: 400; }
+        .perf-grid tr.perf-bench td { font-weight: 400; }
+
+        .perf-foot { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); }
+
+        /* Indicadores de riesgo: grilla de celdas regladas, subordinada — no tarjetas. */
+        .perf-risk {
+          margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+          border-top: 1.5px solid var(--navy); border-left: 1px solid var(--site-border);
+        }
+        .perf-risk-item {
+          padding: 15px 18px; border-right: 1px solid var(--site-border); border-bottom: 1px solid var(--site-border);
+        }
+        .perf-risk-item dt { font-size: 11.5px; color: var(--site-ink-3); margin-bottom: 7px; }
+        .perf-risk-item dd {
+          margin: 0; font-size: 17px; font-weight: 500; color: var(--site-ink); font-variant-numeric: tabular-nums;
+        }
+        .perf-risk-item dd em {
+          display: block; font-style: normal; font-size: 11px; font-weight: 400;
+          color: var(--site-ink-3); margin-top: 3px;
+        }
+        .perf-risk-item dd[data-accent="up"] { color: #15803d; }
+        .perf-risk-item dd[data-accent="down"] { color: #b91c1c; }
 
         .perf-disclaimer { margin-top: 20px; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); }
 
-        @media (max-width: 1020px) {
-          .perf-tables { grid-template-columns: 1fr; }
+        @media (max-width: 560px) {
+          .perf-grid thead th, .perf-grid tbody td { padding-left: 18px; }
         }
       `}</style>
     </div>

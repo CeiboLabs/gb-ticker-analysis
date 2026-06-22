@@ -10,13 +10,15 @@ import { useEffect, useRef, useState } from "react";
 // IntersectionObserver: con secciones de alturas muy distintas el observer
 // produce saltos de activo poco intuitivos.
 
+// Orden = el flujo narrativo de la página: promesa → cómo invierte → de qué se
+// compone → quién la gestiona (credibilidad) → estado/proyección → objeciones.
 const LINKS = [
   { id: "resumen", label: "Resumen" },
   { id: "estrategia", label: "Estrategia" },
+  { id: "cartera", label: "Cartera" },
+  { id: "casa", label: "La casa" },
   { id: "performance", label: "Performance" },
   { id: "calculadora", label: "Calculadora" },
-  { id: "cartera", label: "Cartera" },
-  { id: "documentos", label: "Documentos" },
   { id: "faq", label: "Preguntas" },
 ] as const;
 
