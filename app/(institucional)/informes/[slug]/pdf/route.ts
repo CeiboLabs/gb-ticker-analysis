@@ -8,7 +8,11 @@ import { getInforme } from "@/lib/informes";
 // lo re-emitimos. El slug se valida contra la lista blanca de INFORMES: nunca
 // se hace fetch de una URL arbitraria (no es un open-proxy).
 
-export const dynamic = "force-static";
+// Edge runtime: este handler NO es estático — proxea el PDF en vivo (fetch con
+// revalidate) y tiene [slug] dinámico sin generateStaticParams, así que no se
+// puede prerenderizar. Cloudflare Pages (next-on-pages) exige edge en rutas no
+// estáticas; el cacheo lo dan `next.revalidate` + los headers Cache-Control.
+export const runtime = "edge";
 
 export async function GET(
   _req: Request,
