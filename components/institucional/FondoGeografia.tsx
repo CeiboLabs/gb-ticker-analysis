@@ -20,7 +20,6 @@ const REGIONES: Region[] = [
   { key: "LA", label: "Latinoamérica", peso: 6 },
   { key: "OT", label: "Otros",         peso: 4 },
 ];
-const PESO: Record<string, number> = Object.fromEntries(REGIONES.map((r) => [r.key, r.peso]));
 const MAX_PESO = Math.max(...REGIONES.map((r) => r.peso));
 
 // Clasifica un punto (lon/lat) en una región. Límites gruesos: alcanza para un

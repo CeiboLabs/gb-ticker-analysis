@@ -18,7 +18,6 @@ import { FONDO } from "@/lib/fondo";
 const VW = 1440, VH = 780;
 const NX = 6, NY = 4;
 const cellW = VW / NX, cellH = VH / NY;
-const HC: [number, number] = [VW / 2, VH / 2];
 
 // Ruido determinista por HASH ENTERO (Math.imul): bit-idéntico en server (Node)
 // y client (Chrome). OJO: Math.sin NO es SSR-safe — las funciones

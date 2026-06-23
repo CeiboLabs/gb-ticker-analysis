@@ -163,13 +163,15 @@ function Pie({ hover, setHover }: { hover: string | null; setHover: (n: string |
   const total = SORTED.reduce((a, b) => a + b.peso, 0);
   const cx = 150, cy = 150, rO = 142, rI = 84;
   const GAP = 1.2;
-  let cursor = 0;
-  const wedges = SORTED.map((d) => {
-    const span = (d.peso / total) * 360;
-    const w = { ...d, path: arcPath(cx, cy, rO, rI, cursor + GAP / 2, cursor + span - GAP / 2) };
-    cursor += span;
-    return w;
-  });
+  // Offset angular de cada wedge = suma de los spans anteriores. Se calcula de
+  // forma funcional (sin mutar una variable durante el render, que prohíbe
+  // react-hooks/immutability) para que el donut sea determinista entre renders.
+  const spans = SORTED.map((d) => (d.peso / total) * 360);
+  const offsets = spans.map((_, i) => spans.slice(0, i).reduce((a, b) => a + b, 0));
+  const wedges = SORTED.map((d, i) => ({
+    ...d,
+    path: arcPath(cx, cy, rO, rI, offsets[i] + GAP / 2, offsets[i] + spans[i] - GAP / 2),
+  }));
 
   return (
     <div className="ten-pie">
