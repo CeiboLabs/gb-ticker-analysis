@@ -10,8 +10,14 @@ import { useEffect, useRef, useState } from "react";
 // IntersectionObserver: con secciones de alturas muy distintas el observer
 // produce saltos de activo poco intuitivos.
 
-// Orden = el flujo narrativo de la página: promesa → cómo invierte → de qué se
-// compone → quién la gestiona (credibilidad) → estado/proyección → objeciones.
+// Subconjunto curado de las secciones de la página, en el MISMO orden vertical
+// del DOM — requisito del scrollspy de abajo: la lista debe ser una subsecuencia
+// creciente de las secciones para que el activo avance de forma monótona.
+// No están todas a propósito: Diferencia y Perfil son conectores narrativos
+// cortos y se omiten del menú; al pasarlas, el activo se queda en la sección
+// previa (Cartera / Calculadora), lo cual es aceptable.
+// Flujo: promesa → cómo invierte → de qué se compone → quién la gestiona
+// (credibilidad) → estado/proyección → documentos → objeciones.
 const LINKS = [
   { id: "resumen", label: "Resumen" },
   { id: "estrategia", label: "Estrategia" },
@@ -19,6 +25,7 @@ const LINKS = [
   { id: "casa", label: "La casa" },
   { id: "performance", label: "Performance" },
   { id: "calculadora", label: "Calculadora" },
+  { id: "documentos", label: "Documentos" },
   { id: "faq", label: "Preguntas" },
 ] as const;
 

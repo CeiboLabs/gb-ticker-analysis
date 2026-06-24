@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 // Mayores tenencias del fondo — una vista a ancho completo con un control
 // deslizante para alternar entre Treemap (bloques sólidos por clase) y Pie
@@ -44,8 +44,14 @@ const claseTotals = CLASE_ORDER.map((c) => ({
 })).filter((c) => c.peso > 0);
 
 // ── Treemap squarificado ──────────────────────────────────────────────────
-const TM_W = 1040;
-const TM_H = 416;
+// Dos formas, una por viewport: un treemap ancho a 2.5:1 (desktop) deja las
+// celdas ilegibles cuando el contenedor cae a ~340px, así que mobile usa una
+// variante en retrato que le da a cada celda suficiente área para el texto.
+// Cada layout se squarifica para SU forma; se alternan por media query (sin JS,
+// sin saltos de hidratación). La tipografía escala con el tamaño real de la
+// celda (unidades de container query), así el texto siempre entra.
+const TM_WIDE = { w: 1040, h: 416 };
+const TM_TALL = { w: 600, h: 680 };
 
 type Rect = { x: number; y: number; w: number; h: number };
 type Placed = Tenencia & { rect: Rect };
@@ -105,29 +111,41 @@ function squarify(items: Tenencia[], frame: Rect): Placed[] {
   return out;
 }
 
-const PLACED = squarify(SORTED, { x: 0, y: 0, w: TM_W, h: TM_H });
+const PLACED_WIDE = squarify(SORTED, { x: 0, y: 0, ...TM_WIDE });
+const PLACED_TALL = squarify(SORTED, { x: 0, y: 0, ...TM_TALL });
 
-function Treemap() {
+// Una rejilla de treemap. `scale` ≈ (ancho renderizado / ancho virtual) para
+// estimar el tamaño físico de cada celda y decidir qué etiquetas mostrar; el
+// tamaño de fuente exacto lo resuelve el navegador con cqw/cqh sobre el tamaño
+// real, así que esto solo es el umbral de "cabe / no cabe".
+function TreemapGrid({ placed, frame, variant, scale }: {
+  placed: Placed[]; frame: { w: number; h: number }; variant: "wide" | "tall"; scale: number;
+}) {
   return (
-    <div className="ten-tm">
-      {PLACED.map((p, i) => {
-        const big = p.rect.w > 150 && p.rect.h > 92;
-        const show = p.rect.w > 84 && p.rect.h > 50;
+    <div className={`ten-tm ten-tm--${variant}`} style={{ aspectRatio: `${frame.w} / ${frame.h}` }}>
+      {placed.map((p, i) => {
+        const rw = p.rect.w * scale;
+        const rh = p.rect.h * scale;
+        const show = rw > 64 && rh > 40;
+        const big = rw > 140 && rh > 88;
+        // Fuente ligada al lado menor renderizado de la celda (en px, vía cqw/cqh),
+        // con piso legible y techo editorial. Padding y gap derivan de ella.
+        const fs = `clamp(9px, calc(min(${((p.rect.w / frame.w) * 100).toFixed(2)}cqw, ${((p.rect.h / frame.h) * 100).toFixed(2)}cqh) * 0.15), 17px)`;
         return (
           <div
             key={p.nombre}
             className="ten-tm-cell"
             style={{
-              left: `${(p.rect.x / TM_W) * 100}%`,
-              top: `${(p.rect.y / TM_H) * 100}%`,
-              width: `${(p.rect.w / TM_W) * 100}%`,
-              height: `${(p.rect.h / TM_H) * 100}%`,
+              left: `${(p.rect.x / frame.w) * 100}%`,
+              top: `${(p.rect.y / frame.h) * 100}%`,
+              width: `${(p.rect.w / frame.w) * 100}%`,
+              height: `${(p.rect.h / frame.h) * 100}%`,
               background: p.color,
               animationDelay: `${i * 38}ms`,
             }}
           >
             {show && (
-              <div className="ten-tm-label" data-size={big ? "big" : "mid"}>
+              <div className="ten-tm-label" style={{ ["--fs"]: fs } as CSSProperties}>
                 {big && <span className="ten-tm-eyebrow">{CLASE_LABEL[p.clase]}</span>}
                 <span className="ten-tm-name">{p.corto}</span>
                 <span className="ten-tm-pct">{fmt(p.peso)}</span>
@@ -137,6 +155,15 @@ function Treemap() {
         );
       })}
     </div>
+  );
+}
+
+function Treemap() {
+  return (
+    <>
+      <TreemapGrid placed={PLACED_WIDE} frame={TM_WIDE} variant="wide" scale={1} />
+      <TreemapGrid placed={PLACED_TALL} frame={TM_TALL} variant="tall" scale={0.58} />
+    </>
   );
 }
 
@@ -306,10 +333,12 @@ export function FondoTenencias() {
 
         /* ── Treemap ── */
         .ten-tm {
-          position: relative; width: 100%; aspect-ratio: ${TM_W} / ${TM_H};
+          container-type: size;
+          position: relative; width: 100%;
           border-radius: 14px; overflow: hidden; background: var(--navy);
           box-shadow: 0 18px 50px -34px rgba(3,6,94,0.55);
         }
+        .ten-tm--tall { display: none; }   /* mobile la enciende abajo */
         .ten-tm-cell {
           position: absolute; box-sizing: border-box;
           border: 1.5px solid rgba(255,255,255,0.10);
@@ -319,17 +348,21 @@ export function FondoTenencias() {
         }
         @keyframes ten-pop { from { opacity: 0; transform: scale(0.965); } to { opacity: 1; transform: none; } }
         .ten-tm-cell:hover { filter: brightness(1.12); }
-        .ten-tm-label { padding: 12px 14px; color: #fff; line-height: 1.16; display: flex; flex-direction: column; gap: 3px; }
-        .ten-tm-eyebrow {
-          font-size: 10px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
-          color: rgba(255,255,255,0.55); margin-bottom: 1px;
+        .ten-tm-label {
+          padding: calc(var(--fs) * 0.66) calc(var(--fs) * 0.62); color: #fff; line-height: 1.16;
+          display: flex; flex-direction: column; gap: calc(var(--fs) * 0.18);
+          max-width: 100%; box-sizing: border-box; min-width: 0;
         }
-        .ten-tm-name { font-weight: 600; letter-spacing: -0.01em; }
-        .ten-tm-pct { font-variant-numeric: tabular-nums; opacity: 0.82; }
-        .ten-tm-label[data-size="big"] .ten-tm-name { font-size: 18px; }
-        .ten-tm-label[data-size="big"] .ten-tm-pct { font-size: 15px; }
-        .ten-tm-label[data-size="mid"] .ten-tm-name { font-size: 13px; }
-        .ten-tm-label[data-size="mid"] .ten-tm-pct { font-size: 12px; }
+        .ten-tm-eyebrow {
+          font-size: calc(var(--fs) * 0.6); font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
+          color: rgba(255,255,255,0.55); margin-bottom: 1px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+        }
+        .ten-tm-name {
+          font-size: var(--fs); font-weight: 600; letter-spacing: -0.01em;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+        }
+        .ten-tm-pct { font-size: calc(var(--fs) * 0.82); font-variant-numeric: tabular-nums; opacity: 0.82; }
 
         /* ── Pie ── */
         .ten-pie { display: grid; grid-template-columns: auto 1fr; gap: 52px; align-items: center; padding: 6px; }
@@ -369,6 +402,12 @@ export function FondoTenencias() {
         @media (max-width: 920px) {
           .ten-pie { grid-template-columns: 1fr; gap: 30px; justify-items: center; }
           .ten-leg { width: 100%; grid-template-columns: 1fr; }
+        }
+        /* En pantallas angostas el treemap ancho deja celdas ilegibles: cambiamos
+           a la variante en retrato, squarificada para esa forma. */
+        @media (max-width: 600px) {
+          .ten-tm--wide { display: none; }
+          .ten-tm--tall { display: block; }
         }
         @media (prefers-reduced-motion: reduce) {
           .ten-stage, .ten-tm-cell, .ten-pie-svg path { animation: none; }

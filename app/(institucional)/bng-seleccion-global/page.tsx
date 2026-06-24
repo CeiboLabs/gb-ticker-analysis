@@ -42,6 +42,16 @@ const DOCUMENTOS: { titulo: string; desc: string }[] = [
   { titulo: "Informe de cartera", desc: "Composición de la cartera y comentario de gestión del período." },
 ];
 
+// Perfil del inversor — retrato en tres VERBOS (no etiquetas sueltas): describen
+// el comportamiento de quien invierte acá. Cada uno sale de un hecho ya
+// confirmado del producto (un solo vehículo · gestión delegada · horizonte de
+// ciclo completo), así que cualifica sin prometer ni inventar nada.
+const PERFIL: { verbo: string; desc: string }[] = [
+  { verbo: "Busca", desc: "Exposición global y diversificación en un solo vehículo, sin armar la cartera instrumento por instrumento." },
+  { verbo: "Delega", desc: "La selección de fondos y el rebalanceo del peso entre clases, en manos de una gestión profesional." },
+  { verbo: "Proyecta", desc: "A mediano y largo plazo, acompañando un ciclo completo de mercado en lugar de su día a día." },
+];
+
 export default function FondoPage() {
   return (
     <main className="site fondo-page">
@@ -119,25 +129,11 @@ export default function FondoPage() {
         </div>
       </section>
 
-      {/* ── La casa · credibilidad (sustituye el track record ausente) ── */}
-      <section id="casa" className="band-muted site-section">
-        <div className="site-wrap">
-          <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">La casa</div>
-            <div>
-              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Detrás del fondo, seis décadas de casa.</h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
-                BNG Selección Global lo gestiona Gastón Bengochea & Cía. —sociedad de bolsa en la
-                plaza uruguaya desde 1967—, con Adrián Moreira al frente de la gestión del fondo.
-              </p>
-            </div>
-          </Reveal>
-          <div style={{ marginTop: 48 }}><FondoCasa /></div>
-        </div>
-      </section>
-
-      {/* ── Diferenciación · por qué este enfoque y no armarlo solo ──── */}
-      <section id="diferencia" className="band site-section">
+      {/* ── Diferenciación · por qué este enfoque y no armarlo solo.
+           Va ANTES de La casa: su argumento ("y en quién lo hace" + la última
+           fila "el respaldo de una casa regulada por el BCU") prepara la entrada
+           de La casa, en vez de apuntar hacia atrás. ──── */}
+      <section id="diferencia" className="band-muted site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Qué lo distingue</div>
@@ -150,6 +146,23 @@ export default function FondoPage() {
             </div>
           </Reveal>
           <FondoDiferencia />
+        </div>
+      </section>
+
+      {/* ── La casa · credibilidad (sustituye el track record ausente) ── */}
+      <section id="casa" className="band site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">La casa</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>Detrás del fondo, seis décadas de casa.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
+                BNG Selección Global lo gestiona Gastón Bengochea & Cía. —sociedad de bolsa en la
+                plaza uruguaya desde 1967—, con Adrián Moreira al frente de la gestión del fondo.
+              </p>
+            </div>
+          </Reveal>
+          <div style={{ marginTop: 48 }}><FondoCasa /></div>
         </div>
       </section>
 
@@ -191,23 +204,37 @@ export default function FondoPage() {
         </div>
       </section>
 
-      {/* ── Perfil del inversor (compacto) ────────────────────────── */}
+      {/* ── Perfil del inversor ───────────────────────────────────── */}
       <section id="perfil" className="band-muted site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Perfil del inversor</div>
             <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>¿Para quién tiene sentido?</h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "38em" }}>
-                Es un producto pensado para quien busca una cartera diversificada y global en un solo
-                vehículo, prefiere delegar la gestión y tiene un horizonte de mediano a largo plazo.
-                Si te identificás con esto, vale la pena una conversación.
+              <h2 className="t-h2" style={{ maxWidth: "14em" }}>¿Para quién tiene sentido?</h2>
+
+              {/* Tesis del perfil — la postura de quien invierte acá. NO es un
+                  testimonio (sin nombre ni foto): es la mentalidad target, en la
+                  serif de display del hero, como único acento fuerte de la sección. */}
+              <p className="perfil-tesis t-serif-display">
+                Estar invertido en el mundo, sin vivir pendiente del mercado.
               </p>
-              <ul className="perfil-chips">
-                <li>Diversificación global</li>
-                <li>Gestión delegada</li>
-                <li>Horizonte mediano-largo</li>
-              </ul>
+
+              {/* Retrato en tres verbos: el comportamiento del inversor, reglado
+                  como ficha. Sustituye las chips que repetían el lead. */}
+              <div className="perfil-verbos">
+                {PERFIL.map((p) => (
+                  <div key={p.verbo} className="perfil-verbo">
+                    <span className="perfil-verbo-k">{p.verbo}</span>
+                    <p className="perfil-verbo-d">{p.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cierre: la invitación ahora sí enlaza al asesor. */}
+              <div className="perfil-cta">
+                <span className="perfil-cta-q">¿Te reconocés en esto?</span>
+                <Link href="/contacto" className="link-arrow">Hablar con un asesor <ArrowRight /></Link>
+              </div>
             </div>
           </Reveal>
         </div>
@@ -325,15 +352,39 @@ export default function FondoPage() {
         }
         .estrategia-cell:nth-child(2n) { padding-right: 0; padding-left: 36px; border-right: 0; }
 
-        /* ── Perfil (chips) ── */
-        .perfil-chips {
-          list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px;
+        /* ── Perfil del inversor ── */
+        /* Tesis: hereda familia + peso 300 de .t-serif-display (la serif del hero);
+           acá sólo el tamaño, el color navy y el filete de oro a la izquierda —
+           único acento fuerte de la sección. */
+        .perfil-tesis {
+          margin: 28px 0 0; padding-left: 22px;
+          border-left: 2px solid var(--gold-deep);
+          font-size: clamp(25px, 3vw, 37px); line-height: 1.18;
+          color: var(--navy); max-width: 15em;
         }
-        .perfil-chips li {
-          font-size: 14px; font-weight: 500; color: var(--site-ink-2);
-          padding: 9px 16px; border-radius: 999px;
-          border: 1px solid var(--site-border); background: #fff;
+        /* Retrato en tres verbos: ficha reglada con hairlines — mismo lenguaje
+           que la grilla de Estrategia y los indicadores de riesgo. */
+        .perfil-verbos {
+          margin-top: 44px; display: grid; grid-template-columns: repeat(3, 1fr);
+          border-top: 1px solid var(--site-border);
         }
+        .perfil-verbo {
+          padding: 26px 28px;
+          border-bottom: 1px solid var(--site-border); border-right: 1px solid var(--site-border);
+        }
+        .perfil-verbo:first-child { padding-left: 0; }
+        .perfil-verbo:last-child { padding-right: 0; border-right: 0; }
+        .perfil-verbo-k {
+          display: block; font-size: 13px; font-weight: 700;
+          letter-spacing: 0.13em; text-transform: uppercase; color: var(--navy);
+        }
+        .perfil-verbo-d {
+          margin: 13px 0 0; font-size: 14.5px; line-height: 1.58; color: var(--site-ink-2);
+        }
+        .perfil-cta {
+          margin-top: 32px; display: flex; align-items: center; gap: 8px 20px; flex-wrap: wrap;
+        }
+        .perfil-cta-q { font-size: 15px; color: var(--site-ink-2); }
 
         /* ── Documentos ── */
         .fondo-doc-row { justify-content: space-between; align-items: center; }
@@ -358,6 +409,11 @@ export default function FondoPage() {
           .estrategia-grid { grid-template-columns: 1fr; }
           .estrategia-cell, .estrategia-cell:nth-child(2n) {
             padding: 28px 0; border-right: 0; padding-left: 0; padding-right: 0;
+          }
+          /* Los tres verbos se apilan: hairlines horizontales, sin reglas verticales. */
+          .perfil-verbos { grid-template-columns: 1fr; }
+          .perfil-verbo, .perfil-verbo:first-child, .perfil-verbo:last-child {
+            padding: 22px 0; border-right: 0;
           }
         }
         @media (max-width: 640px) {
