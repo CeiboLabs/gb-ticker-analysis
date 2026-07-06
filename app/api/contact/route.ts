@@ -3,7 +3,6 @@ import { getMetricsDb, eventBaseFromRequest } from "@/lib/metrics";
 import { checkContactLimit, clientIpFrom } from "@/lib/rateLimiter";
 import { ContactRequestSchema, CONTACT_MOTIVOS } from "@/lib/validators";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const MOTIVO_LABEL: Record<(typeof CONTACT_MOTIVOS)[number], string> = {

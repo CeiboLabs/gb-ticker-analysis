@@ -100,7 +100,6 @@ function classifySankeySource(
   }
 }
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 // Hard ceiling on a single analysis. OpenAI calls can hang; this caps how long
 // a single request can hold a worker isolate before the runtime kills it.

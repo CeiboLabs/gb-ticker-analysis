@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMetricsDb } from "@/lib/metrics";
-import { requireAdminToken } from "@/lib/adminAuth";
+import { requirePanelSession } from "@/lib/panelAuth";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,16 +31,9 @@ function percentile(values: number[], p: number): number | null {
 }
 
 export async function GET(req: NextRequest) {
-  const denied = await requireAdminToken(req);
-  if (denied) return denied;
-
-  const db = getMetricsDb();
-  if (!db) {
-    return NextResponse.json(
-      { error: "metrics db not configured (METRICS_DB binding missing)" },
-      { status: 503 }
-    );
-  }
+  const gate = await requirePanelSession(req, "monitor");
+  if (!gate.ok) return gate.res;
+  const { db } = gate;
 
   const now = Date.now();
   const t24h = now - DAY_MS;

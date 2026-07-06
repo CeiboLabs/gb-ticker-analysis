@@ -6,7 +6,6 @@ import { getOpenAIClient } from "@/lib/openai";
 import { requireAdminToken } from "@/lib/adminAuth";
 import { normalizeTicker } from "@/lib/validators";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

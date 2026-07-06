@@ -6,7 +6,6 @@ import { fetchEdgar8KIncomeStatement, debugEdgar8K } from "@/lib/fetchEdgar8K";
 import { requireAdminToken } from "@/lib/adminAuth";
 import { normalizeTicker } from "@/lib/validators";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

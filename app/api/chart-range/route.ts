@@ -3,7 +3,6 @@ import { fetchChartRange, type ChartRange } from "@/lib/fetchChartRange";
 import { normalizeTicker } from "@/lib/validators";
 import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 
-export const runtime = "edge";
 
 const VALID_RANGES: ChartRange[] = ["1D", "5D", "1M", "3M", "1Y", "3Y"];
 

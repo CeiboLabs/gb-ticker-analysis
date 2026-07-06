@@ -40,6 +40,9 @@ yarn-error.log*
 .wrangler/
 .dev.vars
 
+# home server — base sqlite + archivos subidos (lib/homeBindings.ts)
+/data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

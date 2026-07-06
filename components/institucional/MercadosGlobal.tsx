@@ -13,6 +13,15 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 const MVD = gproject(-56.18, -34.9);
 
+/* Los ~2500 puntos de tierra firme se renderizan como UN solo <path>
+   (no 2500 <circle>): colapsa el DOM y abarata el repintado/máscara.
+   Cada punto es un círculo de r=1.9 dibujado con dos arcos. */
+const DOT_R = 1.9;
+const GDOTS_PATH = GDOTS.map(
+  ([x, y]) =>
+    `M${x} ${y}m-${DOT_R} 0a${DOT_R} ${DOT_R} 0 1 0 ${DOT_R * 2} 0a${DOT_R} ${DOT_R} 0 1 0 -${DOT_R * 2} 0`,
+).join("");
+
 /* Destinos ILUSTRATIVOS: claim de capacidad (acceso vía mercado
    internacional), no de membresía — ver feedback_claims_verificables.
    2026-06-11: el cliente confirma operativa en los mercados de todo el
@@ -86,11 +95,6 @@ const dotVar = {
     transition: { delay: d + 0.5, duration: 0.4 },
   }),
 };
-const baseVar = {
-  hide: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 1.1 } },
-};
-
 /**
  * S6 — Mercados. Editorial, SIN pin (reemplaza al stack pinned de plazas):
  * el claim va directo en el titular y el mapa mundial completo hace un
@@ -119,7 +123,14 @@ export function MercadosGlobal() {
           </Link>
         </Reveal>
 
-        <div className="mglobal-wrap">
+        <motion.div
+          className="mglobal-wrap"
+          initial={reduce ? false : { opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 1.1, ease: "easeOut" }}
+          viewport={{ once: true, amount: 0.35 }}
+          style={{ willChange: "opacity" }}
+        >
         <motion.svg
           className="mglobal-map"
           viewBox={`0 0 ${GMAP_W} ${GMAP_H}`}
@@ -152,11 +163,12 @@ export function MercadosGlobal() {
             </mask>
           </defs>
 
-          <motion.g variants={baseVar} mask="url(#mg-fade)" fill="var(--navy-150)">
-            {GDOTS.map(([x, y], i) => (
-              <circle key={i} cx={x} cy={y} r={1.9} />
-            ))}
-          </motion.g>
+          {/* Base map: estático y como path único. NO se anima su opacidad
+              frame a frame (eso forzaba a recomponer toda la máscara y
+              trababa la página); el fundido de entrada lo hace el wrapper. */}
+          <g mask="url(#mg-fade)" fill="var(--navy-150)">
+            <path d={GDOTS_PATH} />
+          </g>
 
           {/* arcos Montevideo → mundo, irradiando por distancia */}
           {DESTINOS.map((d) => (
@@ -215,7 +227,7 @@ export function MercadosGlobal() {
             MONTEVIDEO
           </text>
         </motion.svg>
-        </div>
+        </motion.div>
 
         {/* Los dos accesos de la mesa: el mapa cuenta lo global, estas filas
             aterrizan la oferta concreta de cada plaza (una sola mesa). */}

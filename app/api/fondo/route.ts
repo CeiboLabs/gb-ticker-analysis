@@ -5,7 +5,6 @@ import { getFundSnapshot } from "@/lib/fondo";
 // Snapshot diario de BNG Selección Global (valor cuota, AUM y serie histórica).
 // Sólo lectura. Mientras la tabla fund_nav esté vacía devuelve el estado
 // 'pre-launch' con serie vacía — el frontend muestra "en proceso de lanzamiento".
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

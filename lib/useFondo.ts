@@ -41,7 +41,13 @@ export function useFondo(): FondoState {
 
 // Helpers de formato compartidos por los componentes del fondo.
 export function fmtNav(n: number): string {
-  return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Índice base 100 — fondo/benchmark reescalados a 100 en el origen del período.
+// Sin moneda: es un número índice, no un valor cuota en USD.
+export function fmtIndex(n: number): string {
+  return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function fmtPct(n: number | null, withSign = true): string {

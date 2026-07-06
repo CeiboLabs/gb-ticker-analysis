@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { SankeyChart } from "@/components/SankeyChart";
 import type { SegmentSankeyData } from "@/types/Report";
+import { Btn, Notice } from "@/components/admin/ui";
 
 interface StatusRow { status: string; n: number }
 interface TickerRow { ticker: string; total: number; errors: number }
@@ -255,7 +256,6 @@ const FLAG_LABEL: Record<string, string> = {
   extreme_segment_disparity: "Segmentos con escalas muy distintas",
 };
 
-const TOKEN_KEY = "ticker:admin-token";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function fmtTs(ts: number): string {
@@ -264,9 +264,9 @@ function fmtTs(ts: number): string {
 
 // Only treat http(s) URLs as clickable. The snapshot's filingIndexUrl is derived
 // from external SEC data; rendering it as an <a href> without checking the scheme
-// would make a javascript:/data: URL a clickable XSS against the admin (whose
-// token lives in sessionStorage). Today the parser only emits sec.gov https URLs,
-// but this keeps the sink safe regardless of what upstream ever feeds in.
+// would make a javascript:/data: URL a clickable XSS against the admin panel.
+// Today the parser only emits sec.gov https URLs, but this keeps the sink safe
+// regardless of what upstream ever feeds in.
 function isSafeHttpUrl(u: string | null | undefined): boolean {
   if (!u) return false;
   try {
@@ -314,21 +314,25 @@ const STATUS_LABEL: Record<string, string> = {
   not_found: "Not found",
 };
 
-export default function MetricsDashboard() {
-  const [token, setToken] = useState<string>("");
+export default function MonitorDashboard() {
   const [data, setData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drill, setDrill] = useState<{ ticker: string; data: DrillResponse | null; loading: boolean; error: string | null } | null>(null);
   const [feedScope, setFeedScope] = useState<"issues" | "all">("issues");
 
+  // La sesión del panel (cookie) gatea el acceso; acá sólo traemos datos. Un 401
+  // es sesión vencida a mitad de camino → al login, igual que panelFetch.
   const openDrill = useCallback(async (ticker: string) => {
     setDrill({ ticker, data: null, loading: true, error: null });
     try {
       const res = await fetch(`/api/admin/events?ticker=${encodeURIComponent(ticker)}&limit=25`, {
-        headers: { "x-admin-token": token },
         cache: "no-store",
       });
+      if (res.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
       if (!res.ok) {
         setDrill({ ticker, data: null, loading: false, error: `Error ${res.status}` });
         return;
@@ -338,42 +342,25 @@ export default function MetricsDashboard() {
     } catch (e) {
       setDrill({ ticker, data: null, loading: false, error: e instanceof Error ? e.message : "network error" });
     }
-  }, [token]);
+  }, []);
 
   const closeDrill = useCallback(() => setDrill(null), []);
 
-  // Re-hydrate token from sessionStorage on mount. sessionStorage isn't an
-  // observable store and we can't init useState lazily without a hydration
-  // mismatch (server render has no access to it), so a one-shot effect is the
-  // right fit despite the lint rule's preference for derived state.
-  useEffect(() => {
-    const saved = typeof window !== "undefined" ? sessionStorage.getItem(TOKEN_KEY) : null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved) setToken(saved);
-  }, []);
-
-  const load = useCallback(async (t: string, scope: "issues" | "all" = "issues") => {
-    if (!t) return;
+  const load = useCallback(async (scope: "issues" | "all" = "issues") => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/metrics?scope=${scope}`, {
-        headers: { "x-admin-token": t },
-        cache: "no-store",
-      });
+      const res = await fetch(`/api/admin/metrics?scope=${scope}`, { cache: "no-store" });
       if (res.status === 401) {
-        setError("Token inválido");
-        setData(null);
+        window.location.href = "/admin/login";
         return;
       }
       if (!res.ok) {
         setError(`Error ${res.status}`);
-        setData(null);
         return;
       }
       const json = (await res.json()) as MetricsResponse;
       setData(json);
-      sessionStorage.setItem(TOKEN_KEY, t);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -381,54 +368,41 @@ export default function MetricsDashboard() {
     }
   }, []);
 
-  // Auto-refresh every 60s once authenticated, preserving current scope
+  // Auto-refresh cada 60s una vez cargado, preservando el scope actual.
   useEffect(() => {
-    if (!data || !token) return;
-    const id = setInterval(() => load(token, feedScope), 60_000);
+    if (!data) return;
+    const id = setInterval(() => load(feedScope), 60_000);
     return () => clearInterval(id);
-  }, [data, token, load, feedScope]);
+  }, [data, load, feedScope]);
 
-  // Re-fetch when user toggles scope. `load` flips `loading` synchronously,
-  // which the new lint rule flags — but the alternative (driving the fetch
-  // via a derived state machine) is more code for the same effect. `load` is
-  // stable via useCallback; including it would loop.
+  // Carga inicial (al montar, con feedScope="issues") y re-fetch al togglear el
+  // scope. `load` toca `loading` de forma síncrona, que la regla nueva marca —
+  // pero manejarlo por una máquina de estado derivada es más código para el
+  // mismo efecto. `load` es estable (useCallback []); incluirlo no cambia nada.
   /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!data || !token) return;
-    load(token, feedScope);
+    load(feedScope);
   }, [feedScope]);
   /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
   if (!data) {
     return (
-      <main className="min-h-screen bg-[#F8F9FF] flex items-center justify-center px-6">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            load(token);
-          }}
-          className="w-full max-w-sm bg-white border border-[#03065E]/10 rounded-lg p-8 shadow-sm"
-        >
-          <h1 className="text-xl font-semibold text-[#03065E] mb-2">Monitor</h1>
-          <p className="text-sm text-[#03065E]/70 mb-6">Ingresá el token de admin para acceder.</p>
-          <input
-            type="password"
-            autoComplete="off"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            className="w-full px-3 py-2 border border-[#03065E]/20 rounded text-[#03065E] focus:outline-none focus:border-[#03065E]"
-            placeholder="x-admin-token"
-          />
-          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading || !token}
-            className="mt-6 w-full bg-[#03065E] text-white py-2 rounded font-medium hover:opacity-90 disabled:opacity-50"
-          >
-            {loading ? "Cargando…" : "Entrar"}
-          </button>
-        </form>
-      </main>
+      <div>
+        <div className="adm-head">
+          <p className="adm-eyebrow gold">Panel · Observabilidad</p>
+          <h1 className="adm-title">Monitor</h1>
+        </div>
+        {error ? (
+          <div className="flex flex-col items-start gap-3">
+            <Notice kind="error">No se pudieron cargar las métricas: {error}.</Notice>
+            <Btn kind="ghost" onClick={() => load(feedScope)} disabled={loading}>
+              {loading ? "Reintentando…" : "Reintentar"}
+            </Btn>
+          </div>
+        ) : (
+          <p className="adm-help mt-0!">Cargando métricas…</p>
+        )}
+      </div>
     );
   }
 
@@ -440,45 +414,37 @@ export default function MetricsDashboard() {
   const sourceTotal = data.sourceMix.reduce((s, r) => s + r.n, 0);
 
   return (
-    <main className="min-h-screen bg-[#F8F9FF] text-[#03065E]">
-      <header className="border-b border-[#03065E]/10 bg-white">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Monitor</h1>
-            <p className="text-xs text-[#03065E]/60 mt-0.5">
-              Generado {fmtTs(data.generatedAt)} · auto-refresh 60s
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                const t = (f.get("t") as string)?.trim().toUpperCase();
-                if (t) openDrill(t);
-              }}
-            >
-              <input
-                name="t"
-                placeholder="Inspeccionar ticker…"
-                className="px-3 py-1.5 text-sm border border-[#03065E]/20 rounded w-48 focus:outline-none focus:border-[#03065E]"
-              />
-            </form>
-            <button
-              onClick={() => load(token, feedScope)}
-              disabled={loading}
-              className="text-sm px-3 py-1.5 border border-[#03065E]/20 rounded hover:bg-[#03065E]/5 disabled:opacity-50"
-            >
-              {loading ? "…" : "Refrescar"}
-            </button>
-          </div>
+    <div>
+      <div className="adm-head flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="adm-eyebrow gold">Panel · Observabilidad</p>
+          <h1 className="adm-title">Monitor</h1>
+          <p className="adm-dek">
+            Generado <span className="mono num">{fmtTs(data.generatedAt)}</span> · auto-refresh 60s
+          </p>
         </div>
-      </header>
+        <div className="flex items-center gap-2 pb-0.5">
+          <form
+            className="w-48"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              const t = (f.get("t") as string)?.trim().toUpperCase();
+              if (t) openDrill(t);
+            }}
+          >
+            <input name="t" placeholder="Inspeccionar ticker…" className="adm-input" />
+          </form>
+          <button onClick={() => load(feedScope)} disabled={loading} className="adm-btn adm-btn-ghost">
+            {loading ? "…" : "Refrescar"}
+          </button>
+        </div>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+      <div className="space-y-6">
 
         {/* KPIs principales — análisis hechos */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <section className="adm-stats">
           <Kpi
             label="Análisis hoy"
             value={(data.analyses.counts.today ?? 0).toLocaleString()}
@@ -525,9 +491,9 @@ export default function MetricsDashboard() {
 
         {/* Detalles técnicos — colapsable, info para debugging */}
         <details className="group">
-          <summary className="cursor-pointer list-none flex items-center justify-between bg-white border border-[#03065E]/10 rounded-lg px-5 py-3 hover:bg-[#03065E]/[0.02]">
-            <span className="font-semibold text-[#03065E]">Detalles técnicos</span>
-            <span className="text-xs text-[#03065E]/60">
+          <summary className="cursor-pointer list-none flex items-center justify-between bg-white border border-[color:var(--site-border)] rounded-lg px-5 py-3 hover:bg-[color:var(--navy-050)]">
+            <span className="font-semibold text-[color:var(--site-ink)]">Detalles técnicos</span>
+            <span className="text-xs text-[color:var(--site-ink-3)]">
               Volumen, latencia, errores, calidad de Sankey, upstreams · click para expandir
             </span>
           </summary>
@@ -551,7 +517,7 @@ export default function MetricsDashboard() {
         </section>
 
         {/* Latency + raw status counts */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <section className="adm-stats">
           <Kpi label="Requests 24h" value={total24h.toLocaleString()} />
           <Kpi label="Tasa de éxito 24h" value={pct(ok24h, total24h)} accent={total24h && ok24h / total24h < 0.95 ? "warn" : "ok"} />
           <Kpi label="Errores 24h" value={String(err24h)} accent={err24h > 0 ? "warn" : "ok"} />
@@ -574,18 +540,18 @@ export default function MetricsDashboard() {
                   const key = r.sankey_source ?? "none";
                   const w = sourceTotal ? (r.n / sourceTotal) * 100 : 0;
                   return (
-                    <tr key={key} className="border-b border-[#03065E]/5 last:border-0">
+                    <tr key={key} className="border-b border-[color:var(--site-border)] last:border-0">
                       <td className="py-2 pr-3 whitespace-nowrap">{SOURCE_LABEL[key] ?? key}</td>
                       <td className="py-2 pr-3 w-full">
-                        <div className="h-2 rounded-full bg-[#03065E]/5 overflow-hidden">
-                          <div className="h-full bg-[#03065E]" style={{ width: `${w}%` }} />
+                        <div className="h-2 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
+                          <div className="h-full bg-[color:var(--navy)]" style={{ width: `${w}%` }} />
                         </div>
                       </td>
                       <td className="py-2 text-right tabular-nums w-20">{r.n} · {w.toFixed(1)}%</td>
                     </tr>
                   );
                 })}
-                {sourceTotal === 0 && <tr><td className="py-3 text-[#03065E]/50 text-sm">Sin datos en este rango.</td></tr>}
+                {sourceTotal === 0 && <tr><td className="py-3 text-[color:var(--site-ink-4)] text-sm">Sin datos en este rango.</td></tr>}
               </tbody>
             </table>
           </Card>
@@ -597,18 +563,18 @@ export default function MetricsDashboard() {
                   const key = r.error_stage ?? "(null)";
                   const w = err7d ? (r.n / err7d) * 100 : 0;
                   return (
-                    <tr key={key} className="border-b border-[#03065E]/5 last:border-0">
+                    <tr key={key} className="border-b border-[color:var(--site-border)] last:border-0">
                       <td className="py-2 pr-3 whitespace-nowrap font-mono text-xs">{key}</td>
                       <td className="py-2 pr-3 w-full">
-                        <div className="h-2 rounded-full bg-[#03065E]/5 overflow-hidden">
-                          <div className="h-full bg-red-500" style={{ width: `${w}%` }} />
+                        <div className="h-2 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
+                          <div className="h-full bg-[color:var(--neg)]" style={{ width: `${w}%` }} />
                         </div>
                       </td>
                       <td className="py-2 text-right tabular-nums w-20">{r.n} · {w.toFixed(1)}%</td>
                     </tr>
                   );
                 })}
-                {data.errorsByStage.length === 0 && <tr><td className="py-3 text-[#03065E]/50 text-sm">Sin errores en 7 días. </td></tr>}
+                {data.errorsByStage.length === 0 && <tr><td className="py-3 text-[color:var(--site-ink-4)] text-sm">Sin errores en 7 días. </td></tr>}
               </tbody>
             </table>
           </Card>
@@ -634,7 +600,7 @@ export default function MetricsDashboard() {
         <Card title="Calidad del Sankey (7d)" sub={qualitySub(data.quality.summary)}>
           {data.quality.summary && data.quality.summary.n > 0 ? (
             <div className="space-y-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="adm-stats">
                 <Kpi
                   label="Score promedio"
                   value={data.quality.summary.avg_score !== null ? data.quality.summary.avg_score.toFixed(0) : "—"}
@@ -657,7 +623,7 @@ export default function MetricsDashboard() {
 
               {/* Score distribution buckets */}
               <div>
-                <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-2">Distribución de score</p>
+                <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-2">Distribución de score</p>
                 <table className="w-full text-sm">
                   <tbody>
                     {["90-100", "70-89", "50-69", "30-49", "0-29"].map((b) => {
@@ -666,16 +632,16 @@ export default function MetricsDashboard() {
                       const total = data.quality.summary?.n ?? 0;
                       const w = total ? (n / total) * 100 : 0;
                       const color =
-                        b === "90-100" ? "bg-emerald-600"
-                        : b === "70-89" ? "bg-emerald-500/70"
-                        : b === "50-69" ? "bg-amber-500"
+                        b === "90-100" ? "bg-[color:var(--pos)]"
+                        : b === "70-89" ? "bg-[color:var(--pos)]/70"
+                        : b === "50-69" ? "bg-[color:var(--neu)]"
                         : b === "30-49" ? "bg-orange-500"
-                        : "bg-red-500";
+                        : "bg-[color:var(--neg)]";
                       return (
-                        <tr key={b} className="border-b border-[#03065E]/5 last:border-0">
+                        <tr key={b} className="border-b border-[color:var(--site-border)] last:border-0">
                           <td className="py-2 pr-3 w-20 font-mono">{b}</td>
                           <td className="py-2 pr-3 w-full">
-                            <div className="h-2 rounded-full bg-[#03065E]/5 overflow-hidden">
+                            <div className="h-2 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
                               <div className={`h-full ${color}`} style={{ width: `${w}%` }} />
                             </div>
                           </td>
@@ -690,18 +656,18 @@ export default function MetricsDashboard() {
               {/* Flags / problemas detectados */}
               {data.quality.flagBreakdown.length > 0 && (
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-2">Problemas detectados</p>
+                  <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-2">Problemas detectados</p>
                   <table className="w-full text-sm">
                     <tbody>
                       {data.quality.flagBreakdown.map((r) => {
                         const total = data.quality.summary?.n ?? 0;
                         const w = total ? (r.n / total) * 100 : 0;
                         return (
-                          <tr key={r.flag} className="border-b border-[#03065E]/5 last:border-0">
+                          <tr key={r.flag} className="border-b border-[color:var(--site-border)] last:border-0">
                             <td className="py-2 pr-3 whitespace-nowrap">{FLAG_LABEL[r.flag] ?? r.flag}</td>
                             <td className="py-2 pr-3 w-full">
-                              <div className="h-2 rounded-full bg-[#03065E]/5 overflow-hidden">
-                                <div className="h-full bg-amber-500" style={{ width: `${w}%` }} />
+                              <div className="h-2 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
+                                <div className="h-full bg-[color:var(--neu)]" style={{ width: `${w}%` }} />
                               </div>
                             </td>
                             <td className="py-2 text-right tabular-nums w-24">{r.n} · {w.toFixed(1)}%</td>
@@ -714,7 +680,7 @@ export default function MetricsDashboard() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-[#03065E]/50 py-3">Sin datos de calidad todavía. Hacé alguna búsqueda para empezar a poblar.</p>
+            <p className="text-sm text-[color:var(--site-ink-4)] py-3">Sin datos de calidad todavía. Hacé alguna búsqueda para empezar a poblar.</p>
           )}
         </Card>
 
@@ -734,13 +700,13 @@ export default function MetricsDashboard() {
           <div className="mb-3 flex gap-1 text-xs">
             <button
               onClick={() => setFeedScope("issues")}
-              className={`px-2.5 py-1 rounded ${feedScope === "issues" ? "bg-[#03065E] text-white" : "bg-[#03065E]/5 text-[#03065E]/70 hover:bg-[#03065E]/10"}`}
+              className={`px-2.5 py-1 rounded ${feedScope === "issues" ? "bg-[color:var(--navy)] text-white" : "bg-[color:var(--surface-muted)] text-[color:var(--site-ink-3)] hover:bg-[color:var(--navy-050)]"}`}
             >
               Solo problemas (&lt; 80)
             </button>
             <button
               onClick={() => setFeedScope("all")}
-              className={`px-2.5 py-1 rounded ${feedScope === "all" ? "bg-[#03065E] text-white" : "bg-[#03065E]/5 text-[#03065E]/70 hover:bg-[#03065E]/10"}`}
+              className={`px-2.5 py-1 rounded ${feedScope === "all" ? "bg-[color:var(--navy)] text-white" : "bg-[color:var(--surface-muted)] text-[color:var(--site-ink-3)] hover:bg-[color:var(--navy-050)]"}`}
             >
               Todos los Sankeys
             </button>
@@ -750,7 +716,7 @@ export default function MetricsDashboard() {
               <LowQualityEventCard key={ev.id} ev={ev} onInspect={() => openDrill(ev.ticker)} />
             ))}
             {data.quality.lowQualityEvents.length === 0 && (
-              <p className="text-sm text-[#03065E]/50 py-3">
+              <p className="text-sm text-[color:var(--site-ink-4)] py-3">
                 {feedScope === "all" ? "Sin eventos." : "Sin Sankeys con problemas. "}
               </p>
             )}
@@ -763,7 +729,7 @@ export default function MetricsDashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-[#03065E]/60 border-b border-[#03065E]/10">
+                  <tr className="text-xs text-[color:var(--site-ink-3)] border-b border-[color:var(--site-border)]">
                     <th className="text-left py-2">Ticker</th>
                     <th className="text-right py-2">Requests</th>
                     <th className="text-right py-2">Score promedio</th>
@@ -777,11 +743,11 @@ export default function MetricsDashboard() {
                     <tr
                       key={r.ticker}
                       onClick={() => openDrill(r.ticker)}
-                      className="border-b border-[#03065E]/5 last:border-0 cursor-pointer hover:bg-[#03065E]/5"
+                      className="border-b border-[color:var(--site-border)] last:border-0 cursor-pointer hover:bg-[color:var(--navy-050)]"
                     >
                       <td className="py-2 font-mono">{r.ticker}</td>
                       <td className="py-2 text-right tabular-nums">{r.n}</td>
-                      <td className="py-2 text-right tabular-nums text-amber-600">{r.avg_score !== null ? r.avg_score.toFixed(0) : "—"}</td>
+                      <td className="py-2 text-right tabular-nums text-[color:var(--neu)]">{r.avg_score !== null ? r.avg_score.toFixed(0) : "—"}</td>
                       <td className="py-2 text-right tabular-nums">{r.min_score !== null ? r.min_score.toFixed(0) : "—"}</td>
                       <td className="py-2 text-right tabular-nums">{r.avg_seg_imbalance !== null ? `${r.avg_seg_imbalance.toFixed(1)}%` : "—"}</td>
                       <td className="py-2 text-right tabular-nums">{r.avg_opex_imbalance !== null ? `${r.avg_opex_imbalance.toFixed(1)}%` : "—"}</td>
@@ -796,11 +762,11 @@ export default function MetricsDashboard() {
         {/* Top failing tickers */}
         <Card title="Top tickers con errores (7d)" sub="Mayor cantidad de fallos primero">
           {data.failingTickers.length === 0 ? (
-            <p className="text-sm text-[#03065E]/50 py-3">Sin tickers con errores. </p>
+            <p className="text-sm text-[color:var(--site-ink-4)] py-3">Sin tickers con errores. </p>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-[#03065E]/60 border-b border-[#03065E]/10">
+                <tr className="text-xs text-[color:var(--site-ink-3)] border-b border-[color:var(--site-border)]">
                   <th className="text-left py-2">Ticker</th>
                   <th className="text-right py-2">Total</th>
                   <th className="text-right py-2">Errores</th>
@@ -812,11 +778,11 @@ export default function MetricsDashboard() {
                   <tr
                     key={r.ticker}
                     onClick={() => openDrill(r.ticker)}
-                    className="border-b border-[#03065E]/5 last:border-0 cursor-pointer hover:bg-[#03065E]/5"
+                    className="border-b border-[color:var(--site-border)] last:border-0 cursor-pointer hover:bg-[color:var(--navy-050)]"
                   >
                     <td className="py-2 font-mono">{r.ticker}</td>
                     <td className="py-2 text-right tabular-nums">{r.total}</td>
-                    <td className="py-2 text-right tabular-nums text-red-600">{r.errors}</td>
+                    <td className="py-2 text-right tabular-nums text-[color:var(--neg)]">{r.errors}</td>
                     <td className="py-2 text-right tabular-nums">{pct(r.errors, r.total)}</td>
                   </tr>
                 ))}
@@ -828,12 +794,12 @@ export default function MetricsDashboard() {
         {/* Recent errors tail */}
         <Card title="Errores recientes" sub="Últimos 50, más nuevos primero">
           {data.recentErrors.length === 0 ? (
-            <p className="text-sm text-[#03065E]/50 py-3">Sin errores recientes. </p>
+            <p className="text-sm text-[color:var(--site-ink-4)] py-3">Sin errores recientes. </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-[#03065E]/60 border-b border-[#03065E]/10">
+                  <tr className="text-[color:var(--site-ink-3)] border-b border-[color:var(--site-border)]">
                     <th className="text-left py-2 pr-3">Hora</th>
                     <th className="text-left py-2 pr-3">Ticker</th>
                     <th className="text-left py-2 pr-3">Etapa</th>
@@ -845,14 +811,14 @@ export default function MetricsDashboard() {
                 </thead>
                 <tbody>
                   {data.recentErrors.map((r, i) => (
-                    <tr key={i} className="border-b border-[#03065E]/5 last:border-0 align-top">
+                    <tr key={i} className="border-b border-[color:var(--site-border)] last:border-0 align-top">
                       <td className="py-2 pr-3 whitespace-nowrap font-mono">{fmtTs(r.ts)}</td>
                       <td className="py-2 pr-3 font-mono">{r.ticker}</td>
                       <td className="py-2 pr-3 font-mono">{r.error_stage ?? "—"}</td>
                       <td className="py-2 pr-3 font-mono">{r.sankey_source ?? "—"}</td>
                       <td className="py-2 pr-3 font-mono">{r.country ?? "—"}</td>
                       <td className="py-2 pr-3 tabular-nums">{r.duration_ms ?? "—"}</td>
-                      <td className="py-2 text-[#03065E]/80 break-words">{r.error_msg ?? "—"}</td>
+                      <td className="py-2 text-[color:var(--site-ink-2)] break-words">{r.error_msg ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -864,7 +830,7 @@ export default function MetricsDashboard() {
           </div>
         </details>
 
-        <p className="text-xs text-[#03065E]/50 pt-2">
+        <p className="text-xs text-[color:var(--site-ink-4)] pt-2">
           Total histórico almacenado: {data.totals.allTime.toLocaleString()} eventos.
         </p>
       </div>
@@ -875,7 +841,7 @@ export default function MetricsDashboard() {
           onClose={closeDrill}
         />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -891,19 +857,19 @@ function DrillDrawer({
       <div className="flex-1 bg-black/30" />
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl bg-white shadow-xl overflow-y-auto border-l border-[#03065E]/10"
+        className="w-full max-w-5xl bg-white shadow-xl overflow-y-auto border-l border-[color:var(--site-border)]"
       >
-        <div className="sticky top-0 bg-white border-b border-[#03065E]/10 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-[color:var(--site-border)] px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-lg text-[#03065E]">
+            <h2 className="font-semibold text-lg text-[color:var(--site-ink)]">
               <span className="font-mono">{state.ticker}</span>
               {state.data?.events[0]?.market?.companyName && (
-                <span className="ml-2 text-base text-[#03065E]/70 font-normal">
+                <span className="ml-2 text-base text-[color:var(--site-ink-3)] font-normal">
                   {state.data.events[0].market.companyName}
                 </span>
               )}
             </h2>
-            <p className="text-xs text-[#03065E]/60 mt-0.5">
+            <p className="text-xs text-[color:var(--site-ink-3)] mt-0.5">
               {state.data?.count ?? 0} análisis registrado(s) · cliqueá un evento para ver chart, Sankey y findings
             </p>
           </div>
@@ -912,13 +878,13 @@ function DrillDrawer({
               href={`/?ticker=${encodeURIComponent(state.ticker)}`}
               target="_blank"
               rel="noreferrer"
-              className="text-sm px-3 py-1.5 bg-[#03065E] text-white rounded hover:opacity-90"
+              className="text-sm px-3 py-1.5 bg-[color:var(--navy)] text-white rounded hover:opacity-90"
             >
               Abrir análisis
             </a>
             <button
               onClick={onClose}
-              className="text-sm px-3 py-1.5 border border-[#03065E]/20 rounded hover:bg-[#03065E]/5"
+              className="text-sm px-3 py-1.5 border border-[color:var(--site-border-2)] rounded hover:bg-[color:var(--navy-050)]"
             >
               Cerrar
             </button>
@@ -929,10 +895,10 @@ function DrillDrawer({
         {state.data?.events[0] && <LatestVerdictHeader ev={state.data.events[0]} />}
 
         <div className="p-6 space-y-4">
-          {state.loading && <p className="text-sm text-[#03065E]/60">Cargando…</p>}
-          {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state.loading && <p className="text-sm text-[color:var(--site-ink-3)]">Cargando…</p>}
+          {state.error && <p className="text-sm text-[color:var(--neg)]">{state.error}</p>}
           {state.data && state.data.events.length === 0 && (
-            <p className="text-sm text-[#03065E]/60">Sin eventos para este ticker.</p>
+            <p className="text-sm text-[color:var(--site-ink-3)]">Sin eventos para este ticker.</p>
           )}
           {state.data?.events.map((ev) => (
             <EventCard key={ev.id} ev={ev} />
@@ -949,33 +915,33 @@ function LatestVerdictHeader({ ev }: { ev: DrillEvent }) {
   const pt = ev.priceTargets;
   if (!v && !m.currentPrice && !pt.bull && !pt.bear) return null;
   return (
-    <div className="px-6 py-4 bg-[#F8F9FF] border-b border-[#03065E]/10 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    <div className="px-6 py-4 bg-[color:var(--surface-muted)] border-b border-[color:var(--site-border)] grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
-        <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-1">Última recomendación</p>
+        <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-1">Última recomendación</p>
         {v?.rating ? (
           <VerdictPill rating={v.rating} conviction={v.conviction} />
         ) : (
-          <p className="text-[#03065E]/40">—</p>
+          <p className="text-[color:var(--site-ink-4)]">—</p>
         )}
       </div>
       <div>
-        <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-1">Precio</p>
-        <p className="font-medium tabular-nums text-[#03065E]">{fmtMoney(m.currentPrice)}</p>
+        <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-1">Precio</p>
+        <p className="font-medium tabular-nums text-[color:var(--site-ink)]">{fmtMoney(m.currentPrice)}</p>
       </div>
       <div>
-        <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-1">Market cap</p>
-        <p className="font-medium tabular-nums text-[#03065E]">{fmtMoney(m.marketCap)}</p>
+        <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-1">Market cap</p>
+        <p className="font-medium tabular-nums text-[color:var(--site-ink)]">{fmtMoney(m.marketCap)}</p>
       </div>
       <div>
-        <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-1">Targets bear / bull</p>
-        <p className="text-[#03065E] text-xs tabular-nums">
-          {pt.bear ?? "—"} <span className="text-[#03065E]/30">·</span> {pt.bull ?? "—"}
+        <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-1">Targets bear / bull</p>
+        <p className="text-[color:var(--site-ink)] text-xs tabular-nums">
+          {pt.bear ?? "—"} <span className="text-[color:var(--site-ink-4)]">·</span> {pt.bull ?? "—"}
         </p>
       </div>
       {v?.rationale && (
-        <div className="col-span-2 md:col-span-4 pt-2 border-t border-[#03065E]/10">
-          <p className="text-xs uppercase tracking-wide text-[#03065E]/60 mb-1">Rationale</p>
-          <p className="text-sm text-[#03065E]/90 leading-snug">{v.rationale}</p>
+        <div className="col-span-2 md:col-span-4 pt-2 border-t border-[color:var(--site-border)]">
+          <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)] mb-1">Rationale</p>
+          <p className="text-sm text-[color:var(--site-ink-2)] leading-snug">{v.rationale}</p>
         </div>
       )}
     </div>
@@ -985,51 +951,51 @@ function LatestVerdictHeader({ ev }: { ev: DrillEvent }) {
 function EventCard({ ev }: { ev: DrillEvent }) {
   const [open, setOpen] = useState(false);
   const scoreColor =
-    ev.qualityScore === null ? "text-[#03065E]/40" :
-    ev.qualityScore >= 90 ? "text-emerald-600" :
-    ev.qualityScore >= 70 ? "text-emerald-500" :
-    ev.qualityScore >= 50 ? "text-amber-600" :
-    "text-red-600";
+    ev.qualityScore === null ? "text-[color:var(--site-ink-4)]" :
+    ev.qualityScore >= 90 ? "text-[color:var(--pos)]" :
+    ev.qualityScore >= 70 ? "text-[color:var(--pos)]" :
+    ev.qualityScore >= 50 ? "text-[color:var(--neu)]" :
+    "text-[color:var(--neg)]";
 
   return (
-    <div className="border border-[#03065E]/10 rounded-lg overflow-hidden">
+    <div className="border border-[color:var(--site-border)] rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[#03065E]/5 text-left"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[color:var(--navy-050)] text-left"
       >
         <div className="flex items-center gap-4">
-          <span className="text-xs font-mono text-[#03065E]/70">{fmtTs(ev.ts)}</span>
-          <span className="text-xs px-2 py-0.5 rounded bg-[#03065E]/10 font-mono">{ev.status}</span>
-          <span className="text-xs px-2 py-0.5 rounded bg-[#03065E]/5 font-mono">{ev.sankeySource ?? "—"}</span>
-          {ev.errorStage && <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 font-mono">{ev.errorStage}</span>}
+          <span className="text-xs font-mono text-[color:var(--site-ink-3)]">{fmtTs(ev.ts)}</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-[color:var(--navy-050)] font-mono">{ev.status}</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-[color:var(--surface-muted)] font-mono">{ev.sankeySource ?? "—"}</span>
+          {ev.errorStage && <span className="text-xs px-2 py-0.5 rounded bg-[color:var(--neg-soft)] text-[color:var(--neg)] font-mono">{ev.errorStage}</span>}
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className={`tabular-nums font-semibold ${scoreColor}`}>
             {ev.qualityScore !== null ? `score ${ev.qualityScore}` : "—"}
           </span>
-          <span className="text-[#03065E]/40">{open ? "▾" : "▸"}</span>
+          <span className="text-[color:var(--site-ink-4)]">{open ? "▾" : "▸"}</span>
         </div>
       </button>
 
       {open && (
-        <div className="px-4 py-3 border-t border-[#03065E]/10 space-y-3 bg-[#F8F9FF]/50">
+        <div className="px-4 py-3 border-t border-[color:var(--site-border)] space-y-3 bg-[color:var(--surface-muted)]">
           {/* Findings — cada uno es un prompt copiable para Claude Code */}
           {ev.findings && ev.findings.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-wide text-[#03065E]/60">Hallazgos (prompts copiables)</p>
+              <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)]">Hallazgos (prompts copiables)</p>
               {ev.findings.map((f, i) => (
                 <FindingPrompt key={i} f={f} variant="card" />
               ))}
             </div>
           )}
           {ev.errorMsg && (
-            <div className="border border-red-200 bg-red-50 text-red-700 rounded p-3">
+            <div className="border border-[color:var(--neg)] bg-[color:var(--neg-soft)] text-[color:var(--neg)] rounded p-3">
               <p className="text-xs font-mono uppercase mb-1">Error</p>
               <p className="text-sm break-words">{ev.errorMsg}</p>
             </div>
           )}
           {(!ev.findings || ev.findings.length === 0) && !ev.errorMsg && (
-            <p className="text-sm text-emerald-700">Sin hallazgos — Sankey reconcilia perfecto.</p>
+            <p className="text-sm text-[color:var(--pos)]">Sin hallazgos — Sankey reconcilia perfecto.</p>
           )}
 
           {/* Snapshot */}
@@ -1050,17 +1016,17 @@ function SnapshotView({ snap }: { snap: EventSnapshot }) {
   return (
     <div className="space-y-4">
       {/* Provenance — what to fetch + which path the code took */}
-      <div className="border border-[#03065E]/10 rounded p-3 bg-white space-y-1.5 text-sm">
-        <p className="text-xs uppercase tracking-wide text-[#03065E]/60">Provenance</p>
+      <div className="border border-[color:var(--site-border)] rounded p-3 bg-white space-y-1.5 text-sm">
+        <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)]">Provenance</p>
         {snap.overridePath && (
           <p>
-            <span className="text-xs text-[#03065E]/60">Code path:</span>{" "}
-            <span className="font-mono text-[#03065E]">{snap.overridePath}</span>
+            <span className="text-xs text-[color:var(--site-ink-3)]">Code path:</span>{" "}
+            <span className="font-mono text-[color:var(--site-ink)]">{snap.overridePath}</span>
           </p>
         )}
         {(e8?.cik || e8?.accession) && (
           <p>
-            <span className="text-xs text-[#03065E]/60">CIK / accession:</span>{" "}
+            <span className="text-xs text-[color:var(--site-ink-3)]">CIK / accession:</span>{" "}
             <span className="font-mono">{e8.cik ?? "—"}</span>
             {" / "}
             <span className="font-mono">{e8.accession ?? "—"}</span>
@@ -1068,20 +1034,20 @@ function SnapshotView({ snap }: { snap: EventSnapshot }) {
         )}
         {snap.filingIndexUrl && (
           <p>
-            <span className="text-xs text-[#03065E]/60">Source URL:</span>{" "}
+            <span className="text-xs text-[color:var(--site-ink-3)]">Source URL:</span>{" "}
             {isSafeHttpUrl(snap.filingIndexUrl) ? (
               <a
                 href={snap.filingIndexUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="font-mono text-[#03065E] underline break-all"
+                className="font-mono text-[color:var(--site-ink)] underline break-all"
               >
                 {snap.filingIndexUrl}
               </a>
             ) : (
               // Non-http(s) scheme (javascript:/data:/…) — show as inert text,
               // never as a clickable link.
-              <span className="font-mono text-[#03065E]/70 break-all">{snap.filingIndexUrl}</span>
+              <span className="font-mono text-[color:var(--site-ink-3)] break-all">{snap.filingIndexUrl}</span>
             )}
           </p>
         )}
@@ -1116,19 +1082,19 @@ function SankeyPreview({ data }: { data: SlimSankey }) {
   // chart already handles. This is the same data the user actually saw.
   const chartData = data as unknown as SegmentSankeyData;
   return (
-    <div className="border border-[#03065E]/10 rounded p-3 bg-white space-y-3">
+    <div className="border border-[color:var(--site-border)] rounded p-3 bg-white space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wide text-[#03065E]/60">
+        <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)]">
           Sankey final — lo que se renderizó al usuario
         </p>
         <button
           onClick={() => setShowRaw((v) => !v)}
-          className="text-xs px-2 py-0.5 border border-[#03065E]/20 rounded hover:bg-[#03065E]/5"
+          className="text-xs px-2 py-0.5 border border-[color:var(--site-border-2)] rounded hover:bg-[color:var(--navy-050)]"
         >
           {showRaw ? "Ver chart" : "Ver tabla"}
         </button>
       </div>
-      <p className="text-xs text-[#03065E]/60 font-mono">
+      <p className="text-xs text-[color:var(--site-ink-3)] font-mono">
         {data.period ?? "—"} · {data.source ?? "—"} · {data.currency ?? "—"} · unit {data.unit || "—"}
         {data.industryProfile ? ` · ${data.industryProfile}` : ""}
       </p>
@@ -1138,7 +1104,7 @@ function SankeyPreview({ data }: { data: SlimSankey }) {
         // SankeyChart usa viewBox + className="w-full" así que escala al ancho
         // del contenedor — sin scroll horizontal. Si el drawer es angosto los
         // labels quedan más chicos pero el chart sigue siendo legible.
-        <div className="bg-[#F8F9FF] rounded">
+        <div className="bg-[color:var(--surface-muted)] rounded">
           <SankeyChart data={chartData} />
         </div>
       )}
@@ -1156,9 +1122,9 @@ function SankeyTable({ title, data }: { title: string; data: SlimSankey }) {
   const opexSum = opexEntries.reduce((s, [, v]) => s + v, 0);
 
   return (
-    <div className="border border-[#03065E]/10 rounded p-3 bg-white space-y-2">
-      {title && <p className="text-xs uppercase tracking-wide text-[#03065E]/60">{title}</p>}
-      <p className="text-xs text-[#03065E]/60 font-mono">
+    <div className="border border-[color:var(--site-border)] rounded p-3 bg-white space-y-2">
+      {title && <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)]">{title}</p>}
+      <p className="text-xs text-[color:var(--site-ink-3)] font-mono">
         {data.period ?? "—"} · {data.source ?? "—"} · {data.currency ?? "—"} · unit {u || "—"}
         {data.industryProfile ? ` · ${data.industryProfile}` : ""}
       </p>
@@ -1179,17 +1145,17 @@ function SankeyTable({ title, data }: { title: string; data: SlimSankey }) {
       </table>
       {segs.length > 0 && (
         <div>
-          <p className="text-xs text-[#03065E]/60 mb-1">
+          <p className="text-xs text-[color:var(--site-ink-3)] mb-1">
             Segmentos ({segs.length}) — suman {segSum.toFixed(2)}{u}
             {data.totalRevenue ? ` · ${((segSum / data.totalRevenue) * 100).toFixed(1)}% del revenue` : ""}
           </p>
           <table className="w-full text-sm">
             <tbody>
               {segs.map((s, i) => (
-                <tr key={i} className="border-b border-[#03065E]/5 last:border-0">
+                <tr key={i} className="border-b border-[color:var(--site-border)] last:border-0">
                   <td className="py-1 pr-2">{s.name}</td>
                   <td className="py-1 text-right tabular-nums">{s.value.toFixed(2)}{u}</td>
-                  <td className="py-1 text-right tabular-nums text-[#03065E]/60 w-16">
+                  <td className="py-1 text-right tabular-nums text-[color:var(--site-ink-3)] w-16">
                     {data.totalRevenue ? `${((s.value / data.totalRevenue) * 100).toFixed(1)}%` : ""}
                   </td>
                 </tr>
@@ -1200,14 +1166,14 @@ function SankeyTable({ title, data }: { title: string; data: SlimSankey }) {
       )}
       {opexEntries.length > 0 && (
         <div>
-          <p className="text-xs text-[#03065E]/60 mb-1">
+          <p className="text-xs text-[color:var(--site-ink-3)] mb-1">
             OpEx breakdown — suman {opexSum.toFixed(2)}{u}
             {data.operatingExpenses ? ` · ${((opexSum / data.operatingExpenses) * 100).toFixed(1)}% del total` : ""}
           </p>
           <table className="w-full text-sm">
             <tbody>
               {opexEntries.map(([k, v]) => (
-                <tr key={k} className="border-b border-[#03065E]/5 last:border-0">
+                <tr key={k} className="border-b border-[color:var(--site-border)] last:border-0">
                   <td className="py-1 font-mono">{k}</td>
                   <td className="py-1 text-right tabular-nums">{v.toFixed(2)}{u}</td>
                 </tr>
@@ -1243,9 +1209,9 @@ function Edgar8KRawView({ e8, u }: { e8: Edgar8KRaw; u: string }) {
     { k: "depreciationAmortization", label: "depreciationAmortization" },
   ];
   return (
-    <div className="border border-[#03065E]/10 rounded p-3 bg-white space-y-2">
-      <p className="text-xs uppercase tracking-wide text-[#03065E]/60">Edgar 8-K — output crudo del parser</p>
-      <p className="text-xs text-[#03065E]/60 font-mono">
+    <div className="border border-[color:var(--site-border)] rounded p-3 bg-white space-y-2">
+      <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)]">Edgar 8-K — output crudo del parser</p>
+      <p className="text-xs text-[color:var(--site-ink-3)] font-mono">
         form {e8.form ?? "—"} · endDate {e8.endDate ?? "—"} · currency {e8.currency ?? "—"}
         {e8.isAnnual ? " · annual" : ""}{e8.isSemiAnnual ? " · semiannual" : ""}
         {e8.fiscalYearEndMonth ? ` · FYE month ${e8.fiscalYearEndMonth}` : ""}
@@ -1257,9 +1223,9 @@ function Edgar8KRawView({ e8, u }: { e8: Edgar8KRaw; u: string }) {
             const isNull = v === null;
             const isMissing = v === undefined;
             return (
-              <tr key={k} className="border-b border-[#03065E]/5 last:border-0">
-                <td className={`py-1 font-mono ${isNull ? "text-amber-600" : isMissing ? "text-[#03065E]/30" : ""}`}>{label}</td>
-                <td className={`py-1 text-right tabular-nums ${isNull ? "text-amber-600" : ""}`}>
+              <tr key={k} className="border-b border-[color:var(--site-border)] last:border-0">
+                <td className={`py-1 font-mono ${isNull ? "text-[color:var(--neu)]" : isMissing ? "text-[color:var(--site-ink-4)]" : ""}`}>{label}</td>
+                <td className={`py-1 text-right tabular-nums ${isNull ? "text-[color:var(--neu)]" : ""}`}>
                   {isNull ? "null (parser left blank)" : isMissing ? "" : f(v)}
                 </td>
               </tr>
@@ -1284,9 +1250,9 @@ function YahooQuarterView({ yq, currency, unit }: { yq: YahooQuarter; currency: 
     { k: "netIncome", label: "netIncome" },
   ];
   return (
-    <div className="border border-[#03065E]/10 rounded p-3 bg-white space-y-2">
-      <p className="text-xs uppercase tracking-wide text-[#03065E]/60">Yahoo último trimestre — para cross-check</p>
-      <p className="text-xs text-[#03065E]/60 font-mono">
+    <div className="border border-[color:var(--site-border)] rounded p-3 bg-white space-y-2">
+      <p className="text-xs uppercase tracking-wide text-[color:var(--site-ink-3)]">Yahoo último trimestre — para cross-check</p>
+      <p className="text-xs text-[color:var(--site-ink-3)] font-mono">
         endDate {yq.endDate ?? "—"} · currency {currency ?? "—"}
       </p>
       <table className="w-full text-xs">
@@ -1294,7 +1260,7 @@ function YahooQuarterView({ yq, currency, unit }: { yq: YahooQuarter; currency: 
           {lines.map(({ k, label }) => {
             const v = yq[k] as number | null | undefined;
             return (
-              <tr key={k} className="border-b border-[#03065E]/5 last:border-0">
+              <tr key={k} className="border-b border-[color:var(--site-border)] last:border-0">
                 <td className="py-1 font-mono">{label}</td>
                 <td className="py-1 text-right tabular-nums">{f(v)}</td>
               </tr>
@@ -1308,10 +1274,10 @@ function YahooQuarterView({ yq, currency, unit }: { yq: YahooQuarter; currency: 
 
 function Row({ label, value, sub, bold }: { label: string; value: string; sub?: string; bold?: boolean }) {
   return (
-    <tr className="border-b border-[#03065E]/5 last:border-0">
+    <tr className="border-b border-[color:var(--site-border)] last:border-0">
       <td className={`py-1.5 ${bold ? "font-semibold" : ""}`}>{label}</td>
       <td className={`py-1.5 text-right tabular-nums ${bold ? "font-semibold" : ""}`}>{value}</td>
-      <td className="py-1.5 text-right tabular-nums text-[#03065E]/50 text-xs w-40">{sub ?? ""}</td>
+      <td className="py-1.5 text-right tabular-nums text-[color:var(--site-ink-4)] text-xs w-40">{sub ?? ""}</td>
     </tr>
   );
 }
@@ -1320,7 +1286,7 @@ function Row({ label, value, sub, bold }: { label: string; value: string; sub?: 
 // it stays in the same single-file dashboard with no extra deps.
 function VolumeChart({ data }: { data: DailyVolumeRow[] }) {
   if (data.length === 0) {
-    return <p className="text-sm text-[#03065E]/50 py-3">Aún no hay datos.</p>;
+    return <p className="text-sm text-[color:var(--site-ink-4)] py-3">Aún no hay datos.</p>;
   }
   const maxDay = Math.max(...data.map((d) => d.fresh + d.cached + d.errors), 1);
   const totalFresh  = data.reduce((s, d) => s + d.fresh, 0);
@@ -1346,15 +1312,15 @@ function VolumeChart({ data }: { data: DailyVolumeRow[] }) {
   return (
     <div className="space-y-3">
       <div className="flex gap-4 text-xs">
-        <span><span className="inline-block w-2.5 h-2.5 bg-emerald-600 rounded-sm mr-1.5" />Fresh: {totalFresh}</span>
-        <span><span className="inline-block w-2.5 h-2.5 bg-[#03065E] rounded-sm mr-1.5" />Cache: {totalCached}</span>
-        <span><span className="inline-block w-2.5 h-2.5 bg-red-500 rounded-sm mr-1.5" />Errores: {totalErrors}</span>
+        <span><span className="inline-block w-2.5 h-2.5 bg-[color:var(--pos)] rounded-sm mr-1.5" />Fresh: {totalFresh}</span>
+        <span><span className="inline-block w-2.5 h-2.5 bg-[color:var(--navy)] rounded-sm mr-1.5" />Cache: {totalCached}</span>
+        <span><span className="inline-block w-2.5 h-2.5 bg-[color:var(--neg)] rounded-sm mr-1.5" />Errores: {totalErrors}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
         {/* Y-axis hint */}
-        <text x={pad.l - 6} y={pad.t + 4} fontSize="9" textAnchor="end" fill="#03065E60">{maxDay}</text>
-        <text x={pad.l - 6} y={bottom} fontSize="9" textAnchor="end" fill="#03065E60">0</text>
-        <line x1={pad.l} y1={bottom} x2={W - pad.r} y2={bottom} stroke="#03065E20" />
+        <text x={pad.l - 6} y={pad.t + 4} fontSize="9" textAnchor="end" fill="#6E7290">{maxDay}</text>
+        <text x={pad.l - 6} y={bottom} fontSize="9" textAnchor="end" fill="#6E7290">0</text>
+        <line x1={pad.l} y1={bottom} x2={W - pad.r} y2={bottom} stroke="#D9DAE8" />
         {data.map((d, i) => {
           const x = barAt(d.bucketMs);
           if (x < pad.l - 1 || x > W - pad.r) return null;
@@ -1365,9 +1331,9 @@ function VolumeChart({ data }: { data: DailyVolumeRow[] }) {
           let y = bottom;
           return (
             <g key={i}>
-              {d.fresh > 0  && (() => { y -= fH; return <rect x={x} y={y} width={w} height={fH} fill="#059669" />; })()}
-              {d.cached > 0 && (() => { y -= cH; return <rect x={x} y={y} width={w} height={cH} fill="#03065E" />; })()}
-              {d.errors > 0 && (() => { y -= eH; return <rect x={x} y={y} width={w} height={eH} fill="#ef4444" />; })()}
+              {d.fresh > 0  && (() => { y -= fH; return <rect x={x} y={y} width={w} height={fH} fill="#1F6B45" />; })()}
+              {d.cached > 0 && (() => { y -= cH; return <rect x={x} y={y} width={w} height={cH} fill="#0f2249" />; })()}
+              {d.errors > 0 && (() => { y -= eH; return <rect x={x} y={y} width={w} height={eH} fill="#8E2A2A" />; })()}
             </g>
           );
         })}
@@ -1379,7 +1345,7 @@ function VolumeChart({ data }: { data: DailyVolumeRow[] }) {
           const date = new Date(dayIdx * DAY_MS);
           const label = `${date.getUTCDate()}/${date.getUTCMonth() + 1}`;
           return (
-            <text key={i} x={x} y={H - 6} fontSize="9" textAnchor="middle" fill="#03065E80" fontFamily="monospace">{label}</text>
+            <text key={i} x={x} y={H - 6} fontSize="9" textAnchor="middle" fill="#6E7290" fontFamily="monospace">{label}</text>
           );
         })}
       </svg>
@@ -1388,16 +1354,16 @@ function VolumeChart({ data }: { data: DailyVolumeRow[] }) {
 }
 
 const VERDICT_STYLE: Record<string, string> = {
-  BUY:   "bg-emerald-100 text-emerald-800 border-emerald-300",
-  HOLD:  "bg-amber-100 text-amber-800 border-amber-300",
-  AVOID: "bg-red-100 text-red-800 border-red-300",
+  BUY:   "bg-[color:var(--pos-soft)] text-[color:var(--pos)] border-[color:var(--pos)]",
+  HOLD:  "bg-[color:var(--neu-soft)] text-[color:var(--neu)] border-[color:var(--neu)]",
+  AVOID: "bg-[color:var(--neg-soft)] text-[color:var(--neg)] border-[color:var(--neg)]",
 };
 
 function VerdictPill({ rating, conviction, size = "md" }: { rating: string | null; conviction: string | null; size?: "sm" | "md" }) {
   if (!rating) {
-    return <span className={`text-xs text-[#03065E]/40 ${size === "sm" ? "" : "px-2 py-0.5"}`}>—</span>;
+    return <span className={`text-xs text-[color:var(--site-ink-4)] ${size === "sm" ? "" : "px-2 py-0.5"}`}>—</span>;
   }
-  const cls = VERDICT_STYLE[rating] ?? "bg-[#03065E]/5 text-[#03065E] border-[#03065E]/20";
+  const cls = VERDICT_STYLE[rating] ?? "bg-[color:var(--surface-muted)] text-[color:var(--site-ink)] border-[color:var(--site-border-2)]";
   const sizeCls = size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs";
   return (
     <span className={`inline-flex items-center gap-1 border rounded font-mono font-semibold ${sizeCls} ${cls}`}>
@@ -1417,25 +1383,25 @@ function fmtMoney(v: number | null | undefined, currency = "$"): string {
 }
 
 function RecentAnalysesGrid({ rows, onClick }: { rows: RecentAnalysis[]; onClick: (ticker: string) => void }) {
-  if (rows.length === 0) return <p className="text-sm text-[#03065E]/50 py-3">Aún no hay análisis recientes.</p>;
+  if (rows.length === 0) return <p className="text-sm text-[color:var(--site-ink-4)] py-3">Aún no hay análisis recientes.</p>;
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
       {rows.map((r) => (
         <button
           key={r.ticker}
           onClick={() => onClick(r.ticker)}
-          className="text-left p-3 border border-[#03065E]/10 rounded-lg hover:border-[#03065E]/30 hover:bg-[#03065E]/[0.02] transition"
+          className="text-left p-3 border border-[color:var(--site-border)] rounded-lg hover:border-[color:var(--navy)] hover:bg-[color:var(--navy-050)] transition"
         >
           <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="font-mono font-semibold text-[#03065E]">{r.ticker}</span>
+            <span className="font-mono font-semibold text-[color:var(--site-ink)]">{r.ticker}</span>
             <VerdictPill rating={r.verdict_rating} conviction={r.verdict_conviction} size="sm" />
           </div>
-          <p className="text-xs text-[#03065E]/70 truncate" title={r.company_name ?? r.ticker}>
+          <p className="text-xs text-[color:var(--site-ink-3)] truncate" title={r.company_name ?? r.ticker}>
             {r.company_name ?? r.ticker}
           </p>
           <div className="flex items-baseline justify-between mt-1.5 text-xs">
-            <span className="tabular-nums font-medium text-[#03065E]">{fmtMoney(r.current_price)}</span>
-            <span className="text-[#03065E]/50">{relativeTime(r.ts)}</span>
+            <span className="tabular-nums font-medium text-[color:var(--site-ink)]">{fmtMoney(r.current_price)}</span>
+            <span className="text-[color:var(--site-ink-4)]">{relativeTime(r.ts)}</span>
           </div>
         </button>
       ))}
@@ -1444,13 +1410,13 @@ function RecentAnalysesGrid({ rows, onClick }: { rows: RecentAnalysis[]; onClick
 }
 
 function PopularAnalysesTable({ rows, onClick }: { rows: PopularAnalysis[]; onClick: (ticker: string) => void }) {
-  if (rows.length === 0) return <p className="text-sm text-[#03065E]/50 py-3">Aún no hay análisis.</p>;
+  if (rows.length === 0) return <p className="text-sm text-[color:var(--site-ink-4)] py-3">Aún no hay análisis.</p>;
   const maxSearches = Math.max(...rows.map((r) => r.searches), 1);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs text-[#03065E]/60 border-b border-[#03065E]/10">
+          <tr className="text-xs text-[color:var(--site-ink-3)] border-b border-[color:var(--site-border)]">
             <th className="text-left py-2 w-8">#</th>
             <th className="text-left py-2">Ticker / Empresa</th>
             <th className="text-left py-2">Verdict</th>
@@ -1468,28 +1434,28 @@ function PopularAnalysesTable({ rows, onClick }: { rows: PopularAnalysis[]; onCl
               <tr
                 key={r.ticker}
                 onClick={() => onClick(r.ticker)}
-                className="border-b border-[#03065E]/5 last:border-0 cursor-pointer hover:bg-[#03065E]/5"
+                className="border-b border-[color:var(--site-border)] last:border-0 cursor-pointer hover:bg-[color:var(--navy-050)]"
               >
-                <td className="py-2 text-[#03065E]/50 tabular-nums">{i + 1}</td>
+                <td className="py-2 text-[color:var(--site-ink-4)] tabular-nums">{i + 1}</td>
                 <td className="py-2">
-                  <div className="font-mono font-semibold text-[#03065E]">{r.ticker}</div>
-                  {r.company_name && <div className="text-xs text-[#03065E]/60 truncate max-w-[18rem]" title={r.company_name}>{r.company_name}</div>}
+                  <div className="font-mono font-semibold text-[color:var(--site-ink)]">{r.ticker}</div>
+                  {r.company_name && <div className="text-xs text-[color:var(--site-ink-3)] truncate max-w-[18rem]" title={r.company_name}>{r.company_name}</div>}
                 </td>
                 <td className="py-2"><VerdictPill rating={r.verdict_rating} conviction={r.verdict_conviction} /></td>
                 <td className="py-2 text-right tabular-nums">{fmtMoney(r.current_price)}</td>
-                <td className="py-2 text-right tabular-nums text-[#03065E]/70">{fmtMoney(r.market_cap)}</td>
-                <td className="py-2 text-right text-xs text-[#03065E]/70 whitespace-nowrap">
-                  {r.bear_target ?? "—"} <span className="text-[#03065E]/30">/</span> {r.bull_target ?? "—"}
+                <td className="py-2 text-right tabular-nums text-[color:var(--site-ink-3)]">{fmtMoney(r.market_cap)}</td>
+                <td className="py-2 text-right text-xs text-[color:var(--site-ink-3)] whitespace-nowrap">
+                  {r.bear_target ?? "—"} <span className="text-[color:var(--site-ink-4)]">/</span> {r.bull_target ?? "—"}
                 </td>
                 <td className="py-2 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span className="hidden md:block w-20 h-1 rounded-full bg-[#03065E]/5 overflow-hidden">
-                      <span className="block h-full bg-[#03065E]/40" style={{ width: `${w}%` }} />
+                    <span className="hidden md:block w-20 h-1 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
+                      <span className="block h-full bg-[color:var(--neu)]" style={{ width: `${w}%` }} />
                     </span>
                     <span className="tabular-nums font-medium">{r.searches.toLocaleString()}</span>
                   </div>
                 </td>
-                <td className="py-2 text-right text-xs text-[#03065E]/60 whitespace-nowrap">{relativeTime(r.last_ts)}</td>
+                <td className="py-2 text-right text-xs text-[color:var(--site-ink-3)] whitespace-nowrap">{relativeTime(r.last_ts)}</td>
               </tr>
             );
           })}
@@ -1515,7 +1481,7 @@ function TopTickersCard({
   if (rows.length === 0) {
     return (
       <Card title={title} sub={sub}>
-        <p className="text-sm text-[#03065E]/50 py-3">Sin búsquedas en este rango.</p>
+        <p className="text-sm text-[color:var(--site-ink-4)] py-3">Sin búsquedas en este rango.</p>
       </Card>
     );
   }
@@ -1524,7 +1490,7 @@ function TopTickersCard({
     <Card title={title} sub={sub}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs text-[#03065E]/60 border-b border-[#03065E]/10">
+          <tr className="text-xs text-[color:var(--site-ink-3)] border-b border-[color:var(--site-border)]">
             <th className="text-left py-2 w-8">#</th>
             <th className="text-left py-2">Ticker</th>
             <th className="text-right py-2">Búsquedas</th>
@@ -1540,22 +1506,22 @@ function TopTickersCard({
               <tr
                 key={r.ticker}
                 onClick={() => onClick(r.ticker)}
-                className="border-b border-[#03065E]/5 last:border-0 cursor-pointer hover:bg-[#03065E]/5"
+                className="border-b border-[color:var(--site-border)] last:border-0 cursor-pointer hover:bg-[color:var(--navy-050)]"
               >
-                <td className="py-2 text-[#03065E]/50 tabular-nums">{i + 1}</td>
+                <td className="py-2 text-[color:var(--site-ink-4)] tabular-nums">{i + 1}</td>
                 <td className="py-2 font-mono">
                   <div className="flex items-center gap-2">
                     <span>{r.ticker}</span>
-                    <span className="hidden md:block flex-1 h-1 rounded-full bg-[#03065E]/5 overflow-hidden">
-                      <span className="block h-full bg-[#03065E]/40" style={{ width: `${w}%` }} />
+                    <span className="hidden md:block flex-1 h-1 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
+                      <span className="block h-full bg-[color:var(--neu)]" style={{ width: `${w}%` }} />
                     </span>
                   </div>
                 </td>
                 <td className="py-2 text-right tabular-nums font-medium">{r.searches.toLocaleString()}</td>
-                <td className="py-2 text-right tabular-nums text-[#03065E]/70">{r.uniques.toLocaleString()}</td>
-                <td className="py-2 text-right text-xs text-[#03065E]/60 whitespace-nowrap">{relativeTime(r.last_ts)}</td>
+                <td className="py-2 text-right tabular-nums text-[color:var(--site-ink-3)]">{r.uniques.toLocaleString()}</td>
+                <td className="py-2 text-right text-xs text-[color:var(--site-ink-3)] whitespace-nowrap">{relativeTime(r.last_ts)}</td>
                 {showFirstSeen && r.first_ts !== undefined && (
-                  <td className="py-2 text-right text-xs text-[#03065E]/60 whitespace-nowrap">{relativeTime(r.first_ts)}</td>
+                  <td className="py-2 text-right text-xs text-[color:var(--site-ink-3)] whitespace-nowrap">{relativeTime(r.first_ts)}</td>
                 )}
               </tr>
             );
@@ -1589,9 +1555,9 @@ function FindingPrompt({ f, variant = "list" }: { f: EventFinding; variant?: "li
     } catch { /* clipboard blocked */ }
   };
   const sevColor =
-    f.severity === "error" ? "border-red-200 bg-red-50 text-red-900" :
-    f.severity === "warn"  ? "border-amber-200 bg-amber-50 text-amber-900" :
-    "border-[#03065E]/15 bg-[#03065E]/5 text-[#03065E]";
+    f.severity === "error" ? "border-[color:var(--neg)] bg-[color:var(--neg-soft)] text-[color:var(--neg)]" :
+    f.severity === "warn"  ? "border-[color:var(--neu)] bg-[color:var(--neu-soft)] text-[color:var(--neu)]" :
+    "border-[color:var(--site-border)] bg-[color:var(--surface-muted)] text-[color:var(--site-ink)]";
 
   if (variant === "card") {
     return (
@@ -1613,9 +1579,9 @@ function FindingPrompt({ f, variant = "list" }: { f: EventFinding; variant?: "li
 
   // Inline list variant — used by LowQualityEventCard. More compact.
   const dot =
-    f.severity === "error" ? "bg-red-500" :
-    f.severity === "warn"  ? "bg-amber-500" :
-    "bg-[#03065E]/30";
+    f.severity === "error" ? "bg-[color:var(--neg)]" :
+    f.severity === "warn"  ? "bg-[color:var(--neu)]" :
+    "bg-[color:var(--site-border-2)]";
   return (
     <li className={`group border rounded p-2.5 leading-snug ${sevColor}`}>
       <div className="flex items-start justify-between gap-3">
@@ -1641,17 +1607,17 @@ function FindingPrompt({ f, variant = "list" }: { f: EventFinding; variant?: "li
 function LowQualityEventCard({ ev, onInspect }: { ev: LowQualityEvent; onInspect: () => void }) {
   const findings = ev.findings ?? [];
   const scoreColor =
-    ev.qualityScore >= 70 ? "text-emerald-600 bg-emerald-50" :
-    ev.qualityScore >= 50 ? "text-amber-700 bg-amber-50" :
+    ev.qualityScore >= 70 ? "text-[color:var(--pos)] bg-[color:var(--pos-soft)]" :
+    ev.qualityScore >= 50 ? "text-[color:var(--neu)] bg-[color:var(--neu-soft)]" :
     ev.qualityScore >= 30 ? "text-orange-700 bg-orange-50" :
-    "text-red-700 bg-red-50";
+    "text-[color:var(--neg)] bg-[color:var(--neg-soft)]";
   return (
-    <div className="border border-[#03065E]/10 rounded-lg p-4 space-y-2">
+    <div className="border border-[color:var(--site-border)] rounded-lg p-4 space-y-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={onInspect}
-            className="font-mono text-base text-[#03065E] hover:underline"
+            className="font-mono text-base text-[color:var(--site-ink)] hover:underline"
             title="Ver historial y snapshot completo"
           >
             {ev.ticker}
@@ -1659,15 +1625,15 @@ function LowQualityEventCard({ ev, onInspect }: { ev: LowQualityEvent; onInspect
           <span className={`text-xs font-mono px-2 py-0.5 rounded tabular-nums font-semibold ${scoreColor}`}>
             score {ev.qualityScore}
           </span>
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#03065E]/5 text-[#03065E]/80">
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-[color:var(--surface-muted)] text-[color:var(--site-ink-2)]">
             {ev.sankeySource ?? "—"}
           </span>
-          <span className="text-xs text-[#03065E]/60">{fmtTs(ev.ts)}</span>
+          <span className="text-xs text-[color:var(--site-ink-3)]">{fmtTs(ev.ts)}</span>
         </div>
       </div>
 
       {findings.length === 0 ? (
-        <p className="text-xs text-[#03065E]/60 italic">Sin findings registrados (datos pre-migración).</p>
+        <p className="text-xs text-[color:var(--site-ink-3)] italic">Sin findings registrados (datos pre-migración).</p>
       ) : (
         <ul className="space-y-1.5 text-sm">
           {findings.map((f, i) => (
@@ -1684,26 +1650,31 @@ function qualitySub(s: QualitySummary | null): string {
   return `${s.n.toLocaleString()} requests evaluadas`;
 }
 
+// Tile de KPI en el mismo lenguaje que la grilla hairline del panel (.adm-stat):
+// label duro, valor en mono tabular, cero sombra. `warn` tiñe el valor de oxblood.
 function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: "ok" | "warn" }) {
-  const accentClass = accent === "warn" ? "text-red-600" : "text-[#03065E]";
   return (
-    <div className="bg-white border border-[#03065E]/10 rounded-lg px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-[#03065E]/60">{label}</p>
-      <p className={`text-2xl font-semibold tabular-nums ${accentClass}`}>{value}</p>
-      {sub && <p className="text-xs text-[#03065E]/50 mt-0.5">{sub}</p>}
+    <div className={`adm-stat${accent === "warn" ? " warn" : ""}`}>
+      <span className="k">{label}</span>
+      <span className="v">{value}</span>
+      {sub && <span className="s">{sub}</span>}
     </div>
   );
 }
 
+// Mismo Card que components/admin/ui.tsx (superficie plana con hairline, sin
+// sombra), más un subtítulo opcional que el monitor usa mucho.
 function Card({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white border border-[#03065E]/10 rounded-lg p-5">
-      <div className="mb-3">
-        <h2 className="font-semibold">{title}</h2>
-        {sub && <p className="text-xs text-[#03065E]/60 mt-0.5">{sub}</p>}
-      </div>
-      {children}
-    </div>
+    <section className="adm-card">
+      <header className="adm-card-hd">
+        <div>
+          <h2 className="t">{title}</h2>
+          {sub && <p className="mt-0.5 text-xs text-[color:var(--site-ink-3)]">{sub}</p>}
+        </div>
+      </header>
+      <div className="adm-card-bd">{children}</div>
+    </section>
   );
 }
 
@@ -1715,10 +1686,10 @@ function StatusCard({ title, rows, total }: { title: string; rows: StatusRow[]; 
           {["ok", "cache_hit", "error", "rate_limited", "bad_request", "not_found"].map((s) => {
             const n = statusCount(rows, s);
             return (
-              <tr key={s} className="border-b border-[#03065E]/5 last:border-0">
+              <tr key={s} className="border-b border-[color:var(--site-border)] last:border-0">
                 <td className="py-1.5">{STATUS_LABEL[s] ?? s}</td>
                 <td className="py-1.5 text-right tabular-nums">{n.toLocaleString()}</td>
-                <td className="py-1.5 text-right tabular-nums text-[#03065E]/60 w-14">{pct(n, total)}</td>
+                <td className="py-1.5 text-right tabular-nums text-[color:var(--site-ink-3)] w-14">{pct(n, total)}</td>
               </tr>
             );
           })}
@@ -1736,14 +1707,14 @@ function UpstreamRow({ label, ok, fail }: { label: string; ok: number; fail: num
     <div>
       <div className="flex justify-between items-baseline mb-1">
         <p className="text-sm">{label}</p>
-        <p className={`text-sm tabular-nums font-medium ${warn ? "text-red-600" : ""}`}>
+        <p className={`text-sm tabular-nums font-medium ${warn ? "text-[color:var(--neg)]" : ""}`}>
           {total ? `${successRate.toFixed(1)}%` : "—"}
         </p>
       </div>
-      <p className="text-xs text-[#03065E]/60 tabular-nums">{ok.toLocaleString()} ok · {fail.toLocaleString()} fail</p>
-      <div className="h-1.5 mt-1.5 rounded-full bg-[#03065E]/5 overflow-hidden">
+      <p className="text-xs text-[color:var(--site-ink-3)] tabular-nums">{ok.toLocaleString()} ok · {fail.toLocaleString()} fail</p>
+      <div className="h-1.5 mt-1.5 rounded-full bg-[color:var(--surface-muted)] overflow-hidden">
         <div
-          className={warn ? "h-full bg-red-500" : "h-full bg-emerald-600"}
+          className={warn ? "h-full bg-[color:var(--neg)]" : "h-full bg-[color:var(--pos)]"}
           style={{ width: `${successRate}%` }}
         />
       </div>

@@ -3,7 +3,6 @@ import { yahooFinance } from "@/lib/fetchStockData";
 import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 import { reportError } from "@/lib/errorReporter";
 
-export const runtime = "edge";
 
 const MAX_QUERY_LEN = 64;
 

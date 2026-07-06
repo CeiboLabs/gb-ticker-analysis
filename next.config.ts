@@ -24,8 +24,9 @@ const cspDirectives = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  // El mapa de /contacto es un embed de Google Maps; el resto del sitio no incrusta terceros.
-  "frame-src https://www.google.com https://maps.google.com",
+  // El mapa de /contacto es un embed de Google Maps; los videos de /novedades usan
+  // el reproductor privacy-enhanced de YouTube (no setea cookies hasta reproducir).
+  "frame-src https://www.google.com https://maps.google.com https://www.youtube-nocookie.com",
   "upgrade-insecure-requests",
 ];
 
@@ -42,6 +43,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.7"],
+  // better-sqlite3 es un addon NATIVO (bindings del home server, ver
+  // lib/homeBindings.ts): no se bundlea — se resuelve desde node_modules en
+  // runtime, como corresponde a un .node.
+  serverExternalPackages: ["better-sqlite3"],
   turbopack: {
     resolveAlias: {
       "@deno/shim-deno": "./lib/deno-shim-edge/index.js",
@@ -50,6 +55,9 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // El panel de empleados no tiene nada que hacer en un buscador (además
+      // del metadata.robots noindex de app/admin/layout.tsx — cinturón y tiradores).
+      { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
     ];
   },
 };

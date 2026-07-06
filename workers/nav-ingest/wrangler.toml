@@ -1,0 +1,41 @@
+# Email Worker de ingesta del valor cuota de BNG Selección Global.
+#
+# Worker STANDALONE (no es el de Pages). Bindea la MISMA base D1 que lee el
+# sitio, así lo que escribe en fund_nav lo ve /api/fondo sin tocar nada más.
+#
+# Deploy:
+#   cd workers/nav-ingest && npx wrangler deploy
+#
+# Conectar el mail entrante (una vez):
+#   Cloudflare Dashboard → el dominio → Email Routing → Email Workers:
+#   crear una dirección de ingesta SECRETA (ej. nav-7h3k9x@ingest.<dominio>) y
+#   enrutarla a este worker (nav-ingest). El cliente arma un filtro que reenvía
+#   el mail diario del administrador a esa dirección.
+#
+# Secrets (NO van acá; cargar con `npx wrangler secret put <NOMBRE>`):
+#   INGEST_ALLOWED_SENDERS  — direcciones permitidas, separadas por coma y en
+#                             minúscula (el reenvío del cliente y/o el mail del
+#                             administrador). Si se deja vacío, no se filtra por
+#                             remitente (la dirección secreta + la validación de
+#                             contenido siguen protegiendo) — recomendado setearlo.
+#   RESEND_API_KEY          — misma cuenta Resend que el form de contacto.
+#   FUND_ALERT_TO           — a dónde van las alertas (rechazos, dead-man, éxito).
+#   FUND_ALERT_FROM         — opcional, remitente de las alertas.
+#   NAV_MAX_DAILY_MOVE      — opcional, banda día-a-día (fracción; default 0.10).
+#   DEADMAN_MAX_STALE_DAYS  — opcional, días sin cuota antes de alertar (default 3).
+
+name = "nav-ingest"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Misma D1 que el sitio (binding propio del worker, llega por el arg `env`).
+[[d1_databases]]
+binding       = "NAV_DB"
+database_name = "ticker-metrics"
+database_id   = "3cc6d984-1c52-437a-a45e-38fe1b3b54dd"
+
+# Dead-man-switch: días hábiles ~10:00 hora Uruguay (13:00 UTC). Si no llegó
+# la cuota, alerta. Ver scheduled() en src/index.ts.
+[triggers]
+crons = ["0 13 * * 1-5"]

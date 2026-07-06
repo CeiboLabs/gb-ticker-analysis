@@ -1,42 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminFailedAuthLimit, trustedClientIp } from "@/lib/rateLimiter";
+import { checkFailedAuthLimit, trustedClientIp } from "@/lib/rateLimiter";
+// La comparación constant-time se movió a lib/panelCrypto.ts (núcleo puro del
+// panel de empleados, sin imports de Next) para que los tests de Node y el
+// generador offline de hashes la compartan. Se re-exporta para no romper el
+// contrato de este módulo.
+import { timingSafeEqual } from "@/lib/panelCrypto";
 
-// Constant-time string compare that works in the edge runtime (no node:crypto).
-// Returns false on any length mismatch but still iterates over `a` so the wall
-// time depends on the length of the value the server holds (the env token),
-// not on how close the attacker's guess is.
-function timingSafeEqual(a: string, b: string): boolean {
-  let diff = a.length ^ b.length;
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    diff |= (a.charCodeAt(i) | 0) ^ (b.charCodeAt(i) | 0);
-  }
-  return diff === 0;
-}
+export { timingSafeEqual };
 
 // Brute-force cap on FAILED auth attempts only. A valid token bypasses the
-// gate entirely so the dashboard's 60s auto-refresh can run indefinitely.
+// gate entirely (a cron hitting /api/admin/retention can run indefinitely).
 // 30 failed attempts/h per IP still cuts off credential-spray cold.
 const ADMIN_HOURLY_MAX = 30;
 
-// Verifies the admin token exclusively from the `x-admin-token` header. We
-// deliberately do NOT accept the token via querystring — querystrings end up in
-// access logs, browser history, and Referer headers.
+// Verifies a capability token exclusively from a request HEADER. We deliberately
+// do NOT accept tokens via querystring — querystrings end up in access logs,
+// browser history, and Referer headers.
 //
-// Fail-closed: if ADMIN_TOKEN is unset in env, every request is rejected.
-export async function requireAdminToken(req: NextRequest): Promise<NextResponse | null> {
-  const expected = process.env.ADMIN_TOKEN;
+// Fail-closed: if the expected token is unset in env, every request is rejected.
+// `gateKey` keys a separate durable brute-force bucket per credential, so
+// spraying one token doesn't consume another's budget.
+export async function requireToken(
+  req: NextRequest,
+  expected: string | undefined,
+  opts: { headerName: string; gateKey: string; max?: number },
+): Promise<NextResponse | null> {
   if (!expected) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const got = req.headers.get("x-admin-token") ?? "";
+  const got = req.headers.get(opts.headerName) ?? "";
   if (timingSafeEqual(got, expected)) return null;
 
   // Failed auth — consume from the durable brute-force bucket (D1, survives
   // isolate recycling, no allowlist bypass). Once exhausted, even a request
   // with a valid token (above) still gets in; only attackers guessing tokens
   // hit this branch.
-  const gate = await checkAdminFailedAuthLimit(trustedClientIp(req), ADMIN_HOURLY_MAX);
+  const gate = await checkFailedAuthLimit(trustedClientIp(req), opts.max ?? ADMIN_HOURLY_MAX, opts.gateKey);
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "rate_limited" },
@@ -44,4 +43,11 @@ export async function requireAdminToken(req: NextRequest): Promise<NextResponse 
     );
   }
   return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+}
+
+// Token de endpoints de ops/diagnóstico: retention (cron) y los parsers de
+// prueba. Header `x-admin-token`. El Monitor de métricas ya NO lo usa — vive en
+// el panel de empleados y se gatea por sesión (cookie + permiso `monitor`).
+export function requireAdminToken(req: NextRequest): Promise<NextResponse | null> {
+  return requireToken(req, process.env.ADMIN_TOKEN, { headerName: "x-admin-token", gateKey: "adminfail" });
 }

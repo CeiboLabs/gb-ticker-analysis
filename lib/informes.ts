@@ -1,6 +1,11 @@
-// Fuente única de los informes publicados. La lista (/informes) y la página de
-// cada informe (/informes/[slug]) consumen estos datos. El PDF vive en
-// gbengochea.com.uy; lo servimos a través de un proxy same-origin
+// SEED y fallback de los informes. Desde el panel de empleados, la fuente de
+// verdad de la LISTA pública es la tabla D1 `informes` (lib/informesStore, la
+// sembró la migración 2026-07-04 con estas mismas filas): /informes y el proxy
+// de PDF leen D1 y sólo caen a este array cuando no hay binding (next dev).
+// Las páginas-artículo ESTÁTICAS (/informes/[slug]) sí siguen leyendo de acá
+// (en build no hay bindings): al curar un artículo nuevo, agregar la fila acá
+// además de crearla en el panel — regla documentada en docs/RUNBOOK-panel.md.
+// El PDF histórico vive en gbengochea.com.uy; se sirve por el proxy same-origin
 // (/informes/[slug]/pdf) porque el host original manda X-Frame-Options:SAMEORIGIN
 // y nuestro propio CSP bloquea iframes/objects de terceros.
 
@@ -14,6 +19,9 @@ export type Informe = {
   categoria: "Mensual" | "Semanal";
   /** URL absoluta del PDF en el host del cliente */
   pdf: string;
+  /** Sólo mensuales: id del video de YouTube que PRESENTA el informe. Cuando está
+   *  presente, la fila de /informes embebe ese video (los semanales no llevan). */
+  videoId?: string;
 };
 
 export const INFORMES: Informe[] = [
@@ -40,6 +48,9 @@ export const INFORMES: Informe[] = [
     titulo: "Informe mensual · Mayo 2026",
     categoria: "Mensual",
     pdf: "https://gbengochea.com.uy/img/informes/Bengochea Inversiones - Informe mensual Mayo 2026.pdf",
+    // Video que presenta el mensual de Mayo 2026 (confirmado por el cliente):
+    // https://youtu.be/mWJ8df43m34
+    videoId: "mWJ8df43m34",
   },
   {
     slug: "semanal-2026-05-15",

@@ -1,47 +1,65 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { useFondo, fmtFechaCorta } from "@/lib/useFondo";
+import type { HoldingItem } from "@/lib/fondo";
 
 // Mayores tenencias del fondo — una vista a ancho completo con un control
-// deslizante para alternar entre Treemap (bloques sólidos por clase) y Pie
+// deslizante para alternar entre Treemap (bloques sólidos por clase) y Donut
 // (torta llena con leyenda). Barra de split por clase de activo compartida y
 // hover vinculado leyenda↔gráfico.
 //
-// ⚠️ DATOS ILUSTRATIVOS. El fondo está en pre-lanzamiento y los pesos reales
-// se informan en la ficha mensual — por "Claims verificables" estas cifras NO
-// pueden publicarse en prod. Vive en la rama WIP feat/institucional; antes de
-// mergear hay que cablearlo a la fuente real (seam estilo fund_nav) con estado
-// vacío hasta que llegue la cartera.
+// Los datos salen del snapshot real (/api/fondo → fund_holdings), con el rezago
+// de divulgación aplicado en el serving. En pre-lanzamiento —o mientras no haya
+// un snapshot lo bastante viejo para divulgar— se muestra el estado vacío
+// honesto. El color NO viaja en el dato: se deriva acá por clase + rank.
 
 type Clase = "RV" | "RF" | "Otros";
-type Tenencia = { nombre: string; corto: string; clase: Clase; peso: number; color: string };
-
-// Colores por clase de activo, sobre la paleta de marca (navy = RV, gold = RF,
-// neutro = otros). Dentro de cada clase, de más oscuro (mayor peso) a más claro.
-const HOLDINGS: Tenencia[] = [
-  { nombre: "iShares Core S&P 500 ETF",         corto: "S&P 500",     clase: "RV",    peso: 18, color: "#0f2249" },
-  { nombre: "iShares Core U.S. Aggregate Bond", corto: "US Agg Bond", clase: "RF",    peso: 15, color: "#7C5E1A" },
-  { nombre: "Vanguard FTSE Developed Markets",  corto: "Desarroll.",  clase: "RV",    peso: 12, color: "#1a3163" },
-  { nombre: "PIMCO Income Fund",                corto: "PIMCO Inc.",  clase: "RF",    peso: 11, color: "#9A7724" },
-  { nombre: "Vanguard Total Stock Market",      corto: "US Total",    clase: "RV",    peso: 10, color: "#2C3194" },
-  { nombre: "Vanguard Total Intl Bond",         corto: "Intl Bond",   clase: "RF",    peso:  9, color: "#B8923A" },
-  { nombre: "iShares MSCI Emerging Markets",    corto: "Emergentes",  clase: "RV",    peso:  8, color: "#4A4FA6" },
-  { nombre: "iShares Global Corp Bond",         corto: "Corp Bond",   clase: "RF",    peso:  7, color: "#D2B463" },
-  { nombre: "Otros fondos · liquidez",          corto: "Otros",       clase: "Otros", peso: 10, color: "#9AA0B4" },
-];
+type Cell = { name: string; short: string; clase: Clase; peso: number; color: string };
 
 const CLASE_LABEL: Record<Clase, string> = { RV: "Renta variable", RF: "Renta fija", Otros: "Otros" };
 const CLASE_COLOR: Record<Clase, string> = { RV: "#1a3163", RF: "#A07C28", Otros: "#9AA0B4" };
 const CLASE_ORDER: Clase[] = ["RV", "RF", "Otros"];
 
-const fmt = (n: number) => `${n.toFixed(0)}%`;
-const byPeso = (a: Tenencia, b: Tenencia) => b.peso - a.peso;
-const SORTED = [...HOLDINGS].sort(byPeso);
+// Rampa de sombra por clase: oscuro (mayor peso) → claro (menor), interpolada
+// por rank dentro de la clase para soportar cualquier número de tenencias.
+const CLASE_RAMP: Record<Clase, [string, string]> = {
+  RV: ["#0f2249", "#5E63B8"],
+  RF: ["#7C5E1A", "#D9BE6E"],
+  Otros: ["#7E869C", "#B4BACA"],
+};
 
-const claseTotals = CLASE_ORDER.map((c) => ({
-  clase: c,
-  peso: HOLDINGS.filter((h) => h.clase === c).reduce((a, b) => a + b.peso, 0),
-})).filter((c) => c.peso > 0);
+const fmt = (n: number) => `${n.toFixed(0)}%`;
+const byPeso = (a: Cell, b: Cell) => b.peso - a.peso;
+
+function lerpHex(a: string, b: string, t: number): string {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
+  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Mapea las tenencias del snapshot a celdas con color derivado. weightBps → %.
+function buildCells(items: HoldingItem[]): Cell[] {
+  const out: Cell[] = [];
+  for (const clase of CLASE_ORDER) {
+    const group = items
+      .filter((it) => it.assetClass === clase)
+      .sort((a, b) => b.weightBps - a.weightBps);
+    const [dark, light] = CLASE_RAMP[clase];
+    group.forEach((it, i) => {
+      const t = group.length > 1 ? i / (group.length - 1) : 0;
+      out.push({
+        name: it.name,
+        short: it.short ?? it.name,
+        clase,
+        peso: it.weightBps / 100,
+        color: lerpHex(dark, light, t),
+      });
+    });
+  }
+  return out;
+}
 
 // ── Treemap squarificado ──────────────────────────────────────────────────
 // Dos formas, una por viewport: un treemap ancho a 2.5:1 (desktop) deja las
@@ -54,15 +72,16 @@ const TM_WIDE = { w: 1040, h: 416 };
 const TM_TALL = { w: 600, h: 680 };
 
 type Rect = { x: number; y: number; w: number; h: number };
-type Placed = Tenencia & { rect: Rect };
+type Placed = Cell & { rect: Rect };
 
-function squarify(items: Tenencia[], frame: Rect): Placed[] {
+function squarify(items: Cell[], frame: Rect): Placed[] {
   const total = items.reduce((a, b) => a + b.peso, 0);
+  if (total <= 0) return [];
   const scale = (frame.w * frame.h) / total;
   const scaled = items.map((it) => ({ ...it, area: it.peso * scale }));
   const out: Placed[] = [];
   const rect: Rect = { ...frame };
-  let row: (Tenencia & { area: number })[] = [];
+  let row: (Cell & { area: number })[] = [];
 
   const worst = (r: typeof row, side: number) => {
     const sum = r.reduce((a, b) => a + b.area, 0);
@@ -111,9 +130,6 @@ function squarify(items: Tenencia[], frame: Rect): Placed[] {
   return out;
 }
 
-const PLACED_WIDE = squarify(SORTED, { x: 0, y: 0, ...TM_WIDE });
-const PLACED_TALL = squarify(SORTED, { x: 0, y: 0, ...TM_TALL });
-
 // Una rejilla de treemap. `scale` ≈ (ancho renderizado / ancho virtual) para
 // estimar el tamaño físico de cada celda y decidir qué etiquetas mostrar; el
 // tamaño de fuente exacto lo resuelve el navegador con cqw/cqh sobre el tamaño
@@ -133,7 +149,7 @@ function TreemapGrid({ placed, frame, variant, scale }: {
         const fs = `clamp(9px, calc(min(${((p.rect.w / frame.w) * 100).toFixed(2)}cqw, ${((p.rect.h / frame.h) * 100).toFixed(2)}cqh) * 0.15), 17px)`;
         return (
           <div
-            key={p.nombre}
+            key={p.name}
             className="ten-tm-cell"
             style={{
               left: `${(p.rect.x / frame.w) * 100}%`,
@@ -146,8 +162,8 @@ function TreemapGrid({ placed, frame, variant, scale }: {
           >
             {show && (
               <div className="ten-tm-label" style={{ ["--fs"]: fs } as CSSProperties}>
-                {big && <span className="ten-tm-eyebrow">{CLASE_LABEL[p.clase]}</span>}
-                <span className="ten-tm-name">{p.corto}</span>
+                <span className="ten-tm-eyebrow">{big ? CLASE_LABEL[p.clase] : p.clase}</span>
+                <span className="ten-tm-name">{p.short}</span>
                 <span className="ten-tm-pct">{fmt(p.peso)}</span>
               </div>
             )}
@@ -158,16 +174,16 @@ function TreemapGrid({ placed, frame, variant, scale }: {
   );
 }
 
-function Treemap() {
+function Treemap({ placedWide, placedTall }: { placedWide: Placed[]; placedTall: Placed[] }) {
   return (
     <>
-      <TreemapGrid placed={PLACED_WIDE} frame={TM_WIDE} variant="wide" scale={1} />
-      <TreemapGrid placed={PLACED_TALL} frame={TM_TALL} variant="tall" scale={0.58} />
+      <TreemapGrid placed={placedWide} frame={TM_WIDE} variant="wide" scale={1} />
+      <TreemapGrid placed={placedTall} frame={TM_TALL} variant="tall" scale={0.58} />
     </>
   );
 }
 
-// ── Pie (torta llena) ─────────────────────────────────────────────────────
+// ── Donut (torta llena) ───────────────────────────────────────────────────
 // Math.cos/sin no están obligados por la spec de ECMAScript a dar el mismo bit
 // en todas las implementaciones: Node (SSR) y el navegador pueden diferir en los
 // últimos decimales y romper la hidratación. Cuantizamos a 3 decimales para que
@@ -186,16 +202,17 @@ function arcPath(cx: number, cy: number, rO: number, rI: number, start: number, 
   return `M${sx} ${sy} A${rO} ${rO} 0 ${large} 1 ${ex} ${ey} L${ix} ${iy} A${rI} ${rI} 0 ${large} 0 ${jx} ${jy} Z`;
 }
 
-function Pie({ hover, setHover }: { hover: string | null; setHover: (n: string | null) => void }) {
-  const total = SORTED.reduce((a, b) => a + b.peso, 0);
+function Pie({ sorted, total, hover, setHover }: {
+  sorted: Cell[]; total: number; hover: string | null; setHover: (n: string | null) => void;
+}) {
   const cx = 150, cy = 150, rO = 142, rI = 84;
   const GAP = 1.2;
   // Offset angular de cada wedge = suma de los spans anteriores. Se calcula de
   // forma funcional (sin mutar una variable durante el render, que prohíbe
   // react-hooks/immutability) para que el donut sea determinista entre renders.
-  const spans = SORTED.map((d) => (d.peso / total) * 360);
+  const spans = sorted.map((d) => (d.peso / total) * 360);
   const offsets = spans.map((_, i) => spans.slice(0, i).reduce((a, b) => a + b, 0));
-  const wedges = SORTED.map((d, i) => ({
+  const wedges = sorted.map((d, i) => ({
     ...d,
     path: arcPath(cx, cy, rO, rI, offsets[i] + GAP / 2, offsets[i] + spans[i] - GAP / 2),
   }));
@@ -207,11 +224,11 @@ function Pie({ hover, setHover }: { hover: string | null; setHover: (n: string |
           <g data-dim={hover ? "1" : "0"}>
             {wedges.map((s) => (
               <path
-                key={s.nombre}
+                key={s.name}
                 d={s.path}
                 fill={s.color}
-                data-on={hover === s.nombre ? "1" : "0"}
-                onMouseEnter={() => setHover(s.nombre)}
+                data-on={hover === s.name ? "1" : "0"}
+                onMouseEnter={() => setHover(s.name)}
                 onMouseLeave={() => setHover(null)}
               />
             ))}
@@ -220,17 +237,17 @@ function Pie({ hover, setHover }: { hover: string | null; setHover: (n: string |
       </div>
 
       <ol className="ten-leg">
-        {SORTED.map((d, i) => (
+        {sorted.map((d, i) => (
           <li
-            key={d.nombre}
-            data-on={hover === d.nombre ? "1" : "0"}
-            data-dim={hover && hover !== d.nombre ? "1" : "0"}
-            onMouseEnter={() => setHover(d.nombre)}
+            key={d.name}
+            data-on={hover === d.name ? "1" : "0"}
+            data-dim={hover && hover !== d.name ? "1" : "0"}
+            onMouseEnter={() => setHover(d.name)}
             onMouseLeave={() => setHover(null)}
           >
             <span className="ten-leg-rank">{String(i + 1).padStart(2, "0")}</span>
             <span className="ten-leg-dot" style={{ background: d.color }} />
-            <span className="ten-leg-name">{d.nombre}</span>
+            <span className="ten-leg-name">{d.name}</span>
             <span className="ten-leg-class" data-c={d.clase}>{d.clase}</span>
             <span className="ten-leg-pct">{fmt(d.peso)}</span>
           </li>
@@ -243,57 +260,89 @@ function Pie({ hover, setHover }: { hover: string | null; setHover: (n: string |
 type Vista = "treemap" | "pie";
 
 export function FondoTenencias() {
+  const state = useFondo();
+  const holdings = state.kind === "ready" ? state.data.holdings : null;
   const [vista, setVista] = useState<Vista>("treemap");
   const [hover, setHover] = useState<string | null>(null);
-  const total = HOLDINGS.reduce((a, b) => a + b.peso, 0);
+
+  const cells = useMemo(() => (holdings ? buildCells(holdings.items) : []), [holdings]);
+  const sorted = useMemo(() => [...cells].sort(byPeso), [cells]);
+  const total = useMemo(() => sorted.reduce((a, b) => a + b.peso, 0), [sorted]);
+  const claseTotals = useMemo(
+    () =>
+      CLASE_ORDER.map((c) => ({
+        clase: c,
+        peso: cells.filter((h) => h.clase === c).reduce((a, b) => a + b.peso, 0),
+      })).filter((c) => c.peso > 0),
+    [cells],
+  );
+  const placedWide = useMemo(() => squarify(sorted, { x: 0, y: 0, ...TM_WIDE }), [sorted]);
+  const placedTall = useMemo(() => squarify(sorted, { x: 0, y: 0, ...TM_TALL }), [sorted]);
+
+  const hasData = !!holdings && cells.length > 0 && total > 0;
 
   return (
     <div className="ten-wrap">
       <div className="ten-bar">
         <span className="ten-bar-label">Mayores tenencias</span>
-        <div className="ten-toggle" data-active={vista} role="tablist" aria-label="Tipo de gráfico">
-          <span className="ten-toggle-thumb" aria-hidden />
-          <button role="tab" aria-selected={vista === "treemap"} className="ten-toggle-btn" onClick={() => setVista("treemap")}>Treemap</button>
-          <button role="tab" aria-selected={vista === "pie"} className="ten-toggle-btn" onClick={() => setVista("pie")}>Donut</button>
-        </div>
+        {hasData && (
+          <div className="ten-toggle" data-active={vista} role="tablist" aria-label="Tipo de gráfico">
+            <span className="ten-toggle-thumb" aria-hidden />
+            <button role="tab" aria-selected={vista === "treemap"} className="ten-toggle-btn" onClick={() => setVista("treemap")}>Treemap</button>
+            <button role="tab" aria-selected={vista === "pie"} className="ten-toggle-btn" onClick={() => setVista("pie")}>Donut</button>
+          </div>
+        )}
       </div>
 
-      {/* Split por clase de activo — el dato que define a un balanceado. */}
-      <div className="ten-split">
-        <div className="ten-split-track">
-          {claseTotals.map((c) => (
-            <span
-              key={c.clase}
-              className="ten-split-seg"
-              style={{ width: `${(c.peso / total) * 100}%`, background: CLASE_COLOR[c.clase] }}
-            />
-          ))}
-        </div>
-        <div className="ten-split-keys">
-          {claseTotals.map((c) => (
-            <span key={c.clase} className="ten-split-key">
-              <span className="ten-split-dot" style={{ background: CLASE_COLOR[c.clase] }} />
-              {CLASE_LABEL[c.clase]}
-              <b>{fmt(c.peso)}</b>
-            </span>
-          ))}
-        </div>
-      </div>
+      {hasData ? (
+        <>
+          {/* Split por clase de activo — el dato que define a un balanceado. */}
+          <div className="ten-split">
+            <div className="ten-split-track">
+              {claseTotals.map((c) => (
+                <span
+                  key={c.clase}
+                  className="ten-split-seg"
+                  style={{ width: `${(c.peso / total) * 100}%`, background: CLASE_COLOR[c.clase] }}
+                />
+              ))}
+            </div>
+            <div className="ten-split-keys">
+              {claseTotals.map((c) => (
+                <span key={c.clase} className="ten-split-key">
+                  <span className="ten-split-dot" style={{ background: CLASE_COLOR[c.clase] }} />
+                  {CLASE_LABEL[c.clase]}
+                  <b>{fmt(c.peso)}</b>
+                </span>
+              ))}
+            </div>
+          </div>
 
-      <div className="ten-stage" key={vista}>
-        {vista === "treemap" ? <Treemap /> : <Pie hover={hover} setHover={setHover} />}
-      </div>
+          <div className="ten-stage" key={vista}>
+            {vista === "treemap" ? <Treemap placedWide={placedWide} placedTall={placedTall} /> : <Pie sorted={sorted} total={total} hover={hover} setHover={setHover} />}
+          </div>
 
-      <p className="ten-foot">
-        Datos ilustrativos — no es la cartera real del fondo. La composición vigente se informa en la
-        ficha técnica mensual y a través de un asesor de la casa.
-      </p>
+          <p className="ten-foot">
+            Composición al {fmtFechaCorta(holdings!.asOf)}. Los pesos vigentes se informan en la ficha técnica
+            mensual y pueden haber variado desde esa fecha.
+          </p>
+        </>
+      ) : (
+        <div className="ten-empty">
+          <p className="ten-empty-title">
+            {state.kind === "loading" ? "Cargando la composición de la cartera…" : "La composición de la cartera se publica próximamente."}
+          </p>
+          <p className="ten-empty-sub">
+            Las tenencias se informan en la ficha técnica mensual y a través de un asesor de la casa.
+          </p>
+        </div>
+      )}
 
       <style>{`
         .ten-wrap { margin-top: 60px; }
 
         /* ── Barra: título + toggle ── */
-        .ten-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .ten-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; min-height: 38px; }
         .ten-bar-label {
           font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--site-ink-3);
         }
@@ -315,6 +364,14 @@ export function FondoTenencias() {
         }
         .ten-toggle-btn[aria-selected="true"] { color: #fff; }
         .ten-toggle-btn:not([aria-selected="true"]):hover { color: var(--navy); }
+
+        /* ── Estado vacío (pre-lanzamiento / sin snapshot divulgable) ── */
+        .ten-empty {
+          margin-top: 28px; border: 1px dashed var(--site-border); border-radius: 14px;
+          padding: 48px 24px; text-align: center; background: var(--surface-muted, #f8f9fc);
+        }
+        .ten-empty-title { margin: 0; font-size: 17px; color: var(--site-ink-2); }
+        .ten-empty-sub { margin: 8px 0 0; font-size: 13px; color: var(--site-ink-3); }
 
         /* ── Split por clase de activo ── */
         .ten-split { margin-top: 26px; }
@@ -364,7 +421,7 @@ export function FondoTenencias() {
         }
         .ten-tm-pct { font-size: calc(var(--fs) * 0.82); font-variant-numeric: tabular-nums; opacity: 0.82; }
 
-        /* ── Pie ── */
+        /* ── Donut ── */
         .ten-pie { display: grid; grid-template-columns: auto 1fr; gap: 52px; align-items: center; padding: 6px; }
         .ten-pie-chart { display: flex; justify-content: center; }
         .ten-pie-svg { width: 300px; height: 300px; flex: none; }

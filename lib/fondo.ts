@@ -14,6 +14,7 @@
 // gráfico, tabla de rendimientos— se puebla a partir de la serie.
 
 import type { D1Database } from "@/lib/metrics";
+import { readNavSeries, readBenchmarkSeries, readLatestHoldings } from "@/lib/fondoStore";
 
 // ── Hechos del producto (verificables) ─────────────────────────────────────
 
@@ -83,6 +84,17 @@ export type FundNavPoint = {
   aum: number | null;
 };
 
+// Tenencias del fondo (snapshot mensual, con rezago de divulgación). weightBps
+// en puntos básicos (entero) — la suma a 100% no tiene drift de punto flotante.
+// El color NO viaja en el dato: lo deriva el componente por clase + rank.
+export type HoldingItem = {
+  name: string;
+  short: string | null;
+  assetClass: "RV" | "RF" | "Otros";
+  weightBps: number;
+};
+export type HoldingsSnapshot = { asOf: string; items: HoldingItem[] };
+
 export type ReturnKey = "1M" | "3M" | "YTD" | "1Y" | "SI";
 
 export type PeriodReturn = {
@@ -133,6 +145,9 @@ export type FundSnapshot = {
   // a sólo la fila del fondo.
   benchReturns: PeriodReturn[];
   benchCalendar: CalendarReturn[];
+  // Snapshot de tenencias vigente y divulgable (con rezago). null en
+  // pre-lanzamiento o si no hay snapshot lo bastante viejo para divulgar.
+  holdings: HoldingsSnapshot | null;
 };
 
 const EMPTY_RETURNS: PeriodReturn[] = [
@@ -163,9 +178,8 @@ const EMPTY_SNAPSHOT: FundSnapshot = {
   benchmark: [],
   benchReturns: [],
   benchCalendar: [],
+  holdings: null,
 };
-
-type Row = { dia: string; nav: number; aum: number | null };
 
 function isoMinusMonths(dia: string, months: number): string {
   const [y, m, d] = dia.split("-").map(Number);
@@ -285,6 +299,7 @@ function computeStats(series: FundNavPoint[]): FundStats {
 export function snapshotFromSeries(
   series: FundNavPoint[],
   benchmark: FundNavPoint[] = [],
+  holdings: HoldingsSnapshot | null = null,
 ): FundSnapshot {
   if (series.length === 0) return EMPTY_SNAPSHOT;
   const last = series[series.length - 1];
@@ -302,6 +317,7 @@ export function snapshotFromSeries(
     benchmark,
     benchReturns: benchmark.length > 1 ? computeReturns(benchmark) : [],
     benchCalendar: benchmark.length > 1 ? computeCalendar(benchmark) : [],
+    holdings,
   };
 }
 
@@ -312,9 +328,15 @@ export function snapshotFromSeries(
 // placeholder deja de usarse. ⚠️ Reemplazar por datos reales antes de prod.
 const PLACEHOLDER_END = Date.UTC(2026, 5, 5); // último cierre simulado: 2026-06-05
 
+// Valor cuota inicial simulado. A propósito NO es 100: si la cuota arrancara en
+// 100, el gráfico en base 100 daría exactamente los mismos valores que el de
+// valor cuota (base 100 de una serie que empieza en 100 es la propia serie) y el
+// toggle no distinguiría nada. ⚠️ Reemplazar por el valor cuota inicial real.
+const PLACEHOLDER_START_NAV = 1000;
+
 function placeholderSeries(): FundNavPoint[] {
   const out: FundNavPoint[] = [];
-  let nav = 100;
+  let factor = 1; // crecimiento acumulado desde el inicio (1 = valor cuota inicial)
   const start = Date.UTC(2024, 0, 2);
   for (let i = 0; ; i++) {
     const t = start + i * 86400000;
@@ -324,9 +346,9 @@ function placeholderSeries(): FundNavPoint[] {
     if (dow === 0 || dow === 6) continue; // sólo días hábiles
     // drift + oscilación determinista (ciclos cortos y medianos). Calibrado a
     // un perfil balanceado: ~+7%/año con drawdowns suaves.
-    nav *= 1 + 0.00017 + Math.sin(i / 13) * 0.0017 + Math.sin(i / 57) * 0.0013 + Math.cos(i / 97) * 0.0007;
-    const aum = Math.round((11_000_000 + i * 42_000) * (nav / 100));
-    out.push({ dia: d.toISOString().slice(0, 10), nav: Math.round(nav * 1e4) / 1e4, aum });
+    factor *= 1 + 0.00017 + Math.sin(i / 13) * 0.0017 + Math.sin(i / 57) * 0.0013 + Math.cos(i / 97) * 0.0007;
+    const aum = Math.round((11_000_000 + i * 42_000) * factor);
+    out.push({ dia: d.toISOString().slice(0, 10), nav: Math.round(PLACEHOLDER_START_NAV * factor * 1e4) / 1e4, aum });
   }
   return out;
 }
@@ -339,7 +361,9 @@ function placeholderSeries(): FundNavPoint[] {
 // sin Math.random. ⚠️ Reemplazar por la serie real de los índices (MSCI World
 // + Bloomberg Aggregate) antes de prod.
 function placeholderBenchmark(fund: FundNavPoint[]): FundNavPoint[] {
-  let nav = 100;
+  // Arranca en el mismo valor cuota inicial del fondo: en base 100 ambos se
+  // reescalan a 100 y los rendimientos de las tablas son escala-invariantes.
+  let nav = fund.length > 0 ? fund[0].nav : PLACEHOLDER_START_NAV;
   return fund.map((p, i) => {
     if (i > 0) {
       const fundRet = fund[i - 1].nav !== 0 ? fund[i].nav / fund[i - 1].nav - 1 : 0;
@@ -349,31 +373,35 @@ function placeholderBenchmark(fund: FundNavPoint[]): FundNavPoint[] {
   });
 }
 
-// Lee la serie completa de fund_nav y arma el snapshot. Si no hay datos reales
-// todavía (sin binding D1, tabla vacía o error de query) cae al PLACEHOLDER
-// estático — la página siempre muestra el fondo operativo. Apenas existan filas
-// reales en fund_nav, esas mandan.
+// El placeholder simulado SÓLO se usa fuera de producción (maqueta de dev/
+// preview). En prod, sin datos reales, la página muestra el estado honesto de
+// pre-lanzamiento — "claims verificables": nunca cifras inventadas.
+const ALLOW_PLACEHOLDER = process.env.NODE_ENV !== "production";
+
+// Lee la serie publicada de fund_nav (+ benchmark y tenencias) y arma el
+// snapshot. Sin datos reales (sin binding D1, tabla vacía o error de query):
+// en dev cae al placeholder; en prod, a pre-lanzamiento honesto.
 export async function getFundSnapshot(db: D1Database | null): Promise<FundSnapshot> {
-  const placeholder = () => {
+  const fallback = (): FundSnapshot => {
+    if (!ALLOW_PLACEHOLDER) return EMPTY_SNAPSHOT;
     const fund = placeholderSeries();
     return snapshotFromSeries(fund, placeholderBenchmark(fund));
   };
-  if (!db) return placeholder();
+  if (!db) return fallback();
   try {
-    const { results } = await db
-      .prepare("SELECT dia, nav, aum FROM fund_nav ORDER BY dia ASC")
-      .all<Row>();
-    if (!results || results.length === 0) return placeholder();
-    const series: FundNavPoint[] = results.map((r) => ({
-      dia: r.dia,
-      nav: Number(r.nav),
-      aum: r.aum == null ? null : Number(r.aum),
-    }));
-    // Con datos reales del fondo el benchmark queda vacío hasta que exista un
-    // feed real de índices (seam pendiente, análogo a fund_nav): no se grafica
-    // el benchmark con cifras inventadas junto a data real. Ver lib BENCHMARK.
-    return snapshotFromSeries(series);
-  } catch {
-    return placeholder();
+    const series = await readNavSeries(db);
+    if (series.length === 0) return fallback();
+    // Benchmark y tenencias se leen sólo si existen filas reales; cada uno
+    // degrada solo (gráfico de una línea / sin bloque de tenencias) si está vacío.
+    const [benchmark, holdings] = await Promise.all([
+      readBenchmarkSeries(db),
+      readLatestHoldings(db),
+    ]);
+    return snapshotFromSeries(series, benchmark, holdings);
+  } catch (err) {
+    // En prod, un error de D1 NO inventa datos: pre-lanzamiento honesto (el
+    // cache de 5 min de /api/fondo amortigua los blips transitorios).
+    if (!ALLOW_PLACEHOLDER) console.error("[fondo] getFundSnapshot D1 error:", err);
+    return fallback();
   }
 }

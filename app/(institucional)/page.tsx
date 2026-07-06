@@ -1,4 +1,5 @@
 import { HeroInstitucional } from "@/components/institucional/HeroInstitucional";
+import { InstagramFeed } from "@/components/institucional/InstagramFeed";
 import { TrayectoriaScene } from "@/components/institucional/TrayectoriaScene";
 import { MercadosGlobal } from "@/components/institucional/MercadosGlobal";
 import { EquipoHome } from "@/components/institucional/EquipoHome";
@@ -131,6 +132,12 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Novedades de Instagram — gateado por el flag `instagram_feed` del
+          panel (default OFF: /api/instagram devuelve vacío y el módulo no se
+          monta; nada cambia hasta prenderlo en /admin/secciones con el worker
+          desplegado). Banda muted tras la banda blanca. */}
+      <InstagramFeed variant="band-muted" />
 
       <style>{`
         .pilar-grid {

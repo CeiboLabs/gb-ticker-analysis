@@ -7,6 +7,13 @@ function formatUSD(n: number): string {
   return "USD " + Math.round(n).toLocaleString("de-DE", { maximumFractionDigits: 0 });
 }
 
+// Número pelado, sin prefijo de moneda. La tabla de hitos lo usa para no
+// repetir "USD" en cada celda: la unidad se aclara una sola vez al pie, lo que
+// además angosta las columnas y permite una tipografía legible en mobile.
+function formatNum(n: number): string {
+  return Math.round(n).toLocaleString("de-DE", { maximumFractionDigits: 0 });
+}
+
 function AnimatedValue({
   value,
   format,
@@ -167,13 +174,13 @@ export function CalculadoraSim({
   // Con rateLocked el retorno anual no es editable: se muestra como dato fijo
   // (la página del fondo lo fija en el promedio anualizado del fondo).
   rateLocked?: boolean;
-  // Costos opcionales del fondo (los pasa la página del fondo desde el
-  // Tarifario). Cuando se proveen, la proyección se muestra neta de costos:
-  //   buyPct          comisión de compraventa por operación (p.ej. 0,0075 = 0,75 %)
-  //   maintAnnualPct  costo de mantenimiento anual sobre valores en cartera
-  //   iva             IVA aplicable a ambos (Uruguay = 0,22)
-  // La calculadora genérica (/calculadora) no los pasa y simula sin costos.
-  fees?: { buyPct: number; maintAnnualPct: number; iva: number };
+  // Costo opcional del fondo (lo pasa la página del fondo). Cuando se provee, la
+  // proyección se muestra neta de la comisión de administración del fondo:
+  //   annualPct  comisión anual sobre el valor de la inversión (p.ej. 0,015 = 1,5 %)
+  // Es el único costo del fondo —reemplaza al Tarifario general de Bengochea— y
+  // se toma como valor final, IVA incluido. La calculadora genérica
+  // (/calculadora) no lo pasa y simula sin costos.
+  fees?: { annualPct: number };
   // Cuando la página ya carga el aviso legal genérico en otro lado (la del
   // fondo lo tiene al pie + en el lead de la sección), se omite acá el
   // "no constituye asesoramiento / rendimientos pasados" para no repetirlo, y
@@ -199,28 +206,26 @@ export function CalculadoraSim({
     // Simulación mes a mes: el aporte mensual se acredita al cierre de cada
     // mes; el anual, al cierre de cada año.
     //
-    // Costos (sólo si `fees`): la comisión de compraventa se descuenta de cada
-    // monto antes de invertirlo (la inicial y cada aporte) y el costo de
-    // mantenimiento se cobra semestralmente sobre el valor en cartera. `invested`
-    // sigue siendo el dinero bruto que puso el cliente, así que `gains` ya
-    // refleja el costo neto y las cifras se muestran netas sin línea aparte.
-    const buyCost = fees ? fees.buyPct * (1 + fees.iva) : 0;
-    const maintSemester = fees ? (fees.maintAnnualPct * (1 + fees.iva)) / 2 : 0;
-    const net = (amount: number) => amount * (1 - buyCost);
+    // Costo (sólo si `fees`): la comisión de administración del fondo es el
+    // único costo. Se prorratea mensualmente sobre el valor en cartera
+    // (annualPct / 12) y se descuenta al cierre de cada mes. `invested` sigue
+    // siendo el dinero bruto que puso el cliente, así que `gains` ya refleja el
+    // costo neto y las cifras se muestran netas sin línea aparte. No hay carga
+    // de entrada: el año 0 vale lo aportado.
+    const monthlyFee = fees ? fees.annualPct / 12 : 0;
 
     const result: YearData[] = [
-      { year: 0, invested: initial, total: Math.round(net(initial)), gains: Math.round(net(initial) - initial) },
+      { year: 0, invested: initial, total: initial, gains: 0 },
     ];
     const monthlyRate = rate / 100 / 12;
-    let total = net(initial);
+    let total = initial;
 
     for (let y = 1; y <= years; y++) {
       for (let m = 0; m < 12; m++) {
-        total = total * (1 + monthlyRate) + (freq === "mensual" ? net(aporte) : 0);
-        // Mantenimiento: cobro semestral (cierres de junio y diciembre).
-        if (m === 5 || m === 11) total -= total * maintSemester;
+        total = total * (1 + monthlyRate) + (freq === "mensual" ? aporte : 0);
+        total -= total * monthlyFee;
       }
-      if (freq === "anual") total += net(aporte);
+      if (freq === "anual") total += aporte;
       const invested = initial + aporte * (freq === "mensual" ? y * 12 : y);
       result.push({
         year: y,
@@ -463,14 +468,15 @@ export function CalculadoraSim({
                 return (
                   <tr key={y}>
                     <td style={{ fontWeight: 500 }}>{y}</td>
-                    <td style={{ textAlign: "right" }}>{formatUSD(d.invested)}</td>
-                    <td style={{ textAlign: "right", color: "var(--pos)" }}>{formatUSD(d.gains)}</td>
-                    <td style={{ textAlign: "right", fontWeight: 500, color: "var(--site-ink)" }}>{formatUSD(d.total)}</td>
+                    <td style={{ textAlign: "right" }}>{formatNum(d.invested)}</td>
+                    <td style={{ textAlign: "right", color: "var(--pos)" }}>{formatNum(d.gains)}</td>
+                    <td style={{ textAlign: "right", fontWeight: 500, color: "var(--site-ink)" }}>{formatNum(d.total)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          <p className="calc-table-foot">Cifras en USD.</p>
         </div>
       </div>
 
@@ -479,7 +485,7 @@ export function CalculadoraSim({
         Los cálculos asumen interés compuesto mensual con tasa anual constante.
         {fees && (
           <>
-            {" "}Las cifras son netas de la comisión de compraventa ({(fees.buyPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % + IVA por operación) y del costo de mantenimiento ({(fees.maintAnnualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % + IVA anual sobre valores en cartera, cobro semestral), según el Tarifario de Gastón Bengochea.
+            {" "}Las cifras son netas de la comisión de administración del fondo ({(fees.annualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % anual sobre el valor de la inversión), su único costo.
           </>
         )}
       </p>
@@ -532,6 +538,7 @@ export function CalculadoraSim({
           font-size: 16px; color: var(--site-ink-2); padding: 18px 24px 18px 0; border-bottom: 1px solid var(--site-border);
         }
         .calc-table tbody tr:last-child td { border-bottom: 0; }
+        .calc-table-foot { margin: 14px 0 0; font-size: 12px; color: var(--site-ink-3); }
         @media (max-width: 900px) {
           .calc-grid { grid-template-columns: 1fr; gap: 40px; }
           .calc-figures { grid-template-columns: repeat(2, 1fr); }
@@ -542,18 +549,18 @@ export function CalculadoraSim({
           .calc-figures { grid-template-columns: 1fr; }
           .calc-figure, .calc-figure:nth-child(3) { border-left: 0; padding-left: 0; }
         }
-        /* En teléfonos angostos las 4 columnas de hitos no caben con el ancho
-           base (min-width 460): la columna Valor total quedaba fuera de pantalla.
-           Compactamos tipografía y padding y soltamos el min-width para que la
-           tabla entre completa sin scroll horizontal. */
+        /* En teléfonos angostos soltamos el min-width base (460) y pasamos a
+           table-layout fijo para que las 4 columnas entren sin scroll. Al no
+           repetir "USD" en cada celda (ver formatNum) las cifras son más cortas,
+           así que la tipografía puede quedar legible en vez de diminuta. */
         @media (max-width: 520px) {
           .calc-table { min-width: 0; table-layout: fixed; }
           .calc-table th {
-            font-size: 9.5px; letter-spacing: 0.02em; padding: 12px 8px 12px 0;
+            font-size: 10.5px; letter-spacing: 0.02em; padding: 12px 6px 12px 0;
           }
-          .calc-table th:first-child { width: 2.5em; }
+          .calc-table th:first-child { width: 2.4em; }
           .calc-table td {
-            font-size: 12.5px; padding: 14px 8px 14px 0;
+            font-size: 13.5px; padding: 14px 6px 14px 0;
             font-variant-numeric: tabular-nums; white-space: nowrap;
           }
         }

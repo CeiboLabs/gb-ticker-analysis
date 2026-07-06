@@ -17,6 +17,39 @@ export interface D1Database {
   batch(statements: D1PreparedStatement[]): Promise<unknown[]>;
 }
 
+// Minimal R2 surface — sólo lo que usa el feed de Instagram (el worker escribe
+// stills, la ruta /api/instagram/media/[id] los sirve same-origin). Hand-rolled
+// como la interfaz D1 de arriba: no dependemos de @cloudflare/workers-types.
+export interface R2HTTPMetadata {
+  contentType?: string;
+  cacheControl?: string;
+}
+export interface R2Object {
+  key: string;
+  size: number;
+  httpEtag: string;
+  httpMetadata?: R2HTTPMetadata;
+  writeHttpMetadata(headers: Headers): void;
+}
+export interface R2ObjectBody extends R2Object {
+  body: ReadableStream;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+export interface R2Bucket {
+  get(key: string): Promise<R2ObjectBody | null>;
+  put(
+    key: string,
+    value: ArrayBuffer | ArrayBufferView | ReadableStream | string | null,
+    options?: { httpMetadata?: R2HTTPMetadata },
+  ): Promise<R2Object | null>;
+  delete(keys: string | string[]): Promise<void>;
+  list(options?: { prefix?: string; limit?: number; cursor?: string }): Promise<{
+    objects: R2Object[];
+    truncated: boolean;
+    cursor?: string;
+  }>;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Validado: un env mal seteado ("90d", vacío) daría NaN, que llegaría al
 // bind() del DELETE y la purga fallaría silenciosamente.
@@ -113,6 +146,34 @@ export function getMetricsDb(): D1Database | null {
   const fromGlobal = (globalThis as unknown as Record<string, unknown>)
     .METRICS_DB as D1Database | undefined;
   if (fromGlobal && typeof fromGlobal.prepare === "function") return fromGlobal;
+  return null;
+}
+
+// Bucket R2 con los stills de Instagram (binding INSTAGRAM_MEDIA). next-on-pages
+// inyecta los bindings en process.env / globalThis igual que la D1. La lee la
+// ruta /api/instagram/media/[id]; el worker usa su propio env.INSTAGRAM_MEDIA.
+export function getInstagramMediaBucket(): R2Bucket | null {
+  const env = (process.env as unknown as Record<string, unknown>) ?? {};
+  const fromEnv = env.INSTAGRAM_MEDIA as R2Bucket | undefined;
+  if (fromEnv && typeof fromEnv.get === "function") return fromEnv;
+  const fromGlobal = (globalThis as unknown as Record<string, unknown>)
+    .INSTAGRAM_MEDIA as R2Bucket | undefined;
+  if (fromGlobal && typeof fromGlobal.get === "function") return fromGlobal;
+  return null;
+}
+
+// Bucket R2 con los PDFs que administra el panel de empleados (informes y
+// documentos del fondo; binding DOCS, bucket bengochea-docs). Separado de
+// INSTAGRAM_MEDIA a propósito: aquel lo escribe un worker standalone con otro
+// ciclo de vida y semántica de cache — acá sólo escriben las rutas
+// /api/admin/panel/* y leen los proxies same-origin de PDFs.
+export function getDocsBucket(): R2Bucket | null {
+  const env = (process.env as unknown as Record<string, unknown>) ?? {};
+  const fromEnv = env.DOCS as R2Bucket | undefined;
+  if (fromEnv && typeof fromEnv.get === "function") return fromEnv;
+  const fromGlobal = (globalThis as unknown as Record<string, unknown>)
+    .DOCS as R2Bucket | undefined;
+  if (fromGlobal && typeof fromGlobal.get === "function") return fromGlobal;
   return null;
 }
 

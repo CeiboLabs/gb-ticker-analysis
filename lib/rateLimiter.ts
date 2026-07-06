@@ -182,6 +182,13 @@ export function checkContactLimit(ip: string | null): Promise<Gate> {
   return checkDurable(`contact:${ip ?? "noip"}`, CONTACT_HOURLY_MAX, HOUR_MS);
 }
 
+// Newsletter: 5 altas/h por IP, durable. Nadie legítimo se suscribe más de una
+// vez; el cap corta el alta masiva de mails basura sin castigar al usuario real.
+const NEWSLETTER_HOURLY_MAX = parseInt(process.env.RATE_LIMIT_NEWSLETTER_MAX ?? "5", 10);
+export function checkNewsletterLimit(ip: string | null): Promise<Gate> {
+  return checkDurable(`newsletter:${ip ?? "noip"}`, NEWSLETTER_HOURLY_MAX, HOUR_MS);
+}
+
 // GLOBAL daily cap on fresh analyses across every IP. One shared durable
 // counter (key "gdfresh:all") incremented once per fresh analysis, regardless
 // of source IP. When it trips, EVERY caller gets 503 until midnight Uruguay —
@@ -193,13 +200,20 @@ export function checkGlobalDailyFreshLimit(): Promise<Gate> {
   return checkDurable("gdfresh:all", GLOBAL_DAILY_FRESH_MAX, DAY_MS, UY_OFFSET_MS);
 }
 
-// Brute-force cap on FAILED admin auth attempts, per IP. Durable on purpose:
-// an in-memory bucket let an attacker reset their budget by rotating isolates
-// (or just waiting for a redeploy). No allowlist bypass here — auth guessing
-// from a "trusted" NAT is still auth guessing.
-export function checkAdminFailedAuthLimit(ip: string | null, max: number): Promise<Gate> {
+// Brute-force cap on FAILED auth attempts, per IP, per credential. Durable on
+// purpose: an in-memory bucket let an attacker reset their budget by rotating
+// isolates (or just waiting for a redeploy). No allowlist bypass here — auth
+// guessing from a "trusted" NAT is still auth guessing. `keyPrefix` separates
+// the buckets per credential (e.g. 'adminfail' for the metrics dashboard token)
+// so spraying one doesn't starve another.
+export function checkFailedAuthLimit(ip: string | null, max: number, keyPrefix: string): Promise<Gate> {
   if (!ip) return Promise.resolve({ allowed: true, retryAfter: 0 });
-  return checkDurable(`adminfail:${ip}`, max, HOUR_MS);
+  return checkDurable(`${keyPrefix}:${ip}`, max, HOUR_MS);
+}
+
+// Compat: el gate de admin es el caso particular con prefijo 'adminfail'.
+export function checkAdminFailedAuthLimit(ip: string | null, max: number): Promise<Gate> {
+  return checkFailedAuthLimit(ip, max, "adminfail");
 }
 
 // Generic per-IP, per-endpoint hourly limiter for read-only public GETs
@@ -238,6 +252,17 @@ export function clientIpFrom(req: { headers: { get(name: string): string | null 
 // fresh "IP" per request (X-Forwarded-For: <random>) and dodge the limit
 // entirely. Returns null when cf-connecting-ip is absent; callers route null
 // into a single shared conservative bucket instead of trusting a spoofed value.
+//
+// Home server: sin Cloudflare adelante no existe cf-connecting-ip. Si (y SOLO
+// si) el server corre detrás de un reverse proxy PROPIO que pisa/setea
+// X-Forwarded-For (nginx/caddy con set_header), TRUSTED_PROXY=1 habilita ese
+// header como fuente. Jamás setearlo con el puerto expuesto directo a internet:
+// volvería el header spoofeable y el lockout, esquivable.
 export function trustedClientIp(req: { headers: { get(name: string): string | null } }): string | null {
-  return req.headers.get("cf-connecting-ip");
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf;
+  if (process.env.TRUSTED_PROXY === "1") {
+    return req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  }
+  return null;
 }

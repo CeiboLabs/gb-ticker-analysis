@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMetricsDb } from "@/lib/metrics";
-import { requireAdminToken } from "@/lib/adminAuth";
+import { requirePanelSession } from "@/lib/panelAuth";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface EventRow {
@@ -35,12 +33,9 @@ interface EventRow {
 // Returns the most recent N events for a ticker, with full diagnostic JSON
 // (findings + snapshot). Used by the dashboard's drill-down drawer.
 export async function GET(req: NextRequest) {
-  const denied = await requireAdminToken(req);
-  if (denied) return denied;
-  const db = getMetricsDb();
-  if (!db) {
-    return NextResponse.json({ error: "METRICS_DB binding missing" }, { status: 503 });
-  }
+  const gate = await requirePanelSession(req, "monitor");
+  if (!gate.ok) return gate.res;
+  const { db } = gate;
 
   const ticker = req.nextUrl.searchParams.get("ticker")?.toUpperCase();
   if (!ticker) {

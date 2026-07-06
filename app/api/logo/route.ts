@@ -1,7 +1,6 @@
 import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_LOGO } from "@/lib/rateLimiter";
 import { normalizeTicker } from "@/lib/validators";
 
-export const runtime = "edge";
 
 // FQDN-ish regex: labels of [a-zA-Z0-9-], length 1–63, separated by dots,
 // total length ≤253. Rejects schemes, paths, IPs in URL form, and anything

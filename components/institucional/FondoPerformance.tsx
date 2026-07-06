@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { FundNavPoint, ReturnKey } from "@/lib/fondo";
 import { BENCHMARK } from "@/lib/fondo";
-import { useFondo, fmtNav, fmtPct, fmtAum, fmtFechaCorta, fmtMesAnio } from "@/lib/useFondo";
+import { useFondo, fmtNav, fmtIndex, fmtPct, fmtAum, fmtFechaCorta, fmtMesAnio } from "@/lib/useFondo";
 import { FondoChart } from "@/components/institucional/FondoChart";
 
 // Módulo de performance: selector de períodos + gráfico del valor cuota +
@@ -13,6 +13,7 @@ import { FondoChart } from "@/components/institucional/FondoChart";
 // cifras. Cuando llegue el feed, todo se puebla solo.
 
 type PeriodId = "1M" | "3M" | "YTD" | "1A" | "SI";
+type ChartView = "cuota" | "base100";
 const PERIODS: { id: PeriodId; label: string }[] = [
   { id: "1M", label: "1M" },
   { id: "3M", label: "3M" },
@@ -39,9 +40,52 @@ function windowFor(series: FundNavPoint[], period: PeriodId): FundNavPoint[] {
   return win.length >= 2 ? win : series;
 }
 
+// Reescala una serie a base 100 en su primer punto del período visible — para
+// comparar la evolución relativa de fondo y benchmark partiendo del mismo
+// origen. Devuelve la serie intacta si no hay un primer valor utilizable.
+function rebase100(rows: FundNavPoint[]): FundNavPoint[] {
+  if (rows.length === 0) return rows;
+  const base = rows[0].nav;
+  if (!base) return rows;
+  return rows.map((p) => ({ ...p, nav: (p.nav / base) * 100 }));
+}
+
+// Sparkline del AUM (mini-área) para el header: la tendencia del tamaño del
+// fondo de un vistazo, sin ejes ni interacción (la cifra exacta vive al lado).
+// SVG inline — hairline navy + relleno suave, en línea con el lenguaje visual.
+function AumSparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const W = 92, H = 26, padX = 2, padY = 3;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const n = values.length;
+  const px = (i: number) => padX + (i / (n - 1)) * (W - 2 * padX);
+  const py = (v: number) => padY + (H - 2 * padY) * (1 - (v - min) / span);
+  const pts = values.map((v, i) => `${px(i).toFixed(1)},${py(v).toFixed(1)}`);
+  const line = `M${pts.join(" L")}`;
+  const area = `M${px(0).toFixed(1)},${H} L${pts.join(" L")} L${px(n - 1).toFixed(1)},${H} Z`;
+  return (
+    <svg
+      className="perf-spark"
+      viewBox={`0 0 ${W} ${H}`}
+      width={W}
+      height={H}
+      role="img"
+      aria-label="Evolución de activos bajo manejo desde el inicio"
+    >
+      <title>Evolución de activos bajo manejo desde el inicio</title>
+      <path className="perf-spark-area" d={area} />
+      <path className="perf-spark-line" d={line} />
+      <circle className="perf-spark-dot" cx={px(n - 1)} cy={py(values[n - 1])} r={1.8} />
+    </svg>
+  );
+}
+
 export function FondoPerformance() {
   const state = useFondo();
   const [period, setPeriod] = useState<PeriodId>("SI");
+  const [view, setView] = useState<ChartView>("cuota");
 
   const data = state.kind === "ready" ? state.data : null;
   const live = !!(data && data.status === "live" && data.series.length > 1);
@@ -52,6 +96,24 @@ export function FondoPerformance() {
   const benchSeries = useMemo(
     () => (live && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
     [live, data, period],
+  );
+  // Datos que entran al gráfico de rendimiento según el modo del slider:
+  //   "cuota":   valor cuota real del fondo, una línea, eje en USD.
+  //   "base100": fondo + benchmark reescalados a 100 en el primer punto del
+  //              período (origen común para leer la evolución relativa); el eje
+  //              pasa a índice. El benchmark sólo aparece en este modo.
+  const chart = useMemo(() => {
+    if (view === "base100") {
+      return { series: rebase100(series), benchmark: rebase100(benchSeries), format: fmtIndex };
+    }
+    return { series, benchmark: [] as FundNavPoint[], format: fmtNav };
+  }, [view, series, benchSeries]);
+  // Valores de AUM (historia completa) para el sparkline del header: la
+  // tendencia del tamaño del fondo desde el inicio. No se ata al período — es un
+  // resumen del dato, no un gráfico interactivo (el AUM es tamaño, no rendimiento).
+  const aumSpark = useMemo(
+    () => (data?.series ?? []).filter((p) => p.aum != null).map((p) => p.aum as number),
+    [data],
   );
   const returns = data?.returns ?? [];
   const benchReturns = data?.benchReturns ?? [];
@@ -72,6 +134,8 @@ export function FondoPerformance() {
   // Año calendario en orden cronológico (columnas izq.→der.) + lookup del bench.
   const calAsc = [...calendar].reverse();
   const benchByYear = new Map(benchCalendar.map((c) => [c.year, c.pct]));
+  // Lookup del bench por período — para la tabla transpuesta de mobile.
+  const benchByKey = new Map(benchReturns.map((r) => [r.key, r.pct]));
   const asOfYear = data?.asOf ? Number(data.asOf.slice(0, 4)) : null;
   const lastIsPartial =
     asOfYear != null &&
@@ -115,6 +179,15 @@ export function FondoPerformance() {
   const dayPct = latest?.changePct ?? null;
   const activeIndex = PERIODS.findIndex((p) => p.id === period);
 
+  // Estado vacío: distinguir carga, error y pre-lanzamiento. En prod sin datos
+  // reales esto queda en "en proceso de lanzamiento" (no un spinner perpetuo).
+  const emptyMsg =
+    state.kind === "loading"
+      ? "Cargando datos del fondo…"
+      : state.kind === "error"
+        ? "No pudimos cargar los datos del fondo en este momento."
+        : "El fondo está en proceso de lanzamiento. El valor cuota y su evolución se publican aquí en cuanto comiencen a calcularse.";
+
   return (
     <div className="perf">
       {/* Cotización al día — único lugar de la página con el dato vivo. */}
@@ -131,7 +204,10 @@ export function FondoPerformance() {
         <div className="perf-quote-side">
           <span className="perf-quote-aum">
             <em>Activos bajo manejo</em>
-            {latest && latest.aum != null ? `USD ${fmtAum(latest.aum)}` : "—"}
+            <span className="perf-quote-aum-val">
+              {latest && latest.aum != null ? `USD ${fmtAum(latest.aum)}` : "—"}
+            </span>
+            {live && aumSpark.length > 1 && <AumSparkline values={aumSpark} />}
           </span>
           <span className="perf-quote-asof">
             {data?.asOf ? `Datos al ${fmtFechaCorta(data.asOf)} · USD` : "Actualización diaria · USD"}
@@ -140,9 +216,29 @@ export function FondoPerformance() {
       </div>
 
       <div className="perf-bar">
-        <span className="perf-bar-label">
-          {benchSeries.length > 0 ? "Evolución del valor cuota vs. benchmark" : "Evolución del valor cuota"}
-        </span>
+        {live ? (
+          <div className="perf-view" data-active={view} role="tablist" aria-label="Modo del gráfico">
+            <span className="perf-view-thumb" aria-hidden />
+            <button
+              role="tab"
+              aria-selected={view === "cuota"}
+              className="perf-view-btn"
+              onClick={() => setView("cuota")}
+            >
+              Valor cuota
+            </button>
+            <button
+              role="tab"
+              aria-selected={view === "base100"}
+              className="perf-view-btn"
+              onClick={() => setView("base100")}
+            >
+              Base 100
+            </button>
+          </div>
+        ) : (
+          <span className="perf-bar-label">Evolución del valor cuota</span>
+        )}
         <div
           className="perf-periods"
           role="tablist"
@@ -172,19 +268,20 @@ export function FondoPerformance() {
 
       <div className="perf-chart-frame">
         {live ? (
-          benchSeries.length > 0 ? (
+          chart.benchmark.length > 0 ? (
             <FondoChart
-              series={series}
-              benchmark={benchSeries}
+              series={chart.series}
+              benchmark={chart.benchmark}
+              formatValue={chart.format}
               seriesLabel="BNG Selección Global"
-              benchLabel="Benchmark"
+              benchLabel={BENCHMARK.corto}
             />
           ) : (
-            <FondoChart series={series} />
+            <FondoChart series={chart.series} formatValue={chart.format} />
           )
         ) : (
           <div className="perf-empty">
-            <p className="perf-empty-title">Cargando datos del fondo…</p>
+            <p className="perf-empty-title">{emptyMsg}</p>
           </div>
         )}
       </div>
@@ -228,6 +325,34 @@ export function FondoPerformance() {
               </tbody>
             </table>
           </div>
+          {/* Mobile: transpuesta (períodos en filas) para entrar sin scroll. */}
+          <table className="perf-grid perf-grid--mobile">
+            <thead>
+              <tr>
+                <th scope="col" aria-label="Período" />
+                <th scope="col">Fondo</th>
+                {hasBench && <th scope="col">{BENCHMARK.corto}</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {returns.map((r) => {
+                const b = benchByKey.get(r.key) ?? null;
+                return (
+                  <tr key={r.key}>
+                    <th scope="row">{COL_LABEL[r.key]}</th>
+                    <td data-accent={r.pct == null ? "" : r.pct >= 0 ? "up" : "down"}>
+                      {fmtPct(r.pct)}
+                    </td>
+                    {hasBench && (
+                      <td className="perf-bench-cell" data-accent={b == null ? "" : b >= 0 ? "up" : "down"}>
+                        {fmtPct(b)}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           <p className="perf-foot">
             Cifras netas en USD. «Desde inicio» es la rentabilidad acumulada desde el inicio del fondo; el resto, del período indicado.
           </p>
@@ -273,6 +398,32 @@ export function FondoPerformance() {
                   </tbody>
                 </table>
               </div>
+              {/* Mobile: transpuesta (años en filas) para entrar sin scroll. */}
+              <table className="perf-grid perf-grid--mobile">
+                <thead>
+                  <tr>
+                    <th scope="col" aria-label="Año" />
+                    <th scope="col">Fondo</th>
+                    {hasBench && <th scope="col">{BENCHMARK.corto}</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {calAsc.map((c) => {
+                    const b = benchByYear.get(c.year);
+                    return (
+                      <tr key={c.year}>
+                        <th scope="row">{c.year}</th>
+                        <td data-accent={c.pct >= 0 ? "up" : "down"}>{fmtPct(c.pct)}</td>
+                        {hasBench && (
+                          <td className="perf-bench-cell" data-accent={b == null ? "" : b >= 0 ? "up" : "down"}>
+                            {fmtPct(b ?? null)}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
               {lastIsPartial && <p className="perf-foot">El año en curso es parcial, a la fecha indicada.</p>}
             </>
           ) : (
@@ -302,10 +453,13 @@ export function FondoPerformance() {
       <p className="perf-disclaimer">
         Los rendimientos pasados no garantizan resultados futuros. Cifras netas, expresadas en la moneda del fondo.
         Volatilidad, drawdown y retornos mensuales se calculan sobre la serie diaria de valor cuota.
-        {benchSeries.length > 0 && (
-          <> El benchmark es un compuesto de referencia ({BENCHMARK.nombre}); se grafica reescalado al valor
-          cuota inicial del fondo para comparar la evolución de ambas series.</>
-        )}
+        {view === "base100" &&
+          (benchSeries.length > 0 ? (
+            <> En la vista base 100, el fondo y su benchmark de referencia ({BENCHMARK.nombre}) parten
+            de 100 al inicio del período para comparar su evolución relativa.</>
+          ) : (
+            <> En la vista base 100, el valor cuota se reescala a 100 al inicio del período.</>
+          ))}
       </p>
 
       <style>{`
@@ -331,10 +485,19 @@ export function FondoPerformance() {
           display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;
         }
         .perf-quote-aum {
-          display: flex; align-items: baseline; gap: 10px;
+          display: flex; align-items: center; gap: 10px;
           font-size: 15px; font-weight: 500; color: var(--site-ink); font-variant-numeric: tabular-nums;
         }
         .perf-quote-aum em { font-style: normal; font-size: 12.5px; font-weight: 400; color: var(--site-ink-3); }
+        /* Sparkline del AUM: hairline navy + relleno suave, sin ejes (la cifra
+           exacta vive al lado). Tendencia del tamaño del fondo de un vistazo. */
+        .perf-spark { display: block; flex: none; overflow: visible; }
+        .perf-spark-area { fill: rgba(15, 34, 73, 0.10); }
+        .perf-spark-line {
+          fill: none; stroke: var(--navy); stroke-width: 1.5;
+          stroke-linejoin: round; stroke-linecap: round;
+        }
+        .perf-spark-dot { fill: var(--navy); }
         .perf-quote-asof {
           display: inline-flex; align-items: center; gap: 10px;
           font-size: 12px; color: var(--site-ink-3);
@@ -352,8 +515,9 @@ export function FondoPerformance() {
           color: var(--site-ink-3);
         }
         .perf-periods {
-          position: relative; display: inline-flex; padding: 3px;
-          background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
+          position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+          padding: 3px; background: var(--surface-muted, #f3f4f8);
+          border: 1px solid var(--site-border); border-radius: 999px;
         }
         .perf-period-thumb {
           position: absolute; top: 3px; bottom: 3px; left: 3px;
@@ -363,7 +527,7 @@ export function FondoPerformance() {
           transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
         }
         .perf-period {
-          position: relative; z-index: 1; flex: 1 0 0; text-align: center;
+          position: relative; z-index: 1; text-align: center; white-space: nowrap;
           border: 0; background: none; cursor: pointer;
           font-size: 13px; font-weight: 600; color: var(--site-ink-3);
           padding: 6px 14px; border-radius: 999px; transition: color 220ms ease;
@@ -371,6 +535,29 @@ export function FondoPerformance() {
         .perf-period[data-active="1"] { color: #fff; }
         .perf-period:disabled { cursor: not-allowed; opacity: 0.5; }
         .perf-period:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
+
+        /* Toggle del modo del gráfico (valor cuota ↔ base 100). Mismo pill firma
+           que el selector de períodos; dos celdas iguales vía grid para que el
+           thumb al 50% calce con etiquetas de distinto largo. */
+        .perf-view {
+          position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px;
+          background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
+        }
+        .perf-view-thumb {
+          position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+          background: var(--navy); border-radius: 999px;
+          box-shadow: 0 6px 16px -6px rgba(15,34,73,0.6);
+          transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
+        }
+        .perf-view[data-active="base100"] .perf-view-thumb { transform: translateX(100%); }
+        .perf-view-btn {
+          position: relative; z-index: 1; text-align: center; white-space: nowrap;
+          border: 0; background: none; cursor: pointer;
+          font-size: 13px; font-weight: 600; color: var(--site-ink-3);
+          padding: 6px 18px; border-radius: 999px; transition: color 220ms ease;
+        }
+        .perf-view-btn[aria-selected="true"] { color: #fff; }
+        .perf-view-btn:not([aria-selected="true"]):hover { color: var(--navy); }
 
         .perf-chart-frame {
           border: 1px solid var(--site-border); border-radius: 16px; padding: 18px 18px 14px;
@@ -395,6 +582,8 @@ export function FondoPerformance() {
         /* Tablas planas de ficha técnica: regla superior navy, hairlines por fila,
            sin reglas verticales ni cajas redondeadas. */
         .perf-table-scroll { overflow-x: auto; }
+        /* La transpuesta es solo para mobile (ver media query). */
+        .perf-grid--mobile { display: none; }
         .perf-grid {
           width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums;
           border-top: 1.5px solid var(--navy);
@@ -444,6 +633,13 @@ export function FondoPerformance() {
 
         @media (max-width: 560px) {
           .perf-grid thead th, .perf-grid tbody td { padding-left: 18px; }
+          /* Transpuesta: períodos/años en filas, Fondo/Benchmark en columnas.
+             Entra sin scroll horizontal. */
+          .perf-table-scroll { display: none; }
+          .perf-grid--mobile { display: table; }
+          .perf-grid--mobile .perf-bench-cell { color: var(--site-ink-2); font-weight: 400; }
+          .perf-grid--mobile .perf-bench-cell[data-accent="up"] { color: #15803d; }
+          .perf-grid--mobile .perf-bench-cell[data-accent="down"] { color: #b91c1c; }
         }
       `}</style>
     </div>

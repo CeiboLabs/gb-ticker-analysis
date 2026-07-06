@@ -4,7 +4,6 @@ import { getTopTickers } from "@/lib/tickerStats";
 import { checkPublicGetLimit, trustedClientIp, PUBLIC_LIMIT_DEFAULT } from "@/lib/rateLimiter";
 import { reportError } from "@/lib/errorReporter";
 
-export const runtime = "edge";
 
 const FALLBACK = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"];
 const DEFAULT_LIMIT = 8;

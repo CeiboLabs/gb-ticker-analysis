@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb, purgeExpiredRows } from "@/lib/metrics";
 import { requireAdminToken } from "@/lib/adminAuth";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_RETENTION_DAYS = 90;

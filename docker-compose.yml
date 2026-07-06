@@ -1,0 +1,22 @@
+# Home server — `docker compose up -d --build` y listo.
+# Secrets en un archivo .env junto a este compose (NO commitear):
+#   PANEL_PEPPER=...        (openssl rand -base64 32; rotarlo invalida todo)
+#   ADMIN_TOKEN=...         (token largo para /admin/setup)
+#   OPENAI_API_KEY=...      (analizador)
+#   RESEND_API_KEY=...      (opcional, mails del form de contacto)
+#   CONTACT_TO=...          (opcional)
+# Poné el sitio detrás de un reverse proxy con TLS (caddy/nginx/traefik).
+# Si el proxy setea X-Forwarded-For/X-Real-IP, sumá TRUSTED_PROXY=1 para que
+# los lockouts por IP funcionen. Sin TLS delante (sólo pruebas en LAN):
+# PANEL_COOKIE_INSECURE=1.
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data

@@ -50,3 +50,23 @@ export const ContactRequestSchema = z.object({
 
 export type ContactRequest = z.infer<typeof ContactRequestSchema>;
 
+// Newsletter (alta a la lista de la casa). El texto de consentimiento vive en
+// lib/newsletterConsent.ts (módulo sin zod, compartido con el componente cliente).
+// consent es un opt-in EXPRESO: sólo se acepta true (la casilla marcada). source
+// se limita a un slug corto de la página de origen — cualquier otra cosa es un
+// cliente armado a mano.
+export const NewsletterRequestSchema = z.object({
+  // Normalizamos a minúsculas con .transform (mismo idiom que AnalyzeRequestSchema
+  // con .toUpperCase) para que el índice único de email dedupe sin importar cómo
+  // lo tipeó la persona.
+  email: z.string().trim().email("Email inválido").max(200).transform((v) => v.toLowerCase()),
+  // Opt-in EXPRESO: sólo pasa true (la casilla marcada). .refine con { message }
+  // es el idiom de errores que ya usa analysisSchemas.
+  consent: z.boolean().refine((v) => v === true, {
+    message: "Necesitamos tu consentimiento para escribirte",
+  }),
+  source: z.string().trim().max(40).optional().default("informes"),
+});
+
+export type NewsletterRequest = z.infer<typeof NewsletterRequestSchema>;
+

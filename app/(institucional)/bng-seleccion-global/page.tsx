@@ -4,8 +4,9 @@ import type { ReactNode } from "react";
 import { Reveal } from "@/components/motion";
 import { SplitText } from "@/components/scroll";
 import {
-  Scales, Layers, Waveform, Shield, FileDown, ArrowRight,
+  Scales, Layers, Waveform, Shield, ArrowRight,
 } from "@/components/institucional/icons";
+import { FondoDocumentos } from "@/components/institucional/FondoDocumentos";
 import { FondoHero } from "@/components/institucional/FondoHero";
 import { FondoNav } from "@/components/institucional/FondoNav";
 import { FondoMundo } from "@/components/institucional/FondoMundo";
@@ -35,12 +36,10 @@ const ESTRATEGIA: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Shield />, title: "Diversificación amplia", body: "El riesgo se reparte por clase de activo, por manager y por región — no depende de un solo instrumento ni de una sola apuesta." },
 ];
 
-const DOCUMENTOS: { titulo: string; desc: string }[] = [
-  { titulo: "Ficha técnica", desc: "Resumen mensual del fondo: objetivo, cartera y datos clave." },
-  { titulo: "Datos fundamentales para el inversor", desc: "Documento con el perfil de riesgo, costos y características esenciales." },
-  { titulo: "Reglamento de gestión", desc: "Marco legal del fondo: política de inversión, suscripción y rescate." },
-  { titulo: "Informe de cartera", desc: "Composición de la cartera y comentario de gestión del período." },
-];
+// Los documentos del fondo son data-driven: los publica el panel de empleados
+// (D1 + R2, flag `fondo_documentos`) y los renderiza el cliente
+// FondoDocumentos, que sin archivos publicados cae al render histórico
+// "Solicitar" → /contacto. La lista hardcodeada vive como fallback ahí adentro.
 
 // Perfil del inversor — retrato en tres VERBOS (no etiquetas sueltas): describen
 // el comportamiento de quien invierte acá. Cada uno sale de un hecho ya
@@ -253,22 +252,7 @@ export default function FondoPage() {
               </p>
             </div>
           </Reveal>
-          <div className="ui-list" style={{ marginTop: 48 }}>
-            {DOCUMENTOS.map((doc) => (
-              <Link key={doc.titulo} href="/contacto" className="ui-list-row fondo-doc-row">
-                <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                  <span className="list-icon" aria-hidden><FileDown /></span>
-                  <span>
-                    <span className="row-title">{doc.titulo}</span>
-                    <span className="row-desc" style={{ display: "block" }}>{doc.desc}</span>
-                  </span>
-                </span>
-                <span className="link-arrow fondo-doc-tag" style={{ pointerEvents: "none" }}>
-                  Solicitar <ArrowRight />
-                </span>
-              </Link>
-            ))}
-          </div>
+          <FondoDocumentos />
         </div>
       </section>
 

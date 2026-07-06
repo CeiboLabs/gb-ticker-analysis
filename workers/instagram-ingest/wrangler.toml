@@ -1,0 +1,45 @@
+# Scheduled Worker — feed de Instagram del sitio.
+#
+# Worker STANDALONE (no es el de Pages). Cada N horas trae los últimos posteos
+# por la API de Instagram (Instagram Login), copia el still a R2 y escribe la
+# metadata en la MISMA D1 que lee el sitio, así /api/instagram lo ve sin tocar
+# nada más. El token vive en D1 (tabla instagram_auth) y el worker lo refresca
+# solo — no hay secret de token.
+#
+# Deploy:
+#   npx wrangler deploy --config workers/instagram-ingest/wrangler.toml
+#
+# Bucket R2 (crear una vez):
+#   npx wrangler r2 bucket create instagram-media
+#
+# Sembrar el token largo la primera vez (ver docs/RUNBOOK-instagram.md):
+#   npx wrangler d1 execute ticker-metrics --remote --command "INSERT INTO instagram_auth ... "
+#
+# Secrets (NO van acá; cargar con `npx wrangler secret put <NOMBRE> --config workers/instagram-ingest/wrangler.toml`):
+#   RESEND_API_KEY        — misma cuenta Resend que el resto; alertas ante fallos.
+#   INSTAGRAM_ALERT_TO    — a dónde van las alertas (token vencido, API caída, etc.).
+#   INSTAGRAM_ALERT_FROM  — opcional, remitente de las alertas.
+#   INSTAGRAM_FETCH_LIMIT — opcional, cuántos posteos traer/guardar (default 6).
+#   SYNC_TOKEN            — opcional, habilita el trigger manual POST /sync (primer
+#                           pull / debugging). Sin este secret, el endpoint responde 403.
+
+name = "instagram-ingest"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Misma D1 que el sitio (binding propio del worker, llega por el arg `env`).
+[[d1_databases]]
+binding       = "INSTAGRAM_DB"
+database_name = "ticker-metrics"
+database_id   = "3cc6d984-1c52-437a-a45e-38fe1b3b54dd"
+
+# Bucket con los stills. El sitio lo lee same-origin por /api/instagram/media/[id].
+[[r2_buckets]]
+binding     = "INSTAGRAM_MEDIA"
+bucket_name = "instagram-media"
+
+# Cada 6 horas. Los posteos institucionales son infrecuentes; el rate limit de
+# la API (200/h) ni se roza. Ver scheduled() en src/index.ts.
+[triggers]
+crons = ["0 */6 * * *"]

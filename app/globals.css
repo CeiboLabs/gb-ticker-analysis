@@ -1308,3 +1308,192 @@ a.ui-list-row:hover { padding-left: 14px; }
 .hero-media .hero-content textarea,
 .hero-media .hero-content label,
 .hero-media .hero-content form { pointer-events: auto; }
+
+/* ──────────────────────────────────────────────────────────────
+   Panel de administración (/admin) — sistema .adm-*
+   Herramienta interna que HABLA EL MISMO IDIOMA que el sitio: navy
+   como estructura, oro racionado como acento, datos sobre hairlines
+   (nunca cards con sombra), Arial liviano en el chrome y mono
+   tabular en TODO número. Construido sobre los mismos tokens; se usa
+   siempre dentro de un ancestro .site (de ahí salen las vars --site-*).
+   ────────────────────────────────────────────────────────────── */
+
+/* ── Shell: barra navy + área de contenido ── */
+.adm-shell { display: flex; min-height: 100vh; background: var(--ivory); color: var(--site-ink); }
+.adm-side {
+  width: 240px; flex: none; background: var(--navy); color: #fff;
+  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+  isolation: isolate; overflow: hidden;
+}
+/* El "foco dorado" superior-derecho — misma fuente de luz cálida que los paneles navy del sitio */
+.adm-side::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(120% 48% at 88% 0%, rgba(235,210,136,0.16), transparent 55%);
+}
+.adm-brand { padding: 22px 22px 20px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.adm-brand .wm { font-size: 16px; letter-spacing: -0.01em; color: #fff; }
+.adm-brand .wm b { font-weight: 400; }
+.adm-brand .wm .amp { color: var(--gold-soft); }
+.adm-brand .goldline { width: 26px; height: 2px; background: var(--gold); margin: 9px 0; border-radius: 2px; }
+.adm-brand .sub { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+.adm-user { padding: 15px 22px; border-bottom: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; gap: 7px; }
+.adm-user .nm { font-size: 13px; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.adm-user .em { font-size: 11px; color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
+.adm-nav a {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px 9px 14px; border-radius: 7px;
+  font-size: 13.5px; color: rgba(255,255,255,0.72); text-decoration: none;
+  border-left: 2px solid transparent; transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.adm-nav a:hover { color: #fff; background: rgba(255,255,255,0.05); }
+.adm-nav a[aria-current="page"] { color: #fff; background: rgba(255,255,255,0.07); border-left-color: var(--gold); }
+.adm-nav a:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.adm-foot { padding: 12px; border-top: 1px solid rgba(255,255,255,0.12); }
+.adm-foot button {
+  width: 100%; text-align: left; padding: 9px 12px; border-radius: 7px; background: none; border: 0;
+  color: rgba(255,255,255,0.6); font-size: 13px; font-family: inherit; cursor: pointer; transition: background-color 0.18s ease, color 0.18s ease;
+}
+.adm-foot button:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.adm-main { flex: 1; min-width: 0; padding: 30px clamp(20px, 3vw, 40px) 56px; }
+.adm-main-wrap { max-width: 1080px; }
+
+/* ── Cabecera de página (masthead: regla fuerte inferior) ── */
+.adm-head { border-bottom: 1px solid var(--ink); padding-bottom: 16px; margin-bottom: 26px; }
+.adm-eyebrow { font-size: 13px; font-weight: 600; color: var(--site-ink-3); }
+.adm-eyebrow.gold { color: var(--gold-deep); }
+.adm-title { font-size: clamp(24px, 3vw, 30px); font-weight: 400; letter-spacing: -0.022em; color: var(--site-ink); margin: 5px 0 0; line-height: 1.1; }
+.adm-dek { font-size: 14px; color: var(--site-ink-3); margin: 8px 0 0; max-width: 62ch; }
+
+/* ── Micro-label duro (encabezados de dato) ── */
+.adm-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; color: var(--site-ink-3); }
+
+/* ── Tarjeta: superficie plana con hairline, cero sombra ── */
+.adm-card { background: var(--surface); border: 1px solid var(--site-border); border-radius: 10px; }
+.adm-card > .adm-card-hd {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 20px; border-bottom: 1px solid var(--site-border);
+}
+.adm-card > .adm-card-hd .t { font-size: 13px; font-weight: 600; color: var(--site-ink-2); }
+.adm-card > .adm-card-bd { padding: 20px; }
+.adm-card-muted { background: var(--surface-muted); }
+
+/* ── Grilla de estadísticas: hairlines (regla de dos pesos) ── */
+.adm-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-top: 1px solid var(--ink); border-left: 1px solid var(--site-border); }
+.adm-stat {
+  padding: 16px 18px; border-right: 1px solid var(--site-border); border-bottom: 1px solid var(--site-border);
+  background: var(--paper); min-height: 96px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;
+}
+.adm-stat .k { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--site-ink-3); }
+.adm-stat .v { font-family: var(--font-mono), monospace; font-size: clamp(21px, 2.2vw, 26px); font-weight: 400; letter-spacing: -0.01em; color: var(--site-ink); font-variant-numeric: tabular-nums; }
+.adm-stat .s { font-family: var(--font-mono), monospace; font-size: 11px; color: var(--site-ink-3); font-variant-numeric: tabular-nums; }
+.adm-stat .s.pos { color: var(--pos); } .adm-stat .s.neg { color: var(--neg); }
+.adm-stat.warn .v { color: var(--neg); }
+@media (max-width: 900px) { .adm-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── Botones (escala compacta del sistema .ui-btn) ── */
+.adm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--site-font);
+  font-size: 13.5px; font-weight: 600; padding: 9px 16px; border-radius: 6px; border: 1.5px solid transparent;
+  cursor: pointer; line-height: 1; white-space: nowrap; text-decoration: none;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+}
+.adm-btn:active { transform: translateY(1px); }
+.adm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.adm-btn-primary { background: var(--navy); color: #fff; }
+.adm-btn-primary:not(:disabled):hover { background: var(--navy-700); }
+.adm-btn-ghost { background: var(--surface); color: var(--site-ink); border-color: var(--site-border-2); }
+.adm-btn-ghost:not(:disabled):hover { border-color: var(--navy); color: var(--navy); }
+.adm-btn-danger { background: var(--surface); color: var(--neg); border-color: rgba(142,42,42,0.35); }
+.adm-btn-danger:not(:disabled):hover { background: var(--neg); color: #fff; border-color: var(--neg); }
+.adm-btn-sm { padding: 6px 11px; font-size: 12.5px; }
+
+/* ── Inputs / select / label ── */
+.adm-field { display: flex; flex-direction: column; }
+.adm-label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--site-ink-2); }
+.adm-input, .adm-select {
+  width: 100%; font-family: var(--site-font); font-size: 14.5px; color: var(--site-ink); background: #fff;
+  border: 1.5px solid var(--site-border-2); border-radius: 8px; padding: 10px 12px; outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.adm-input::placeholder { color: var(--site-ink-3); }
+.adm-input:focus, .adm-select:focus { border-color: var(--navy-500); box-shadow: 0 0 0 3px rgba(44,49,148,0.12); }
+.adm-input:disabled, .adm-select:disabled { opacity: 0.55; }
+.adm-input.mono { font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.adm-help { margin-top: 6px; font-size: 12px; color: var(--site-ink-3); }
+.adm-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--site-ink-2); cursor: pointer; }
+.adm-check input { accent-color: var(--navy); width: 15px; height: 15px; }
+
+/* ── Notice: hairline lateral + fondo suave (paleta de la casa) ── */
+.adm-notice { border-left: 3px solid; border-radius: 0 8px 8px 0; padding: 11px 14px; font-size: 13.5px; }
+.adm-notice.error { border-color: var(--neg); background: var(--neg-soft); color: var(--neg); }
+.adm-notice.ok { border-color: var(--pos); background: var(--pos-soft); color: var(--pos); }
+.adm-notice.info { border-color: var(--navy-500); background: var(--navy-050); color: var(--site-ink-2); }
+.adm-notice strong { font-weight: 700; }
+
+/* ── Badges: pill hairline, texto coloreado (nunca ámbar de semáforo) ── */
+.adm-badge {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid; line-height: 1.3;
+}
+.adm-badge.neutral { color: var(--navy-500); border-color: var(--navy-150); background: var(--navy-050); }
+.adm-badge.pos { color: var(--pos); border-color: rgba(31,107,69,0.30); background: var(--pos-soft); }
+.adm-badge.neg { color: var(--neg); border-color: rgba(142,42,42,0.30); background: var(--neg-soft); }
+.adm-badge.gold { color: var(--gold-deep); border-color: rgba(160,124,40,0.32); background: #FBF4DE; }
+.adm-badge.neu { color: var(--neu); border-color: rgba(92,95,122,0.28); background: var(--neu-soft); }
+
+/* ── Toggle: navy = on (identidad), gris = off. On/off es control, no señal financiera ── */
+.adm-toggle { position: relative; width: 42px; height: 23px; border-radius: 999px; border: 0; background: var(--site-border-2); cursor: pointer; transition: background-color 0.2s ease; flex: none; }
+.adm-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.adm-toggle[aria-checked="true"] { background: var(--navy); }
+.adm-toggle > span { position: absolute; top: 2.5px; left: 2.5px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left 0.2s ease; box-shadow: 0 1px 2px rgba(3,6,94,0.25); }
+.adm-toggle[aria-checked="true"] > span { left: 21.5px; }
+
+/* ── Tabs (FondoAdmin): subrayado oro en la activa ── */
+.adm-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--site-border); flex-wrap: wrap; }
+.adm-tab { padding: 9px 14px; font-size: 13.5px; color: var(--site-ink-3); border: 0; background: none; cursor: pointer; font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.16s ease; }
+.adm-tab:hover { color: var(--site-ink); }
+.adm-tab[aria-selected="true"] { color: var(--navy); font-weight: 600; border-bottom-color: var(--gold); }
+
+/* ── Tabla de datos: base Arial, números en mono; regla fuerte de apertura, sin verticales ── */
+.adm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.adm-table thead th {
+  font-family: var(--site-font); font-weight: 600; font-size: 10.5px; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--site-ink-3); text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--ink); white-space: nowrap;
+}
+.adm-table tbody td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--site-border); color: var(--site-ink); vertical-align: top; }
+.adm-table tbody tr:hover { background: var(--navy-050); }
+.adm-table .adm-num { text-align: right; font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; }
+.adm-table th.adm-num { text-align: right; }
+
+/* ── Pill de rating/veredicto (Monitor) — outline mono, registro terminal ── */
+.adm-rpill { display: inline-flex; align-items: center; padding: 2px 8px; font-family: var(--font-mono), monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 3px; }
+.adm-rpill.buy { color: var(--pos); } .adm-rpill.hold { color: var(--neu); } .adm-rpill.sell { color: var(--neg); }
+
+/* ── Fila de lista (informes / usuarios): hairline, sin sombra ── */
+.adm-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; border: 1px solid var(--site-border); border-radius: 10px; background: var(--surface); }
+.adm-row .ttl { font-size: 14.5px; color: var(--site-ink); display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.adm-row .meta { margin-top: 5px; font-size: 12px; color: var(--site-ink-3); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.adm-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ── Pantallas de auth (login / setup / configurar) ── */
+.adm-auth { min-height: 100vh; background: var(--ivory); padding: 56px 24px; display: flex; justify-content: center; align-items: flex-start; position: relative; isolation: isolate; }
+.adm-auth::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(55% 40% at 50% 0%, rgba(235,210,136,0.10), transparent 60%); }
+.adm-auth-brand { text-align: center; margin-bottom: 26px; }
+.adm-auth-brand .wm { font-size: 21px; letter-spacing: -0.02em; color: var(--navy); }
+.adm-auth-brand .wm .amp { color: var(--gold-deep); }
+.adm-auth-brand .goldline { width: 34px; height: 2px; background: var(--gold-deep); margin: 12px auto; border-radius: 2px; }
+.adm-auth-brand .sub { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--site-ink-3); }
+
+/* ── QR del enrolamiento TOTP ── */
+.adm-qr { width: 12rem; height: 12rem; border-radius: 8px; border: 1px solid var(--site-border); background: #fff; }
+.adm-secret { display: block; word-break: break-all; border-radius: 6px; background: var(--navy-050); padding: 6px 8px; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--site-ink-2); letter-spacing: 0.04em; }
+
+/* ── Responsivo: la barra colapsa a franja superior ── */
+@media (max-width: 820px) {
+  .adm-shell { flex-direction: column; }
+  .adm-side { width: 100%; height: auto; position: static; flex-direction: column; }
+  .adm-nav { flex-direction: row; overflow-x: auto; padding: 8px 12px; gap: 4px; }
+  .adm-nav a { border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; padding: 8px 12px; }
+  .adm-nav a[aria-current="page"] { border-left: 0; border-bottom-color: var(--gold); }
+  .adm-main { padding: 24px 20px 48px; }
+}

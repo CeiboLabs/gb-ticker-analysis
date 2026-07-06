@@ -31,9 +31,10 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Monitor de uso (D1)
 
-`/admin/metrics` muestra tasa de éxito, distribución de fuentes del Sankey
-(8-K vs XBRL vs Yahoo fallback), errores por etapa y tickers que más fallan.
-Cada request a `/api/analyze` escribe una fila en una D1 (best-effort,
+El **Monitor** vive dentro del panel de empleados (`/admin/login` → sección
+**Monitor**, permiso `monitor`) y muestra tasa de éxito, distribución de fuentes
+del Sankey (8-K vs XBRL vs Yahoo fallback), errores por etapa y tickers que más
+fallan. Cada request a `/api/analyze` escribe una fila en una D1 (best-effort,
 no bloquea el response).
 
 ### Setup inicial
@@ -49,7 +50,9 @@ wrangler d1 create ticker-metrics
 wrangler d1 execute ticker-metrics --file=db/schema.sql --remote
 wrangler d1 execute ticker-metrics --file=db/schema.sql --local   # para dev
 
-# 4. Setear ADMIN_TOKEN en Cloudflare:
+# 4. Setear ADMIN_TOKEN en Cloudflare (bootstrap del primer admin del panel +
+#    endpoints de ops/diagnóstico como /api/admin/retention; el Monitor ya NO
+#    lo usa: va por la sesión del panel):
 #    Pages → Settings → Environment variables → Production
 #    Local dev: copiar a .dev.vars como ADMIN_TOKEN=...
 ```

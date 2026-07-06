@@ -15,6 +15,24 @@ binding       = "METRICS_DB"
 database_name = "ticker-metrics"
 database_id   = "3cc6d984-1c52-437a-a45e-38fe1b3b54dd"
 
+# R2 con los stills del feed de Instagram. Lo escribe el worker instagram-ingest;
+# la ruta edge /api/instagram/media/[id] los sirve same-origin desde acá (el CSP
+# es img-src 'self', no se puede hotlinkear el CDN de Instagram). Crear una vez:
+#   npx wrangler r2 bucket create instagram-media
+[[r2_buckets]]
+binding     = "INSTAGRAM_MEDIA"
+bucket_name = "instagram-media"
+
+# R2 con los PDFs que administra el panel de empleados (informes + documentos
+# del fondo). Escriben SOLO las rutas /api/admin/panel/* (upload validado);
+# sirven los proxies same-origin /informes/[slug]/pdf y /api/fondo/documentos.
+# Separado de instagram-media a propósito (otro escritor, otro ciclo de vida).
+# Crear una vez:
+#   npx wrangler r2 bucket create bengochea-docs
+[[r2_buckets]]
+binding     = "DOCS"
+bucket_name = "bengochea-docs"
+
 # Retention: la app se auto-purga — el primer análisis fresco de cada día
 # dispara purgeExpiredRows (eventos > RETENTION_DAYS, default 90, y ventanas
 # de rate limit muertas) después de responder. /api/admin/retention queda

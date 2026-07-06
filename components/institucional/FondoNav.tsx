@@ -33,7 +33,26 @@ export function FondoNav() {
   const [active, setActive] = useState<string>("");
   const raf = useRef<number>(0);
   const navRef = useRef<HTMLElement>(null);
+  const linksRef = useRef<HTMLDivElement>(null);
   const lastShift = useRef<number>(-1);
+
+  // Al cambiar el activo, deslizamos la tira horizontal para centrarlo. Movemos
+  // sólo el scrollLeft del contenedor (no scrollIntoView, que arrastraría el
+  // scroll vertical de la página). En desktop el contenedor no desborda, así que
+  // el destino es 0 y el efecto es inocuo.
+  useEffect(() => {
+    const container = linksRef.current;
+    if (!container || !active) return;
+    const el = container.querySelector<HTMLElement>('[data-active="1"]');
+    if (!el) return;
+    // Posición vía rects (no offsetLeft: su origen es el offsetParent, que no es
+    // este contenedor). Llevamos el centro del enlace al centro de la tira.
+    const elRect = el.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    const target =
+      container.scrollLeft + (elRect.left - cRect.left) - (container.clientWidth - elRect.width) / 2;
+    container.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [active]);
 
   useEffect(() => {
     // Nodo del navbar global (se desplaza para meterse detrás de esta barra).
@@ -93,7 +112,7 @@ export function FondoNav() {
   return (
     <nav ref={navRef} className="fnav" aria-label="Secciones del fondo">
       <div className="site-wrap fnav-row">
-        <div className="fnav-links">
+        <div className="fnav-links" ref={linksRef}>
           {LINKS.map((l) => (
             <a key={l.id} href={`#${l.id}`} className="fnav-link" data-active={active === l.id ? "1" : "0"}>
               {l.label}
@@ -114,6 +133,11 @@ export function FondoNav() {
         .fnav-links {
           display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
+          /* Cada enlace es un punto de anclaje: el deslizamiento se asienta con
+             un item centrado en vez de quedar a mitad de camino. «proximity»
+             (no «mandatory») deja libres los extremos. */
+          scroll-snap-type: x proximity;
+          scroll-behavior: smooth;
         }
         .fnav-links::-webkit-scrollbar { display: none; }
         /* En teléfonos los enlaces no entran todos: scrollean en horizontal.
@@ -127,7 +151,7 @@ export function FondoNav() {
           }
         }
         .fnav-link {
-          position: relative; flex: none;
+          position: relative; flex: none; scroll-snap-align: center;
           font-size: 13.5px; font-weight: 500; color: var(--site-ink-3);
           text-decoration: none; padding: 16px 12px;
           transition: color 160ms ease;
