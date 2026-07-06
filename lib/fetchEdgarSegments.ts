@@ -101,29 +101,81 @@ async function acquireSecToken(): Promise<void> {
 // shared body.
 const inFlight = new Map<string, Promise<{ body: string; status: number }>>();
 
-async function secFetchShared(url: string, ttl: number): Promise<{ body: string; status: number }> {
-  await acquireSecToken();
-  // Cloudflare Workers / Pages: `cf.cacheEverything` makes the response
-  // shareable across instances in the same colo via the edge cache. SEC
-  // payloads (submissions JSON, archive HTML) change at most daily, so
-  // sharing the response is safe and cuts SEC traffic dramatically when
-  // multiple users analyze tickers around the same time. The local
-  // `memCache` still wins inside a single hot instance.
-  const r = await fetch(url, {
-    headers: H,
-    cf: { cacheTtl: ttl, cacheEverything: true },
-  } as RequestInit & { cf?: { cacheTtl: number; cacheEverything: boolean } });
-  const body = await r.text();
-  if (r.ok) {
-    // Detect SEC's HTML rate-limit page returned with 200 status. Don't cache
-    // it — the next legitimate request would hit the cache and silently get
-    // the error page. Surface as a 429 so callers fail fast.
-    if (body.includes("Request Rate Threshold Exceeded")) {
-      return { body, status: 429 };
-    }
-    memCacheSet(url, { body, status: r.status, ts: Date.now() });
+// Timeout duro por intento sobre cada fetch a SEC. Sin esto, una conexión
+// tarpiteada cuelga el análisis completo PARA SIEMPRE: SEC banea por IP a
+// 10 req/s y las IPs de egreso de Cloudflare se comparten entre todos los
+// tenants — cuando el agregado supera el umbral, Akamai deja conexiones
+// colgadas en vez de responder 429 (incidente 2026-07-06: /api/analyze
+// fresco colgado indefinidamente, cero rastro en métricas). 15s absorbe los
+// R-files XBRL grandes (decenas de MB) sin acercarse a "eterno".
+const SEC_FETCH_TIMEOUT_MS = 15_000;
+// Un retry por URL: el tarpit es por-conexión (ruleta rusa de IP de egreso),
+// así que una conexión nueva suele salir por otra IP y pasar.
+const SEC_FETCH_ATTEMPTS = 2;
+// Circuit breaker por-isolate: si N URLs consecutivas agotan sus intentos,
+// SEC está caído/baneado para este egreso — cortar rápido 60s en vez de
+// pagar timeout+retry por cada una de las ~30 URLs del fan-out. Los stages
+// EDGAR degradan a null (reporte sin Sankey) en vez de colgar el análisis.
+const SEC_CIRCUIT_THRESHOLD = 2;
+const SEC_CIRCUIT_COOLDOWN_MS = 60_000;
+let secConsecutiveFailures = 0;
+let secCircuitOpenUntil = 0;
+
+// Error tipado para que los llamadores (y el evento del monitor) distingan
+// "SEC no responde" de un fallo de parseo. `code` viaja hasta errorStage.
+export class SecUnavailableError extends Error {
+  readonly code = "upstream_timeout";
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "SecUnavailableError";
+    this.cause = cause;
   }
-  return { body, status: r.status };
+}
+
+async function secFetchShared(url: string, ttl: number): Promise<{ body: string; status: number }> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= SEC_FETCH_ATTEMPTS; attempt++) {
+    await acquireSecToken();
+    try {
+      // Cloudflare Workers / Pages: `cf.cacheEverything` makes the response
+      // shareable across instances in the same colo via the edge cache. SEC
+      // payloads (submissions JSON, archive HTML) change at most daily, so
+      // sharing the response is safe and cuts SEC traffic dramatically when
+      // multiple users analyze tickers around the same time. The local
+      // `memCache` still wins inside a single hot instance.
+      // El signal cubre conexión + headers + cuerpo completo (aborta también
+      // un r.text() estancado a mitad de descarga).
+      const r = await fetch(url, {
+        headers: H,
+        signal: AbortSignal.timeout(SEC_FETCH_TIMEOUT_MS),
+        cf: { cacheTtl: ttl, cacheEverything: true },
+      } as RequestInit & { cf?: { cacheTtl: number; cacheEverything: boolean } });
+      const body = await r.text();
+      secConsecutiveFailures = 0;
+      if (r.ok) {
+        // Detect SEC's HTML rate-limit page returned with 200 status. Don't cache
+        // it — the next legitimate request would hit the cache and silently get
+        // the error page. Surface as a 429 so callers fail fast.
+        if (body.includes("Request Rate Threshold Exceeded")) {
+          return { body, status: 429 };
+        }
+        memCacheSet(url, { body, status: r.status, ts: Date.now() });
+      }
+      return { body, status: r.status };
+    } catch (e) {
+      // Solo rechazos de red/timeout llegan acá — un status HTTP 4xx/5xx es
+      // una respuesta y sigue el camino normal de arriba.
+      lastErr = e;
+    }
+  }
+  secConsecutiveFailures += 1;
+  if (secConsecutiveFailures >= SEC_CIRCUIT_THRESHOLD) {
+    secCircuitOpenUntil = Date.now() + SEC_CIRCUIT_COOLDOWN_MS;
+  }
+  throw new SecUnavailableError(
+    `SEC fetch timeout tras ${SEC_FETCH_ATTEMPTS} intentos (${SEC_FETCH_TIMEOUT_MS}ms c/u): ${url}`,
+    lastErr,
+  );
 }
 
 export async function secFetch(url: string, ttl = 21600): Promise<Response> {
@@ -135,6 +187,12 @@ export async function secFetch(url: string, ttl = 21600): Promise<Response> {
     // El TTL solo se chequeaba en lectura: la entrada vencida quedaba ocupando
     // memoria para siempre. Liberarla al detectarla.
     memCacheDelete(url);
+  }
+  // Circuito abierto: SEC no está respondiendo desde este egreso. Fallar ya
+  // (los datos cacheados arriba siguen sirviéndose) en vez de encolar otro
+  // timeout+retry de hasta 30s por URL.
+  if (Date.now() < secCircuitOpenUntil) {
+    throw new SecUnavailableError("SEC EDGAR no disponible (circuit breaker abierto)");
   }
   let pending = inFlight.get(url);
   if (!pending) {

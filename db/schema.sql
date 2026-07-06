@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS analyze_events (
   fx_ok         INTEGER,                    -- 0/1, NULL when fx not needed
   edgar_8k_ok   INTEGER,                    -- 0/1, NULL when not attempted
   segments_ok   INTEGER,                    -- 0/1, NULL when not attempted
-  error_stage   TEXT,                       -- 'edgar' | 'yahoo' | 'openai' | 'fx' | 'parse' | 'rate_limit' | NULL
+  error_stage   TEXT,                       -- 'edgar' | 'yahoo' | 'openai' | 'fx' | 'parse' | 'rate_limit' | 'upstream_timeout' | NULL
   error_msg     TEXT,                       -- truncated to 500 chars
   user_agent    TEXT,                       -- truncated to 200 chars
   country       TEXT,                       -- request.cf.country (2-letter)

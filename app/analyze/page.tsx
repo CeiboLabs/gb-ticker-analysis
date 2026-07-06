@@ -223,8 +223,14 @@ export default function AnalyzePage() {
                 <p className="text-amber-800/90">
                   El servicio de análisis está experimentando demoras. Intente nuevamente en unos minutos.
                 </p>
+                {/* Reintento cache-first (refresh=false): si el análisis se
+                    generó y cacheó pero el stream murió en el camino — o si
+                    otro usuario lo completó entre medio — resuelve instantáneo
+                    del cache. Con refresh=true este botón BORRABA el cache y
+                    forzaba el camino fresco: durante un incidente de upstream
+                    era el reintento con peor probabilidad. */}
                 <button
-                  onClick={() => activeTicker.current && analyze(activeTicker.current, true)}
+                  onClick={() => activeTicker.current && analyze(activeTicker.current)}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
                 >
                   Reintentar

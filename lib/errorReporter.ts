@@ -91,6 +91,9 @@ async function sendEnvelope(source: string, err: unknown, extra?: ErrorContext):
       method: "POST",
       headers: { "Content-Type": "application/x-sentry-envelope" },
       body,
+      // Telemetría jamás debe retener el isolate: si Sentry no responde,
+      // abandonar rápido.
+      signal: AbortSignal.timeout(5_000),
     });
   } catch {
     // Sentry itself failed — nothing more we can do

@@ -1,3 +1,7 @@
+// Side-effect PRIMERO: deadline por defecto en el fetch global del isolate.
+// Cubre los fetch() pelados de yahoo-finance2 (crumb/cookie dance) que NO
+// pasan por throttledYahooFetch — ver comentario en lib/globalFetchDeadline.
+import "@/lib/globalFetchDeadline";
 import YahooFinance from "yahoo-finance2";
 import { fetchEdgarQuarterlyRevenue } from "@/lib/fetchEdgarSegments";
 import { fetchUsdRate } from "@/lib/fxRates";
@@ -41,9 +45,23 @@ async function acquireYahooToken(): Promise<void> {
   return job;
 }
 
+// Timeout duro sobre TODO el tráfico Yahoo. Este wrapper es el único embudo
+// (se inyecta como fetch custom de yahoo-finance2, y el crumb/screener lo
+// usan directo), así que un solo signal acá cubre quoteSummary, timeseries,
+// crumb dance y screener. Sin esto, una conexión tarpiteada desde el egreso
+// compartido de Cloudflare colgaba el análisis para siempre (incidente
+// 2026-07-06). 15s es holgado: una llamada sana tarda 1-3s.
+const YAHOO_FETCH_TIMEOUT_MS = 15_000;
+
 const throttledYahooFetch: typeof fetch = async (input, init) => {
   await acquireYahooToken();
-  return fetch(input, init);
+  const timeout = AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS);
+  // Respetar un signal del caller si existiera (yahoo-finance2 hoy no pasa
+  // ninguno): el primero que dispare aborta.
+  const signal = init?.signal
+    ? (typeof AbortSignal.any === "function" ? AbortSignal.any([init.signal, timeout]) : init.signal)
+    : timeout;
+  return fetch(input, { ...init, signal });
 };
 
 export const yahooFinance = new YahooFinance({
@@ -122,7 +140,15 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
         reportError("fetchStockData/search", err, { ticker });
         return null;
       }),
-    fetchEdgarQuarterlyRevenue(ticker, oneYearAgo),
+    // Best-effort: si SEC está caído (timeout/circuit breaker) el gráfico de
+    // revenue se arma solo con el stream quarterly de Yahoo (el merge de
+    // abajo ya tolera edgarRevenue null). Antes esta rejection tumbaba TODO
+    // fetchStockData — y con él el análisis completo — aunque Yahoo estuviera
+    // perfectamente sano.
+    fetchEdgarQuarterlyRevenue(ticker, oneYearAgo).catch((err) => {
+      reportError("fetchStockData/edgarQuarterlyRevenue", err, { ticker });
+      return null;
+    }),
     yahooFinance
       .fundamentalsTimeSeries(
         ticker,

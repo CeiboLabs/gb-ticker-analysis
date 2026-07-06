@@ -48,6 +48,9 @@ function getGlobeHash(): Promise<string | null> {
       try {
         const res = await fetch(GOOGLE(GLOBE_PROBE_DOMAIN), {
           headers: { "User-Agent": "Mozilla/5.0" },
+          // Mismo hardening que secFetch/Yahoo: nunca un fetch sin timeout
+          // dentro del worker (un upstream tarpiteado cuelga el request).
+          signal: AbortSignal.timeout(8_000),
         });
         if (!res.ok) return null;
         const buf = await res.arrayBuffer();
@@ -72,6 +75,7 @@ async function tryFetch(
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
       redirect: "follow",
+      signal: AbortSignal.timeout(8_000),
     });
     if (res.status !== 200) return null;
     const declared = Number(res.headers.get("content-length"));
