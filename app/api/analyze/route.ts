@@ -943,16 +943,22 @@ export async function POST(req: NextRequest) {
     const peersPromise = stockDataPromise.then((sd) =>
       fetchPeerComparison(ticker, sd.industry),
     );
+    // Los stages EDGAR son best-effort: si SEC no responde (timeout/circuit
+    // breaker en secFetch) el análisis sigue con datos de Yahoo y el Sankey
+    // degrada vía buildSankeyFromYahooQuarter o queda null — un reporte sin
+    // Sankey es infinitamente mejor que un 502 (o que el cuelgue eterno que
+    // esto reemplaza). Los flags segmentsOk/edgar8kOk quedan en false para
+    // que el monitor vea la degradación en el evento "ok".
     [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
       stockDataPromise,
       fetchSegmentData(ticker).then(
         (r) => { segmentsOk = r != null; return r; },
-        (e) => { segmentsOk = false; throw e; },
+        () => { segmentsOk = false; return null; },
       ),
       peersPromise,
       fetchEdgar8KIncomeStatement(ticker).then(
         (r) => { edgar8kOk = r != null; return r; },
-        (e) => { edgar8kOk = false; throw e; },
+        () => { edgar8kOk = false; return null; },
       ),
     ]);
     stockData.peerComparison = peerComparison;
@@ -1146,9 +1152,18 @@ export async function POST(req: NextRequest) {
       fireEvent({ ticker, status: "not_found", errorStage: "yahoo", errorMsg: message, edgar8kOk, segmentsOk });
       return NextResponse.json({ error: `Ticker "${ticker}" not found.` }, { status: 404 });
     }
-    // Either fetchStockData or one of the EDGAR fetches threw — pick the
-    // most likely stage from the rejection origin recorded above.
-    const stage = segmentsOk === false || edgar8kOk === false ? "edgar" : "yahoo";
+    // Con los stages EDGAR degradando a null, llegar acá significa que Yahoo
+    // (fetchStockData/peers) rechazó. Distinguir timeout de upstream (la IP
+    // de egreso compartida está tarpiteada — reintentable en minutos) de un
+    // error de datos real. AbortSignal.timeout rechaza con DOMException
+    // "TimeoutError"; SecUnavailableError trae code="upstream_timeout".
+    const isUpstreamTimeout =
+      (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) ||
+      (err as { code?: string } | null)?.code === "upstream_timeout" ||
+      /timeout|timed ?out|aborted/i.test(message);
+    const stage = isUpstreamTimeout
+      ? "upstream_timeout"
+      : segmentsOk === false || edgar8kOk === false ? "edgar" : "yahoo";
     fireEvent({ ticker, status: "error", errorStage: stage, errorMsg: message, edgar8kOk, segmentsOk });
     return NextResponse.json(
       {

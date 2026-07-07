@@ -301,6 +301,18 @@ function AnalyzePageInner() {
     analyze(activeTicker.current, true);
   }
 
+  // Reintento desde el estado de error: cache-first (refresh=false). Si el
+  // análisis se generó y cacheó pero el stream murió en el camino — o si otro
+  // usuario lo completó entre medio — resuelve instantáneo del cache. Con
+  // refresh=true este botón BORRABA el cache y forzaba siempre el camino
+  // fresco: el peor reintento posible durante un incidente de upstream.
+  // (Trasplantado del fix f10b369 de main, donde vivía en app/analyze/page.tsx.)
+  function handleRetry() {
+    if (!activeTicker.current) return;
+    if (Date.now() < cooldownUntil) return;
+    analyze(activeTicker.current);
+  }
+
   // Tick cada segundo solo mientras el cooldown está activo, para refrescar
   // el countdown que muestra el sidebar.
   useEffect(() => {
@@ -337,7 +349,7 @@ function AnalyzePageInner() {
         />
         <div className="analyze-main" style={{ borderLeft: "1px solid var(--rule)", background: "var(--paper)", minWidth: 0 }}>
           {status === "idle" && <IdleHero />}
-          {status === "error" && <ErrorPanel kind={errorKind} message={errorMsg} onRetry={handleRefresh} />}
+          {status === "error" && <ErrorPanel kind={errorKind} message={errorMsg} onRetry={handleRetry} />}
           {(status === "loading" || status === "partial" || status === "done") && data && (
             <>
               <Panel01Tesis data={data} ticker={ticker} hasReport={!!report} onSelectTicker={selectTicker} />

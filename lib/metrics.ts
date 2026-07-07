@@ -96,6 +96,10 @@ export type ErrorStage =
   | "fx"
   | "parse"
   | "rate_limit"
+  // Upstream (SEC/Yahoo) no respondió dentro del timeout. Antes este modo de
+  // fallo era invisible: el fetch sin timeout colgaba el request para siempre
+  // y moría sin pasar por ningún fireEvent (cero rastro en el monitor).
+  | "upstream_timeout"
   | "unknown";
 
 export interface AnalyzeEvent {
