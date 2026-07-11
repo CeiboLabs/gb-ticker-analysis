@@ -1,9 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
-import { ArrowRight, Calendar, Clock } from "@/components/institucional/icons";
 import { CarpetaInformes } from "@/components/institucional/CarpetaInformes";
-import { VideoEmbed } from "@/components/institucional/VideoEmbed";
+import { ArchivoInformes } from "@/components/institucional/ArchivoInformes";
 import { NewsletterSignup } from "@/components/institucional/NewsletterSignup";
 import { VideosDeLaCasa } from "@/components/institucional/VideosDeLaCasa";
 import { INFORMES, AUTORES } from "@/lib/informes";
@@ -124,92 +123,7 @@ export default async function InformesPage() {
             </div>
           </Reveal>
 
-          <Stagger as="div" className="ui-list" style={{ marginTop: 56 }}>
-            {informes.map((it) => {
-              const conArticulo = tieneArticulo(it.slug);
-
-              // Mensual con su video de presentación → fila enriquecida con el
-              // video embebido (SOLO mensuales; los semanales no llevan video).
-              // El video es ese mismo informe, presentado en el canal de la casa:
-              // cuerpo (meta + título + acceso al documento) a la izquierda,
-              // video 16:9 a la derecha.
-              if (it.categoria === "Mensual" && it.videoId) {
-                return (
-                  <StaggerItem as="div" key={it.slug}>
-                    <div className="ui-list-row informe-row--video">
-                      <div className="ivid-body">
-                        <span className="informe-meta">
-                          <span className="t-small informe-fecha">{it.fechaTexto.split(",")[0]}</span>
-                          <span className="ui-tag">{it.categoria}</span>
-                        </span>
-                        <span className="row-title" style={{ display: "block", marginTop: 8 }}>{it.titulo}</span>
-                        {conArticulo ? (
-                          <Link href={`/informes/${it.slug}`} className="link-arrow" style={{ marginTop: 18 }}>
-                            Leer el informe <ArrowRight />
-                          </Link>
-                        ) : (
-                          <a
-                            href={`/informes/${it.slug}/pdf`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="link-arrow"
-                            style={{ marginTop: 18 }}
-                          >
-                            Ver el informe en PDF <ArrowRight />
-                          </a>
-                        )}
-                      </div>
-                      <div className="ivid-media">
-                        <VideoEmbed videoId={it.videoId} title={`Presentación · ${it.titulo}`} />
-                      </div>
-                    </div>
-                  </StaggerItem>
-                );
-              }
-
-              // Fila: el contenido es idéntico; sólo cambia el envoltorio. Con
-              // artículo → navegación interna a /informes/[slug]. Sin él (aún) →
-              // el PDF en el visor nativo, servido desde nuestro dominio vía el
-              // proxy (no salta a gbengochea).
-              const inner = (
-                <>
-                  <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                    <span className="list-icon" aria-hidden>
-                      {it.categoria === "Mensual" ? <Calendar /> : <Clock />}
-                    </span>
-                    <span className="informe-main">
-                      <span className="informe-meta">
-                        <span className="t-small informe-fecha">{it.fechaTexto.split(",")[0]}</span>
-                        <span className="ui-tag">{it.categoria}</span>
-                      </span>
-                      <span className="row-title" style={{ display: "block", marginTop: 8 }}>{it.titulo}</span>
-                    </span>
-                  </span>
-                  <span className="link-arrow informe-cta">
-                    {conArticulo ? "Leer informe" : "Ver PDF"} <ArrowRight />
-                  </span>
-                </>
-              );
-              return (
-                <StaggerItem as="div" key={it.slug}>
-                  {conArticulo ? (
-                    <Link href={`/informes/${it.slug}`} className="ui-list-row informe-row">
-                      {inner}
-                    </Link>
-                  ) : (
-                    <a
-                      href={`/informes/${it.slug}/pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ui-list-row informe-row"
-                    >
-                      {inner}
-                    </a>
-                  )}
-                </StaggerItem>
-              );
-            })}
-          </Stagger>
+          <ArchivoInformes informes={informes} />
         </div>
       </section>
 
@@ -504,6 +418,80 @@ export default async function InformesPage() {
         .nl-card-formlabel { font-size: 13px; color: rgba(255, 255, 255, 0.55); margin-bottom: 12px; }
         @media (max-width: 820px) {
           .nl-card { grid-template-columns: 1fr; gap: 28px; }
+        }
+        /* Filtro del archivo — barra: recuento (izq) + segmentado (der). El
+           segmentado reusa el patrón del toggle Treemap/Donut del fondo: pista
+           pill sobre gris, thumb navy que desliza entre tres tramos iguales.
+           Grid de 3×1fr para que las columnas queden EXACTAS (los tres rótulos
+           tienen ancho distinto) y el thumb —un tercio— caiga siempre alineado. */
+        .inf-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+          margin-top: clamp(40px, 5vw, 56px);
+          margin-bottom: 6px;
+        }
+        .inf-count {
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          color: var(--site-ink-3);
+          font-variant-numeric: tabular-nums;
+        }
+        .inf-filtro {
+          position: relative;
+          display: inline-grid;
+          grid-template-columns: repeat(3, 1fr);
+          padding: 3px;
+          background: var(--surface-muted);
+          border: 1px solid var(--site-border);
+          border-radius: 999px;
+        }
+        .inf-filtro-thumb {
+          position: absolute;
+          top: 3px;
+          bottom: 3px;
+          left: 3px;
+          width: calc((100% - 6px) / 3);
+          background: var(--navy);
+          border-radius: 999px;
+          box-shadow: 0 6px 16px -6px rgba(15, 34, 73, 0.6);
+          transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
+        }
+        .inf-filtro[data-active="Semanal"] .inf-filtro-thumb { transform: translateX(100%); }
+        .inf-filtro[data-active="Mensual"] .inf-filtro-thumb { transform: translateX(200%); }
+        .inf-filtro-btn {
+          position: relative;
+          z-index: 1;
+          border: 0;
+          background: none;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--site-ink-3);
+          padding: 7px 22px;
+          border-radius: 999px;
+          transition: color 220ms ease;
+          white-space: nowrap;
+        }
+        .inf-filtro-btn[aria-selected="true"] { color: #fff; }
+        .inf-filtro-btn:not([aria-selected="true"]):hover { color: var(--navy); }
+        .inf-empty {
+          margin-top: 40px;
+          padding: 40px 4px;
+          border-top: 1px solid var(--site-border);
+          color: var(--site-ink-3);
+          font-size: 15px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .inf-filtro-thumb { transition: none; }
+        }
+        @media (max-width: 560px) {
+          .inf-bar { flex-direction: column; align-items: stretch; gap: 14px; }
+          .inf-filtro { width: 100%; }
+          .inf-filtro-btn { padding: 9px 8px; }
         }
         .informe-meta { display: inline-flex; align-items: center; gap: 14px; }
         .informe-fecha { font-weight: 600; color: var(--gold-deep); letter-spacing: 0.02em; }

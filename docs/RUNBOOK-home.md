@@ -104,6 +104,16 @@ necesita el `PANEL_PEPPER` del server.
 (`PRAGMA user_version=1`). Un cambio de esquema nuevo se aplica con
 `sqlite3 data/bengochea.sqlite3 < db/migrations/<nueva>.sql`.
 
+> **Pendiente de aplicar — artículos editoriales** (`2026-07-08-informe-contenido.sql`):
+> agrega la columna `contenido` (JSON del artículo) a `informes`, para que
+> /informes/[slug] se sirva como página en vez de PDF y se edite desde el panel.
+> En base ya inicializada:
+> ```
+> sqlite3 data/bengochea.sqlite3 < db/migrations/2026-07-08-informe-contenido.sql
+> ```
+> (En base fresca ya viene en `schema.sql`, no correr el ALTER — daría "duplicate
+> column". El store tolera la columna ausente: cae al seed de código hasta aplicarla.)
+
 ## Qué quedó desactivado al salir de Cloudflare
 
 - **Email Worker del fondo** (`workers/nav-ingest/`, NAV por mail) y **worker

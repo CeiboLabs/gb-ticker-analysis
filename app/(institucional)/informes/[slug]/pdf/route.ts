@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getInforme } from "@/lib/informes";
 import { getMetricsDb, getDocsBucket } from "@/lib/metrics";
-import { readInformeRow, informeTienePdf } from "@/lib/informesStore";
+import { readInformeRow, readInformeContenido, informeTienePdf } from "@/lib/informesStore";
+import { tieneArticulo } from "@/lib/informeContenido";
 import { PDF_URL_HOSTS } from "@/lib/panelSchemas";
 
 // Proxy same-origin del PDF del informe. Dos orígenes posibles, resueltos por
@@ -33,6 +34,20 @@ export async function GET(
 
   const db = getMetricsDb();
   const row = db ? await readInformeRow(db, slug) : null;
+
+  // Muerte del PDF: si el informe ya tiene artículo publicado, el PDF deja de
+  // circular — se redirige a la página (lo que se comparte ahora es la URL, no el
+  // archivo). Los informes sin artículo transcrito siguen sirviendo su PDF
+  // (transición). 307 temporal: el comportamiento puede evolucionar (ej. PDF
+  // generado desde el artículo).
+  const tieneArticuloLive =
+    row?.status === "live" && (((db && (await readInformeContenido(db, slug))) != null) || tieneArticulo(slug));
+  if (tieneArticuloLive) {
+    // Location relativo a propósito: el browser lo resuelve contra la request, así
+    // no dependemos del host de req.url (en el home server es 0.0.0.0; detrás del
+    // proxy sería el interno) — el redirect apunta siempre al dominio correcto.
+    return new NextResponse(null, { status: 307, headers: { Location: `/informes/${slug}`, "Cache-Control": "no-store" } });
+  }
 
   // Con D1 la fila manda (incluida la visibilidad); sin D1, el seed en código.
   let r2Key: string | null = null;

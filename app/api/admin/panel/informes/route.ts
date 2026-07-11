@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requirePanelSession } from "@/lib/panelAuth";
-import { listInformesAdmin, insertInforme, slugForInforme, fechaTextoDe } from "@/lib/informesStore";
+import { listInformesAdmin, insertInforme, slugForInforme, fechaTextoDe, readSlugsConArticulo } from "@/lib/informesStore";
 import { InformeCreateSchema } from "@/lib/panelSchemas";
 import { writePanelAudit } from "@/lib/panelStore";
 import { eventBaseFromRequest } from "@/lib/metrics";
@@ -16,8 +16,11 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET(req: NextRequest) {
   const gate = await requirePanelSession(req, "informes");
   if (!gate.ok) return gate.res;
-  const informes = await listInformesAdmin(gate.db);
-  return NextResponse.json({ informes }, { headers: NO_STORE });
+  const [informes, conArticulo] = await Promise.all([
+    listInformesAdmin(gate.db),
+    readSlugsConArticulo(gate.db, false),
+  ]);
+  return NextResponse.json({ informes, conArticulo }, { headers: NO_STORE });
 }
 
 export async function POST(req: NextRequest) {

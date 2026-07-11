@@ -128,6 +128,76 @@ export const InformePatchSchema = z
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), { message: "Nada para actualizar" });
 
+// ── Contenido editorial del artículo (bloques) ───────────────────────────────
+// Espeja lib/informeContenido/tipos.ts: valida la FORMA del artículo que se
+// escribe desde el panel antes de persistirlo como JSON en informes.contenido.
+// Cotas de largo/cantidad generosas pero acotadas (nada de payloads sin techo).
+
+const Txt = (min: number, max: number) => z.string().trim().min(min).max(max);
+const Num = z.number().finite();
+
+const DatoSchema = z.object({ etiqueta: Txt(1, 40), valor: Num });
+const GrupoDatosSchema = z.object({ nombre: z.string().trim().max(40), datos: z.array(DatoSchema).min(1).max(40) });
+const ColumnaSchema = z.object({
+  titulo: z.string().trim().max(40),
+  delta: z.boolean().optional(),
+  sufijo: z.string().max(8).optional(),
+});
+const LineaSerieSchema = z.object({
+  nombre: Txt(1, 40),
+  puntos: z.array(z.object({ t: DiaSchema, v: Num })).min(1).max(2000),
+  enfasis: z.enum(["primaria", "secundaria"]).optional(),
+});
+
+const BloqueSchema = z.discriminatedUnion("tipo", [
+  z.object({ tipo: z.literal("seccion"), numero: Txt(1, 6), titulo: Txt(1, 120), eyebrow: z.string().trim().max(40).optional() }),
+  z.object({ tipo: z.literal("parrafo"), md: Txt(1, 6000) }),
+  z.object({ tipo: z.literal("subtitulo"), titulo: Txt(1, 120), volanta: z.string().trim().max(120).optional() }),
+  z.object({ tipo: z.literal("lista"), items: z.array(Txt(1, 600)).min(1).max(20) }),
+  z.object({ tipo: z.literal("cita"), texto: Txt(1, 1200), fuente: z.string().trim().max(120).optional() }),
+  z.object({
+    tipo: z.literal("tabla"),
+    titulo: z.string().trim().max(80).optional(),
+    columnas: z.array(ColumnaSchema).min(1).max(8),
+    filas: z.array(z.array(z.union([z.string().max(60), Num])).max(8)).max(60),
+    nota: z.string().trim().max(300).optional(),
+  }),
+  z.object({ tipo: z.literal("barras"), titulo: z.string().trim().max(80).optional(), grupos: z.array(GrupoDatosSchema).min(1).max(8), nota: z.string().trim().max(300).optional() }),
+  z.object({
+    tipo: z.literal("serie"),
+    titulo: z.string().trim().max(80).optional(),
+    subtitulo: z.string().trim().max(120).optional(),
+    lineas: z.array(LineaSerieSchema).min(1).max(4),
+    nota: z.string().trim().max(300).optional(),
+  }),
+  z.object({ tipo: z.literal("retornos"), titulo: z.string().trim().max(80).optional(), grupos: z.array(GrupoDatosSchema).min(1).max(8), nota: z.string().trim().max(300).optional() }),
+  z.object({
+    tipo: z.literal("imagen"),
+    // Same-origin: el CSP es img-src 'self'. Path del sitio (ej. /informes-media/…).
+    src: z.string().trim().max(600).refine((v) => v.startsWith("/"), "La imagen debe servirse desde el sitio (path que empieza con /)"),
+    alt: Txt(1, 300),
+    titulo: z.string().trim().max(80).optional(),
+    fuente: z.string().trim().max(160).optional(),
+  }),
+]);
+
+export const ContenidoInformeSchema = z.object({
+  volanta: Txt(1, 60),
+  titular: Txt(1, 200),
+  bajada: Txt(1, 600),
+  autor: Txt(1, 120),
+  resumen: z.array(z.object({ etiqueta: Txt(1, 40), texto: Txt(1, 400) })).max(6),
+  graficoSemana: z
+    .object({
+      titulo: Txt(1, 80),
+      subtitulo: z.string().trim().max(120).optional(),
+      datos: z.array(DatoSchema).min(1).max(20),
+      nota: z.string().trim().max(300).optional(),
+    })
+    .optional(),
+  bloques: z.array(BloqueSchema).min(1).max(120),
+});
+
 // ── Fondo ────────────────────────────────────────────────────────────────────
 
 // Forma laxa a propósito: dia/nav/aum se pasan CRUDOS a validateNav

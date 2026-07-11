@@ -5,6 +5,7 @@
 
 import type { D1Database } from "@/lib/metrics";
 import type { Informe } from "@/lib/informes";
+import type { ContenidoInforme } from "@/lib/informeContenido/tipos";
 
 export type InformeRow = {
   slug: string;
@@ -143,4 +144,57 @@ export async function setInformeR2Key(
     .prepare("UPDATE informes SET r2_key = ?, updated_at = ?, updated_by = ? WHERE slug = ?")
     .bind(r2Key, nowMs ?? Date.now(), updatedBy, slug)
     .run();
+}
+
+// ── Contenido editorial (artículo) ───────────────────────────────────────────
+
+/**
+ * Contenido del artículo de un informe (JSON parseado). `null` si todavía no se
+ * transcribió, o si la columna `contenido` aún no existe (base sin migrar) — en
+ * ese caso el llamador cae al seed de código. Se confía en el JSON almacenado:
+ * se validó con ContenidoInformeSchema al escribirlo.
+ */
+export async function readInformeContenido(db: D1Database, slug: string): Promise<ContenidoInforme | null> {
+  try {
+    const row = await db
+      .prepare("SELECT contenido FROM informes WHERE slug = ? LIMIT 1")
+      .bind(slug)
+      .first<{ contenido: string | null }>();
+    if (!row?.contenido) return null;
+    return JSON.parse(row.contenido) as ContenidoInforme;
+  } catch (err) {
+    // Columna inexistente (base sin migrar) o JSON corrupto: cae al seed.
+    if (String(err).includes("no such column") || err instanceof SyntaxError) return null;
+    throw err;
+  }
+}
+
+/** Persiste el artículo (o lo limpia con null). El JSON ya viene validado. */
+export async function setInformeContenido(
+  db: D1Database,
+  slug: string,
+  contenido: ContenidoInforme | null,
+  updatedBy: string,
+  nowMs?: number,
+): Promise<void> {
+  await db
+    .prepare("UPDATE informes SET contenido = ?, updated_at = ?, updated_by = ? WHERE slug = ?")
+    .bind(contenido ? JSON.stringify(contenido) : null, nowMs ?? Date.now(), updatedBy, slug)
+    .run();
+}
+
+/**
+ * Slugs con artículo transcrito (contenido IS NOT NULL). `soloLive` (default) los
+ * restringe a los publicados — para decidir en el hub/vecinos si linkear al
+ * artículo o al PDF. Tolera la columna ausente (base sin migrar ⇒ []).
+ */
+export async function readSlugsConArticulo(db: D1Database, soloLive = true): Promise<string[]> {
+  const where = soloLive ? "status = 'live' AND contenido IS NOT NULL" : "contenido IS NOT NULL";
+  try {
+    const { results } = await db.prepare(`SELECT slug FROM informes WHERE ${where}`).all<{ slug: string }>();
+    return (results ?? []).map((r) => r.slug);
+  } catch (err) {
+    if (String(err).includes("no such column")) return [];
+    throw err;
+  }
 }

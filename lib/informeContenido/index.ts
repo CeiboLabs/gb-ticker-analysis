@@ -5,9 +5,11 @@
 
 import type { ContenidoInforme } from "./tipos";
 import { semanal_2026_05_29 } from "./semanal-2026-05-29";
+import { semanal_2026_05_22 } from "./semanal-2026-05-22";
 
 const REGISTRO: Record<string, ContenidoInforme> = {
   "semanal-2026-05-29": semanal_2026_05_29,
+  "semanal-2026-05-22": semanal_2026_05_22,
 };
 
 /** Contenido curado de un informe, o `undefined` si aún no fue transcrito. */

@@ -11,6 +11,20 @@ export type Dato = { etiqueta: string; valor: number };
 /** Grupo de datos rotulado para un gráfico de barras (ej. "Monedas", "América"). */
 export type GrupoDatos = { nombre: string; datos: Dato[] };
 
+/** Un punto de una serie temporal: fecha ISO (YYYY-MM-DD) + valor. */
+export type PuntoSerie = { t: string; v: number };
+
+/**
+ * Una línea nombrada del gráfico de serie temporal. `enfasis` fija el peso
+ * visual: la primaria en navy sólido, la secundaria en un tono claro (ej. en
+ * "UI vs USD": el dólar es primario, la UI secundaria).
+ */
+export type LineaSerie = {
+  nombre: string;
+  puntos: PuntoSerie[];
+  enfasis?: "primaria" | "secundaria";
+};
+
 /** Definición de una columna de tabla. */
 export type Columna = {
   titulo: string;
@@ -37,8 +51,30 @@ export type Bloque =
   | { tipo: "cita"; texto: string; fuente?: string }
   /** Tabla de datos numéricos, renderizada con `.fin-table`. */
   | { tipo: "tabla"; titulo?: string; columnas: Columna[]; filas: (string | number)[][]; nota?: string }
-  /** Gráfico de barras de retornos, uno o varios grupos en grilla. */
-  | { tipo: "barras"; titulo?: string; grupos: GrupoDatos[]; nota?: string };
+  /** Gráfico de barras de retornos, uno o varios grupos en grilla. Se reserva
+   *  para el hero de "los que se movieron" (pocos, alto impacto). */
+  | { tipo: "barras"; titulo?: string; grupos: GrupoDatos[]; nota?: string }
+  /**
+   * Gráfico de línea / serie temporal. Una o más líneas sobre un eje de fechas
+   * compartido y un solo eje de valores (las series se rebasan a base 100 en el
+   * dato cuando hay que compararlas, ej. "UI vs USD (base = 100)"). Recrea los
+   * dos gráficos de la página 1 del semanal. OJO: la serie diaria NO está en el
+   * PDF —es trazo vectorial—; su dato llega del Excel del cliente.
+   */
+  | { tipo: "serie"; titulo?: string; subtitulo?: string; lineas: LineaSerie[]; nota?: string }
+  /**
+   * Grilla de retornos como heatmap (verde/oxblood por signo), fiel a las tablas
+   * "Retornos Semanales" del PDF. Misma forma que `barras`; se elige el heatmap
+   * para grillas densas (~25 instrumentos) donde las barras quedarían pesadas.
+   */
+  | { tipo: "retornos"; titulo?: string; grupos: GrupoDatos[]; nota?: string }
+  /**
+   * Imagen embebida — sobre todo para el MENSUAL, cuyos gráficos son de terceros
+   * (Bloomberg, EIA, Goldman…) con su fuente e imposibles de recrear on-brand como
+   * los del semanal. `src` es un path SAME-ORIGIN (el CSP del sitio es img-src
+   * 'self': nada de hotlink externo); las imágenes se sirven desde el propio host.
+   */
+  | { tipo: "imagen"; src: string; alt: string; titulo?: string; fuente?: string };
 
 /** Un punto del "at a glance" del hero: etiqueta breve + la línea de la semana. */
 export type ResumenItem = { etiqueta: string; texto: string };

@@ -389,6 +389,7 @@ CREATE TABLE IF NOT EXISTS informes (
   created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL,
   updated_by  TEXT,
+  contenido   TEXT,                          -- JSON de ContenidoInforme (artículo editorial); NULL = sólo PDF
   PRIMARY KEY (slug)
 ) WITHOUT ROWID;
 

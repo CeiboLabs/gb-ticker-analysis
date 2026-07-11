@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { panelFetch, errorMessage, Btn, Card, Input, Label, Notice, Badge, PageHeader, Select } from "@/components/admin/ui";
+import ArticuloEditor from "@/components/admin/ArticuloEditor";
 
 type Row = {
   slug: string;
@@ -22,13 +23,15 @@ type Row = {
 
 export default function InformesAdmin() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [conArticulo, setConArticulo] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const r = await panelFetch<{ informes: Row[] }>("/api/admin/panel/informes");
+    const r = await panelFetch<{ informes: Row[]; conArticulo: string[] }>("/api/admin/panel/informes");
     if (r.status === 200 && r.data?.informes) {
       setRows(r.data.informes);
+      setConArticulo(r.data.conArticulo ?? []);
     } else {
       setError(errorMessage(r));
     }
@@ -61,10 +64,12 @@ export default function InformesAdmin() {
           <p className="adm-help mt-0!">Cargando…</p>
         ) : (
           <div className="flex flex-col gap-3">
-            {rows.map((row) => (
+            {rows.map((row, i) => (
               <FilaInforme
                 key={row.slug}
                 row={row}
+                tieneArticulo={conArticulo.includes(row.slug)}
+                slugAnterior={rows[i + 1]?.slug}
                 onChanged={(msg) => { flash(msg); void load(); }}
                 onError={setError}
               />
@@ -163,8 +168,9 @@ function NuevoInforme({ onCreated, onError }: { onCreated: (slug: string) => voi
   );
 }
 
-function FilaInforme({ row, onChanged, onError }: { row: Row; onChanged: (msg: string) => void; onError: (e: string) => void }) {
+function FilaInforme({ row, tieneArticulo, slugAnterior, onChanged, onError }: { row: Row; tieneArticulo: boolean; slugAnterior?: string; onChanged: (msg: string) => void; onError: (e: string) => void }) {
   const [editando, setEditando] = useState(false);
+  const [editandoArticulo, setEditandoArticulo] = useState(false);
   const [busy, setBusy] = useState(false);
   const tienePdf = row.pdf_url != null || row.r2_key != null;
 
@@ -207,6 +213,7 @@ function FilaInforme({ row, onChanged, onError }: { row: Row; onChanged: (msg: s
               {row.r2_key ? "PDF propio (R2)" : row.pdf_url ? "PDF externo" : "Falta PDF"}
             </Badge>
             {row.video_id && <Badge tone="neutral">▶ {row.video_id}</Badge>}
+            <Badge tone={tieneArticulo ? "gold" : "neu"}>{tieneArticulo ? "Con artículo" : "Sin artículo"}</Badge>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -225,6 +232,7 @@ function FilaInforme({ row, onChanged, onError }: { row: Row; onChanged: (msg: s
             />
           </label>
           <Btn kind="ghost" onClick={() => setEditando((v) => !v)}>{editando ? "Cerrar" : "Editar"}</Btn>
+          <Btn kind="ghost" onClick={() => setEditandoArticulo((v) => !v)}>{editandoArticulo ? "Cerrar artículo" : "Artículo"}</Btn>
           {row.status === "hold" ? (
             <Btn disabled={busy || !tienePdf} onClick={() => patch({ status: "live" }, `${row.slug} publicado.`)}>
               Publicar
@@ -245,6 +253,15 @@ function FilaInforme({ row, onChanged, onError }: { row: Row; onChanged: (msg: s
           busy={busy}
           onSubmit={(fields) => patch(fields, `${row.slug} actualizado.`)}
         />
+      )}
+      {editandoArticulo && (
+        <div className="mt-4 border-t border-[color:var(--site-border)] pt-4">
+          <ArticuloEditor
+            row={row}
+            slugAnterior={slugAnterior}
+            onSaved={() => onChanged(`Artículo de ${row.slug} guardado.`)}
+          />
+        </div>
       )}
     </Card>
   );

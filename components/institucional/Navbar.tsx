@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Glass } from "@/components/institucional/LiquidGlass";
-import { Carpeta3D } from "@/components/institucional/Carpeta3D";
+import { Fachada } from "@/components/institucional/Fachada";
 
 type NavItem = { label: string; href: string; desc: string };
 type Featured = {
-  kind: "tile" | "doc" | "carpeta";
+  kind: "tile" | "doc" | "fachada" | "dossier";
   zoneLabel: string;   // eyebrow de la zona (Destacado / Archivo / En contexto)
   eyebrow: string;     // eyebrow interno del objeto (El fondo / Research / La casa)
   title: string;
@@ -66,7 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Ecosistema", href: "/servicios", desc: "Mercado local e internacional · instrumentos a medida" },
     ],
     featured: {
-      kind: "tile",
+      kind: "fachada",
       zoneLabel: "Destacado",
       eyebrow: "El fondo",
       title: "El mundo, en una sola posición.",
@@ -85,7 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Análisis", href: "/analisis", desc: "Herramienta de análisis de acciones" },
     ],
     featured: {
-      kind: "carpeta",
+      kind: "dossier",
       zoneLabel: "Archivo",
       eyebrow: "Research",
       title: "Lecturas de la mesa.",
@@ -128,7 +128,7 @@ export function Navbar() {
     // recién al pasarlo flipea a claro. Sin hero que participe (p.ej. /analyze,
     // o el fondo, que flipea apenas arranca el scroll) → claro casi de entrada.
     const heroBottom = () => {
-      const hero = document.querySelector(".hero-media, .hero-split, .dossier-hero, .informe-hero");
+      const hero = document.querySelector(".hero-media, .hero-split, .dossier-hero");
       if (!hero) return 8;
       const navH = 72;
       return Math.max(hero.getBoundingClientRect().height - navH, 8);
@@ -173,12 +173,13 @@ export function Navbar() {
   // abre. Se abre al clickear el trigger y se cierra al reclickearlo, al
   // clickear afuera, con Escape, o al navegar.
 
-  // /analyze y la LISTA de informes (/informes) → navbar claro/glass. El ARTÍCULO
-  // de un informe abre con hero navy → oscuro que flipea a claro (.informe-hero).
-  // Abrir un dropdown TAMBIÉN fuerza el modo claro (logo/triggers oscuros) y, vía
-  // data-panel-open, le da fondo BLANCO sólido a la barra, para que barra + panel
-  // lean como una sola superficie blanca — incl. al tope de la home.
-  const light = scrolled || menuOpen || openGroup !== null || pathname.startsWith("/analyze") || pathname === "/informes";
+  // /analyze y TODO /informes (la lista y cada artículo) → navbar claro/glass:
+  // el artículo ahora abre con un masthead editorial BLANCO, no un hero navy, así
+  // que la barra arranca clara desde arriba. Abrir un dropdown TAMBIÉN fuerza el
+  // modo claro (logo/triggers oscuros) y, vía data-panel-open, le da fondo BLANCO
+  // sólido a la barra, para que barra + panel lean como una sola superficie
+  // blanca — incl. al tope de la home.
+  const light = scrolled || menuOpen || openGroup !== null || pathname.startsWith("/analyze") || pathname.startsWith("/informes");
   const mode = light ? "light" : "dark";
   // El fondo del dropdown es SIEMPRE claro (pedido del usuario), aunque la barra
   // esté en modo oscuro sobre el hero. Los estilos .nav-mega.is-dark quedan
@@ -427,19 +428,33 @@ export function Navbar() {
                   <div className="nav-zone nav-zone-feat">
                     <div className="nav-eb">{f.zoneLabel}</div>
                     <Link href={f.href} className="nav-feat-link" tabIndex={isOpen ? 0 : -1} onKeyDown={escClose}>
-                      {f.kind === "tile" ? (
+                      {f.kind === "fachada" ? (
+                        <div className="nav-feat-tile nav-feat-fachada">
+                          <div className="nav-feat-fachada-bg" aria-hidden>
+                            <Fachada crisp />
+                          </div>
+                          <div className="nav-feat-fachada-scrim" aria-hidden />
+                          <div className="nav-feat-fachada-body">
+                            <div className="nav-feat-eb">{f.eyebrow}</div>
+                            <div className="nav-feat-title">{f.title}</div>
+                            <div className="nav-feat-note">{f.note}</div>
+                            <div className="nav-feat-cta">{f.cta} <Arrow /></div>
+                          </div>
+                        </div>
+                      ) : f.kind === "tile" ? (
                         <div className="nav-feat-tile">
                           <div className="nav-feat-eb">{f.eyebrow}</div>
                           <div className="nav-feat-title">{f.title}</div>
                           <div className="nav-feat-note">{f.note}</div>
                           <div className="nav-feat-cta">{f.cta} <Arrow /></div>
                         </div>
-                      ) : f.kind === "carpeta" ? (
-                        <div className="nav-feat-doc nav-feat-doc--carpeta">
-                          <div className="nav-feat-carpeta">
-                            <Carpeta3D scale={0.34} interactive={false} animate={false} />
+                      ) : f.kind === "dossier" ? (
+                        <div className="nav-feat-tile nav-feat-dossier">
+                          <div className="nav-feat-dossier-media" aria-hidden>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/informes-carpeta.png" alt="" />
                           </div>
-                          <div>
+                          <div className="nav-feat-dossier-body">
                             <div className="nav-feat-doc-eb">{f.eyebrow}</div>
                             <div className="nav-feat-doc-title">{f.title}</div>
                             <div className="nav-feat-doc-note">{f.note}</div>
@@ -723,6 +738,35 @@ export function Navbar() {
           box-shadow: none;
         }
         .nav-feat-link:hover .nav-feat-tile { transform: translateY(-2px); }
+
+        /* Variante FACHADA — el destacado de "Invertir" es una miniatura viva del
+           hero del fondo: el MISMO mosaico de paneles (misma semilla) detrás del
+           texto, con su horizonte dorado. Un preview espacial del destino. El
+           tile hereda marco/sombra/hover de .nav-feat-tile; acá sólo cambiamos el
+           fondo plano por el mosaico + scrim, y el padding pasa al body. */
+        .nav-feat-fachada {
+          padding: 0;
+          display: block;
+          background: #0c1c3e;
+          box-shadow:
+            0 16px 30px -14px rgba(2, 8, 32, 0.5),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+        }
+        .nav-feat-fachada-bg { position: absolute; inset: 0; z-index: 0; }
+        /* Scrim gemelo del hero: oscurece la izquierda (título/eyebrow) y el pie
+           (nota/CTA), dejando respirar el mosaico y el horizonte a la derecha. */
+        .nav-feat-fachada-scrim {
+          position: absolute; inset: 0; z-index: 1; pointer-events: none;
+          background:
+            linear-gradient(100deg, rgba(7,14,34,0.94) 0%, rgba(7,14,34,0.72) 32%, rgba(7,14,34,0.30) 60%, rgba(7,14,34,0.04) 100%),
+            linear-gradient(180deg, transparent 50%, rgba(7,14,34,0.58) 100%);
+        }
+        .nav-feat-fachada-body {
+          position: relative; z-index: 2;
+          min-height: 188px; padding: 22px 22px 20px;
+          display: flex; flex-direction: column;
+        }
+
         .nav-feat-eb { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold-soft); }
         .nav-feat-title {
           font-family: var(--font-serif), "Newsreader", Georgia, serif;
@@ -743,12 +787,44 @@ export function Navbar() {
         }
         .nav-mega.is-dark .nav-feat-cover { border-color: rgba(255, 255, 255, 0.14); }
         .nav-feat-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        /* Variante con la carpeta 3D en lugar de la tapa-foto: el objeto trae su
-           propia sombra/volumen, así que va SIN el marco de .nav-feat-cover.
-           Centrado vertical contra el bloque de texto y con un respiro a los
-           lados para que la flotación no toque el borde de la zona. */
-        .nav-feat-doc--carpeta { align-items: center; gap: 10px; }
-        .nav-feat-carpeta { flex: 0 0 auto; margin: -8px 2px -8px -6px; }
+        /* Variante DOSSIER — el destacado de Research es la miniatura del hero de
+           /informes (TODO BLANCO): tile-papel con la foto real del dossier navy
+           sangrando desde la derecha (rotada 10°, como en el hero) y el texto
+           editorial a la izquierda. Hereda de .nav-feat-tile el marco/hover; acá el
+           fondo navy pasa a blanco-papel + hairline, y el padding va al body. */
+        .nav-feat-dossier {
+          padding: 0;
+          display: block;
+          background: #fff;
+          box-shadow:
+            0 16px 30px -14px rgba(15, 34, 73, 0.26),
+            inset 0 0 0 1px rgba(15, 34, 73, 0.12);
+        }
+        /* Foto cutout, rotada y sangrando fuera del borde derecho/inferior (la
+           recorta el overflow del tile) — el mismo gesto del hero. La sombra va en
+           el contenedor SIN rotar → dirección de luz fija, sigue la silueta. */
+        .nav-feat-dossier-media {
+          position: absolute; z-index: 0;
+          top: 16px; right: -22px; bottom: -22px; width: 48%;
+          display: flex; align-items: flex-start; justify-content: flex-end;
+          pointer-events: none;
+          filter:
+            drop-shadow(1px 2px 3px rgba(15, 34, 73, 0.34))
+            drop-shadow(5px 9px 13px rgba(15, 34, 73, 0.20));
+        }
+        .nav-feat-dossier-media img {
+          width: auto; height: 100%; display: block;
+          transform: rotate(10deg); transform-origin: center;
+          -webkit-user-drag: none; user-select: none;
+        }
+        /* Body: reserva a la derecha (padding-right) el ancho visible del dossier,
+           así el texto nunca se le encima; CTA anclado abajo como los otros tiles. */
+        .nav-feat-dossier-body {
+          position: relative; z-index: 2;
+          min-height: 188px; padding: 22px 116px 20px 22px;
+          display: flex; flex-direction: column;
+        }
+        .nav-feat-dossier-body .nav-feat-doc-cta { margin-top: auto; padding-top: 16px; }
         .nav-feat-doc-eb { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
         .nav-mega.is-light .nav-feat-doc-eb { color: var(--gold-deep); }
         .nav-mega.is-dark .nav-feat-doc-eb { color: var(--gold-soft); }

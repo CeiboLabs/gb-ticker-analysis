@@ -2,18 +2,20 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import type { Informe } from "@/lib/informes";
 import type { Bloque, ContenidoInforme } from "@/lib/informeContenido/tipos";
-import { FileDown } from "@/components/institucional/icons";
 import { BarrasRetorno } from "./BarrasRetorno";
 import { TablaDatos } from "./TablaDatos";
+import { LineaTiempo } from "./LineaTiempo";
+import { RetornosGrid } from "./RetornosGrid";
+import { ImagenBloque } from "./ImagenBloque";
 
-// Artículo de un informe, en el sistema `.site` (Arial · navy + oro mínimo),
-// con la ESTRUCTURA de research que usan los referentes de la industria
-// (BlackRock, GS): hero navy con "at a glance" (la semana en tres líneas) y un
-// gráfico de la semana protagonista, y luego el cuerpo en una columna de
-// artículo con breakouts de datos — no el spine de landing del fondo. El serif
-// se raciona al titular del hero (.t-serif-display), como el hero del fondo.
-// Server component puro. El hero navy hace que el navbar abra en modo oscuro y
-// flipee al pasarlo (detecta `.informe-hero`).
+// Artículo de un informe, en el sistema `.site` (Arial · oro mínimo). Una sola
+// superficie editorial BLANCA, en familia con el hub /informes y con el cuerpo:
+// masthead tranquilo (kicker oro · titular serif · bajada · byline con hairline
+// · PDF como link discreto), seguido de una apertura liviana — "la semana en
+// tres líneas" + el gráfico de la semana sobre hairlines de dos pesos — y luego
+// el cuerpo en columna de artículo con breakouts de datos. El serif se raciona
+// al titular (.t-serif-display). Server component puro. Sin hero navy: el navbar
+// arranca claro en todo /informes (ver Navbar.tsx, `pathname.startsWith`).
 
 export type Vecino = { titulo: string; categoria: Informe["categoria"]; href: string };
 
@@ -47,7 +49,7 @@ function tiempoLectura(c: ContenidoInforme): number {
   return Math.max(1, Math.round(n / 180));
 }
 
-function BloquesSeccion({ bloques, esPrimeraSeccion }: { bloques: Bloque[]; esPrimeraSeccion?: boolean }) {
+function BloquesSeccion({ bloques }: { bloques: Bloque[] }) {
   const primerParrafo = bloques.findIndex((b) => b.tipo === "parrafo");
   return (
     <>
@@ -55,11 +57,9 @@ function BloquesSeccion({ bloques, esPrimeraSeccion }: { bloques: Bloque[]; esPr
         switch (b.tipo) {
           case "parrafo": {
             const esLead = i === primerParrafo;
-            // Capitular dorada solo en el primer párrafo del artículo (toque editorial).
-            const clase =
-              "inf-prosa" +
-              (esLead ? " inf-prosa-lead" : "") +
-              (esLead && esPrimeraSeccion ? " inf-dropcap" : "");
+            // El primer párrafo entra un punto más grande; sin capitular (registro
+            // institucional calmo, no revista).
+            const clase = "inf-prosa" + (esLead ? " inf-prosa-lead" : "");
             return (
               <div className={clase} key={i}>
                 <ReactMarkdown>{b.md}</ReactMarkdown>
@@ -94,6 +94,14 @@ function BloquesSeccion({ bloques, esPrimeraSeccion }: { bloques: Bloque[]; esPr
             );
           case "barras":
             return <BarrasRetorno key={i} titulo={b.titulo} grupos={b.grupos} nota={b.nota} />;
+          case "serie":
+            return (
+              <LineaTiempo key={i} titulo={b.titulo} subtitulo={b.subtitulo} lineas={b.lineas} nota={b.nota} />
+            );
+          case "retornos":
+            return <RetornosGrid key={i} titulo={b.titulo} grupos={b.grupos} nota={b.nota} />;
+          case "imagen":
+            return <ImagenBloque key={i} src={b.src} alt={b.alt} titulo={b.titulo} fuente={b.fuente} />;
           default:
             return null;
         }
@@ -118,66 +126,65 @@ export function ArticuloInforme({
   const minutos = tiempoLectura(contenido);
 
   return (
-    <main className="site">
-      {/* ── Hero navy — meta, titular, at-a-glance y gráfico de la semana ── */}
-      <header className="informe-hero band-navy">
-        <div className="site-wrap inf-hero-wrap">
-          <div className="inf-hero-kicker">
-            {volanta} · {informe.fechaTexto} · {minutos} min de lectura
-          </div>
-          <h1 className="t-serif-display inf-hero-title">{titular}</h1>
-          <p className="t-lead inf-hero-dek">{bajada}</p>
+    <main className="site inf-article">
+      {/* ── Masthead editorial (blanco) — reemplaza el hero navy: una sola
+          superficie de artículo, en familia con el hub /informes ── */}
+      <header className="inf-mast">
+        <div className="site-wrap-narrow">
+          <div className="kicker inf-mast-kicker">{volanta}</div>
+          <h1 className="t-serif-display inf-mast-title">{titular}</h1>
+          <p className="inf-mast-dek">{bajada}</p>
 
-          <div className="inf-hero-grid">
-            <div className="inf-glance">
-              <div className="inf-glance-cap">La semana en tres líneas</div>
-              {resumen.map((r) => (
-                <div className="inf-glance-item" key={r.etiqueta}>
-                  <span className="inf-glance-tag">{r.etiqueta}</span>
-                  <span className="inf-glance-txt">{r.texto}</span>
-                </div>
-              ))}
-            </div>
-
-            {graficoSemana && (
-              <div className="inf-herochart">
-                <div className="inf-glance-cap">Gráfico de la semana</div>
-                <div className="inf-herochart-title">{graficoSemana.titulo}</div>
-                {graficoSemana.subtitulo && (
-                  <div className="inf-herochart-sub">{graficoSemana.subtitulo}</div>
-                )}
-                <BarrasRetorno grupos={[{ nombre: "", datos: graficoSemana.datos }]} nota={graficoSemana.nota} enNavy />
-              </div>
-            )}
-          </div>
-
-          <div className="inf-hero-byline">
-            <span className="inf-hero-autor">Por {autor}</span>
-            <a
-              className="ui-btn ui-btn-on-navy inf-hero-pdf"
-              href={`/informes/${informe.slug}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <FileDown /> Descargar PDF
-            </a>
+          <div className="inf-mast-byline">
+            <span className="inf-mast-by">
+              <span className="inf-mast-autor">Por {autor}</span>
+              <span className="inf-mast-meta">
+                {informe.fechaTexto} · {minutos} min de lectura
+              </span>
+            </span>
           </div>
         </div>
       </header>
 
+      {/* ── Apertura — la semana en tres líneas + gráfico, sobre blanco ── */}
+      <div className="site-wrap-narrow inf-opener">
+        <section className="inf-glance-block" aria-label="La semana en tres líneas">
+          <div className="inf-glance-cap">La semana en tres líneas</div>
+          <div className="inf-glance">
+            {resumen.map((r) => (
+              <div className="inf-glance-item" key={r.etiqueta}>
+                <span className="inf-glance-tag">{r.etiqueta}</span>
+                <span className="inf-glance-txt">{r.texto}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {graficoSemana && (
+          <section className="inf-weekchart" aria-label="Gráfico de la semana">
+            <div className="inf-glance-cap">Gráfico de la semana</div>
+            <div className="inf-weekchart-title">{graficoSemana.titulo}</div>
+            {graficoSemana.subtitulo && (
+              <div className="inf-weekchart-sub">{graficoSemana.subtitulo}</div>
+            )}
+            <BarrasRetorno grupos={[{ nombre: "", datos: graficoSemana.datos }]} nota={graficoSemana.nota} />
+          </section>
+        )}
+      </div>
+
       {/* ── Cuerpo — columna de artículo ─────────────────────────── */}
-      <div className="band site-section">
+      <div className="inf-body">
         <div className="site-wrap-narrow">
-          {grupos.map((g, gi) => (
+          {grupos.map((g) => (
             <section className="inf-sec" key={g.seccion.numero}>
               <div className="inf-sec-head">
                 <div className="inf-sec-kicker">
                   <span className="inf-sec-num">{g.seccion.numero}</span>
                   {g.seccion.eyebrow && <span> · {g.seccion.eyebrow}</span>}
                 </div>
-                <h2 className="t-h2 inf-sec-title">{g.seccion.titulo}</h2>
+                <h2 className="inf-sec-title">{g.seccion.titulo}</h2>
               </div>
-              <BloquesSeccion bloques={g.bloques} esPrimeraSeccion={gi === 0} />
+              <BloquesSeccion bloques={g.bloques} />
             </section>
           ))}
 
@@ -204,18 +211,30 @@ export function ArticuloInforme({
               </nav>
             )}
 
+            {/* Salidas — el lector que llegó por un link compartido no cae en un
+                callejón: research, el fondo, o hablar con la casa. */}
+            <section className="inf-mas" aria-label="Seguí en Bengochea">
+              <div className="inf-mas-cap">Seguí en Bengochea</div>
+              <div className="inf-mas-grid">
+                <Link href="/informes" className="inf-mas-item">
+                  <span className="inf-mas-k">Más research</span>
+                  <span className="inf-mas-d">Todos los informes de la mesa, semana a semana.</span>
+                </Link>
+                <Link href="/bng-seleccion-global" className="inf-mas-item">
+                  <span className="inf-mas-k">El fondo</span>
+                  <span className="inf-mas-d">BNG Selección Global — la casa, en un solo vehículo.</span>
+                </Link>
+                <Link href="/contacto" className="inf-mas-item">
+                  <span className="inf-mas-k">Hablar con un asesor</span>
+                  <span className="inf-mas-d">Tu cartera no cabe en un informe general.</span>
+                </Link>
+              </div>
+            </section>
+
             <div className="inf-volver">
               <Link href="/informes" className="link-arrow inf-volver-link">
                 ← Todos los informes
               </Link>
-              <a
-                href={`/informes/${informe.slug}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="link-arrow inf-volver-link"
-              >
-                Descargar PDF ↓
-              </a>
             </div>
 
             <div className="inf-disclosure">
@@ -236,112 +255,104 @@ export function ArticuloInforme({
       </div>
 
       <style>{`
-        /* ── Hero navy ── */
-        .informe-hero {
-          padding-top: calc(var(--nav-h) + clamp(40px, 6vw, 72px));
-          padding-bottom: clamp(44px, 6vw, 72px);
-          position: relative;
-          isolation: isolate;
+        /* ── Masthead editorial (blanco) ── */
+        .inf-mast {
+          padding-top: calc(var(--nav-h) + clamp(44px, 6vw, 84px));
+          padding-bottom: clamp(30px, 3.6vw, 46px);
         }
-        /* Foco cálido superior-derecho (motivo de iluminación de la casa) */
-        .informe-hero::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(60% 50% at 82% 8%, rgba(201,168,76,0.12), transparent 60%);
-          pointer-events: none;
-          z-index: 0;
+        .inf-mast-kicker { color: var(--gold-deep); }
+        .inf-mast-title {
+          font-size: clamp(33px, 5.1vw, 60px);
+          line-height: 1.05;
+          letter-spacing: -0.02em;
+          color: var(--site-ink);
+          margin: clamp(18px, 2.2vw, 26px) 0 0;
+          max-width: 15em;
         }
-        .inf-hero-wrap { position: relative; z-index: 1; }
-        .inf-hero-kicker {
+        .inf-mast-dek {
+          font-size: clamp(18.5px, 1.7vw, 23px);
+          line-height: 1.5;
+          color: var(--site-ink-2);
+          max-width: 34em;
+          margin: clamp(20px, 2.3vw, 27px) 0 0;
+        }
+        .inf-mast-byline {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px 24px;
+          margin-top: clamp(26px, 3.2vw, 38px);
+          padding-top: 16px;
+          border-top: 1px solid var(--site-border);
+        }
+        .inf-mast-by { display: flex; flex-direction: column; gap: 3px; }
+        .inf-mast-autor { font-size: 14.5px; font-weight: 700; color: var(--site-ink); }
+        .inf-mast-meta {
           font-family: var(--font-mono), monospace;
           font-size: 11.5px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--gold-soft);
+          letter-spacing: 0.04em;
+          color: var(--site-ink-3);
           font-variant-numeric: tabular-nums;
         }
-        .inf-hero-title {
-          font-size: clamp(34px, 5.2vw, 60px);
-          line-height: 1.05;
-          color: #fff;
-          margin: clamp(16px, 2vw, 22px) 0 0;
-          max-width: 17em;
-        }
-        .inf-hero-dek {
-          margin: clamp(18px, 2.2vw, 24px) 0 0;
-          max-width: 40em;
-          color: rgba(255,255,255,0.82) !important;
-        }
-        .inf-hero-grid {
+        /* ── Apertura — resumen + gráfico de la semana, sobre blanco ── */
+        .inf-opener {
           display: grid;
-          grid-template-columns: 0.92fr 1.08fr;
-          gap: clamp(32px, 5vw, 68px);
-          margin-top: clamp(34px, 4.5vw, 52px);
-          padding-top: clamp(30px, 4vw, 42px);
-          border-top: 1px solid rgba(255,255,255,0.18);
+          gap: clamp(34px, 4.5vw, 58px);
+          padding-bottom: clamp(16px, 2.4vw, 30px);
         }
-        @media (max-width: 860px) {
-          .inf-hero-grid { grid-template-columns: 1fr; gap: clamp(32px, 8vw, 48px); }
-        }
-
-        /* At a glance — la semana en tres líneas */
         .inf-glance-cap {
           font-family: var(--font-sans), sans-serif;
           text-transform: uppercase;
-          letter-spacing: 0.16em;
+          letter-spacing: 0.14em;
           font-size: 11px;
           font-weight: 600;
-          color: var(--gold-soft);
-          margin-bottom: 18px;
+          color: var(--gold-deep);
+          margin-bottom: 16px;
         }
+        /* Regla de dos pesos: apertura fuerte (ink) sobre divisores suaves. */
+        .inf-glance { border-top: 1px solid var(--site-ink); }
         .inf-glance-item {
           display: grid;
-          grid-template-columns: minmax(84px, auto) 1fr;
-          gap: 16px;
-          padding: 15px 0;
-          border-top: 1px solid rgba(255,255,255,0.12);
+          grid-template-columns: minmax(88px, 128px) 1fr;
+          gap: clamp(16px, 3vw, 44px);
+          padding: 16px 0;
+          border-top: 1px solid var(--site-border);
           align-items: baseline;
         }
-        .inf-glance-item:first-of-type { border-top: 0; padding-top: 0; }
+        .inf-glance-item:first-of-type { border-top: 0; }
         .inf-glance-tag {
           font-family: var(--font-sans), sans-serif;
           font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.04em;
           text-transform: uppercase;
-          color: var(--gold-soft);
+          color: var(--site-ink);
         }
-        .inf-glance-txt { font-size: 15.5px; line-height: 1.5; color: rgba(255,255,255,0.9); }
+        .inf-glance-txt { font-size: 16px; line-height: 1.55; color: var(--site-ink-2); }
 
-        /* Gráfico de la semana */
-        .inf-herochart-title {
-          font-size: clamp(19px, 2vw, 23px);
+        /* Gráfico de la semana (un solo grupo → columna única a ancho completo) */
+        .inf-weekchart { max-width: 640px; }
+        .inf-weekchart .inf-barras-grid { grid-template-columns: 1fr; }
+        .inf-weekchart-title {
+          font-size: clamp(20px, 2vw, 24px);
           font-weight: 400;
           letter-spacing: -0.01em;
-          color: #fff;
-          margin-top: 2px;
+          color: var(--site-ink);
         }
-        .inf-herochart-sub {
+        .inf-weekchart-sub {
           font-family: var(--font-mono), monospace;
           font-size: 11px;
           letter-spacing: 0.02em;
-          color: rgba(255,255,255,0.6);
+          color: var(--site-ink-3);
           margin: 6px 0 18px;
         }
 
-        /* Byline del hero */
-        .inf-hero-byline {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 16px;
-          margin-top: clamp(32px, 4vw, 44px);
+        /* ── Cuerpo ── */
+        .inf-body {
+          padding-top: clamp(30px, 4vw, 54px);
+          padding-bottom: clamp(64px, 9vw, 120px);
         }
-        .inf-hero-autor { font-size: 15px; font-weight: 700; color: #fff; }
-        .inf-hero-pdf { margin-left: auto; padding: 11px 18px; font-size: 13px; }
-        .inf-hero-pdf svg { width: 15px; height: 15px; }
-        @media (max-width: 560px) { .inf-hero-pdf { margin-left: 0; } }
 
         /* ── Cuerpo · secciones de artículo ── */
         .inf-sec {
@@ -360,7 +371,15 @@ export function ArticuloInforme({
           color: var(--gold-deep);
         }
         .inf-sec-num { font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; }
-        .inf-sec-title { margin-top: 12px; max-width: 16em; }
+        .inf-sec-title {
+          font-size: clamp(23px, 2.5vw, 31px);
+          font-weight: 400;
+          line-height: 1.16;
+          letter-spacing: -0.018em;
+          color: var(--site-ink);
+          margin-top: 11px;
+          max-width: 16em;
+        }
 
         /* Prosa */
         .inf-prosa {
@@ -371,37 +390,23 @@ export function ArticuloInforme({
           margin: 0 0 clamp(20px, 2.3vw, 27px);
         }
         .inf-prosa p { margin: 0; }
-        .inf-prosa-lead { font-size: 20px; line-height: 1.62; color: var(--site-ink); }
+        .inf-prosa-lead { font-size: 19px; line-height: 1.68; color: var(--site-ink); }
         .inf-prosa strong { color: var(--site-ink); font-weight: 700; }
         .inf-prosa a { color: var(--navy-500); font-weight: 600; border-bottom: 1px solid var(--gold); }
-        /* Capitular dorada — apertura del artículo (toque editorial, único serif del cuerpo) */
-        .inf-dropcap > p:first-of-type::first-letter {
-          font-family: var(--font-serif), Georgia, serif;
-          font-weight: 500;
-          font-size: 3.3em;
-          float: left;
-          line-height: 0.8;
-          margin: 0.03em 0.11em 0 0;
-          color: var(--gold-deep);
-        }
 
-        /* Subtítulos */
+        /* Subtítulos — dos niveles quietos, sin barra de color (país › tema) */
         .inf-sub { max-width: 42em; }
+        .inf-sub--pais {
+          margin: clamp(34px, 4.6vw, 50px) 0 var(--space-3, 14px);
+          font-size: clamp(18px, 1.9vw, 22px); font-weight: 500; line-height: 1.25; letter-spacing: -0.012em;
+          color: var(--site-ink);
+        }
         .inf-sub--tema {
-          margin: clamp(26px, 3.4vw, 34px) 0 var(--space-3, 16px);
-          font-size: 18px; font-weight: 600; line-height: 1.35; letter-spacing: -0.01em;
+          margin: clamp(24px, 3.2vw, 32px) 0 var(--space-3, 14px);
+          font-size: 16.5px; font-weight: 600; line-height: 1.4; letter-spacing: 0;
           color: var(--site-ink);
         }
         .inf-sub--tema .inf-sub-vol { font-weight: 400; color: var(--site-ink-3); }
-        .inf-sub--pais {
-          margin: clamp(36px, 5vw, 52px) 0 var(--space-3, 16px);
-          padding-left: 16px; position: relative;
-          font-size: clamp(20px, 2.1vw, 26px); font-weight: 400; line-height: 1.2; letter-spacing: -0.015em;
-          color: var(--site-ink);
-        }
-        .inf-sub--pais::before {
-          content: ""; position: absolute; left: 0; top: 0.16em; bottom: 0.16em; width: 2px; background: var(--gold);
-        }
 
         /* Lista */
         .inf-lista { list-style: none; margin: 0 0 var(--space-4, 24px); padding: 0; max-width: 42em; }
@@ -410,40 +415,29 @@ export function ArticuloInforme({
           font-size: 17px; line-height: 1.6; color: var(--site-ink-2);
         }
         .inf-lista li::before {
-          content: ""; position: absolute; left: 0; top: 0.72em; width: 9px; height: 2px; background: var(--gold-deep);
+          content: ""; position: absolute; left: 0; top: 0.8em; width: 8px; height: 1.5px; background: var(--site-ink-4);
         }
 
-        /* Cita */
-        /* Pull-quote editorial — serif itálica con comilla de oro colgada */
+        /* Cita — pull-quote quieto: hairline a la izquierda, serif contenido, sin comilla gigante */
         .inf-cita {
-          position: relative;
-          margin: clamp(38px, 5vw, 58px) 0;
-          padding-left: clamp(32px, 4.5vw, 50px);
-          max-width: 33em;
-        }
-        .inf-cita::before {
-          content: '“';
-          position: absolute;
-          left: -4px;
-          top: -0.04em;
-          font-family: var(--font-serif), Georgia, serif;
-          font-size: clamp(54px, 6.5vw, 82px);
-          line-height: 1;
-          color: var(--gold);
+          margin: clamp(30px, 4.2vw, 46px) 0;
+          padding-left: clamp(20px, 3vw, 30px);
+          border-left: 2px solid var(--site-ink-4);
+          max-width: 36em;
         }
         .inf-cita p {
           font-family: var(--font-serif), Georgia, serif;
           font-style: italic;
           font-weight: 300;
-          font-size: clamp(21px, 2.5vw, 30px);
-          line-height: 1.36;
-          letter-spacing: -0.01em;
+          font-size: clamp(18.5px, 1.9vw, 23px);
+          line-height: 1.45;
+          letter-spacing: -0.005em;
           color: var(--site-ink);
           margin: 0;
         }
         .inf-cita cite {
-          display: block; margin-top: 16px; font-family: var(--font-mono), monospace; font-style: normal;
-          font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--site-ink-3);
+          display: block; margin-top: 14px; font-family: var(--font-mono), monospace; font-style: normal;
+          font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--site-ink-3);
         }
 
         /* ── Bloques de datos (tabla + barras) ── */
@@ -498,18 +492,119 @@ export function ArticuloInforme({
         .inf-barras--navy .inf-zero { background: rgba(255,255,255,0.28); }
         .inf-barras--navy .inf-datanota { color: rgba(255,255,255,0.55); }
 
+        /* ── Serie temporal (gráfico de línea, SVG server-side) ── */
+        .inf-serie { margin: clamp(34px, 5vw, 52px) 0; }
+        .inf-serie-sub {
+          font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.02em;
+          color: var(--site-ink-3); margin: 2px 0 14px;
+        }
+        .inf-serie-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+        .inf-serie-leg {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-family: var(--font-mono), monospace; font-size: 11px; color: var(--site-ink-2);
+        }
+        .inf-serie-leg-line { width: 16px; border-top: 2px solid var(--navy); }
+        .inf-serie-leg-line[data-kind="sec"] { border-top-color: var(--navy-300); }
+        .inf-serie-plot {
+          position: relative;
+          height: clamp(200px, 34vw, 300px);
+          border-top: 1.5px solid var(--navy);
+        }
+        .inf-serie-svg { display: block; width: 100%; height: 100%; }
+        .inf-serie-grid { stroke: var(--site-border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+        .inf-serie-line {
+          fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round;
+          vector-effect: non-scaling-stroke;
+        }
+        .inf-serie-line[data-kind="prim"] { stroke: var(--navy); }
+        .inf-serie-line[data-kind="sec"] { stroke: var(--navy-300); }
+        .inf-serie-ylab {
+          position: absolute; left: 0; width: 38px; text-align: right; padding-right: 7px;
+          transform: translateY(-50%);
+          font-family: var(--font-mono), monospace; font-size: 10.5px; line-height: 1;
+          color: var(--site-ink-3); font-variant-numeric: tabular-nums;
+        }
+        .inf-serie-xlab {
+          position: absolute; bottom: 0; transform: translateX(-50%);
+          font-family: var(--font-mono), monospace; font-size: 10.5px; line-height: 1;
+          color: var(--site-ink-3); font-variant-numeric: tabular-nums; white-space: nowrap;
+        }
+
+        /* ── Retornos (heatmap verde/oxblood, fiel al PDF) ── */
+        .inf-retornos { margin: clamp(34px, 5vw, 52px) 0; }
+        .inf-ret-grid {
+          display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: clamp(20px, 3vw, 34px) clamp(28px, 4.5vw, 56px);
+          border-top: 1.5px solid var(--navy); padding-top: var(--space-4, 24px);
+        }
+        .inf-ret-grupo { min-width: 0; }
+        .inf-ret-nombre {
+          font-family: var(--font-sans), sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em;
+          text-transform: uppercase; color: var(--site-ink-3); padding-bottom: 10px; margin-bottom: 8px;
+          border-bottom: 1px solid var(--site-border);
+        }
+        .inf-ret-rows { display: flex; flex-direction: column; gap: 3px; }
+        .inf-ret-row {
+          display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; height: 26px;
+        }
+        .inf-ret-tk {
+          font-family: var(--font-mono), monospace; font-size: 11px; color: var(--site-ink-2);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .inf-ret-val {
+          font-family: var(--font-mono), monospace; font-size: 11px; font-variant-numeric: tabular-nums;
+          text-align: right; padding: 3px 8px; border-radius: 2px; min-width: 84px;
+        }
+        .inf-ret-val[data-dir="pos"] { background: var(--pos-soft); color: var(--pos); }
+        .inf-ret-val[data-dir="neg"] { background: var(--neg-soft); color: var(--neg); }
+        .inf-ret-val[data-dir="neu"] { background: var(--neu-soft); color: var(--neu); }
+        @media (max-width: 560px) { .inf-ret-grid { grid-template-columns: 1fr; } }
+
+        /* ── Imagen embebida (gráficos de terceros del mensual) ── */
+        .inf-imagen { margin: clamp(34px, 5vw, 52px) 0; }
+        .inf-imagen-img {
+          display: block; width: 100%; height: auto;
+          border: 1px solid var(--site-border); border-radius: 2px;
+        }
+
         /* ── Pie ── */
         .inf-footer { margin-top: clamp(48px, 7vw, 84px); }
+
+        /* Salidas al pie — onward discovery (research · fondo · asesor) */
+        .inf-mas {
+          border-top: 1px solid var(--site-ink);
+          padding-top: clamp(24px, 3vw, 32px);
+          margin-bottom: clamp(30px, 4vw, 44px);
+        }
+        .inf-mas-cap {
+          font-family: var(--font-sans), sans-serif; text-transform: uppercase; letter-spacing: 0.14em;
+          font-size: 11px; font-weight: 600; color: var(--gold-deep); margin-bottom: 20px;
+        }
+        .inf-mas-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 3vw, 40px); }
+        .inf-mas-item {
+          display: flex; flex-direction: column; gap: 8px;
+          padding-top: 16px; border-top: 1px solid var(--site-border);
+          transition: opacity 160ms ease;
+        }
+        .inf-mas-item:hover { opacity: 0.6; }
+        .inf-mas-k {
+          font-size: clamp(17px, 1.7vw, 20px); font-weight: 400; letter-spacing: -0.01em; line-height: 1.2;
+          color: var(--site-ink);
+        }
+        .inf-mas-k::after { content: " →"; color: var(--gold-deep); }
+        .inf-mas-d { font-size: 14px; line-height: 1.5; color: var(--site-ink-3); }
+        @media (max-width: 640px) { .inf-mas-grid { grid-template-columns: 1fr; } }
         .inf-vecinos {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-          background: var(--site-border); border: 1px solid var(--site-border);
-          border-radius: var(--r-card); overflow: hidden; margin-bottom: clamp(32px, 4vw, 44px);
+          display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 48px);
+          border-top: 1px solid var(--site-ink);
+          margin-bottom: clamp(32px, 4vw, 44px);
         }
         .inf-vecino {
-          display: flex; flex-direction: column; gap: 8px; padding: clamp(20px, 2.6vw, 26px);
-          background: var(--surface); transition: background-color 180ms ease;
+          display: flex; flex-direction: column; gap: 8px;
+          padding: clamp(18px, 2.4vw, 24px) 0 0;
+          transition: opacity 160ms ease;
         }
-        .inf-vecino:hover { background: var(--surface-muted); }
+        .inf-vecino:hover { opacity: 0.6; }
         .inf-vecino--next { text-align: right; }
         .inf-vecino-dir {
           font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.05em;
