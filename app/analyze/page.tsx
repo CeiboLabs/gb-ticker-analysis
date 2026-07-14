@@ -11,6 +11,10 @@ import type { StockData } from "@/types/StockData";
 interface AnalysisResult {
   report: StructuredReport;
   stockData: StockData;
+  /** Epoch ms the analysis was actually generated (from cache createdAt on a
+   *  cache hit, or now for a fresh run). Drives the "Análisis realizado el …"
+   *  timestamp so a cached report doesn't claim to be from this instant. */
+  analyzedAt?: number;
 }
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -94,7 +98,11 @@ export default function AnalyzePage() {
           if (typeof data.code === "string") e.code = data.code;
           throw e;
         }
-        setResult({ report: data.report, stockData: data.stockData });
+        setResult({
+          report: data.report,
+          stockData: data.stockData,
+          analyzedAt: typeof data.analyzedAt === "number" ? data.analyzedAt : undefined,
+        });
         setStatus("done");
         return;
       }
@@ -133,7 +141,11 @@ export default function AnalyzePage() {
           }
           if (msg.done && msg.report && msg.stockData) {
             receivedDone = true;
-            setResult({ report: msg.report as StructuredReport, stockData: msg.stockData as StockData });
+            setResult({
+              report: msg.report as StructuredReport,
+              stockData: msg.stockData as StockData,
+              analyzedAt: typeof msg.analyzedAt === "number" ? msg.analyzedAt : Date.now(),
+            });
             setStatus("done");
           } else if (msg.stockData) {
             // Early stockData event — show header & metrics while report is generating
@@ -250,6 +262,7 @@ export default function AnalyzePage() {
           <ReportView
             report={result.report}
             stockData={result.stockData}
+            analyzedAt={result.analyzedAt}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
           />

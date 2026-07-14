@@ -153,6 +153,24 @@ export interface BullBearCase {
   priceTarget: string;
 }
 
+// Server-injected freshness signal (NOT produced by the model). Set by the
+// analyze route when the report's financials/valuation predate a market event
+// the pipeline couldn't fold in yet. Currently one kind: an earnings release
+// (8-K Item 2.02) was filed for a quarter newer than the one the Sankey/metrics
+// reflect, but that release carried no parseable income statement — i.e. a
+// preliminary "selected results" letter (IBM's 2026-07-14 pre-announcement is
+// the canonical case). Drives the reader-facing "resultados preliminares
+// reportados; desglose completo pendiente" banner.
+export type ReportFreshness = {
+  kind: "preliminary_earnings";
+  /** Filing date (YYYY-MM-DD) of the earnings 8-K that postdates the shown period. */
+  reportedOn: string;
+  /** Period label the report's financials actually reflect, e.g. "Q1 FY2026". */
+  shownPeriod: string;
+  /** endDate (YYYY-MM-DD) of that shown period. */
+  shownEndDate?: string;
+};
+
 export interface StructuredReport {
   businessModel: string;
   revenueStreams: string;
@@ -171,4 +189,5 @@ export interface StructuredReport {
   bearCase: BullBearCase;
   verdict: Verdict;
   segmentData?: SegmentSankeyData | null;
+  freshness?: ReportFreshness | null;
 }

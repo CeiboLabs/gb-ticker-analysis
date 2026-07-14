@@ -2849,6 +2849,100 @@ async function resolveCandidateUrls(cik: string, filing: FilingMatch): Promise<s
   return urls;
 }
 
+// Lightweight probe: the FILING DATE of the issuer's most recent earnings
+// release (8-K Item 2.02), without parsing the income statement. The full
+// parser above returns null when a release carries no machine-readable IS
+// table — the canonical case is IBM's 2026-07-14 "selected preliminary second-
+// quarter results" letter, which ships prose revenue ("$17.2 billion") plus a
+// GAAP↔non-GAAP margin reconciliation (gross profit / pre-tax income / EPS) and
+// NO consolidated income statement with a Revenue or Net Income row. When that
+// happens the analyze route silently falls back to the last 10-Q's quarter with
+// no signal that a newer earnings event occurred, so the whole report (Sankey,
+// valuation, verdict) reflects a pre-release period while the market has already
+// repriced. This probe recovers the one fact we still need — "an earnings
+// release for a later period exists" — so the route can flag the report as
+// preliminary/pending. Reuses the submissions JSON (secFetch-cached, 30 min),
+// so when it races the full parser for the same ticker the second read is a
+// cache hit. Best-effort: returns null on any failure. US 8-K Item 2.02 only —
+// FPI 6-K semiannual cadence is noisier and handled separately (deferred).
+export async function fetchLatestEarningsFilingDate(
+  ticker: string,
+): Promise<{ form: "8-K"; filingDate: string; reportDate?: string } | null> {
+  const suffix = ticker.split(".").pop() ?? "";
+  if (ticker.includes(".") && suffix.length >= 2) return null;
+  try {
+    const cik = await resolveCIK(ticker);
+    if (!cik) return null;
+    const r = await secFetch(`${DATA_SEC}/submissions/CIK${cik.padStart(10, "0")}.json`, 1800);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const recent = d.filings?.recent;
+    if (!recent) return null;
+    const forms       = (recent.form ?? []) as string[];
+    const items       = (recent.items ?? []) as string[];
+    const filingDates = (recent.filingDate ?? []) as string[];
+    const reportDates = (recent.reportDate ?? []) as string[];
+    // `recent` is newest-first, so the first Item-2.02 8-K is the latest.
+    for (let i = 0; i < forms.length; i++) {
+      if (forms[i] === "8-K" && items[i] && /\b2\.02\b/.test(items[i]) && filingDates[i]) {
+        return { form: "8-K", filingDate: filingDates[i], reportDate: reportDates[i] || undefined };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Strip an EDGAR HTML exhibit down to clean, readable plain text for the model.
+function cleanReleaseText(html: string): string {
+  const stripped = html
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  return decodeEntities(stripped).replace(/\s+/g, " ").trim();
+}
+
+// Cleaned, bounded plain-text excerpt of the issuer's most recent earnings
+// release (8-K/6-K Exhibit 99.1) — the text the MODEL reads to explain a move
+// when the release can't be parsed into a Sankey-grade income statement.
+// fetchEdgar8KIncomeStatement discards this on parse failure, which left the
+// analysis blind to WHY a stock just moved: IBM's 2026-07-14 preliminary letter
+// literally explains a "Software and Infrastructure performance shortfall" tied
+// to the z17 cycle — the exact answer the report needs but never saw. Resolves
+// the same Ex-99.1 the parser targets (findExhibit991Url), so the index/exhibit
+// fetches are secFetch cache hits when this runs after the parser for the same
+// ticker. Best-effort: returns null on any failure.
+export async function fetchEarningsReleaseExcerpt(
+  ticker: string,
+  maxChars = 8000,
+): Promise<{ text: string; filingDate?: string; form: "8-K" | "6-K"; sourceUrl: string } | null> {
+  const suffix = ticker.split(".").pop() ?? "";
+  if (ticker.includes(".") && suffix.length >= 2) return null;
+  try {
+    const cik = await resolveCIK(ticker);
+    if (!cik) return null;
+    const { candidates } = await findEarnings8KCandidates(cik);
+    for (const filing of candidates) {
+      const exUrl = await findExhibit991Url(cik, filing.accession, filing.form === "6-K");
+      if (!exUrl) continue;
+      const r = await secFetch(exUrl, 7 * 86400);
+      if (!r.ok) continue;
+      const text = cleanReleaseText(await r.text());
+      // Require enough prose to be a real release, not a cover page / stub.
+      if (text.length < 400) continue;
+      return {
+        text: text.length > maxChars ? `${text.slice(0, maxChars)}…` : text,
+        filingDate: filing.filingDate,
+        form: filing.form === "6-K" ? "6-K" : "8-K",
+        sourceUrl: exUrl,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchEdgar8KIncomeStatement(
   ticker: string,
 ): Promise<Edgar8KIncomeStatement | null> {

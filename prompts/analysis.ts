@@ -62,7 +62,7 @@ Reglas:
 export const ANALYSIS_DATA_TEMPLATE = `Empresa a analizar: {{COMPANY_NAME}} ({{TICKER}})
 Fecha: {{TODAY_DATE}}
 Sector: {{SECTOR}} | Industria: {{INDUSTRY}}
-
+{{FRESHNESS_NOTICE}}
 ---
 DESCRIPCIÓN DE LA EMPRESA
 {{DESCRIPTION}}

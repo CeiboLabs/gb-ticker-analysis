@@ -4,7 +4,7 @@ import { z } from "zod";
 import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
-import { fetchEdgar8KIncomeStatement, type Edgar8KIncomeStatement } from "@/lib/fetchEdgar8K";
+import { fetchEdgar8KIncomeStatement, fetchLatestEarningsFilingDate, fetchEarningsReleaseExcerpt, type Edgar8KIncomeStatement } from "@/lib/fetchEdgar8K";
 import { fetchUsdRate } from "@/lib/fxRates";
 import { buildPrompt } from "@/lib/buildPrompt";
 import { getOpenAIClient } from "@/lib/openai";
@@ -73,7 +73,7 @@ function slimYahooQuarter(sd: StockData | undefined | null) {
     sellingGeneralAdministrative: q.sellingGeneralAdministrative,
   };
 }
-import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
+import type { StructuredReport, SegmentSankeyData, ReportFreshness } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
 // Map a SegmentSankeyData back to the source bucket we record in the monitor.
@@ -844,7 +844,7 @@ export async function POST(req: NextRequest) {
           bullTarget: cached.report.bullCase?.priceTarget ?? null,
           bearTarget: cached.report.bearCase?.priceTarget ?? null,
         });
-        return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true });
+        return NextResponse.json({ report: cached.report, stockData: cached.stockData, cached: true, analyzedAt: cached.createdAt });
       }
     }
   } else {
@@ -914,7 +914,7 @@ export async function POST(req: NextRequest) {
         sankeySource: classifySankeySource(recached.report.segmentData ?? null),
         errorMsg: "inflight dedup",
       });
-      return NextResponse.json({ report: recached.report, stockData: recached.stockData, cached: true });
+      return NextResponse.json({ report: recached.report, stockData: recached.stockData, cached: true, analyzedAt: recached.createdAt });
     }
   }
 
@@ -928,6 +928,10 @@ export async function POST(req: NextRequest) {
   let segmentsOk: boolean | null = null;
   let edgar8K: Edgar8KIncomeStatement | null = null;
   let xbrlSegmentsRaw: SegmentSankeyData | null = null;
+  // Filing date of the most recent earnings 8-K (Item 2.02), independent of
+  // whether its income statement parsed. Lets us detect a reported-but-
+  // unprocessed earnings event (preliminary "selected results" letters) below.
+  let earningsFilingMeta: Awaited<ReturnType<typeof fetchLatestEarningsFilingDate>> = null;
   let overridePath: "8k_override" | "yahoo_fallback" | "segments_kept" | "stub" | "cache" = "segments_kept";
   try {
     let peerComparison;
@@ -944,7 +948,7 @@ export async function POST(req: NextRequest) {
     // Sankey es infinitamente mejor que un 502 (o que el cuelgue eterno que
     // esto reemplaza). Los flags segmentsOk/edgar8kOk quedan en false para
     // que el monitor vea la degradación en el evento "ok".
-    [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
+    [stockData, segmentData, peerComparison, edgar8K, earningsFilingMeta] = await Promise.all([
       stockDataPromise,
       fetchSegmentData(ticker).then(
         (r) => { segmentsOk = r != null; return r; },
@@ -955,6 +959,8 @@ export async function POST(req: NextRequest) {
         (r) => { edgar8kOk = r != null; return r; },
         () => { edgar8kOk = false; return null; },
       ),
+      // Best-effort earnings-event probe; already swallows its own errors.
+      fetchLatestEarningsFilingDate(ticker),
     ]);
     stockData.peerComparison = peerComparison;
     xbrlSegmentsRaw = segmentData;
@@ -1169,6 +1175,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 3b. Freshness — did the issuer file an earnings release (8-K Item 2.02) for
+  // a period NEWER than the one segmentData reflects, WITHOUT that release
+  // yielding a parseable income statement? That's the preliminary-letter case
+  // (IBM 2026-07-14): the Sankey/valuation/verdict all sit on the prior quarter
+  // while the market trades on the just-released numbers, and nothing else in
+  // the pipeline signals it. Gate on the earnings filing landing >75 days after
+  // the shown period end: a same-quarter release (8-K + 10-Q) files ~22-45 days
+  // after quarter end, a later-quarter release ~113 days+, so 75 cleanly splits
+  // "release for the quarter we already show" from "release for a newer one".
+  // If the 8-K DID parse and advance segmentData, its endDate is the new period
+  // and this gap collapses to a few days — no false flag.
+  let freshness: ReportFreshness | null = null;
+  if (earningsFilingMeta && segmentData?.endDate) {
+    const filedMs = Date.parse(earningsFilingMeta.filingDate);
+    const segMs = Date.parse(segmentData.endDate);
+    if (isFinite(filedMs) && isFinite(segMs) && (filedMs - segMs) / 86_400_000 > 75) {
+      freshness = {
+        kind: "preliminary_earnings",
+        reportedOn: earningsFilingMeta.filingDate,
+        shownPeriod: segmentData.period,
+        shownEndDate: segmentData.endDate,
+      };
+    }
+  }
+
   // 4. Mock mode — skip OpenAI, return stub report with real segment data
   if (process.env.MOCK_REPORT === "true") {
     const stub: StructuredReport = {
@@ -1181,9 +1212,10 @@ export async function POST(req: NextRequest) {
       bullCase: { narrative: "", priceTarget: "—" },
       bearCase: { narrative: "", priceTarget: "—" },
       segmentData: segmentData ?? null,
+      freshness,
     };
     const stubStale = isAnalysisStale(stockData, stub.segmentData ?? null);
-    const stubTtl = stubStale ? SHORT_TTL : undefined;
+    const stubTtl = stubStale || freshness ? SHORT_TTL : undefined;
     cacheSet(ticker, stub, stockData, stubTtl);
     void recordTickerView(ticker).catch(() => {});
     const qStub = scoreSankey(stub.segmentData ?? null, ticker);
@@ -1214,11 +1246,18 @@ export async function POST(req: NextRequest) {
         filingIndexUrl: edgar8K?.sourceUrl ?? null,
       }),
     });
-    return NextResponse.json({ report: stub, stockData, cached: false });
+    return NextResponse.json({ report: stub, stockData, cached: false, analyzedAt: Date.now() });
   }
 
   // 5. Build prompt
-  const { systemPrompt, userPrompt } = buildPrompt(stockData, segmentData);
+  // When a preliminary earnings event was detected, pull the issuer's release
+  // text so the model can explain WHAT was reported and WHY the market reacted —
+  // the report's whole relevance on an earnings day. Gated on `freshness` so the
+  // extra SEC read only happens in that case (and it hits secFetch's cache,
+  // since the parser already fetched the same exhibit above). Best-effort: null
+  // on failure, and the prompt notice degrades to the headline framing.
+  const releaseExcerpt = freshness ? await fetchEarningsReleaseExcerpt(ticker) : null;
+  const { systemPrompt, userPrompt } = buildPrompt(stockData, segmentData, freshness, releaseExcerpt?.text ?? null);
 
   // 5. Call GPT-4o with streaming
   let fullText = "";
@@ -1307,6 +1346,7 @@ export async function POST(req: NextRequest) {
           // fabricating a TTM-margin chart that doesn't represent any real
           // reporting period.
           report.segmentData = segmentData ?? null;
+          report.freshness = freshness;
         } catch (parseErr) {
           fireEvent({
             ticker,
@@ -1330,7 +1370,7 @@ export async function POST(req: NextRequest) {
         }
 
         const stale = isAnalysisStale(stockData, report.segmentData ?? null);
-        const ttl = stale ? SHORT_TTL : undefined;
+        const ttl = stale || freshness ? SHORT_TTL : undefined;
         await cacheSet(ticker, report, stockData, ttl);
         void recordTickerView(ticker).catch(() => {});
         const q = scoreSankey(report.segmentData ?? null, ticker);
@@ -1373,7 +1413,7 @@ export async function POST(req: NextRequest) {
         // Send final payload: full structured report + stockData for UI components
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ done: true, report, stockData })}\n\n`
+            `data: ${JSON.stringify({ done: true, report, stockData, analyzedAt: Date.now() })}\n\n`
           )
         );
         controller.close();

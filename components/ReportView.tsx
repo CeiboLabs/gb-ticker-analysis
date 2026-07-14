@@ -12,12 +12,17 @@ import { PdfExportButton } from "@/components/PdfExportButton";
 import ReactMarkdown from "react-markdown";
 import { currencyPrefix } from "@/lib/currencyPrefix";
 import { getMontserratFontFaceCss } from "@/lib/embedFonts";
+import { snapshotFreshness } from "@/lib/snapshotFreshness";
 import type { StructuredReport } from "@/types/Report";
 import type { StockData } from "@/types/StockData";
 
 interface Props {
   report: StructuredReport;
   stockData: StockData;
+  /** Epoch ms the analysis was generated. Undefined falls back to now (e.g. the
+   *  landing demo). A cached report carries its real createdAt so the header
+   *  timestamp reflects when it was actually made, not render time. */
+  analyzedAt?: number;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -47,7 +52,15 @@ function fmtCompact(n: number): string {
   return `${sign}$${abs.toLocaleString("en-US")}`;
 }
 
-export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props) {
+// Format a date-only string (YYYY-MM-DD) for display. Anchored at local noon so
+// the UTC→UYT (-3) shift can't roll it back to the previous day.
+function fmtDateShort(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00`);
+  if (isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString("es-UY", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export function ReportView({ report, stockData, analyzedAt, onRefresh, isRefreshing }: Props) {
   const pfx = currencyPrefix(stockData.currency);
   const svgRef = useRef<SVGSVGElement>(null);
   const [sankeyImageUrl, setSankeyImageUrl] = useState<string | undefined>();
@@ -259,7 +272,7 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
     return () => { cancelled = true; clearTimeout(id); };
   }, [report]);
 
-  const today = new Date().toLocaleString("es-UY", {
+  const analyzedLabel = (analyzedAt != null ? new Date(analyzedAt) : new Date()).toLocaleString("es-UY", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -268,12 +281,22 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
     hour12: false,
   });
 
+  // Nudge to re-run when the snapshot is old enough to have drifted from the
+  // market (age-based only — the report stays a consistent snapshot, nothing
+  // live). See lib/snapshotFreshness for the market-hours-aware threshold.
+  const fresh = snapshotFreshness(analyzedAt);
+
   return (
     <div className="space-y-0">
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-6">
         <div className="text-xs text-[#707070]">
-          Análisis realizado el {today}
+          Análisis realizado el {analyzedLabel}
+          {fresh.stale && (
+            <span className="text-amber-600">
+              {" · "}el mercado pudo haberse movido — actualizá
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -294,12 +317,27 @@ export function ReportView({ report, stockData, onRefresh, isRefreshing }: Props
         </div>
       </div>
 
+      {report.freshness?.kind === "preliminary_earnings" && (
+        <div className="mb-4 sm:mb-6 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 rounded-r-md">
+          <p className="text-xs sm:text-[13px] leading-relaxed text-amber-800">
+            <span className="font-semibold">
+              Resultados preliminares del {fmtDateShort(report.freshness.reportedOn)}, incorporados en este análisis.
+            </span>{" "}
+            Son cifras sujetas a revisión, y el desglose financiero detallado corresponde
+            aún a {report.freshness.shownPeriod}. Actualizá el análisis cuando se publique
+            el reporte completo.
+          </p>
+        </div>
+      )}
+
       <ReportHeader stockData={stockData} />
       <MetricsDashboard stockData={stockData} />
       <PriceChart
         ticker={stockData.ticker}
         historicalPrices={stockData.historicalPrices}
         quarterlyRevenue={stockData.quarterlyRevenue}
+        asOf={analyzedAt}
+        anchorPrice={stockData.currentPrice ?? undefined}
       />
       <div className="mt-6" />
       <AnalystConsensus stockData={stockData} />

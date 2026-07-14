@@ -48,14 +48,23 @@ type ChartResult = any;
 export async function fetchChartRange(
   ticker: string,
   range: ChartRange,
+  asOf?: number,
 ): Promise<ChartRangePayload> {
   const cfg = RANGE_CONFIG[range];
-  const period1 = new Date(Date.now() - cfg.days * 86_400_000);
+  // Anchor the window's END to the analysis snapshot time when provided, so
+  // every range ends at the SAME instant as the header price and the seeded 3Y
+  // chart — the whole report is a coherent as-of-T snapshot. Without this, a
+  // range the user opens later pulls live data past T; after a big intraday
+  // move its last point would show a price the frozen header never shows.
+  // Absent asOf → end = now (live behaviour, e.g. a fresh analysis where T≈now).
+  const end = asOf != null && Number.isFinite(asOf) ? new Date(asOf) : new Date();
+  const period1 = new Date(end.getTime() - cfg.days * 86_400_000);
 
   const result = (await yahooFinance.chart(
     ticker,
     {
       period1,
+      period2: end,
       interval: cfg.interval,
       includePrePost: cfg.includePrePost,
       return: "array",

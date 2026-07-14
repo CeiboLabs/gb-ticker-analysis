@@ -18,6 +18,13 @@ interface Props {
   /** 3Y weekly closes prefetched by the analyze response. Used as initial cache for the 3Y tab. */
   historicalPrices: { time: string; value: number }[] | null;
   quarterlyRevenue?: RevenueQuarter[] | null;
+  /** Analysis snapshot instant (epoch ms). Lazily-fetched ranges are pinned to
+   *  it so their last value matches the header + the seeded 3Y chart — the whole
+   *  report reads as one as-of-T snapshot. Undefined → ranges fetch live. */
+  asOf?: number;
+  /** Header price (snapshot currentPrice). The last point of every range is
+   *  pinned to this so the most-recent value coincides exactly with the header. */
+  anchorPrice?: number;
 }
 
 const RANGES: { id: ChartRange; label: string; header: string }[] = [
@@ -99,10 +106,27 @@ function fmtTime(time: string | number): string {
   return `${day} ${month} '${year}`;
 }
 
-export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props) {
+export function PriceChart({ ticker, historicalPrices, quarterlyRevenue, asOf, anchorPrice }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<ChartRange>("3Y");
-  const [cache, setCache] = useState<Map<ChartRange, ChartRangePayload>>(() => new Map());
+  const [cache, setCache] = useState<Map<ChartRange, ChartRangePayload>>(() => {
+    // Seed the default 3Y tab from the analysis snapshot on the very first
+    // render, so it renders the SAME cached data as the header and metrics —
+    // no live fetch on mount/F5. The report is a point-in-time snapshot; its
+    // chart must stay consistent with the rest of it and update only when the
+    // analysis is re-run. (Seeding here instead of via effect also removes the
+    // empty-first-render race that previously let a live 3Y fetch slip in.)
+    const seeded = new Map<ChartRange, ChartRangePayload>();
+    if (historicalPrices && historicalPrices.length > 0) {
+      seeded.set("3Y", {
+        range: "3Y",
+        hasPrePost: false,
+        regularSession: null,
+        prices: historicalPrices,
+      });
+    }
+    return seeded;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pinned, setPinned] = useState<PinnedMarker[]>([]);
@@ -146,13 +170,17 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
   // appears immediately), not a derivable value.
   useEffect(() => {
     if (cache.has(range)) return;
+    // Never live-fetch the default 3Y range: it's seeded from the analysis
+    // snapshot and must stay frozen with the rest of the report (only a re-run
+    // updates it). Other ranges (1D/1M/…) still fetch on explicit tab click.
+    if (range === "3Y" && historicalPrices && historicalPrices.length > 0) return;
     if (!ticker) return;
     let cancelled = false;
     /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true);
     setError(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-    fetch(`/api/chart-range?ticker=${encodeURIComponent(ticker)}&range=${range}`)
+    fetch(`/api/chart-range?ticker=${encodeURIComponent(ticker)}&range=${range}${asOf != null ? `&asOf=${asOf}` : ""}`)
       .then((r) => r.json().catch(() => null))
       .then((data) => {
         if (cancelled) return;
@@ -181,10 +209,21 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
       // the user switches tabs.
       setLoading(false);
     };
-  }, [range, ticker, cache]);
+  }, [range, ticker, cache, historicalPrices, asOf]);
 
   const payload = cache.get(range) ?? null;
-  const prices = payload?.prices ?? null;
+  // Pin the most-recent point of EVERY range to the header price so the last
+  // value coincides EXACTLY with the header and the 3Y chart — the whole report
+  // reads as one as-of-T snapshot. as-of-T fetching already ends the line near
+  // this value; anchoring also corrects daily/weekly bars, which Yahoo returns
+  // through the current day even when the window is pinned to an earlier instant.
+  const prices = useMemo(() => {
+    const raw = payload?.prices ?? null;
+    if (!raw || raw.length === 0 || anchorPrice == null || !Number.isFinite(anchorPrice)) return raw;
+    const out = raw.slice();
+    out[out.length - 1] = { ...out[out.length - 1], value: anchorPrice };
+    return out;
+  }, [payload, anchorPrice]);
   const isIntraday = range === "1D";
   // Any range whose timestamps are Unix seconds (vs. "YYYY-MM-DD" strings) —
   // i.e. uses sub-daily bars. Drives time-axis visibility + UY-localized

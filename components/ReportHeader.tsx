@@ -24,6 +24,10 @@ export function ReportHeader({ stockData }: Props) {
   const logoBrightness = useLogoBrightness(logoUrl);
   const logoBgClass = logoBrightness === "light" ? "bg-[#03065E]" : "bg-white";
 
+  // Price + change come straight from the analysis snapshot (stockData). The
+  // whole report is a point-in-time snapshot served from cache; the header must
+  // match the chart and metrics, updating only when the analysis is re-run
+  // ("Actualizar Análisis"), never live on a plain page reload.
   const changeSign = (stockData.priceChangePercent ?? 0) >= 0 ? "+" : "";
   const changePct =
     stockData.priceChangePercent != null
