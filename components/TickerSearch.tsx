@@ -1,7 +1,19 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import {
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+} from "react";
 import { createPortal } from "react-dom";
+
+// useLayoutEffect can't run on the server; fall back to useEffect there so
+// Next's SSR pass of this client component doesn't warn. In the browser we
+// need the layout variant to position the dropdown before the first paint.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface SearchResult {
   symbol: string;
@@ -98,7 +110,6 @@ export function TickerSearch({
   const [noResults, setNoResults] = useState(false);
   const [recents, setRecents] = useState<SearchResult[]>([]);
   const [showRecents, setShowRecents] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number; width: number } | null>(null);
   const [portalReady, setPortalReady] = useState(false);
 
   const styles = variantStyles[variant];
@@ -114,28 +125,83 @@ export function TickerSearch({
     setPortalReady(true);
   }, []);
 
-  const updateDropdownPos = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setDropdownPos({
-      left: rect.left,
-      top: rect.bottom + 4,
-      width: rect.width,
-    });
+  // Position the portaled dropdown under the input by writing styles straight
+  // to the node instead of through React state — and crucially, choose the
+  // anchoring scheme from the input's real scroll context so the browser keeps
+  // the two glued together NATIVELY, with no per-frame JS in the scroll path.
+  //
+  // A `position: fixed` dropdown that we re-place on every scroll event always
+  // trails the input: the compositor paints the scrolled frame before the main
+  // thread runs our handler, so on a fast flick the dropdown visibly lags ~a
+  // frame (hundreds of px) behind before snapping back. The fix is to stop
+  // fighting the scroll:
+  //   • input in normal flow (hero, footer) → anchor to the DOCUMENT with
+  //     `position: absolute` at page coordinates. It then scrolls with the page
+  //     on the compositor exactly like the input does — zero lag, zero JS.
+  //   • input pinned by a sticky/fixed ancestor (header) → anchor to the
+  //     VIEWPORT with `position: fixed`. The input never moves on screen, so
+  //     the dropdown never needs to either — also zero lag.
+  // We keep position/top/left/width OUT of the JSX style so React never
+  // clobbers these imperative writes on re-render (it only reconciles keys it
+  // owns).
+  const positionDropdown = useCallback(() => {
+    const input = inputRef.current;
+    const dropdown = dropdownRef.current;
+    if (!input || !dropdown) return;
+    const rect = input.getBoundingClientRect();
+
+    let viewportAnchored = false;
+    for (let el = input.parentElement; el; el = el.parentElement) {
+      const pos = getComputedStyle(el).position;
+      if (pos === "fixed" || pos === "sticky") {
+        viewportAnchored = true;
+        break;
+      }
+    }
+
+    const s = dropdown.style;
+    s.width = `${Math.round(rect.width)}px`;
+    if (viewportAnchored) {
+      s.position = "fixed";
+      s.left = `${Math.round(rect.left)}px`;
+      s.top = `${Math.round(rect.bottom + 4)}px`;
+    } else {
+      s.position = "absolute";
+      s.left = `${Math.round(rect.left + window.scrollX)}px`;
+      s.top = `${Math.round(rect.bottom + window.scrollY + 4)}px`;
+    }
   }, []);
 
+  // Place the dropdown before the browser paints it — on open and whenever its
+  // contents change — so it never flashes at the top-left origin.
+  useIsomorphicLayoutEffect(() => {
+    if (isOpen) positionDropdown();
+  }, [isOpen, showRecents, noResults, results, recents, positionDropdown]);
+
+  // Re-anchor on resize (layout moved) and cover edge cases the native anchor
+  // can't — a nested scroll container, or a sticky ancestor mid-transition.
+  // `capture: true` catches scrolls anywhere in the ancestor chain. In the
+  // common document/viewport-anchored cases each write just re-computes the
+  // same coordinates (a cheap no-op), so this never reintroduces scroll lag;
+  // the rAF throttle keeps it to one pass per frame.
   useEffect(() => {
     if (!isOpen) return;
-    updateDropdownPos();
-    const handler = () => updateDropdownPos();
-    window.addEventListener("scroll", handler, true);
-    window.addEventListener("resize", handler);
-    return () => {
-      window.removeEventListener("scroll", handler, true);
-      window.removeEventListener("resize", handler);
+    let rafId = 0;
+    const schedule = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        positionDropdown();
+      });
     };
-  }, [isOpen, updateDropdownPos]);
+    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isOpen, positionDropdown]);
 
   // Load recents from localStorage on mount. Lazy useState init isn't safe
   // here (server has no localStorage → hydration mismatch), so a one-shot
@@ -199,7 +265,7 @@ export function TickerSearch({
     clearTimeout(debounceRef.current);
     setNoResults(false);
 
-    if (val.length < 2) {
+    if (val.length < 1) {
       setResults([]);
       // Keep recents visible if input is empty
       setShowRecents(val.length === 0 && recents.length > 0);
@@ -342,15 +408,13 @@ export function TickerSearch({
         />
 
         {/* Dropdown — portaled to body so it escapes any ancestor `overflow-hidden` */}
-        {portalReady && isOpen && dropdownPos && (results.length > 0 || noResults || (showRecents && recents.length > 0)) && createPortal(
+        {portalReady && isOpen && (results.length > 0 || noResults || (showRecents && recents.length > 0)) && createPortal(
           <div
             ref={dropdownRef}
-            style={{
-              position: "fixed",
-              left: dropdownPos.left,
-              top: dropdownPos.top,
-              width: dropdownPos.width,
-            }}
+            // Position (absolute/fixed + coords + width) is written imperatively
+            // by positionDropdown and kept out of this style object on purpose,
+            // so re-renders can't clobber it. A layout effect sets it before the
+            // first paint, so there's no flash at the static origin.
             className={`overflow-hidden z-[100] ${styles.dropdown}`}
           >
             {showRecents && results.length === 0 && !noResults ? (
