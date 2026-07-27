@@ -11,6 +11,7 @@ import { reportError } from "@/lib/errorReporter";
 import type {
   StockData,
   CashFlowYear,
+  QualityAnnual,
   EarningsQuarter,
   ForwardEstimate,
   AnalystAction,
@@ -99,7 +100,60 @@ type AnyRecord = Record<string, any>;
 
 
 
-export async function fetchStockData(ticker: string): Promise<StockData> {
+// ── Memo cortísimo de fetchStockData, por ticker y por isolate ────────────────
+// El peaje de mail de /analisis (route §2b-pre) trae la cabecera con un
+// fetchStockData "teaser", y segundos después —cuando la persona deja el correo
+// y vuelve con la cookie— la generación real vuelve a llamar fetchStockData: dos
+// golpes idénticos a la llamada MÁS pesada de Yahoo (quoteSummary de ~12 módulos
+// + 3 años de historia + fundamentals + news). Memoizamos la PROMESA en vuelo
+// por ticker para colapsar ese par en un solo round-trip; de paso absorbe el
+// burst de doble-click y comparte el fetch entre requests concurrentes del mismo
+// ticker (el dedup de §2d del route opera a nivel del análisis completo y no
+// cubre el teaser, que responde 403 antes de registrarse).
+//
+// TTL deliberadamente ínfimo: un análisis fresco es una "foto congelada" de 24h,
+// así que un precio de un par de minutos no cambia nada, y nunca queremos que
+// una cotización vieja sobreviva al momento. Un refresh explícito ("Actualizar
+// análisis") está detrás de un cooldown de 1 h ≫ este TTL, así que siempre pega
+// fresco. Las rejections NO se cachean: un fetch fallido tiene que poder
+// reintentarse en el acto.
+const FETCH_STOCK_MEMO_TTL_MS = 3 * 60 * 1000; // 3 min
+const FETCH_STOCK_MEMO_MAX = 512;              // techo blando anti-leak (home server = proceso largo)
+type StockMemoEntry = { at: number; promise: Promise<StockData> };
+const gStock = globalThis as Record<string, unknown>;
+if (!gStock.__stockDataMemo) gStock.__stockDataMemo = new Map<string, StockMemoEntry>();
+const stockMemo = gStock.__stockDataMemo as Map<string, StockMemoEntry>;
+
+// Wrapper público: sirve la promesa memoizada si sigue fresca; si no, arranca
+// una nueva y la guarda. Único punto de entrada — todos los callers pasan por
+// acá (la implementación real es fetchStockDataUncached).
+export function fetchStockData(ticker: string): Promise<StockData> {
+  const key = ticker.toUpperCase();
+  const now = Date.now();
+
+  const hit = stockMemo.get(key);
+  if (hit && now - hit.at < FETCH_STOCK_MEMO_TTL_MS) return hit.promise;
+  if (hit) stockMemo.delete(key); // vencida: limpieza perezosa
+
+  // Barrido oportunista sólo cuando el mapa creció: en el proceso largo del home
+  // server, tickers consultados una vez no deben quedar residentes para siempre.
+  if (stockMemo.size > FETCH_STOCK_MEMO_MAX) {
+    for (const [k, v] of stockMemo) {
+      if (now - v.at >= FETCH_STOCK_MEMO_TTL_MS) stockMemo.delete(k);
+    }
+  }
+
+  const promise = fetchStockDataUncached(ticker);
+  stockMemo.set(key, { at: now, promise });
+  // Nunca dejar una promesa rechazada en el memo: el próximo intento re-fetchea.
+  promise.catch(() => {
+    const cur = stockMemo.get(key);
+    if (cur && cur.promise === promise) stockMemo.delete(key);
+  });
+  return promise;
+}
+
+async function fetchStockDataUncached(ticker: string): Promise<StockData> {
   const oneYearAgo = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
   const today = new Date();
   const tenYearsAgo = new Date(Date.now() - 11 * 365 * 24 * 60 * 60 * 1000);
@@ -318,6 +372,10 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
       epsEstimate: t.earningsEstimate?.avg ?? null,
       revenueEstimate: fxConvert(t.revenueEstimate?.avg ?? null),
       growth: t.growth ?? null,
+      revisionsUp30d: t.epsRevisions?.upLast30days ?? null,
+      revisionsDown30d: t.epsRevisions?.downLast30days ?? null,
+      epsTrend30dAgo: t.epsTrend?.["30daysAgo"] ?? null,
+      epsTrend90dAgo: t.epsTrend?.["90daysAgo"] ?? null,
     }));
 
   // ── Next earnings date ──────────────────────────────────────────────────────
@@ -354,6 +412,9 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
           capitalExpenditure: fxConvert(r.capitalExpenditure ?? null),
           operatingCashFlow: fxConvert(r.operatingCashFlow ?? null),
           freeCashFlow: fxConvert(r.freeCashFlow ?? null),
+          repurchases: fxConvert((r.repurchaseOfCapitalStock ?? r.commonStockPayments ?? null) as number | null),
+          dividendsPaid: fxConvert((r.commonStockDividendPaid ?? r.cashDividendsPaid ?? null) as number | null),
+          stockBasedComp: fxConvert((r.stockBasedCompensation ?? null) as number | null),
         }))
         .sort((a, b) => a.year.localeCompare(b.year))
         .slice(-5)
@@ -369,8 +430,29 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
       capitalExpenditure: capex,
       operatingCashFlow: ocf,
       freeCashFlow: fcf,
+      repurchases: null,
+      dividendsPaid: null,
+      stockBasedComp: null,
     }];
   }
+
+  // ── Quality factor inputs (last 2 FYs) — Novy-Marx GP/A, Sloan accruals,
+  // asset growth, net share issuance. Raw local-currency figures (ratios son
+  // FX-invariantes ⇒ sin fxConvert). ────────────────────────────────────────
+  const qualityAnnual: QualityAnnual[] | null = fundamentalsRaw
+    ? (fundamentalsRaw as AnyRecord[])
+        .filter((r) => r.totalAssets != null || r.grossProfit != null)
+        .map((r) => ({
+          year: r.date instanceof Date ? r.date.getFullYear().toString() : String(r.date).slice(0, 4),
+          totalAssets: (r.totalAssets ?? null) as number | null,
+          grossProfit: (r.grossProfit ?? null) as number | null,
+          netIncome: (r.netIncome ?? r.netIncomeCommonStockholders ?? null) as number | null,
+          operatingCashFlow: (r.operatingCashFlow ?? null) as number | null,
+          sharesOutstanding: (r.shareIssued ?? r.ordinarySharesNumber ?? r.basicAverageShares ?? null) as number | null,
+        }))
+        .sort((a, b) => a.year.localeCompare(b.year))
+        .slice(-2)
+    : null;
 
   // ── Beta (can live in stats or detail) ─────────────────────────────────────
   const betaVal = stats?.beta ?? detail?.beta ?? null;
@@ -473,6 +555,7 @@ export async function fetchStockData(ticker: string): Promise<StockData> {
       : null,
 
     annualCashFlow,
+    qualityAnnual,
     quarterlyRevenue: revenueRaw ?? null,
     recentNews: await (async () => {
       // PRIMARY: Google News RSS filtered to a Tier 1/2 publisher whitelist.
@@ -586,6 +669,38 @@ async function screenByIndustry(
   return (data.finance?.result?.[0]?.quotes as AnyRecord[]) ?? [];
 }
 
+// Enrich peers with growth / operating margin / EV-EBITDA via per-symbol
+// quoteSummary. Best-effort and time-boxed: each peer that resolves before the
+// deadline is enriched in place; the rest stay P/E-only. Never throws, never
+// hangs the analysis (Yahoo fetches are already throttled ~1 req/s and 15s-
+// capped upstream; this deadline is the outer guard for the whole batch).
+async function enrichPeers(peers: PeerMultiple[]): Promise<PeerMultiple[]> {
+  const DEADLINE_MS = 6000;
+  const results = [...peers];
+  const enrichOne = async (i: number): Promise<void> => {
+    try {
+      const qs = (await yahooFinance.quoteSummary(
+        peers[i].symbol,
+        { modules: ["financialData", "defaultKeyStatistics"] },
+        { validateResult: false },
+      )) as AnyRecord;
+      const fin = qs.financialData as AnyRecord | undefined;
+      const stats = qs.defaultKeyStatistics as AnyRecord | undefined;
+      results[i] = {
+        ...peers[i],
+        revenueGrowth: (fin?.revenueGrowth as number | undefined) ?? null,
+        operatingMargin: (fin?.operatingMargins as number | undefined) ?? null,
+        evToEbitda: (stats?.enterpriseToEbitda as number | undefined) ?? null,
+      };
+    } catch {
+      /* keep the base P/E-only peer */
+    }
+  };
+  const deadline = new Promise<void>((r) => setTimeout(r, DEADLINE_MS));
+  await Promise.race([Promise.allSettled(peers.map((_, i) => enrichOne(i))), deadline]);
+  return results;
+}
+
 export async function fetchPeerComparison(
   ticker: string,
   knownIndustry?: string | null,
@@ -605,7 +720,17 @@ export async function fetchPeerComparison(
     const auth = await getYahooCrumb();
     if (!auth) return null;
 
-    const quotes = await screenByIndustry(industry, auth);
+    // assetProfile.industry usa " - " ("Banks - Diversified") pero el enum del
+    // screener usa EM-DASH ("Banks—Diversified") — con el string crudo el
+    // screener devolvía 0 peers para TODOS los bancos/aseguradoras/REITs/
+    // software-infra (descubierto por el backtest de paridad 2026-07-19:
+    // producción nunca tuvo peers en esos sectores). Normalizamos y, por si
+    // alguna industria sí usa el formato crudo, reintentamos con el original.
+    const screenerIndustry = industry.replace(/ - /g, "—");
+    let quotes = await screenByIndustry(screenerIndustry, auth);
+    if (quotes.length === 0 && screenerIndustry !== industry) {
+      quotes = await screenByIndustry(industry, auth);
+    }
 
     // Deduplicate by company name (e.g. SONY/SNEJF) — keep the one with more data
     const seen = new Map<string, AnyRecord>();
@@ -624,15 +749,22 @@ export async function fetchPeerComparison(
       name: (q.longName ?? q.shortName ?? q.symbol) as string,
       trailingPE: (q.trailingPE as number | undefined) ?? null,
       forwardPE: (q.forwardPE as number | undefined) ?? null,
+      revenueGrowth: null,
+      operatingMargin: null,
+      evToEbitda: null,
     }));
 
     if (peers.length === 0) return null;
 
-    const trailingPEs = peers.map((p) => p.trailingPE).filter((v): v is number => v != null);
-    const forwardPEs = peers.map((p) => p.forwardPE).filter((v): v is number => v != null);
+    // Best-effort enrichment (growth / margin / EV-EBITDA). Bounded so it can
+    // never hang the analysis: peers that don't enrich in time stay P/E-only.
+    const enriched = await enrichPeers(peers);
+
+    const trailingPEs = enriched.map((p) => p.trailingPE).filter((v): v is number => v != null);
+    const forwardPEs = enriched.map((p) => p.forwardPE).filter((v): v is number => v != null);
 
     return {
-      peers,
+      peers: enriched,
       avgTrailingPE: trailingPEs.length > 0 ? trailingPEs.reduce((a, b) => a + b, 0) / trailingPEs.length : null,
       avgForwardPE: forwardPEs.length > 0 ? forwardPEs.reduce((a, b) => a + b, 0) / forwardPEs.length : null,
     };

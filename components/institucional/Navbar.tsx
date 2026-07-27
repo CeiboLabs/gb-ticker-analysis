@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Glass } from "@/components/institucional/LiquidGlass";
 import { Fachada } from "@/components/institucional/Fachada";
+import { useUltimoInforme } from "@/lib/useUltimoInforme";
+import type { UltimoInforme } from "@/lib/ultimoInforme";
+import { HAY_PRENSA } from "@/lib/prensa";
 
 type NavItem = { label: string; href: string; desc: string };
 type Featured = {
@@ -16,6 +19,10 @@ type Featured = {
   href: string;
   cta: string;
   img?: string;        // sólo kind="doc"
+  /** Marca el destacado que se rellena con dato vivo (ver resolveFeatured). */
+  live?: "ultimo-informe";
+  /** El href sale del sitio o abre un PDF: <a target="_blank"> en vez de <Link>. */
+  externo?: boolean;
 };
 type NavGroup = {
   label: string;
@@ -37,7 +44,7 @@ type NavGroup = {
  */
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "La casa",
+    label: "Nosotros",
     thesis: { text: "Una casa de bolsa, desde 1967." },
     hint: "Quiénes somos, de dónde venimos y quiénes lo hacen.",
     listEyebrow: "Secciones",
@@ -45,15 +52,17 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Nosotros", href: "/nosotros", desc: "Quiénes somos y cómo trabajamos" },
       { label: "Historia", href: "/historia", desc: "Seis décadas en el mercado" },
       { label: "Equipo", href: "/equipo", desc: "Las personas de la mesa" },
+      // Aparece solo cuando hay apariciones cargadas (ver lib/prensa · HAY_PRENSA).
+      ...(HAY_PRENSA ? [{ label: "Prensa", href: "/prensa", desc: "Nosotros en los medios" }] : []),
     ],
     featured: {
       kind: "tile",
       zoneLabel: "En contexto",
-      eyebrow: "La casa",
+      eyebrow: "Nosotros",
       title: "Corredores de bolsa desde 1967.",
       note: "Trayectoria y regulación",
       href: "/nosotros",
-      cta: "Conocé la casa",
+      cta: "Conocenos",
     },
   },
   {
@@ -62,7 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
     hint: "Un vehículo que resuelve todo, o el mercado a medida desde la mesa.",
     listEyebrow: "Vías",
     items: [
-      { label: "BNG Selección Global", href: "/bng-seleccion-global", desc: "El fondo de la casa · el mundo en una sola posición" },
+      { label: "BNG Selección Global", href: "/bng-seleccion-global", desc: "Nuestro fondo · el mundo en una sola posición" },
       { label: "Ecosistema", href: "/servicios", desc: "Mercado local e internacional · instrumentos a medida" },
     ],
     featured: {
@@ -70,7 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
       zoneLabel: "Destacado",
       eyebrow: "El fondo",
       title: "El mundo, en una sola posición.",
-      note: "BNG Selección Global · desde la casa",
+      note: "BNG Selección Global · desde nuestra mesa",
       href: "/bng-seleccion-global",
       cta: "Ver el fondo",
     },
@@ -83,9 +92,13 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Informes", href: "/informes", desc: "Lectura semanal y mensual del mercado" },
       { label: "Análisis", href: "/analisis", desc: "Herramienta de análisis de acciones" },
+      { label: "Educación", href: "/educacion", desc: "Glosario, guías y preguntas frecuentes" },
     ],
     featured: {
       kind: "dossier",
+      live: "ultimo-informe",
+      // Estado de reposo: lo que se ve mientras carga /api/informes/ultimo, y si
+      // esa lectura falla. No inventa fecha ni título — apunta al archivo entero.
       zoneLabel: "Archivo",
       eyebrow: "Research",
       title: "Lecturas de la mesa.",
@@ -95,6 +108,32 @@ const NAV_GROUPS: NavGroup[] = [
     },
   },
 ];
+
+// El nav muestra el mapa COMPLETO del sitio, incluidas las secciones que
+// todavía no se publican (`lib/paginasOcultas.ts`): el equipo tiene que ver la
+// estructura. El bloqueo es de acceso, no de visibilidad — esas rutas
+// devuelven 404 desde su propia página.
+
+/**
+ * Rellena el destacado marcado `live` con el último informe publicado, apenas
+ * llega la lectura. MISMO tile (el objeto-documento de papel con la carpeta
+ * sangrando a la derecha): sólo cambia el contenido — el eyebrow pasa a ser la
+ * metadata de la edición y el titular, el de su artículo. Sin dato todavía,
+ * devuelve el destacado tal cual: la carta nunca queda vacía ni a medio llenar.
+ */
+function resolveFeatured(f: Featured, ultimo: UltimoInforme | null): Featured {
+  if (f.live !== "ultimo-informe" || !ultimo) return f;
+  return {
+    ...f,
+    zoneLabel: "Último informe",
+    eyebrow: `${ultimo.categoria} · ${ultimo.fechaCorta}`,
+    title: ultimo.titular,
+    note: "Última edición",
+    href: ultimo.href,
+    cta: ultimo.articulo ? "Leer el informe" : "Ver el informe",
+    externo: !ultimo.articulo,
+  };
+}
 
 const CONSULTANET = "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx";
 
@@ -112,6 +151,66 @@ function Arrow() {
   );
 }
 
+/** El objeto del destacado. Cuatro variantes de tile; el contenido lo fija `f`. */
+function FeaturedCard({ f }: { f: Featured }) {
+  if (f.kind === "fachada") {
+    return (
+      <div className="nav-feat-tile nav-feat-fachada">
+        <div className="nav-feat-fachada-bg" aria-hidden>
+          <Fachada crisp />
+        </div>
+        <div className="nav-feat-fachada-scrim" aria-hidden />
+        <div className="nav-feat-fachada-body">
+          <div className="nav-feat-eb">{f.eyebrow}</div>
+          <div className="nav-feat-title">{f.title}</div>
+          <div className="nav-feat-note">{f.note}</div>
+          <div className="nav-feat-cta">{f.cta} <Arrow /></div>
+        </div>
+      </div>
+    );
+  }
+  if (f.kind === "tile") {
+    return (
+      <div className="nav-feat-tile">
+        <div className="nav-feat-eb">{f.eyebrow}</div>
+        <div className="nav-feat-title">{f.title}</div>
+        <div className="nav-feat-note">{f.note}</div>
+        <div className="nav-feat-cta">{f.cta} <Arrow /></div>
+      </div>
+    );
+  }
+  if (f.kind === "dossier") {
+    return (
+      <div className="nav-feat-tile nav-feat-dossier">
+        <div className="nav-feat-dossier-media" aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/informes-carpeta.png" alt="" />
+        </div>
+        <div className="nav-feat-dossier-body">
+          <div className="nav-feat-doc-eb">{f.eyebrow}</div>
+          <div className="nav-feat-doc-title">{f.title}</div>
+          <div className="nav-feat-doc-note">{f.note}</div>
+          <div className="nav-feat-doc-cta">{f.cta} <Arrow /></div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="nav-feat-doc">
+      <div className="nav-feat-cover">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={f.img} alt="" />
+      </div>
+      <div>
+        <div className="nav-feat-doc-eb">{f.eyebrow}</div>
+        <div className="nav-feat-doc-title">{f.title}</div>
+        <div className="nav-feat-doc-note">{f.note}</div>
+        <div className="nav-feat-doc-cta">{f.cta} <Arrow /></div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Navbar adaptativo: logo a la izquierda, tres grupos con mega-panel editorial,
  * y a la derecha una cápsula glass con Consultanet + pill "Contacto".
@@ -119,14 +218,36 @@ function Arrow() {
  */
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  // ¿Está montado el reporte de /analisis (`.analyze-root`)? Es claro de arriba
+  // a abajo — fuerza modo claro aunque el pathname sea /analisis (que también
+  // sirve la landing de hero navy). Se resuelve mirando el DOM, no la URL, porque
+  // landing y reporte comparten pathname (sólo cambia el ?ticker=). Ver effect.
+  const [onReport, setOnReport] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const pathname = usePathname();
+  // Cierra el menú mobile y el dropdown al navegar entre PATHS distintos (back/
+  // forward incluido). Ajuste en render (el patrón recomendado de React para
+  // resetear estado cuando cambia un valor) en vez de un effect: se aplica antes
+  // de repintar el estado viejo y no dispara setState dentro de un effect.
+  // OJO: /analisis reporte↔landing es navegación query-only (`?ticker=X` → sin
+  // query) — MISMO pathname `/analisis` en ambos lados, así que esto no se
+  // dispara y el panel quedaba abierto encima de la landing. Esos enlaces cierran
+  // en el onClick delegado de sus contenedores (ver .nav-mega-layer / .nav-drawer),
+  // que no depende de que cambie el pathname.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setMenuOpen(false);
+    setOpenGroup(null);
+  }
+  // Dato vivo del destacado de Research (null mientras carga o si falla).
+  const ultimoInforme = useUltimoInforme();
 
   useEffect(() => {
     // El modo oscuro dura mientras el hero (oscuro) esté detrás de la barra:
-    // recién al pasarlo flipea a claro. Sin hero que participe (p.ej. /analyze,
-    // o el fondo, que flipea apenas arranca el scroll) → claro casi de entrada.
+    // recién al pasarlo flipea a claro. Sin hero que participe (p.ej. el fondo,
+    // que flipea apenas arranca el scroll) → claro casi de entrada.
     const heroBottom = () => {
       const hero = document.querySelector(".hero-media, .hero-split, .dossier-hero");
       if (!hero) return 8;
@@ -148,11 +269,24 @@ export function Navbar() {
     };
   }, [pathname]);
 
-  // Cerrar todo al navegar.
+  // Modo claro forzado en el reporte de /analisis: es claro de arriba a abajo (no
+  // hero navy), pero comparte pathname con la landing (hero navy), así que no
+  // basta la URL. El reporte (AnalisisReporte) emite `analisis:report` al montar
+  // y desmontar — el switch lo remonta en cada transición landing↔reporte, así
+  // que su ciclo de vida ES la señal (sin observers que puedan loopear con el
+  // reflow del reporte). El effect del Navbar corre antes que el del reporte
+  // (orden de árbol: este hermano antes que la página), así que el listener ya
+  // está enganchado cuando el reporte emite en la carga directa. Sólo mueve la
+  // variante del Glass; el modo visual base ya lo fija el CSS :has() del reporte.
   useEffect(() => {
-    setMenuOpen(false);
-    setOpenGroup(null);
-  }, [pathname]);
+    const onMode = (e: Event) => setOnReport(!!(e as CustomEvent<boolean>).detail);
+    window.addEventListener("analisis:report", onMode);
+    // Estado inicial: en la carga directa el reporte ya montó antes de enganchar
+    // este listener, así que su evento no lo agarramos — lo leemos del DOM. En
+    // microtask para no llamar setState sincrónico en el cuerpo del effect.
+    queueMicrotask(() => setOnReport(!!document.querySelector(".analyze-root")));
+    return () => window.removeEventListener("analisis:report", onMode);
+  }, []);
 
   // Con un panel abierto: Escape cierra, y un click fuera del navbar cierra.
   useEffect(() => {
@@ -173,13 +307,13 @@ export function Navbar() {
   // abre. Se abre al clickear el trigger y se cierra al reclickearlo, al
   // clickear afuera, con Escape, o al navegar.
 
-  // /analyze y TODO /informes (la lista y cada artículo) → navbar claro/glass:
-  // el artículo ahora abre con un masthead editorial BLANCO, no un hero navy, así
-  // que la barra arranca clara desde arriba. Abrir un dropdown TAMBIÉN fuerza el
-  // modo claro (logo/triggers oscuros) y, vía data-panel-open, le da fondo BLANCO
-  // sólido a la barra, para que barra + panel lean como una sola superficie
-  // blanca — incl. al tope de la home.
-  const light = scrolled || menuOpen || openGroup !== null || pathname.startsWith("/analyze") || pathname.startsWith("/informes");
+  // El reporte de /analisis (onReport) y TODO /informes (la lista y cada
+  // artículo) → navbar claro/glass: abren con un masthead editorial BLANCO, no un
+  // hero navy, así que la barra arranca clara desde arriba. Abrir un dropdown
+  // TAMBIÉN fuerza el modo claro (logo/triggers oscuros) y, vía data-panel-open,
+  // le da fondo BLANCO sólido a la barra, para que barra + panel lean como una
+  // sola superficie blanca — incl. al tope de la home.
+  const light = scrolled || onReport || menuOpen || openGroup !== null || pathname.startsWith("/informes") || pathname.startsWith("/prensa") || pathname.startsWith("/educacion");
   const mode = light ? "light" : "dark";
   // El fondo del dropdown es SIEMPRE claro (pedido del usuario), aunque la barra
   // esté en modo oscuro sobre el hero. Los estilos .nav-mega.is-dark quedan
@@ -280,9 +414,12 @@ export function Navbar() {
         </button>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — mismo cierre delegado que el panel desktop: la nav
+          query-only reporte→landing de /analisis no cambia el pathname, así que
+          sin esto el drawer quedaba abierto tras tocar "Análisis". */}
       <div
         className="lg:hidden overflow-hidden nav-drawer"
+        onClick={(e) => { if ((e.target as HTMLElement).closest?.("a")) setMenuOpen(false); }}
         style={{
           maxHeight: menuOpen ? "820px" : 0,
           opacity: menuOpen ? 1 : 0,
@@ -378,11 +515,18 @@ export function Navbar() {
       {/* Paneles: capa HERMANA del <nav> — al NO estar anidados dentro de su
           backdrop-filter, su propio glass difumina la página igual que la barra
           (el mismo vidrio de verdad, no un blur comprometido). */}
-      <div className="nav-mega-layer hidden lg:block">
+      {/* Activar cualquier destino del panel cierra el dropdown en el acto. El
+          reset por pathname no alcanza para la nav query-only reporte→landing de
+          /analisis (mismo pathname); delegar acá lo cubre para todo enlace del
+          panel (ítems + destacado, Link o <a>) sin repetir onClick por nodo. */}
+      <div
+        className="nav-mega-layer hidden lg:block"
+        onClick={(e) => { if ((e.target as HTMLElement).closest?.("a")) setOpenGroup(null); }}
+      >
         {NAV_GROUPS.map((group, gi) => {
           const panelId = `nav-panel-${gi}`;
           const isOpen = openGroup === group.label;
-          const f = group.featured;
+          const f = resolveFeatured(group.featured, ultimoInforme);
           const escClose = (e: React.KeyboardEvent) => {
             if (e.key === "Escape") {
               setOpenGroup(null);
@@ -427,55 +571,24 @@ export function Navbar() {
                   {/* Zona 3 · destacado (objeto-documento: única sombra permitida) */}
                   <div className="nav-zone nav-zone-feat">
                     <div className="nav-eb">{f.zoneLabel}</div>
-                    <Link href={f.href} className="nav-feat-link" tabIndex={isOpen ? 0 : -1} onKeyDown={escClose}>
-                      {f.kind === "fachada" ? (
-                        <div className="nav-feat-tile nav-feat-fachada">
-                          <div className="nav-feat-fachada-bg" aria-hidden>
-                            <Fachada crisp />
-                          </div>
-                          <div className="nav-feat-fachada-scrim" aria-hidden />
-                          <div className="nav-feat-fachada-body">
-                            <div className="nav-feat-eb">{f.eyebrow}</div>
-                            <div className="nav-feat-title">{f.title}</div>
-                            <div className="nav-feat-note">{f.note}</div>
-                            <div className="nav-feat-cta">{f.cta} <Arrow /></div>
-                          </div>
-                        </div>
-                      ) : f.kind === "tile" ? (
-                        <div className="nav-feat-tile">
-                          <div className="nav-feat-eb">{f.eyebrow}</div>
-                          <div className="nav-feat-title">{f.title}</div>
-                          <div className="nav-feat-note">{f.note}</div>
-                          <div className="nav-feat-cta">{f.cta} <Arrow /></div>
-                        </div>
-                      ) : f.kind === "dossier" ? (
-                        <div className="nav-feat-tile nav-feat-dossier">
-                          <div className="nav-feat-dossier-media" aria-hidden>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src="/informes-carpeta.png" alt="" />
-                          </div>
-                          <div className="nav-feat-dossier-body">
-                            <div className="nav-feat-doc-eb">{f.eyebrow}</div>
-                            <div className="nav-feat-doc-title">{f.title}</div>
-                            <div className="nav-feat-doc-note">{f.note}</div>
-                            <div className="nav-feat-doc-cta">{f.cta} <Arrow /></div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="nav-feat-doc">
-                          <div className="nav-feat-cover">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={f.img} alt="" />
-                          </div>
-                          <div>
-                            <div className="nav-feat-doc-eb">{f.eyebrow}</div>
-                            <div className="nav-feat-doc-title">{f.title}</div>
-                            <div className="nav-feat-doc-note">{f.note}</div>
-                            <div className="nav-feat-doc-cta">{f.cta} <Arrow /></div>
-                          </div>
-                        </div>
-                      )}
-                    </Link>
+                    {f.externo ? (
+                      // El informe todavía no tiene artículo: el destacado va al
+                      // PDF, y un PDF se abre aparte (mismo gesto que /informes).
+                      <a
+                        href={f.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="nav-feat-link"
+                        tabIndex={isOpen ? 0 : -1}
+                        onKeyDown={escClose}
+                      >
+                        <FeaturedCard f={f} />
+                      </a>
+                    ) : (
+                      <Link href={f.href} className="nav-feat-link" tabIndex={isOpen ? 0 : -1} onKeyDown={escClose}>
+                        <FeaturedCard f={f} />
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
@@ -700,8 +813,13 @@ export function Navbar() {
           padding-left: 16px;
           outline: none;
         }
+        /* Marca del ítem en el panel: hover/foco = NEGRO (--ink), página actual
+           (activo) = ORO. El activo va DESPUÉS y con la misma especificidad → gana
+           por orden de fuente cuando un ítem está hovered Y es el activo: la página
+           actual no pierde su oro al pasarle el mouse por encima, y el hover se
+           distingue a simple vista de la sección ya seleccionada. */
         .nav-mega.is-light .nav-item:hover,
-        .nav-mega.is-light .nav-item:focus-visible,
+        .nav-mega.is-light .nav-item:focus-visible { border-left-color: var(--ink); }
         .nav-mega.is-light .nav-item[data-active="1"] { border-left-color: var(--gold-deep); }
         .nav-mega.is-dark .nav-item:hover,
         .nav-mega.is-dark .nav-item:focus-visible,
@@ -834,6 +952,23 @@ export function Navbar() {
         }
         .nav-mega.is-light .nav-feat-doc-title { color: var(--ink); }
         .nav-mega.is-dark .nav-feat-doc-title { color: #fff; }
+        /* El titular del último informe entra como DATO, no como copy fijo: lo
+           escribe un empleado en el panel y zod sólo le pone un techo de 200
+           caracteres (lib/panelSchemas). Se recorta a 3 líneas para que el tile
+           no se estire ni empuje el CTA fuera de la vista.
+           El overflow-wrap: anywhere es la otra mitad y no es opcional: el clamp
+           limita LÍNEAS, no ancho, así que un token sin espacios (una URL
+           pegada, una palabra larguísima) se salía de la columna y quedaba
+           cortado a mitad de letra contra la carpeta. Con esto parte el token y
+           el recorte vuelve a caer donde debe, con elipsis. */
+        .nav-feat-dossier .nav-feat-doc-title {
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 3;
+          line-clamp: 3;
+          overflow: hidden;
+          overflow-wrap: anywhere;
+        }
         .nav-feat-doc-note { font-size: 12px; margin-top: 8px; }
         .nav-mega.is-light .nav-feat-doc-note { color: var(--site-ink-3); }
         .nav-mega.is-dark .nav-feat-doc-note { color: rgba(255, 255, 255, 0.55); }
@@ -845,9 +980,9 @@ export function Navbar() {
         /* Layout interno de la cápsula glass (el material vive en .lqg*) */
         .nav-capsule-row {
           display: inline-flex;
-          align-items: center;
+          align-items: stretch;
           gap: 4px;
-          padding: 5px 6px 5px 16px;
+          padding: 5px 6px 5px 0;
         }
 
         .nav-cta { transition: background 180ms ease, color 180ms ease, transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -867,7 +1002,9 @@ export function Navbar() {
           gap: 5px;
           font-size: 14px;
           font-weight: 600;
+          padding-left: 16px;
           padding-right: 14px;
+          margin: -5px 0;
           transition: color 180ms ease;
         }
         .nav-root[data-mode="dark"] .nav-consultanet { color: var(--gold-soft); }

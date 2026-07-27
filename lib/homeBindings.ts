@@ -66,20 +66,38 @@ class SqliteStatement implements D1PreparedStatement {
     };
   }
 
+  // better-sqlite3 lanza SINCRÓNICAMENTE (prepare/run/get); el contrato D1 es
+  // una promise que RECHAZA. Sin la conversión try→reject, un caller que
+  // encadena .run().catch(...) sin envolver en async ve escapar la excepción
+  // por fuera de la promise y su manejo best-effort no maneja nada (así se
+  // detectó: el write de verdict_log lanzaba en vez de loguear cuando la
+  // migración no estaba aplicada).
   run(): Promise<unknown> {
-    const r = this.execSync();
-    return Promise.resolve(r.kind === "run" ? r.result : { success: true, meta: { changes: 0, last_row_id: 0 } });
+    try {
+      const r = this.execSync();
+      return Promise.resolve(r.kind === "run" ? r.result : { success: true, meta: { changes: 0, last_row_id: 0 } });
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   all<T = unknown>(): Promise<{ results: T[] }> {
-    const stmt = this.db.prepare(this.sql);
-    return Promise.resolve({ results: stmt.all(...this.params) as T[] });
+    try {
+      const stmt = this.db.prepare(this.sql);
+      return Promise.resolve({ results: stmt.all(...this.params) as T[] });
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   first<T = unknown>(): Promise<T | null> {
-    const stmt = this.db.prepare(this.sql);
-    const row = stmt.get(...this.params);
-    return Promise.resolve((row ?? null) as T | null);
+    try {
+      const stmt = this.db.prepare(this.sql);
+      const row = stmt.get(...this.params);
+      return Promise.resolve((row ?? null) as T | null);
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 }
 
@@ -90,15 +108,20 @@ class SqliteD1 implements D1Database {
     return new SqliteStatement(this.db, query);
   }
 
-  /** Como el batch de D1: todas las sentencias en UNA transacción, o ninguna. */
+  /** Como el batch de D1: todas las sentencias en UNA transacción, o ninguna.
+   *  Mismo contrato que arriba: los throws sincrónicos salen como rejection. */
   batch(statements: D1PreparedStatement[]): Promise<unknown[]> {
-    const tx = this.db.transaction((stmts: SqliteStatement[]) =>
-      stmts.map((s) => {
-        const r = s.execSync();
-        return r.kind === "run" ? r.result : { success: true, results: r.results, meta: { changes: 0, last_row_id: 0 } };
-      }),
-    );
-    return Promise.resolve(tx(statements as SqliteStatement[]));
+    try {
+      const tx = this.db.transaction((stmts: SqliteStatement[]) =>
+        stmts.map((s) => {
+          const r = s.execSync();
+          return r.kind === "run" ? r.result : { success: true, results: r.results, meta: { changes: 0, last_row_id: 0 } };
+        }),
+      );
+      return Promise.resolve(tx(statements as SqliteStatement[]));
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 }
 

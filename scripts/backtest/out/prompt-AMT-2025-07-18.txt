@@ -1,0 +1,186 @@
+Empresa a analizar: American Tower Corporation (AMT)
+Fecha: 2025-07-18
+Sector: Real Estate | Industria: REIT - Specialty
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — REIT: usá FFO (Funds from Operations) y AFFO (Adjusted FFO) como métricas de cash generation, NOI (Net Operating Income) en lugar de operating income tradicional. Cap rate, LTV (Loan-to-Value) y dividend coverage son críticos.
+INDUSTRY HINT — REIT: P/FFO es el múltiplo estándar (no P/E). Dividend yield es central — REITs deben distribuir >=90% de income. Comparar dividend coverage AFFO vs distribución actual.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+American Tower Corporation is one of the largest global real estate investment trusts. It is a leading independent owner, operator and developer of multitenant communications real estate. The Company's primary business is the leasing of space on communications sites to wireless service providers, radio and television broadcast companies, wireless data providers, government agencies and municipalities and tenants in a few other industries. The Company refers to this business, inclusive of its data center business discussed below, as its property operations. Additionally, the Company offers t...
+
+---
+DATOS DE MERCADO
+Precio Actual: $216.41 (N/A hoy)
+Capitalización Bursátil: $104.72B
+Rango 52 semanas: $164.35 – $226.41
+Beta: -0.02
+Acciones en Circulación: $465.89M
+Short Interest (% float): 1.4%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 44.90x | P/E Forward: 30.73x | CAPE (Shiller P/E): 54.9x (3yr avg EPS)
+P/Ventas (TTM): 10.34x | P/Libro: 29.63x | EV/EBITDA: 20.55x
+EPS Trailing: 4.82
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (16 analistas)
+Desglose: Compra Fuerte: 1 | Compra: 14 | Neutral: 1 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $216.41 (260 ruedas de historia)
+  Rango 52 semanas: $164.35 – $226.41 | posición en el rango: 84% (-4.4% desde el máximo, +31.7% desde el mínimo)
+  Medias móviles: MM50: $207.78 (precio +4.2%) | MM200: $196.94 (precio +9.9%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +4.5% | 3M +3.9% | 6M +26.7% | 12M +10.4% | momentum 12-1 (excl. último mes) +5.7%
+  Máx. drawdown de la serie: -27.4% | Volatilidad realizada anualizada: 26.8%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  EQIX (Equinix, Inc.): P/E Trailing 89.47x | Fwd N/A | Crec.Rev 6.8% | Mg.Op 18.6% | EV/EBITDA 26.9x
+  DLR (Digital Realty Trust, Inc.): P/E Trailing 107.44x | Fwd N/A | Crec.Rev 1.4% | Mg.Op 13.6% | EV/EBITDA 28.9x
+  IRM (Iron Mountain Incorporated): P/E Trailing 158.01x | Fwd N/A | Crec.Rev 12.2% | Mg.Op 19.7% | EV/EBITDA 24.5x
+  CCI (Crown Castle Inc.): P/E Trailing N/A | Fwd N/A | Crec.Rev -5.8% | Mg.Op 49.3% | EV/EBITDA 26.8x
+  SBAC (SBA Communications Corporation): P/E Trailing 32.93x | Fwd N/A | Crec.Rev -1.2% | Mg.Op 58.6% | EV/EBITDA 26.4x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 98.46x | Fwd N/A | Crec.Rev 1.4% | Mg.Op 19.7% | EV/EBITDA 26.8x
+  AMT vs cohorte: P/E trailing 44.9x vs mediana peers 98.5x; crec. rev 1.1% vs mediana peers 1.4%; margen op 45.5% vs mediana peers 19.7%; EV/EBITDA 20.5x vs mediana peers 26.8x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  AMT en P/E Trailing: percentil p25 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 98.46x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $10.13B | Crec. Ingresos YoY: 1.1% | Crec. Ganancias YoY: N/A
+Margen Bruto: 74.6% | Margen Operativo: 45.5% | Margen Neto: 22.3% | Margen EBITDA: 70.6%
+EBITDA: $7.15B | FCF: $3.70B | FCF Operativo: N/A
+ROE: 63.8% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q1 FY2025
+
+Segmentos de ingresos:
+  Rental Income: 2.34B USD
+  Other Property Income: 0.23B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     2.56B USD (YoY: +2% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    1.31B USD
+    Ventas y marketing: 0.24B USD
+    Otros:              1.07B USD
+  Utilidad operativa:   1.25B USD (margen: 48.9%)
+  Impuestos:            0.12B USD
+  Utilidad neta:        0.5B USD (margen: 19.5%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $1.87B (18.5% de rev.) | OCF $3.70B | FCF $1.82B | Recompras $18.80M | Dividendos $2.63B | SBC $169.30M
+  FY2023: CAPEX $1.80B (17.8% de rev.) | OCF $4.72B | FCF $2.92B | Recompras N/A | Dividendos $2.95B | SBC $195.70M
+  FY2024: CAPEX $1.59B (15.7% de rev.) | OCF $5.29B | FCF $3.70B | Recompras N/A | Dividendos $3.07B | SBC $203.60M
+
+  Capital devuelto al accionista (período): recompras $18.80M + dividendos $8.65B = $8.67B (103% del FCF acumulado del período).
+  Stock-based comp acumulado: $568.60M (~1.9% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $44.38B | Caja Total: $2.10B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 3.1% | Payout Ratio: 137.8% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.3% | Institucional: 94.1%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 7.16 | Rev. Est. N/A (crec. 16.3%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+full year 2025 outlook for property revenue, Adjusted EBITDA, AFFO attributable to AMT common stockholders and AFFO attributable to AMT common stockholders per Share by $50 million, $30 million, $20 million and $0.04, respectively. The Company is reducing the midpoint for net income and net income attributable to AMT common stockholders by $185 million and $180 million, respectively, primarily due to unrealized foreign currency losses. Additional information pertaining to the impact of foreign currency and Secured Overnight Financing Rate fluctuations on the Company’s outlook has been provided in the supplemental disclosure package available on the Company’s website. 3 2025 Outlook: ($ in millions, except per share amounts.) Full Year 2025 Midpoint Growth Rates vs. Prior Year Midpoint Growth Rates vs. Prior Year, As Adjusted Total property revenue (1)(2) $ 9,970 to $ 10,120 1.1% N/A Net income 2,740 to 2,840 22.4% N/A Net income attributable to AMT common stockholders 2,775 to 2,875 25.3% N/A Adjusted EBITDA (3) 6,885 to 6,955 1.6% N/A AFFO attributable to AMT common stockholders 4,850 to 4,940 (0.8)% 5.0% AFFO attributable to AMT common stockholders per Share $ 10.35 to $ 10.54…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-08 | UBS | Mantiene: Buy → Buy
+  2025-05-01 | RBC Capital | Mantiene: Outperform → Outperform
+  2025-04-30 | TD Cowen | Mantiene: Buy → Buy
+  2025-04-30 | Scotiabank | Mantiene: Sector Outperform → Sector Outperform
+  2025-04-30 | Wells Fargo | Mantiene: Overweight → Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-06-01 | Meyer Robert Joseph JR (SVP & Chief Accounting Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $34,773.3
+  2025-03-17 | Goel Sanjay (EVP & President, Asia-Pacific) | Sale at price 215.92 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $863,680
+  2025-03-10 | Smith Rodney M (EVP, CFO & Treasurer) | Stock award/grant [GRANT · compensación, no señal]
+  2025-03-10 | Smith Rodney M (EVP, CFO & Treasurer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $1.75M
+  2025-03-11 | Smith Rodney M (EVP, CFO & Treasurer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $284,881.24
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $863,680 | Mecánicas: $2.07M
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $3.70B / Market Cap $104.72B): 3.5%
+  PEG (P/E fwd 30.73x ÷ crec. EPS 16.3%): 1.88x  [estimación forward +1y]
+  Deuda neta (Deuda $44.38B − Caja $2.10B): $42.28B
+  Deuda neta / EBITDA: no aplica a este perfil (reit) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 30.73x × EPS FY+1 7.16): $220.03 (+1.7% vs precio actual $216.41)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 3.5%, PEG 1.88x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (reit) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 1.4%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

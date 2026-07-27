@@ -229,9 +229,20 @@ export async function resolveCIK(ticker: string): Promise<string | null> {
   return entry ? String(entry.cik_str) : null;
 }
 
-async function latestFilingAccession(
-  cik: string
-): Promise<{ accession: string; isAnnual: boolean; isForeign: boolean; foreignFormType?: "20-F" | "40-F"; priorQuarterlyAccession?: string; primaryDocument?: string } | null> {
+// Selección de filing sobre la que corre todo el pipeline XBRL. Exportada como
+// tipo para que el backtest point-in-time pueda inyectar un filing histórico
+// (elegido por filing date ≤ corte, con paginación de submissions) vía el
+// parámetro filingOverride de fetchEdgarAll/fetchSegmentData.
+export interface EdgarFilingSelection {
+  accession: string;
+  isAnnual: boolean;
+  isForeign: boolean;
+  foreignFormType?: "20-F" | "40-F";
+  priorQuarterlyAccession?: string;
+  primaryDocument?: string;
+}
+
+async function latestFilingAccession(cik: string): Promise<EdgarFilingSelection | null> {
   // 30-min TTL — submissions JSON is the discovery endpoint for the latest
   // 10-Q / 10-K / 20-F / 40-F. Default 6h would mean a freshly filed 10-Q
   // isn't seen for hours after SEC indexes it.
@@ -1971,16 +1982,19 @@ export async function fetchEdgarQuarterlyRevenue(
     // path covers them. Canadian MJDS filers under IFRS (CCJ/Cameco,
     // NTR/Nutrien, SU/Suncor, ...) tag in CAD, German/EU issuers in EUR,
     // etc. — without honoring those, the historical revenue chart is
-    // empty for any non-USD reporter. Convert each non-USD fact to USD via
-    // the current FX rate (single-rate approximation; a per-period rate
-    // would be more precise but Frankfurter only exposes latest).
+    // empty for any non-USD reporter. Convert each non-USD fact to USD at the
+    // FX rate of ITS period end (fetchUsdRate con fecha; la serie histórica de
+    // Frankfurter se trae una vez por moneda) — así la serie en USD refleja lo
+    // que un inversor en USD realmente vivió, FX incluido, en vez de re-nivelar
+    // todo el pasado al tipo de cambio de hoy.
     const KNOWN_CCY = new Set(["USD","CAD","EUR","GBP","JPY","CHF","CNY","HKD","TWD","KRW","INR","AUD","SGD","BRL","MXN","NOK","SEK","DKK","NZD","ILS","ZAR"]);
     const fxCache = new Map<string, number | null>();
-    const getRate = async (code: string): Promise<number | null> => {
+    const getRate = async (code: string, onDate: string): Promise<number | null> => {
       if (code === "USD") return 1;
-      if (fxCache.has(code)) return fxCache.get(code) ?? null;
-      const r = await fetchUsdRate(code);
-      fxCache.set(code, r);
+      const key = `${code}@${onDate}`;
+      if (fxCache.has(key)) return fxCache.get(key) ?? null;
+      const r = await fetchUsdRate(code, onDate);
+      fxCache.set(key, r);
       return r;
     };
     const mergeFact = async (
@@ -1988,7 +2002,7 @@ export async function fetchEdgarQuarterlyRevenue(
       ccy: string,
     ) => {
       if (!f.start || !f.end || f.val <= 0) return;
-      const rate = await getRate(ccy);
+      const rate = await getRate(ccy, f.end);
       if (!rate || rate <= 0) return;
       const usdVal = f.val * rate;
       const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
@@ -2091,10 +2105,10 @@ export async function fetchEdgarQuarterlyRevenue(
           for (const [code, facts] of Object.entries(data.units)) {
             const upper = code.toUpperCase();
             if (!KNOWN_CCY.has(upper) || !Array.isArray(facts)) continue;
-            const rate = await getRate(upper);
-            if (!rate || rate <= 0) continue;
             for (const f of facts) {
               if (!f.start || !f.end || f.val === undefined) continue;
+              const rate = await getRate(upper, f.end);
+              if (!rate || rate <= 0) continue;
               const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
               const usd = f.val * rate;
               if (days >= 75 && days <= 110) {
@@ -2183,12 +2197,18 @@ export async function fetchEdgarQuarterlyRevenue(
   }
 }
 
-export async function fetchEdgarAll(ticker: string): Promise<EdgarAllData | null> {
+// filingOverride: backtest point-in-time — corre el MISMO pipeline XBRL sobre
+// un filing histórico elegido afuera (filing date ≤ corte). Sin él,
+// comportamiento de producción intacto (último filing).
+export async function fetchEdgarAll(
+  ticker: string,
+  filingOverride?: EdgarFilingSelection | null,
+): Promise<EdgarAllData | null> {
   try {
     const cik = await resolveCIK(ticker);
     if (!cik) return null;
 
-    const filing = await latestFilingAccession(cik);
+    const filing = filingOverride ?? (await latestFilingAccession(cik));
     if (!filing) return null;
 
     const [docUrl, labUrl] = await Promise.all([

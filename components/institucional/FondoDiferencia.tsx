@@ -7,10 +7,10 @@
 // selección de fondos de terceros, asesoría de la casa). Ver "Claims verificables".
 
 const PARES: [string, string][] = [
-  ["Elegir y comprar decenas de instrumentos", "Una sola posición, una sola decisión"],
-  ["Rebalancear a mano cuando el mercado se mueve", "El peso entre clases se ajusta de forma activa"],
-  ["Investigar y seguir cada fondo por tu cuenta", "Una selección de managers especializados, ya resuelta"],
-  ["Decidir en soledad", "El respaldo y la asesoría de una casa regulada por el BCU"],
+  ["Elegir y comprar decenas de instrumentos", "Un solo vehículo, una sola decisión"],
+  ["Rebalancear cuando el mercado se mueve", "La asignación entre clases se ajusta de forma activa y se monitorea a diario"],
+  ["Investigar y seguir cada activo por tu cuenta", "Investigación propia y de terceros para tomar las mejores decisiones de inversión"],
+  ["Decidir por tu cuenta", "Gestión profesional, a cargo de una institución regulada por el BCU"],
 ];
 
 function Dash() {
@@ -33,7 +33,7 @@ export function FondoDiferencia() {
     <div className="dif">
       <div className="dif-heads" aria-hidden>
         <span className="dif-head dif-head-a">Por tu cuenta</span>
-        <span className="dif-head dif-head-b">Con el fondo</span>
+        <span className="dif-head dif-head-b">Con BNG Selección Global</span>
       </div>
 
       {PARES.map(([a, b], i) => (
@@ -44,7 +44,7 @@ export function FondoDiferencia() {
           </div>
           <div className="dif-cell dif-cell-b">
             <Check />
-            <div className="dif-body"><span className="dif-tag">Con el fondo</span><span>{b}</span></div>
+            <div className="dif-body"><span className="dif-tag">Con BNG Selección Global</span><span>{b}</span></div>
           </div>
         </div>
       ))}

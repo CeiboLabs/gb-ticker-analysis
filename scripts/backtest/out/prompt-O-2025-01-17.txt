@@ -1,0 +1,183 @@
+Empresa a analizar: Realty Income Corporation (O)
+Fecha: 2025-01-17
+Sector: Real Estate | Industria: REIT - Retail
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — REIT: usá FFO (Funds from Operations) y AFFO (Adjusted FFO) como métricas de cash generation, NOI (Net Operating Income) en lugar de operating income tradicional. Cap rate, LTV (Loan-to-Value) y dividend coverage son críticos.
+INDUSTRY HINT — REIT: P/FFO es el múltiplo estándar (no P/E). Dividend yield es central — REITs deben distribuir >=90% de income. Comparar dividend coverage AFFO vs distribución actual.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Realty Income Corporation, an S&P 500 company, is real estate partner to the world's leading companies. They serve their clients as a full-service real estate capital provider. As of March 31, 2026, They have a portfolio of over 15,500 properties in all 50 states of the United States (U.S.), the United Kingdom (U.K.), and eight other countries in Europe. They are known as (The Monthly Dividend Company) and have a mission to invest in people and places to deliver dependable monthly dividends that increase over time. Since their founding, they have declared 673 consecutive monthly dividends a...
+
+---
+DATOS DE MERCADO
+Precio Actual: $50.31 (N/A hoy)
+Capitalización Bursátil: $50.93B
+Rango 52 semanas: $44.88 – $58.77
+Beta: 0.15
+Acciones en Circulación: $932.49M
+Short Interest (% float): 1.6%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 58.39x | P/E Forward: 38.20x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 12.49x | P/Libro: 1.55x | EV/EBITDA: 20.09x
+EPS Trailing: N/A
+Precio Objetivo Medio Analistas: $61.88 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (16 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 5 | Neutral: 11 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $50.31 (260 ruedas de historia)
+  Rango 52 semanas: $44.88 – $58.77 | posición en el rango: 39% (-14.4% desde el máximo, +12.1% desde el mínimo)
+  Medias móviles: MM50: $50.52 (precio -0.4%) | MM200: $51.29 (precio -1.9%)
+  Estructura de tendencia: bajista (precio < MM50 < MM200)
+  Retornos (ajustados): 1M +0.6% | 3M -13.8% | 6M -2.8% | 12M +1.0% | momentum 12-1 (excl. último mes) +0.4%
+  Máx. drawdown de la serie: -19.3% | Volatilidad realizada anualizada: 17.4%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  SPG (Simon Property Group, Inc.): P/E Trailing 28.98x | Fwd N/A | Crec.Rev 6.9% | Mg.Op 49.6% | EV/EBITDA 18.5x
+  UNBLF (Unibail-Rodamco-Westfield SE): P/E Trailing N/A | Fwd N/A | Crec.Rev 1.9% | Mg.Op 53.9%
+  KIM (Kimco Realty Corporation): P/E Trailing 20.38x | Fwd N/A | Crec.Rev 3.2% | Mg.Op 32.7% | EV/EBITDA 15.4x
+  REG (Regency Centers Corporation): P/E Trailing 32.90x | Fwd N/A | Crec.Rev 8.0% | Mg.Op 35.4% | EV/EBITDA 20.5x
+  CPAMF (CapitaLand Integrated Commercial Trust): P/E Trailing 18.61x | Fwd N/A | Crec.Rev 8.2% | Mg.Op 67.4% | EV/EBITDA 20.7x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 24.68x | Fwd N/A | Crec.Rev 6.9% | Mg.Op 49.6% | EV/EBITDA 19.5x
+  O vs cohorte: P/E trailing 58.4x vs mediana peers 24.7x; crec. rev 22.0% vs mediana peers 6.9%; margen op 42.2% vs mediana peers 49.6%; EV/EBITDA 20.1x vs mediana peers 19.5x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  O en P/E Trailing: percentil p100 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 24.68x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $4.08B | Crec. Ingresos YoY: 22.0% | Crec. Ganancias YoY: N/A
+Margen Bruto: 92.2% | Margen Operativo: 42.2% | Margen Neto: 21.4% | Margen EBITDA: 88.7%
+EBITDA: $3.62B | FCF: $2.96B | FCF Operativo: N/A
+ROE: 2.6% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Other Property Income: 1.33B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     1.33B USD (YoY: +28% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+    G&A:                0.04B USD
+  Utilidad operativa:   0.29B USD (margen: 21.5%)
+  Impuestos:            0.02B USD
+  Utilidad neta:        0.27B USD (margen: 20.2%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX N/A | OCF $2.56B | FCF $2.56B | Recompras N/A | Dividendos $1.81B | SBC $21.62M
+  FY2023: CAPEX N/A | OCF $2.96B | FCF $2.96B | Recompras N/A | Dividendos $2.11B | SBC $26.23M
+
+  Capital devuelto al accionista (período): recompras $0 + dividendos $3.93B = $3.93B (71% del FCF acumulado del período).
+  Stock-based comp acumulado: $47.84M (~0.6% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $21.99B | Caja Total: $232.92M
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 6.2% | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 81.9%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 1.58 | Rev. Est. N/A (crec. 19.4%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+2024 Guidance (1) Revised 2024 Guidance Net income per share (2) $1.21 - $1.30 $1.15 - $1.20 Real estate depreciation and impairments per share $2.92 $2.96 Other adjustments per share (3) $0.06 $0.05 Normalized FFO per share (2)(4) $4.19 - $4.28 $4.16 - $4.21 AFFO per share (4) $4.15 - $4.21 $4.17 - $4.21 Same store rent growth (5) Approx 1.0% Approx 1.0% Occupancy Over 98% Over 98% Cash G&A expenses (% of revenues) (6)(7) Approx 3.0% Approx 3.0% Property expenses (non-reimbursable) (% of revenues) (6) 1.0% - 1.5% 1.2% - 1.5% Income tax expenses $65 - $75 million $65 - $75 million Investment volume (8) Approx $3.0 billion Approx $3.5 billion Disposition volume $400 - $500 million $550 - $600 million (1) As issued on August 5, 2024. (2) Net income per share and Normalized FFO per share include non-cash interest expense impact related to the Spirit merger. (3) Includes gain on sales of properties and merger, transaction, and other costs. (4) Normalized FFO per share and AFFO per share exclude merger, transaction, and other costs. Per share amounts may not add due to rounding. (5) Consistent with prior quarters, the full year Same Store Pool does not include the Spirit portfolio.…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-16 | Scotiabank | Mantiene: Sector Perform → Sector Perform
+  2025-01-08 | Stifel | Mantiene: Buy → Buy
+  2025-01-08 | Mizuho | Mantiene: Neutral → Neutral
+  2024-12-17 | Barclays | Inicio cobertura: Equal-Weight
+  2024-12-11 | Deutsche Bank | Inicio cobertura: Hold
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-01-01 | Pong Jonathan (EVP, CFO & Treasurer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $184,157.68
+  2025-01-01 | Kehle Shannon (EVP, Chief People Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $116,113.34
+  2024-12-31 | Hagan Mark E (EVP, Chief Investment Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $73,011.47
+  2025-01-01 | Hagan Mark E (EVP, Chief Investment Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $302,567.65
+  2025-01-01 | Hagan Mark E (EVP, Chief Investment Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $133,311.36
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $809,161.5
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $2.96B / Market Cap $50.93B): 5.8%
+  PEG (P/E fwd 38.20x ÷ crec. EPS 19.4%): 1.97x  [estimación forward +1y]
+  Deuda neta (Deuda $21.99B − Caja $232.92M): $21.76B
+  Deuda neta / EBITDA: no aplica a este perfil (reit) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 38.20x × EPS FY+1 1.58): $60.36 (+20.0% vs precio actual $50.31)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 5.8%, PEG 1.97x]
+    (b) Consenso analistas = buy / strong buy: NO CUMPLE  [consenso: hold]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (reit) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 1.6%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

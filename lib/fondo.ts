@@ -18,46 +18,58 @@ import { readNavSeries, readBenchmarkSeries, readLatestHoldings } from "@/lib/fo
 
 // ── Hechos del producto (verificables) ─────────────────────────────────────
 
+// Moneda del fondo — el valor cuota, el AUM y todos los rendimientos se
+// expresan en ella. Fuente única: la usan la ficha técnica y la UI de
+// performance (no repetir el literal "USD" suelto por la página).
+export const MONEDA = "USD";
+
 export const FONDO = {
   nombre: "BNG Selección Global",
   // Una línea — confirmado por el responsable del fondo.
-  tagline: "Estrategia balanceada con exposición global, domiciliada en Uruguay.",
+  tagline: "Estrategia de crecimiento diversificada, domiciliada en Uruguay.",
   responsable: "Adrián Moreira",
   objetivo:
-    "Construir una cartera diversificada y global en un solo vehículo, combinando renta variable y renta fija a través de una selección de fondos de terceros, para acompañar el crecimiento del capital a lo largo de un ciclo completo de mercado.",
+    "Construir una cartera diversificada y global en un solo vehículo, combinando acciones, bonos y activos alternativos, para acompañar el crecimiento del capital a lo largo de un ciclo completo de mercado.",
   // Ficha técnica del producto — la grilla densa de la página. Todo dato es factual
   // y verificable del producto; nada de cifras de cartera o performance (el
   // fondo está en pre-lanzamiento). El SRI 4/7 es provisional (ver FondoRiesgo).
   fichaTecnica: [
     ["Tipo", "Estrategia balanceada"],
-    ["Clases de activo", "Renta variable y renta fija"],
-    ["Estructura", "Selección de fondos de terceros"],
+    ["Clases de activo", "Acciones, bonos y activos alternativos"],
+    ["Estructura", "Inversión directa y fondos mutuos"],
     ["Alcance", "Exposición global"],
     ["Domicilio", "Uruguay"],
-    ["Moneda", "USD"],
+    ["Moneda", MONEDA],
     ["Gestión", "Gastón Bengochea & Cía."],
     ["Responsable del fondo", "Adrián Moreira"],
     ["Inicio", "Enero 2024"],
     ["Valor cuota", "Cálculo diario"],
-    ["Suscripción y rescate", "A través de un asesor de la casa"],
+    ["Suscripción y rescate", "A través de un asesor nuestro"],
     ["Indicador de riesgo", "4 / 7 (provisional)"],
     ["Regulación y custodia", "Sociedad de bolsa regulada por el BCU"],
   ] as const satisfies ReadonlyArray<readonly [string, string]>,
-  // Estructura cualitativa de la cartera (los dos componentes del balanceado).
-  // SIN pesos ni porcentajes: la asignación es activa y los pesos vigentes se
-  // informan en la ficha mensual / a pedido. No inventar números acá.
+  // Estructura cualitativa de la cartera: las TRES clases de activo del
+  // balanceado. SIN pesos ni porcentajes: la asignación es activa y los pesos
+  // vigentes se informan en la ficha mensual / a pedido. No inventar números acá.
   cartera: {
     sleeves: [
       {
-        clave: "Renta variable",
-        desc: "Exposición a acciones de mercados desarrollados y emergentes, a través de fondos gestionados por managers especializados. Es el motor de crecimiento de la cartera.",
+        clave: "Acciones",
+        rol: "Motor de crecimiento",
+        desc: "Exposición a acciones de mercados desarrollados y emergentes, a través de vehículos que ofrecen esa exposición de forma eficiente y diversificada. Es el motor de crecimiento de la cartera.",
       },
       {
-        clave: "Renta fija",
-        desc: "Bonos y crédito a nivel global, también vía fondos seleccionados. Aporta estabilidad y modera la volatilidad del conjunto.",
+        clave: "Bonos",
+        rol: "Bloque defensivo",
+        desc: "Bonos y crédito a nivel global, ya sea por inversión directa en los instrumentos o mediante fondos mutuos. Aporta estabilidad y modera la volatilidad del portafolio.",
+      },
+      {
+        clave: "Activos alternativos",
+        rol: "Diversificación y retorno",
+        desc: "Históricamente tienen correlación baja o negativa con acciones y bonos tradicionales: reducen la volatilidad del portafolio agregado sin sacrificar retorno esperado.",
       },
     ],
-    nota: "El peso de cada clase de activo se gestiona de forma activa según el contexto de mercado. La composición vigente se informa en la ficha técnica mensual y a través de un asesor de la casa.",
+    nota: "La asignación a cada clase de activo se gestiona de forma activa, con un riguroso análisis del contexto de mercado y la coyuntura macroeconómica. La composición vigente se informa en la ficha técnica mensual y a través de un asesor nuestro.",
   },
 } as const;
 

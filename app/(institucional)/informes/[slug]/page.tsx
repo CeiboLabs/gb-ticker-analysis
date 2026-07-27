@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import type { Metadata } from "next";
-import { INFORMES, getInforme, type Informe } from "@/lib/informes";
+import { INFORMES, AUTORES, getInforme, type Informe } from "@/lib/informes";
 import { getContenido, tieneArticulo } from "@/lib/informeContenido";
 import type { ContenidoInforme } from "@/lib/informeContenido/tipos";
 import { getMetricsDb } from "@/lib/metrics";
@@ -13,6 +13,9 @@ import {
   rowToInforme,
 } from "@/lib/informesStore";
 import { ArticuloInforme, type Vecino } from "@/components/institucional/informe/ArticuloInforme";
+import { pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { articleLd, breadcrumbLd } from "@/lib/jsonld";
 
 // Página-artículo de un informe. Se renderiza POR REQUEST (force-dynamic),
 // leyendo la fila y el contenido de D1 —lo administra el panel— con el mismo
@@ -49,16 +52,17 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const data = await cargar(slug);
   if (!data || !data.live) return {};
-  const { contenido } = data;
-  return {
-    title: `${contenido.titular} · ${contenido.volanta} · Bengochea & Cía.`,
+  const { informe, contenido } = data;
+  const autor = AUTORES.find((a) => a.tag === informe.categoria);
+  return pageMetadata({
+    title: `${contenido.titular} · ${contenido.volanta}`,
     description: contenido.bajada,
-    openGraph: {
-      title: contenido.titular,
-      description: contenido.bajada,
-      type: "article",
-    },
-  };
+    path: `/informes/${slug}`,
+    type: "article",
+    publishedTime: informe.fecha,
+    modifiedTime: informe.fecha,
+    authors: autor ? [autor.nombre] : undefined,
+  });
 }
 
 export default async function InformeArticuloPage({ params }: Params) {
@@ -84,12 +88,35 @@ export default async function InformeArticuloPage({ params }: Params) {
       ? { titulo: inf.titulo, categoria: inf.categoria, href: `/informes/${inf.slug}` }
       : undefined;
 
+  const autor = AUTORES.find((a) => a.tag === informe.categoria);
+
   return (
-    <ArticuloInforme
-      informe={informe}
-      contenido={contenido}
-      anterior={aVecino(masAntiguo)}
-      siguiente={aVecino(masReciente)}
-    />
+    <>
+      <JsonLd
+        data={articleLd({
+          slug,
+          headline: contenido.titular,
+          description: contenido.bajada,
+          datePublished: informe.fecha,
+          dateModified: informe.fecha,
+          // author.url: pendiente páginas de autor; el nombre ya da la señal E-E-A-T.
+          authors: autor ? [{ name: autor.nombre }] : [],
+          section: informe.categoria,
+        })}
+      />
+      <JsonLd
+        data={breadcrumbLd([
+          { name: "Inicio", path: "/" },
+          { name: "Informes", path: "/informes" },
+          { name: contenido.titular, path: `/informes/${slug}` },
+        ])}
+      />
+      <ArticuloInforme
+        informe={informe}
+        contenido={contenido}
+        anterior={aVecino(masAntiguo)}
+        siguiente={aVecino(masReciente)}
+      />
+    </>
   );
 }

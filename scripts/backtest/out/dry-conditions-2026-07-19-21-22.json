@@ -1,0 +1,82 @@
+{
+  "cutoffs": [
+    "2026-01-16"
+  ],
+  "rows": [
+    {
+      "ticker": "SMFG",
+      "cutoff": "2026-01-16",
+      "conditions": {
+        "buyValuation": "not_met",
+        "buyConsensus": "na",
+        "buyBalance": "na",
+        "avoidValuation": "not_met",
+        "avoidBalance": "na",
+        "avoidInsiderShort": "not_met",
+        "buyConfirmed": false,
+        "avoidTriggered": false
+      },
+      "valuationBasis": "perfil financiero — P/B 1.41x, P/E trailing 15.7x, PEG 1.52x",
+      "profile": "bank",
+      "priceToBook": 1.4124900443321586,
+      "returnOnEquity": null,
+      "trailingPE": 15.665177001612992,
+      "forwardPE": 14.26,
+      "hasForwardEps": true,
+      "finvizStaleness": 297,
+      "consensus": null,
+      "consensusFirms": 0,
+      "actions": 3,
+      "earningsQuarters": 2,
+      "beta": 1.0257730328510617,
+      "dividendYield": 0.011731581711184448,
+      "shortPct": 0.00035419886936933283,
+      "insiderTxs": 0,
+      "peers": 0,
+      "hasSegments": true,
+      "segPeriod": "FY2025",
+      "hasGuidance": false,
+      "balanceAsOf": "2025-09-30",
+      "pctFromHigh": -0.23408774803568289,
+      "granularity": "fy-annual"
+    },
+    {
+      "ticker": "ASML",
+      "cutoff": "2026-01-16",
+      "conditions": {
+        "buyValuation": "not_met",
+        "buyConsensus": "met",
+        "buyBalance": "met",
+        "avoidValuation": "not_met",
+        "avoidBalance": "not_met",
+        "avoidInsiderShort": "not_met",
+        "buyConfirmed": false,
+        "avoidTriggered": false
+      },
+      "valuationBasis": "FCF yield 2.0%, PEG 5.42x",
+      "profile": "standard",
+      "priceToBook": 23.649791920430175,
+      "returnOnEquity": 0.3986416405612446,
+      "trailingPE": 60.570749524265764,
+      "forwardPE": 27.82,
+      "hasForwardEps": true,
+      "finvizStaleness": 126,
+      "consensus": "buy",
+      "consensusFirms": 12,
+      "actions": 5,
+      "earningsQuarters": 1,
+      "beta": 1.4355775115677116,
+      "dividendYield": 0.005445318934971586,
+      "shortPct": 0.0029821764875325642,
+      "insiderTxs": 0,
+      "peers": 0,
+      "hasSegments": true,
+      "segPeriod": "FY2024",
+      "hasGuidance": false,
+      "balanceAsOf": "2025-09-30",
+      "pctFromHigh": 0,
+      "granularity": "fy-annual"
+    }
+  ],
+  "skips": []
+}

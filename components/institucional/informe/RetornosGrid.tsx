@@ -20,6 +20,12 @@ function GrupoRetornos({ grupo }: { grupo: GrupoDatos }) {
             </span>
           </div>
         ))}
+        {grupo.faltantes?.map((etiqueta) => (
+          <div className="inf-ret-row" key={etiqueta}>
+            <span className="inf-ret-tk">{etiqueta}</span>
+            <span className="inf-ret-val" data-dir="neu">s/d</span>
+          </div>
+        ))}
       </div>
     </div>
   );

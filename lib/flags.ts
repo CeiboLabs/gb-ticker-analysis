@@ -11,7 +11,7 @@ import type { D1Database } from "@/lib/metrics";
 
 export const FLAG_DEFS = {
   videos_casa: {
-    label: "Videos de la casa",
+    label: "Nuestros videos",
     descripcion: "Muestra el módulo con los últimos videos del canal de YouTube al pie de /informes.",
   },
   instagram_feed: {
@@ -21,6 +21,14 @@ export const FLAG_DEFS = {
   fondo_documentos: {
     label: "Documentos del fondo",
     descripcion: "Publica los documentos descargables del fondo (ficha, reglamento) en /bng-seleccion-global.",
+  },
+  // Único flag que no es de visibilidad: no oculta nada, cobra un peaje. Vive
+  // acá igual porque es la misma decisión de negocio ("¿lo prendemos?") y el
+  // panel ya la sabe editar. Default OFF ⇒ /analisis se comporta como hoy.
+  lead_gate: {
+    label: "Pedir correo para análisis nuevos",
+    descripcion:
+      "En /analisis, exige dejar un correo antes de GENERAR un análisis que todavía no existe. Los análisis ya hechos se siguen leyendo sin pedir nada.",
   },
 } as const;
 

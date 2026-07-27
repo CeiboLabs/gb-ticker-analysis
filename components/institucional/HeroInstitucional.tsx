@@ -9,13 +9,12 @@ import {
   useTransform,
 } from "framer-motion";
 import { SplitText } from "@/components/scroll";
-import { Glass } from "@/components/institucional/LiquidGlass";
 
 const LEDGER = [
-  { cap: "Miembros BVM", value: "Desde 1967" },
-  { cap: "Trayectoria", value: "6 décadas" },
+  { cap: "Miembros de la BVM", value: "Desde 1967" },
+  { cap: "Sede", value: "WTC Montevideo" },
   { cap: "Regulada por", value: "BCU" },
-  { cap: "Mercados", value: "Local e internacional" },
+  { cap: "Mercados", value: "Local y global" },
 ];
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -92,10 +91,6 @@ export function HeroInstitucional() {
               <Link href="/contacto" className="ui-btn ui-btn-on-navy" style={{ borderRadius: 999 }}>
                 Agendá una reunión
               </Link>
-              {/* Secundario en liquid glass sobre el video */}
-              <Glass interactive>
-                <Link href="/analisis" className="lqg-btn">Analizar una acción</Link>
-              </Glass>
             </motion.div>
           </motion.div>
         </div>

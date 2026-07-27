@@ -63,7 +63,7 @@ async function cargar(slug: string) {
   }
   const volanta = contenido?.volanta || "Research";
   return {
-    titular: contenido?.titular || "Lectura de mercado de la casa.",
+    titular: contenido?.titular || "Nuestra lectura de mercado.",
     kicker: [volanta, fechaTexto].filter(Boolean).join(" · ").toUpperCase(),
     movers: (contenido?.graficoSemana?.datos ?? []).slice(0, 4),
   };

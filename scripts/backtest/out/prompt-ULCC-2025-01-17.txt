@@ -1,0 +1,184 @@
+Empresa a analizar: Frontier Group Holdings, Inc. (ULCC)
+Fecha: 2025-01-17
+Sector: Industrials | Industria: Airlines
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — AEROLÍNEA: priorizá load factor, RASM (Revenue per Available Seat Mile), CASM (Cost per ASM), fuel hedging, y capacity adds. Combustible suele ser 25-30% del costo; cualquier hedge o spike afecta margen directamente.
+INDUSTRY HINT — AEROLÍNEA: ciclo muy sensible a combustible y demanda business travel. EV/EBITDAR es relevante (R por leases). Margen operativo del 10%+ es bueno; >15% excepcional.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Frontier Group Holdings, Inc., provides low-fare passenger airline services to leisure travelers in the United States and Latin America. The company sells its products through direct distribution channels, such as websites, mobile apps, and contact centers. As of December 31, 2025, it had a fleet of 176 Airbus single-aisle aircraft. Frontier Group Holdings, Inc. was founded in 1994 and is headquartered in Denver, Colorado.
+
+---
+DATOS DE MERCADO
+Precio Actual: $8.58 (N/A hoy)
+Capitalización Bursátil: $1.97B
+Rango 52 semanas: $2.84 – $8.58
+Beta: 1.85
+Acciones en Circulación: $229.79M
+Short Interest (% float): 6.9%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: N/Ax | P/E Forward: 11.31x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 0.55x | P/Libro: 3.89x | EV/EBITDA: 58.09x
+EPS Trailing: -0.05
+Precio Objetivo Medio Analistas: $4.91 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (11 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 2 | Neutral: 8 | Venta: 1 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $8.58 (260 ruedas de historia)
+  Rango 52 semanas: $2.84 – $8.58 | posición en el rango: 100% (+0.0% desde el máximo, +202.1% desde el mínimo)
+  Medias móviles: MM50: $6.68 (precio +28.4%) | MM200: $5.51 (precio +55.9%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +33.2% | 3M +37.9% | 6M +132.5% | 12M +107.2% | momentum 12-1 (excl. último mes) +55.6%
+  Máx. drawdown de la serie: -65.1% | Volatilidad realizada anualizada: 73.7%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  DAL (Delta Air Lines, Inc.): P/E Trailing 9.00x | Fwd N/A | Crec.Rev 14.8% | Mg.Op 9.5% | EV/EBITDA 7.6x
+  UAL (United Airlines Holdings, Inc.): P/E Trailing 13.61x | Fwd N/A | Crec.Rev 19.5% | Mg.Op 9.6% | EV/EBITDA 7.3x
+  RYAAY (Ryanair Holdings plc): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 24.8% | Mg.Op 15.3% | EV/EBITDA 6.0x
+  ICAGY (International Consolidated Airlines Group S.A.): P/E Trailing 7.16x | Fwd N/A | Crec.Rev 27.7% | Mg.Op 12.0% | EV/EBITDA 4.2x
+  LUV (Southwest Airlines Co.): P/E Trailing 33.74x | Fwd N/A | Crec.Rev 9.6% | Mg.Op 0.9% | EV/EBITDA 5.6x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 19.5% | Mg.Op 9.6% | EV/EBITDA 6.0x
+  ULCC vs cohorte: crec. rev 7.9% vs mediana peers 19.5%; margen op -0.1% vs mediana peers 9.6%; EV/EBITDA 58.1x vs mediana peers 6.0x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+Mediana peers — P/E Trailing: 11.89x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $3.59B | Crec. Ingresos YoY: 7.9% | Crec. Ganancias YoY: N/A
+Margen Bruto: 8.4% | Margen Operativo: -0.1% | Margen Neto: -0.3% | Margen EBITDA: 2.3%
+EBITDA: $83.00M | FCF: $-348,000,000 | FCF Operativo: N/A
+ROE: -2.2% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Passenger: 910M USD (YoY: +6% Y/Y)
+  Other: 25M USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     935M USD (YoY: +6% Y/Y)
+  Costo de ingresos:    0M USD
+  Utilidad bruta:       0M USD
+  Gastos operativos:    916M USD
+    Ventas y marketing: 50.78M USD
+    Otros:              0M USD
+  Utilidad operativa:   19M USD (margen: 2%)
+  Ingreso no operativo: 8M USD
+  Impuestos:            1M USD
+  Utilidad neta:        26M USD (margen: 2.8%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $152.00M (4.2% de rev.) | OCF $-78,000,000 | FCF $-230,000,000 | Recompras N/A | Dividendos N/A | SBC $15.00M
+  FY2023: CAPEX $87.00M (2.4% de rev.) | OCF $-261,000,000 | FCF $-348,000,000 | Recompras N/A | Dividendos N/A | SBC $14.00M
+
+  Stock-based comp acumulado: $29.00M (~0.4% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $3.46B | Caja Total: $609.00M
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: N/A | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 64.3% | Institucional: 35.4%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 0.51 | Rev. Est. N/A (crec. 584.7%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+guidance estimates are presented in the table below. To recap, capacity is expected to decline by (2) to (3) percent over the comparable 2023 quarter. The average fuel price per gallon is expected to be in the range of $2.40 to $2.50 based on the blended fuel curve on October 24, 2024. Adjusted (non-GAAP) total operating expenses (excluding fuel) are expected to be $725 to $745 million, which includes an estimate of approximately $10 million of cost inefficiencies from hurricane-related impacts and temporary excess crew-related costs due to capacity reductions. The comparable 2023 quarter was favorably impacted by a $36 million lease return cost benefit related to the extension of four A320ceo aircraft leases. Adjusted (non-GAAP) pre-tax margin (excluding special items) is expected to be 0 to 2 percent, including storm-related impacts. Full Year 2024 Full year 2024 adjusted (non-GAAP) CASM (excluding fuel) on a stage-length adjusted basis to 1,000 miles, is expected to be down approximately 1 percent compared to the prior year, at the low end of prior guidance (down 1 to 2 percent), driven by lower off-peak day-of-week capacity in the fourth quarter, which more closely aligns with…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-07 | Susquehanna | Mantiene: Neutral → Neutral
+  2025-01-07 | UBS | Mantiene: Neutral → Neutral
+  2024-12-11 | Morgan Stanley | Mantiene: Equal-Weight → Equal-Weight
+  2024-12-11 | Deutsche Bank | Upgrade: Hold → Buy
+  2024-11-14 | Barclays | Mantiene: Overweight → Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-01-15 | Biffle Barry (CEO) | Sale at price 8.38 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $1.34M
+  2025-01-15 | Biffle Barry (CEO) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal] | Valor: $881,640
+  2025-01-17 | Biffle Barry (CEO) | Sale at price 8.44 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $2.30M
+  2025-01-17 | Biffle Barry (CEO) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal] | Valor: $1.57M
+  2025-01-08 | Clerc Alexandre (Sr. Vice President, Customers) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal]
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $6.09M
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $-348.00M / Market Cap $1.97B): -17.7%
+  PEG: N/D  [crecimiento de recuperación 585% — PEG no aplicable a turnarounds]
+  Deuda neta (Deuda $3.46B − Caja $609.00M): $2.85B
+  Deuda neta / EBITDA (EBITDA $83.00M): 34.34x
+  Target base (P/E fwd 11.31x × EPS FY+1 0.51): $5.77 (-32.8% vs precio actual $8.58)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield -17.7%]
+    (b) Consenso analistas = buy / strong buy: NO CUMPLE  [consenso: hold]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 6.9%]
+    → AVOID disparado: SÍ
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

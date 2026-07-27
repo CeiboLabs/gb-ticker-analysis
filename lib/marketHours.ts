@@ -67,6 +67,21 @@ const EARLY_CLOSE_MINUTES = 13 * 60; // 13:00 ET
 const UY_TZ = "America/Montevideo";
 const ET_TZ = "America/New_York";
 
+/**
+ * Fecha de hoy en Uruguay como 'YYYY-MM-DD'. Es la convención de la casa para
+ * las claves de cache diarias: ruedan a la medianoche LOCAL, no a la de UTC
+ * (que acá caería a las 21:00 y haría rotar el cache en plena tarde).
+ * `en-CA` es el locale que formatea ISO sin tener que rearmar las partes.
+ */
+export function todayUY(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: UY_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
 const WEEKDAY_ES: Record<string, string> = {
   Mon: "lunes",
   Tue: "martes",

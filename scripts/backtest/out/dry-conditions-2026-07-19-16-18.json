@@ -1,0 +1,116 @@
+{
+  "cutoffs": [
+    "2025-01-17"
+  ],
+  "rows": [
+    {
+      "ticker": "AAL",
+      "cutoff": "2025-01-17",
+      "conditions": {
+        "buyValuation": "met",
+        "buyConsensus": "na",
+        "buyBalance": "not_met",
+        "avoidValuation": "na",
+        "avoidBalance": "met",
+        "avoidInsiderShort": "not_met",
+        "buyConfirmed": false,
+        "avoidTriggered": true
+      },
+      "valuationBasis": "FCF yield 9.6%",
+      "profile": "airline",
+      "priceToBook": null,
+      "returnOnEquity": null,
+      "trailingPE": 15.099173932036093,
+      "shortPct": 0.06851631197878816,
+      "insiderTxs": 0,
+      "peers": 0,
+      "hasSegments": false,
+      "segPeriod": null,
+      "hasGuidance": false,
+      "pctFromHigh": -0.5984695757643377,
+      "granularity": "fy-annual"
+    },
+    {
+      "ticker": "ULCC",
+      "cutoff": "2025-01-17",
+      "conditions": {
+        "buyValuation": "not_met",
+        "buyConsensus": "na",
+        "buyBalance": "not_met",
+        "avoidValuation": "na",
+        "avoidBalance": "met",
+        "avoidInsiderShort": "not_met",
+        "buyConfirmed": false,
+        "avoidTriggered": true
+      },
+      "valuationBasis": "FCF yield -17.7%",
+      "profile": "airline",
+      "priceToBook": 3.888742271332455,
+      "returnOnEquity": -0.021696252465483234,
+      "trailingPE": null,
+      "shortPct": 0.06913619454976272,
+      "insiderTxs": 0,
+      "peers": 0,
+      "hasSegments": false,
+      "segPeriod": null,
+      "hasGuidance": false,
+      "pctFromHigh": 0,
+      "granularity": "fy-annual"
+    },
+    {
+      "ticker": "JPM",
+      "cutoff": "2025-01-17",
+      "conditions": {
+        "buyValuation": "not_met",
+        "buyConsensus": "na",
+        "buyBalance": "na",
+        "avoidValuation": "na",
+        "avoidBalance": "na",
+        "avoidInsiderShort": "not_met",
+        "buyConfirmed": false,
+        "avoidTriggered": false
+      },
+      "valuationBasis": "perfil financiero — P/B 2.10x con ROE 15.1%, P/E trailing 15.5x",
+      "profile": "bank",
+      "priceToBook": 2.1010837464356196,
+      "returnOnEquity": 0.15112938349020064,
+      "trailingPE": 15.497636589384049,
+      "shortPct": 0.011103917448833359,
+      "insiderTxs": 0,
+      "peers": 0,
+      "hasSegments": false,
+      "segPeriod": null,
+      "hasGuidance": false,
+      "pctFromHigh": 0,
+      "granularity": "fy-annual"
+    },
+    {
+      "ticker": "MUFG",
+      "cutoff": "2025-01-17",
+      "conditions": {
+        "buyValuation": "not_met",
+        "buyConsensus": "na",
+        "buyBalance": "na",
+        "avoidValuation": "na",
+        "avoidBalance": "na",
+        "avoidInsiderShort": "not_met",
+        "buyConfirmed": false,
+        "avoidTriggered": false
+      },
+      "valuationBasis": "perfil financiero — P/B 1.08x con ROE 7.6%, P/E trailing 14.2x",
+      "profile": "bank",
+      "priceToBook": 1.0788852921030951,
+      "returnOnEquity": 0.07610695603878972,
+      "trailingPE": 14.175909118651592,
+      "shortPct": 0.0006061440095315678,
+      "insiderTxs": 0,
+      "peers": 0,
+      "hasSegments": false,
+      "segPeriod": null,
+      "hasGuidance": false,
+      "pctFromHigh": -1.5522803772916371,
+      "granularity": "fy-annual"
+    }
+  ],
+  "skips": []
+}

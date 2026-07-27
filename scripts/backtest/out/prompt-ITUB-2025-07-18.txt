@@ -1,0 +1,172 @@
+Empresa a analizar: Itaú Unibanco Holding S.A. (ITUB)
+Fecha: 2025-07-18
+Sector: Financial Services | Industria: Banks - Regional
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Itaú Unibanco Holding S.A. provides various financial products and services to personal and corporate customers in Brazil and internationally. It operates through three segments: Retail Business, Wholesale Business and Activities with the Market + Corporation. The company offers current accounts; funds management; payments and collections; loans; credit and debit cards; investment and commercial banking services; real estate lending and financing services; economic, financial and brokerage advisory; and leasing and foreign exchange services. The company also provides non-life insurance prod...
+
+---
+DATOS DE MERCADO
+Precio Actual: $5.60 (N/A hoy)
+Capitalización Bursátil: $67.42B
+Rango 52 semanas: $3.71 – $6.15
+Beta: 0.49
+Acciones en Circulación: $11.02B
+Short Interest (% float): 0.8%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 8.47x | P/E Forward: 7.27x | CAPE (Shiller P/E): 9.8x (3yr avg EPS)
+P/Ventas (TTM): 2.36x | P/Libro: 1.86x | EV/EBITDA: N/Ax
+EPS Trailing: 0.66
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (3 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 2 | Neutral: 1 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $5.60 (260 ruedas de historia)
+  Rango 52 semanas: $3.71 – $6.15 | posición en el rango: 77% (-9.0% desde el máximo, +50.9% desde el mínimo)
+  Medias móviles: MM50: $5.83 (precio -4.0%) | MM200: $4.86 (precio +15.1%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -6.5% | 3M +13.9% | 6M +37.1% | 12M +20.3% | momentum 12-1 (excl. último mes) +28.7%
+  Máx. drawdown de la serie: -27.7% | Volatilidad realizada anualizada: 28.5%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  DBSDY (DBS Group Holdings Ltd): P/E Trailing 11.60x | Fwd N/A | Crec.Rev 10.3%
+  CIHHF (China Merchants Bank Co., Ltd.): P/E Trailing 8.03x | Fwd N/A | Crec.Rev -0.5%
+  UNCRY (UniCredit S.p.A.): P/E Trailing 9.53x | Fwd N/A | Crec.Rev 4.8%
+  HDB (HDFC Bank Limited): P/E Trailing 23.82x | Fwd N/A | Crec.Rev 19.4%
+  BNPQY (BNP Paribas SA): P/E Trailing 7.87x | Fwd N/A | Crec.Rev 10.3%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 9.53x | Fwd N/A | Crec.Rev 10.3%
+  ITUB vs cohorte: P/E trailing 8.5x vs mediana peers 9.5x; crec. rev 6.9% vs mediana peers 10.3%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  ITUB en P/E Trailing: percentil p40 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 9.53x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $28.55B | Crec. Ingresos YoY: 6.9% | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: 25.9% | Margen EBITDA: N/A
+EBITDA: N/A | FCF: $98.31M | FCF Operativo: N/A
+ROE: 20.4% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     27.17B USD (YoY: +8% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+  Utilidad operativa:   5.93B USD (margen: 21.8%)
+  Impuestos:            0B USD
+  Utilidad neta:        6.81B USD (margen: 25.1%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $1.61B (5.6% de rev.) | OCF $24.52B | FCF $22.91B | Recompras N/A | Dividendos $1.27B | SBC $44.26M
+  FY2023: CAPEX $1.83B (6.4% de rev.) | OCF $15.97B | FCF $14.14B | Recompras $142.00M | Dividendos $2.13B | SBC $41.22M
+  FY2024: CAPEX $1.05B (3.7% de rev.) | OCF $1.14B | FCF $88.28M | Recompras $287.00M | Dividendos $3.45B | SBC $35.09M
+
+  Capital devuelto al accionista (período): recompras $429.00M + dividendos $6.85B = $7.28B (20% del FCF acumulado del período).
+  Stock-based comp acumulado: $120.57M (~0.1% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $92.76B | Caja Total: $45.92B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 7.5% | Payout Ratio: 63.7% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.6% | Institucional: 15.8%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 0.78 | Rev. Est. N/A (crec. 8.6%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-10 | UBS | Downgrade: Buy → Neutral
+  2025-01-17 | UBS | Upgrade: Neutral → Buy
+  2025-01-13 | HSBC | Upgrade: Hold → Buy
+  2024-11-07 | JP Morgan | Mantiene: Overweight → Overweight
+  2024-08-22 | UBS | Downgrade: Buy → Neutral
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $98.31M / Market Cap $67.42B): 0.1%
+  PEG (P/E fwd 7.27x ÷ crec. EPS 8.6%): 0.84x  [estimación forward +1y]
+  Deuda neta (Deuda $92.76B − Caja $45.92B): $46.84B
+  Deuda neta / EBITDA (EBITDA N/D): N/D
+  Target base (P/E fwd 7.27x × EPS FY+1 0.78): $5.67 (+1.3% vs precio actual $5.60)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 0.1%, PEG 0.84x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): N/D (sin dato concluyente — no bloquea)
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.8%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

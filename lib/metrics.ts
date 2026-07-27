@@ -87,7 +87,11 @@ export type EventStatus =
   | "rate_limited"
   | "cache_hit"
   | "bad_request"
-  | "not_found";
+  | "not_found"
+  // Se pidió un análisis fresco sin haber dejado el correo (lib/leadGate.ts).
+  // No es un error ni un rate-limit: es el DENOMINADOR de la conversión del
+  // gate — altas con source='analisis' sobre estos eventos.
+  | "email_gate";
 
 export type ErrorStage =
   | "edgar"
@@ -137,10 +141,6 @@ export interface AnalyzeEvent {
   marketCap?: number | null;
   bullTarget?: string | null;
   bearTarget?: string | null;
-  // Multi-step pipeline telemetry (Sprint 1).
-  pipelineHadDegradation?: boolean | null;
-  pipelineErrors?: string | null;       // JSON-stringified [{stage, error}]
-  scratchpad?: string | null;           // JSON-stringified synthesis CoT scratchpad
 }
 
 export function getMetricsDb(): D1Database | null {

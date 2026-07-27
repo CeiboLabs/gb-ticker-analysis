@@ -1,0 +1,182 @@
+Empresa a analizar: Toyota Motor Corporation (TM)
+Fecha: 2025-07-18
+Sector: Consumer Cyclical | Industria: Auto Manufacturers
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Toyota Motor Corporation designs, manufactures, assembles, and sells passenger vehicles, minivans and commercial vehicles, and related parts and accessories in Japan, North America, Europe, Asia, Central and South America, Oceania, Africa, the Middle East, and internationally. The company operates through Automotive, Financial Services, and All Other segments. The company offers subcompact and compact cars; mini-vehicles; mid-size, luxury, sports, and specialty cars; recreational and sport-utility vehicles; pickup trucks; minivans; trucks; and buses. It also develops and sells battery and h...
+
+---
+DATOS DE MERCADO
+Precio Actual: $168.65 (N/A hoy)
+Capitalización Bursátil: $199.71B
+Rango 52 semanas: $158.63 – $200.69
+Beta: 0.88
+Acciones en Circulación: $1.18B
+Short Interest (% float): 0.1%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 6.96x | P/E Forward: 8.14x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 0.62x | P/Libro: 0.82x | EV/EBITDA: 6.00x
+EPS Trailing: 24.23
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (N/A analistas)
+Desglose: Compra Fuerte: 0 | Compra: 0 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $168.65 (260 ruedas de historia)
+  Rango 52 semanas: $158.63 – $200.69 | posición en el rango: 24% (-16.0% desde el máximo, +6.3% desde el mínimo)
+  Medias móviles: MM50: $179.42 (precio -6.0%) | MM200: $178.03 (precio -5.3%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -3.0% | 3M -3.7% | 6M -7.0% | 12M -15.6% | momentum 12-1 (excl. último mes) -12.9%
+  Máx. drawdown de la serie: -21.0% | Volatilidad realizada anualizada: 30.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  TSLA (Tesla, Inc.): P/E Trailing 173.64x | Fwd N/A | Crec.Rev 0.9% | Mg.Op 7.9% | EV/EBITDA 82.6x
+  TOYOF (Toyota Motor Corporation): P/E Trailing 6.23x | Fwd N/A | Crec.Rev 6.5% | Mg.Op 10.0% | EV/EBITDA 6.0x
+  BYDDF (BYD Company Limited): P/E Trailing 26.24x | Fwd N/A | Crec.Rev 29.0% | Mg.Op 7.0% | EV/EBITDA 8.1x
+  GM (General Motors Company): P/E Trailing 8.28x | Fwd N/A | Crec.Rev 9.1% | Mg.Op 6.8% | EV/EBITDA 7.0x
+  RACE (Ferrari N.V.): P/E Trailing 50.69x | Fwd N/A | Crec.Rev 11.8% | Mg.Op 28.2% | EV/EBITDA 29.9x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 26.24x | Fwd N/A | Crec.Rev 9.1% | Mg.Op 7.9% | EV/EBITDA 8.1x
+  TM vs cohorte: P/E trailing 7.0x vs mediana peers 26.2x; crec. rev 6.5% vs mediana peers 9.1%; margen op 10.0% vs mediana peers 7.9%; EV/EBITDA 6.0x vs mediana peers 8.1x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  TM en P/E Trailing: percentil p20 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 26.24x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $323.77B | Crec. Ingresos YoY: 6.5% | Crec. Ganancias YoY: N/A
+Margen Bruto: 19.9% | Margen Operativo: 10.0% | Margen Neto: 9.9% | Margen EBITDA: 18.2%
+EBITDA: $58.97B | FCF: $-10,521,092,820 | FCF Operativo: N/A
+ROE: 13.3% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2025
+
+Segmentos de ingresos:
+  Non Financial Services Business: 291.53B USD (YoY: +5% Y/Y)
+  Financial Services Business: 29.83B USD (YoY: +29% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     321.37B USD (YoY: +7% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    289.28B USD
+    I+D:                9.21B USD
+    Ventas y marketing: 31.99B USD
+    Otros:              233.02B USD
+  Utilidad operativa:   32.08B USD (margen: 10%)
+  Ingreso no operativo: 10.83B USD
+  Impuestos:            10.87B USD
+  Utilidad neta:        32.04B USD (margen: 10%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2023: CAPEX $27.83B (8.6% de rev.) | OCF $22.19B | FCF $-5,638,177,560 | Recompras N/A | Dividendos $5.47B | SBC N/A
+  FY2024: CAPEX $33.37B (10.3% de rev.) | OCF $27.80B | FCF $-5,565,758,810 | Recompras N/A | Dividendos $5.82B | SBC N/A
+  FY2025: CAPEX $35.18B (10.9% de rev.) | OCF $24.73B | FCF $-10,443,043,170 | Recompras N/A | Dividendos $7.58B | SBC N/A
+
+  Capital devuelto al accionista (período): recompras $0 + dividendos $18.86B = $18.86B.
+
+---
+BALANCE
+Deuda Total: $261.46B | Caja Total: $107.29B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 3.6% | Payout Ratio: 25.0% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.0% | Institucional: 1.8%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 20.91 | Rev. Est. N/A (crec. 11.5%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-02-04 | Macquarie | Upgrade: Neutral → Outperform
+  2024-06-14 | Erste Group | Downgrade: Buy → Hold
+  2023-07-11 | Morgan Stanley | Downgrade: Overweight → Equal-Weight
+  2022-10-06 | UBS | Downgrade: Buy → Neutral
+  2022-07-07 | Jefferies | Mantiene: Hold
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-05-22 | TOYOTA MOTOR CORP/ (Director) | Purchase at price 5.03 per share [COMPRA DISCRECIONAL · señal positiva] | Valor: $250.00M
+
+  Patrón neto: comprador neto discrecional
+  Total compras discrecionales: $250.00M | Ventas discrecionales: $0 | Mecánicas: $0
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $-10.52B / Market Cap $199.71B): -5.3%
+  PEG (P/E fwd 8.14x ÷ crec. EPS 11.5%): 0.71x  [estimación forward +1y]
+  Deuda neta (Deuda $261.46B − Caja $107.29B): $154.18B
+  Deuda neta / EBITDA (EBITDA $58.97B): 2.61x
+  Target base (P/E fwd 8.14x × EPS FY+1 20.91): $170.21 (+0.9% vs precio actual $168.65)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield -5.3%, PEG 0.71x]
+    (b) Consenso analistas = buy / strong buy: N/D (sin dato concluyente — no bloquea)  [consenso: N/D]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: comprador neto discrecional; short: 0.1%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

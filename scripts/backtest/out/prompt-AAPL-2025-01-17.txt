@@ -1,0 +1,186 @@
+Empresa a analizar: Apple Inc. (AAPL)
+Fecha: 2025-01-17
+Sector: Technology | Industria: Consumer Electronics
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide. The company offers iPhone, a line of smartphones; Mac, a line of personal computers; iPad, a line of multi-purpose tablets; and wearables, home, and accessories comprising AirPods, Apple Vision Pro, Apple TV, Apple Watch, Beats products, and HomePod, as well as Apple branded and third-party accessories. It also provides AppleCare support and cloud services; and operates various platforms, including the App Store that allows customers to discover and download applicat...
+
+---
+DATOS DE MERCADO
+Precio Actual: $228.52 (N/A hoy)
+Capitalización Bursátil: $3.38T
+Rango 52 semanas: $163.36 – $257.38
+Beta: 0.96
+Acciones en Circulación: $14.69B
+Short Interest (% float): 1.1%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 37.59x | P/E Forward: 27.63x | CAPE (Shiller P/E): 37.4x (3yr avg EPS)
+P/Ventas (TTM): 8.64x | P/Libro: 59.31x | EV/EBITDA: 25.39x
+EPS Trailing: 6.08
+Precio Objetivo Medio Analistas: $249.39 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (38 analistas)
+Desglose: Compra Fuerte: 1 | Compra: 25 | Neutral: 9 | Venta: 3 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $228.52 (260 ruedas de historia)
+  Rango 52 semanas: $163.36 – $257.38 | posición en el rango: 69% (-11.2% desde el máximo, +39.9% desde el mínimo)
+  Medias móviles: MM50: $237.76 (precio -3.9%) | MM200: $215.33 (precio +6.1%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -8.4% | 3M -0.7% | 6M +2.8% | 12M +26.5% | momentum 12-1 (excl. último mes) +38.1%
+  Máx. drawdown de la serie: -15.4% | Volatilidad realizada anualizada: 22.9%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  SSNLF (Samsung Electronics Co., Ltd.): P/E Trailing 4128679.81x | Fwd N/A | Crec.Rev -14.3% | Mg.Op 2.5% | EV/EBITDA 6.1x
+  SONY (Sony Group Corporation): P/E Trailing 20.37x | Fwd N/A | Crec.Rev 2.6% | Mg.Op 9.0% | EV/EBITDA 9.1x
+  TCLHF (TCL Electronics Holdings Limited): P/E Trailing 20.61x | Fwd N/A | Crec.Rev 10.7% | Mg.Op 1.3% | EV/EBITDA 2.2x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 20.61x | Fwd N/A | Crec.Rev 2.6% | Mg.Op 2.5% | EV/EBITDA 6.1x
+  AAPL vs cohorte: P/E trailing 37.6x vs mediana peers 20.6x; crec. rev 2.0% vs mediana peers 2.6%; margen op 31.5% vs mediana peers 2.5%; EV/EBITDA 25.4x vs mediana peers 6.1x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  AAPL en P/E Trailing: percentil p67 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 20.61x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $391.04B | Crec. Ingresos YoY: 2.0% | Crec. Ganancias YoY: N/A
+Margen Bruto: 46.2% | Margen Operativo: 31.5% | Margen Neto: 24.0% | Margen EBITDA: 34.4%
+EBITDA: $134.66B | FCF: $108.81B | FCF Operativo: N/A
+ROE: 164.6% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q4 FY2024
+
+Segmentos de ingresos:
+  iPhone: 46.22B USD
+  Service: 24.97B USD
+  Wearables, Home and Accessories: 9.04B USD
+  Mac: 7.74B USD
+  iPad: 6.95B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     94.93B USD
+  Costo de ingresos:    51.05B USD
+  Utilidad bruta:       43.88B USD (margen: 46.2%)
+  Gastos operativos:    14.29B USD
+    I+D:                7.76B USD
+    Ventas y marketing: 6.52B USD
+  Utilidad operativa:   29.59B USD (margen: 31.2%)
+  Impuestos:            14.87B USD
+  Utilidad neta:        14.74B USD (margen: 15.5%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $10.71B (2.7% de rev.) | OCF $122.15B | FCF $111.44B | Recompras $89.40B | Dividendos $14.84B | SBC $9.04B
+  FY2023: CAPEX $10.96B (2.8% de rev.) | OCF $110.54B | FCF $99.58B | Recompras $77.55B | Dividendos $15.03B | SBC $10.83B
+  FY2024: CAPEX $9.45B (2.4% de rev.) | OCF $118.25B | FCF $108.81B | Recompras $94.95B | Dividendos $15.23B | SBC $11.69B
+
+  Capital devuelto al accionista (período): recompras $261.90B + dividendos $45.10B = $307.00B (96% del FCF acumulado del período).
+  Stock-based comp acumulado: $31.56B (~2.7% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $106.63B | Caja Total: $65.17B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 0.4% | Payout Ratio: 16.3% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 62.9%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 8.26 | Rev. Est. N/A (crec. 12.0%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-07 | MoffettNathanson | Downgrade: Neutral → Sell
+  2025-01-03 | Bernstein | Mantiene: Outperform → Outperform
+  2025-01-03 | B of A Securities | Mantiene: Buy → Buy
+  2024-12-26 | Wedbush | Mantiene: Outperform → Outperform
+  2024-12-18 | Daiwa Capital | Mantiene: Outperform → Outperform
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2024-12-16 | WILLIAMS JEFFREY E (COO) | Sale at price 248.61 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $3.46M
+  2024-12-16 | WILLIAMS JEFFREY E (COO) | Sale at price 249.50 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $8.67M
+  2024-12-16 | WILLIAMS JEFFREY E (COO) | Sale at price 250.58 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $10.76M
+  2024-12-16 | WILLIAMS JEFFREY E (COO) | Sale at price 251.10 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $2.11M
+  2024-11-15 | LEVINSON ARTHUR D (Director) | Sale at price 224.68 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $16.85M
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $16.85M | Mecánicas: $25.00M
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $108.81B / Market Cap $3.38T): 3.2%
+  PEG (P/E fwd 27.63x ÷ crec. EPS 12.0%): 2.29x  [estimación forward +1y]
+  Deuda neta (Deuda $106.63B − Caja $65.17B): $41.46B
+  Deuda neta / EBITDA (EBITDA $134.66B): 0.31x
+  Target base (P/E fwd 27.63x × EPS FY+1 8.26): $228.22 (-0.1% vs precio actual $228.52)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 3.2%, PEG 2.29x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 1.1%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

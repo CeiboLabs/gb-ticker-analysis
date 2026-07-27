@@ -66,14 +66,21 @@ export function slugForInforme(categoria: "Mensual" | "Semanal", fecha: string):
   return categoria === "Mensual" ? `mensual-${fecha.slice(0, 7)}` : `semanal-${fecha}`;
 }
 
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
 /** '29 de mayo, 2026' — mismo formato que el seed. */
 export function fechaTextoDe(fecha: string): string {
   const [y, m, d] = fecha.split("-").map(Number);
-  const MESES = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-  ];
   return `${d} de ${MESES[m - 1]}, ${y}`;
+}
+
+/** '29 de mayo' — sin año, para rótulos breves (el destacado del navbar). */
+export function fechaCortaDe(fecha: string): string {
+  const [, m, d] = fecha.split("-").map(Number);
+  return `${d} de ${MESES[m - 1]}`;
 }
 
 /** Alta. Lanza si el slug ya existe (PK) — la ruta lo mapea a 409. */

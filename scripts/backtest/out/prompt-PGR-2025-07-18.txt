@@ -1,0 +1,179 @@
+Empresa a analizar: The Progressive Corporation (PGR)
+Fecha: 2025-07-18
+Sector: Financial Services | Industria: Insurance - Property & Casualty
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — SEGUROS: priorizá combined ratio (<100 = underwriting profit), loss ratio, expense ratio, ROE. Reserve development es el riesgo principal. Float (premiums earned no aún pagados como claims) es el motor de retorno.
+INDUSTRY HINT — SEGUROS: P/Book es el múltiplo estándar. Berkshire-style ROE >15% justifica premium sobre book.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+The Progressive Corporation operates as an insurance company in the United States. It writes insurance for personal autos and special lines products, including motorcycles, RVs, and watercraft; and personal residential property insurance for homeowners and renters. The company also writes auto-related liability and physical damage insurance for comprising dump trucks, log trucks, garbage trucks, tractors, trailers, straight trucks, tow trucks and wreckers, vans, pick-up trucks, and autos; business-related general liability and commercial property insurance for small businesses; and workers'...
+
+---
+DATOS DE MERCADO
+Precio Actual: $231.38 (N/A hoy)
+Capitalización Bursátil: $143.26B
+Rango 52 semanas: $192.78 – $273.25
+Beta: 0.36
+Acciones en Circulación: $581.40M
+Short Interest (% float): 1.0%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 16.07x | P/E Forward: 15.43x | CAPE (Shiller P/E): 31.3x (3yr avg EPS)
+P/Ventas (TTM): 1.90x | P/Libro: 4.39x | EV/EBITDA: N/Ax
+EPS Trailing: 14.40
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (17 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 10 | Neutral: 7 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $231.38 (260 ruedas de historia)
+  Rango 52 semanas: $192.78 – $273.25 | posición en el rango: 48% (-15.3% desde el máximo, +20.0% desde el mínimo)
+  Medias móviles: MM50: $252.45 (precio -8.3%) | MM200: $243.92 (precio -5.1%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -7.2% | 3M -10.4% | 6M +1.7% | 12M +19.7% | momentum 12-1 (excl. último mes) +29.1%
+  Máx. drawdown de la serie: -16.8% | Volatilidad realizada anualizada: 25.3%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  CB (Chubb Limited): P/E Trailing 12.10x | Fwd N/A | Crec.Rev 12.4%
+  TKOMY (Tokio Marine Holdings, Inc.): P/E Trailing 25.35x | Fwd N/A | Crec.Rev 10.2%
+  TRV (The Travelers Companies, Inc.): P/E Trailing 12.19x | Fwd N/A | Crec.Rev 12.2%
+  ALL (The Allstate Corporation): P/E Trailing 11.20x | Fwd N/A | Crec.Rev 12.2%
+  PPCCY (PICC Property and Casualty Company Limited): P/E Trailing 9.78x | Fwd N/A | Crec.Rev 9.4%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 12.10x | Fwd N/A | Crec.Rev 12.2%
+  PGR vs cohorte: P/E trailing 16.1x vs mediana peers 12.1x; crec. rev 21.4% vs mediana peers 12.2%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  PGR en P/E Trailing: percentil p80 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 12.10x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $75.34B | Crec. Ingresos YoY: 21.4% | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: 11.3% | Margen EBITDA: N/A
+EBITDA: N/A | FCF: $14.83B | FCF Operativo: N/A
+ROE: 26.0% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q1 FY2025
+
+Segmentos de ingresos:
+  Premiums Earned: 19.41B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     20.41B USD (YoY: +18% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+  Utilidad operativa:   3.24B USD (margen: 15.9%)
+  Impuestos:            0.67B USD
+  Utilidad neta:        2.57B USD (margen: 12.6%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance (originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y dividendos contra la utilidad neta y la solvencia regulatoria.
+
+  FY2022: CAPEX $292.00M (0.4% de rev.) | OCF $6.85B | FCF $6.56B | Recompras $99.00M | Dividendos $234.00M | SBC $123.00M
+  FY2023: CAPEX $252.00M (0.3% de rev.) | OCF $10.64B | FCF $10.39B | Recompras $141.00M | Dividendos $234.00M | SBC $121.00M
+  FY2024: CAPEX $285.00M (0.4% de rev.) | OCF $15.12B | FCF $14.83B | Recompras $634.00M | Dividendos $674.00M | SBC $122.00M
+
+  Capital devuelto al accionista (período): recompras $874.00M + dividendos $1.14B = $2.02B.
+  Stock-based comp acumulado: $366.00M (~0.2% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $6.89B | Caja Total: $10.78B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 2.1% | Payout Ratio: 34.0% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.3% | Institucional: 87.8%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 15.97 | Rev. Est. N/A (crec. -4.6%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-18 | Morgan Stanley | Mantiene: Equal-Weight → Equal-Weight
+  2025-07-18 | BMO Capital | Mantiene: Outperform → Outperform
+  2025-07-17 | Keefe, Bruyette & Woods | Mantiene: Market Perform → Market Perform
+  2025-07-17 | Evercore ISI Group | Downgrade: Outperform → In-Line
+  2025-07-17 | B of A Securities | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield: NO SIGNIFICATIVO para este perfil (insurance) — el flujo de caja de una financiera está dominado por movimientos de balance (préstamos, depósitos, trading). NO lo uses como métrica de valuación ni como base de "capital devuelto vs FCF".
+  Valuación del perfil financiero: P/Libro 4.39x | ROE 26.0% | P/E trailing 16.07x
+  PEG: N/D  [crecimiento nulo/negativo — PEG no aplicable]
+  Deuda neta (Deuda $6.89B − Caja $10.78B): $-3.88B
+  Deuda neta / EBITDA: no aplica a este perfil (insurance) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 15.43x × EPS FY+1 15.97): $246.42 (+6.5% vs precio actual $231.38)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (P/B <1x, P/B <1.5x con ROE >10%, P/E <12x o PEG <1.5x): NO CUMPLE  [evaluada con: perfil financiero — P/B 4.39x con ROE 26.0%, P/E trailing 16.1x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (insurance) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 1.0%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

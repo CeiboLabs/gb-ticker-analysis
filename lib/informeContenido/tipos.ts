@@ -8,8 +8,14 @@
 /** Un dato puntual: etiqueta + valor porcentual. `valor: 1.8` ⇒ "+1,80 %". */
 export type Dato = { etiqueta: string; valor: number };
 
-/** Grupo de datos rotulado para un gráfico de barras (ej. "Monedas", "América"). */
-export type GrupoDatos = { nombre: string; datos: Dato[] };
+/**
+ * Grupo de datos rotulado para un gráfico de barras/heatmap (ej. "Monedas",
+ * "América"). `faltantes` = etiquetas de instrumentos SIN dato automático (ej.
+ * índices que no están en las fuentes gratuitas): se muestran como "s/d" en vez
+ * de desaparecer, para que el analista los complete a mano y no se publique una
+ * tabla incompleta sin avisar.
+ */
+export type GrupoDatos = { nombre: string; datos: Dato[]; faltantes?: string[] };
 
 /** Un punto de una serie temporal: fecha ISO (YYYY-MM-DD) + valor. */
 export type PuntoSerie = { t: string; v: number };

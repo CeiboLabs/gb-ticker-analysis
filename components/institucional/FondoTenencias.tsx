@@ -333,7 +333,7 @@ export function FondoTenencias() {
             {state.kind === "loading" ? "Cargando la composición de la cartera…" : "La composición de la cartera se publica próximamente."}
           </p>
           <p className="ten-empty-sub">
-            Las tenencias se informan en la ficha técnica mensual y a través de un asesor de la casa.
+            Las tenencias se informan en la ficha técnica mensual y a través de un asesor nuestro.
           </p>
         </div>
       )}

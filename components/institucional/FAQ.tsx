@@ -31,7 +31,7 @@ const FAQ_ITEMS = [
   {
     question: "¿Hay asesoramiento personalizado?",
     answer:
-      "Es el modo en el que trabajamos. Cada cliente tiene un asesor principal de la casa con quien discute la estrategia y de quien recibe ejecución y reporte.",
+      "Es el modo en el que trabajamos. Cada cliente tiene un asesor principal nuestro con quien discute la estrategia y de quien recibe ejecución y reporte.",
   },
   {
     question: "¿Cómo sigo mis inversiones?",

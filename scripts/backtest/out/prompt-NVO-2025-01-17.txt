@@ -1,0 +1,179 @@
+Empresa a analizar: Novo Nordisk A/S (NVO)
+Fecha: 2025-01-17
+Sector: Healthcare | Industria: Drug Manufacturers - General
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Novo Nordisk A/S, together with its subsidiaries, engages in the research and development, manufacture, and distribution of pharmaceutical products. It operates through two segments, Obesity and Diabetes Care, and Rare Disease. The Obesity and Diabetes care segment provides products for diabetes, obesity, cardiovascular, and other emerging therapy areas. The Rare Disease segment offers products in the areas of rare blood disorders, rare endocrine disorders, and hormone replacement therapy. The company also provides NovoPen 6 and NovoPen Echo Plus, smart insulin pens; Dose Check, an insulin ...
+
+---
+DATOS DE MERCADO
+Precio Actual: $73.87 (N/A hoy)
+Capitalización Bursátil: $348.11B
+Rango 52 semanas: $73.87 – $137.40
+Beta: 0.65
+Acciones en Circulación: $4.42B
+Short Interest (% float): 0.2%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 28.74x | P/E Forward: 25.57x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 10.86x | P/Libro: 23.67x | EV/EBITDA: 21.97x
+EPS Trailing: 2.57
+Precio Objetivo Medio Analistas: $141.94 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (9 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 9 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $73.87 (260 ruedas de historia)
+  Rango 52 semanas: $73.87 – $137.40 | posición en el rango: 0% (-46.2% desde el máximo, +0.0% desde el mínimo)
+  Medias móviles: MM50: $92.99 (precio -20.6%) | MM200: $114.67 (precio -35.6%)
+  Estructura de tendencia: bajista (precio < MM50 < MM200)
+  Retornos (ajustados): 1M -27.2% | 3M -33.3% | 6M -39.2% | 12M -25.4% | momentum 12-1 (excl. último mes) +2.4%
+  Máx. drawdown de la serie: -46.2% | Volatilidad realizada anualizada: 37.1%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  LLY (Eli Lilly and Company): P/E Trailing 123.78x | Fwd N/A | Crec.Rev 19.6% | Mg.Op 30.3% | EV/EBITDA 56.5x
+  JNJ (Johnson & Johnson): P/E Trailing 10.28x | Fwd N/A | Crec.Rev 6.5% | Mg.Op 25.8% | EV/EBITDA 15.5x
+  ABBV (AbbVie Inc.): P/E Trailing 60.10x | Fwd N/A | Crec.Rev -6.4% | Mg.Op 24.9% | EV/EBITDA 20.4x
+  RHHBF (Roche Holding AG): P/E Trailing 19.24x | Fwd N/A | Crec.Rev -8.2% | Mg.Op 25.5% | EV/EBITDA 13.3x
+  MRK (Merck & Co., Inc.): P/E Trailing 664.35x | Fwd N/A | Crec.Rev 1.4% | Mg.Op 4.9% | EV/EBITDA 39.1x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 60.10x | Fwd N/A | Crec.Rev 1.4% | Mg.Op 25.5% | EV/EBITDA 20.4x
+  NVO vs cohorte: P/E trailing 28.7x vs mediana peers 60.1x; crec. rev 31.3% vs mediana peers 1.4%; margen op 44.2% vs mediana peers 25.5%; EV/EBITDA 22.0x vs mediana peers 20.4x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  NVO en P/E Trailing: percentil p40 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 60.10x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $32.06B | Crec. Ingresos YoY: 31.3% | Crec. Ganancias YoY: N/A
+Margen Bruto: 84.6% | Margen Operativo: 44.2% | Margen Neto: 36.0% | Margen EBITDA: 49.4%
+EBITDA: $15.82B | FCF: $9.66B | FCF Operativo: N/A
+ROE: 78.5% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2023
+
+Segmentos de ingresos:
+  Diabetes And Obesity Care: 31.89B USD (YoY: +38% Y/Y)
+  Rare Disease: 2.54B USD (YoY: -16% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     34.44B USD (YoY: +31% Y/Y)
+  Costo de ingresos:    5.3B USD
+  Utilidad bruta:       29.13B USD (margen: 84.6%)
+  Gastos operativos:    13.92B USD
+    I+D:                4.81B USD
+    G&A:                0.72B USD
+    Otros:              8.4B USD
+  Utilidad operativa:   15.21B USD (margen: 44.2%)
+  Ingreso no operativo: 0.31B USD
+  Impuestos:            3.11B USD
+  Utilidad neta:        12.41B USD (margen: 36%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $2.12B (6.6% de rev.) | OCF $11.31B | FCF $9.20B | Recompras $3.45B | Dividendos $3.63B | SBC $220.74M
+  FY2023: CAPEX $5.77B (18.0% de rev.) | OCF $16.15B | FCF $10.38B | Recompras $4.44B | Dividendos $4.71B | SBC $318.61M
+
+  Capital devuelto al accionista (período): recompras $7.89B + dividendos $8.34B = $16.23B (83% del FCF acumulado del período).
+  Stock-based comp acumulado: $539.35M (~0.8% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $3.73B | Caja Total: $4.17B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 2.0% | Payout Ratio: 56.1% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.0% | Institucional: 10.0%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 4.08 | Rev. Est. N/A (crec. 24.3%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-08 | UBS | Upgrade: Sell → Buy
+  2024-12-23 | BMO Capital | Mantiene: Outperform → Outperform
+  2024-11-06 | Cantor Fitzgerald | Reitera: Overweight → Overweight
+  2024-10-22 | Citigroup | Mantiene: Buy → Buy
+  2024-10-17 | BMO Capital | Mantiene: Outperform → Outperform
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $9.66B / Market Cap $348.11B): 2.8%
+  PEG (P/E fwd 25.57x ÷ crec. EPS 24.3%): 1.05x  [estimación forward +1y]
+  Deuda neta (Deuda $3.73B − Caja $4.17B): $-445.01M
+  Deuda neta / EBITDA (EBITDA $15.82B): -0.03x
+  Target base (P/E fwd 25.57x × EPS FY+1 4.08): $104.33 (+41.2% vs precio actual $73.87)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 2.8%, PEG 1.05x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.2%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

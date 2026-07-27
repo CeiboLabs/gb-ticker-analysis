@@ -1,14 +1,18 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { ArrowRight, Certificate, Shield, Layers, Clock, Building, Globe, TrendingUp, Flow, Lock } from "@/components/institucional/icons";
+import { pageMetadata } from "@/lib/seo";
+import { estaOculta } from "@/lib/paginasOcultas";
 
-export const metadata: Metadata = {
-  title: "Ecosistema · Bengochea & Cía.",
+export const metadata: Metadata = pageMetadata({
+  title: "Ecosistema",
   description:
     "Mercado local e internacional: bonos globales uruguayos, Notas en UI, fideicomisos, LRM, ON, acciones globales, fondos y derivados.",
-};
+  path: "/servicios",
+});
 
 const LOCAL: { icon: ReactNode; title: string; body: string }[] = [
   {
@@ -96,6 +100,10 @@ const INSTRUMENTOS_GRID = [
 ];
 
 export default function ServiciosPage() {
+  // 404 con el not-found de la casa mientras la sección siga listada en
+  // lib/paginasOcultas.ts. Publicada = la guarda queda inerte.
+  if (estaOculta("/servicios")) notFound();
+
   return (
     <main className="site">
       {/* Hero split — contenido + imagen */}

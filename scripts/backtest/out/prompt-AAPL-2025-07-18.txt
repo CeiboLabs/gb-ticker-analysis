@@ -1,0 +1,188 @@
+Empresa a analizar: Apple Inc. (AAPL)
+Fecha: 2025-07-18
+Sector: Technology | Industria: Consumer Electronics
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide. The company offers iPhone, a line of smartphones; Mac, a line of personal computers; iPad, a line of multi-purpose tablets; and wearables, home, and accessories comprising AirPods, Apple Vision Pro, Apple TV, Apple Watch, Beats products, and HomePod, as well as Apple branded and third-party accessories. It also provides AppleCare support and cloud services; and operates various platforms, including the App Store that allows customers to discover and download applicat...
+
+---
+DATOS DE MERCADO
+Precio Actual: $210.35 (N/A hoy)
+Capitalización Bursátil: $3.10T
+Rango 52 semanas: $171.51 – $257.38
+Beta: 1.20
+Acciones en Circulación: $14.69B
+Short Interest (% float): 0.7%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 34.60x | P/E Forward: 26.83x | CAPE (Shiller P/E): 34.4x (3yr avg EPS)
+P/Ventas (TTM): 7.93x | P/Libro: 46.44x | EV/EBITDA: 23.40x
+EPS Trailing: 6.08
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (33 analistas)
+Desglose: Compra Fuerte: 1 | Compra: 18 | Neutral: 12 | Venta: 2 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $210.35 (260 ruedas de historia)
+  Rango 52 semanas: $171.51 – $257.38 | posición en el rango: 45% (-18.3% desde el máximo, +22.6% desde el mínimo)
+  Medias móviles: MM50: $203.53 (precio +3.3%) | MM200: $221.12 (precio -4.9%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M +7.9% | 3M +8.8% | 6M -11.0% | 12M -9.6% | momentum 12-1 (excl. último mes) -16.3%
+  Máx. drawdown de la serie: -33.4% | Volatilidad realizada anualizada: 31.6%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  SSNLF (Samsung Electronics Co., Ltd.): P/E Trailing 26846.01x | Fwd N/A | Crec.Rev 16.2% | Mg.Op 10.9% | EV/EBITDA 3.4x
+  SONY (Sony Group Corporation): P/E Trailing 18.89x | Fwd N/A | Crec.Rev 6.9% | Mg.Op 10.6% | EV/EBITDA 8.6x
+  XIACY (Xiaomi Corporation): P/E Trailing 56.14x | Fwd N/A | Crec.Rev 35.0% | Mg.Op 6.3% | EV/EBITDA 35.6x
+  PCRHY (Panasonic Holdings Corporation): P/E Trailing 7.44x | Fwd N/A | Crec.Rev -0.5% | Mg.Op 4.8% | EV/EBITDA 4.2x
+  TCLHF (TCL Electronics Holdings Limited): P/E Trailing 15.20x | Fwd N/A | Crec.Rev 25.7% | Mg.Op 2.0% | EV/EBITDA 3.5x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 18.89x | Fwd N/A | Crec.Rev 16.2% | Mg.Op 6.3% | EV/EBITDA 4.2x
+  AAPL vs cohorte: P/E trailing 34.6x vs mediana peers 18.9x; crec. rev 2.0% vs mediana peers 16.2%; margen op 31.5% vs mediana peers 6.3%; EV/EBITDA 23.4x vs mediana peers 4.2x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  AAPL en P/E Trailing: percentil p60 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 18.89x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $391.04B | Crec. Ingresos YoY: 2.0% | Crec. Ganancias YoY: N/A
+Margen Bruto: 46.2% | Margen Operativo: 31.5% | Margen Neto: 24.0% | Margen EBITDA: 34.4%
+EBITDA: $134.66B | FCF: $108.81B | FCF Operativo: N/A
+ROE: 140.3% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q1 FY2025
+
+Segmentos de ingresos:
+  iPhone: 46.84B USD (YoY: +2% Y/Y)
+  Service: 26.64B USD (YoY: +12% Y/Y)
+  Mac: 7.95B USD (YoY: +7% Y/Y)
+  Wearables, Home and Accessories: 7.52B USD (YoY: -5% Y/Y)
+  iPad: 6.4B USD (YoY: +15% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     95.36B USD (YoY: +5% Y/Y)
+  Costo de ingresos:    50.49B USD
+  Utilidad bruta:       44.87B USD (margen: 47.1%)
+  Gastos operativos:    15.28B USD
+    I+D:                8.55B USD
+    Ventas y marketing: 6.73B USD
+  Utilidad operativa:   29.59B USD (margen: 31%)
+  Impuestos:            4.53B USD
+  Utilidad neta:        24.78B USD (margen: 26%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $10.71B (2.7% de rev.) | OCF $122.15B | FCF $111.44B | Recompras $89.40B | Dividendos $14.84B | SBC $9.04B
+  FY2023: CAPEX $10.96B (2.8% de rev.) | OCF $110.54B | FCF $99.58B | Recompras $77.55B | Dividendos $15.03B | SBC $10.83B
+  FY2024: CAPEX $9.45B (2.4% de rev.) | OCF $118.25B | FCF $108.81B | Recompras $94.95B | Dividendos $15.23B | SBC $11.69B
+
+  Capital devuelto al accionista (período): recompras $261.90B + dividendos $45.10B = $307.00B (96% del FCF acumulado del período).
+  Stock-based comp acumulado: $31.56B (~2.7% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $98.19B | Caja Total: $48.50B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 0.5% | Payout Ratio: 16.6% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 63.8%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 7.78 | Rev. Est. N/A (crec. 8.4%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-17 | JP Morgan | Mantiene: Overweight → Overweight
+  2025-07-09 | Wedbush | Reitera: Outperform → Outperform
+  2025-07-01 | Jefferies | Upgrade: Underperform → Hold
+  2025-06-26 | JP Morgan | Mantiene: Overweight → Overweight
+  2025-06-10 | Morgan Stanley | Reitera: Overweight → Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-05-12 | KONDO CHRIS (Principal Accounting Officer) | Sale at price 208.19 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $933,955.14
+  2025-04-23 | Parekh Kevan (Senior Vice President, CFO) | Sale at price 206.00 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $941,420
+  2025-04-15 | Parekh Kevan (Senior Vice President, CFO) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal]
+  2025-04-15 | Parekh Kevan (Senior Vice President, CFO) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $1.48M
+  2025-04-15 | KONDO CHRIS (Principal Accounting Officer) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal]
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $933,955.14 | Mecánicas: $2.42M
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $108.81B / Market Cap $3.10T): 3.5%
+  PEG (P/E fwd 26.83x ÷ crec. EPS 8.4%): 3.18x  [estimación forward +1y]
+  Deuda neta (Deuda $98.19B − Caja $48.50B): $49.69B
+  Deuda neta / EBITDA (EBITDA $134.66B): 0.37x
+  Target base (P/E fwd 26.83x × EPS FY+1 7.78): $208.74 (-0.8% vs precio actual $210.35)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 3.5%, PEG 3.18x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 0.7%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

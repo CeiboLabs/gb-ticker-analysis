@@ -70,7 +70,7 @@ export function FondoGeografia() {
     <div className="geo-wrap">
       <div className="geo-bar">
         <span className="geo-bar-label">Exposición geográfica</span>
-        <span className="geo-bar-hint">Intensidad por peso de cada región</span>
+        <span className="geo-bar-hint">Intensidad por asignación a cada región</span>
       </div>
 
       <div className="geo-stage">
@@ -109,8 +109,8 @@ export function FondoGeografia() {
       </div>
 
       <p className="geo-foot">
-        Datos ilustrativos — no es la cartera real del fondo. La distribución geográfica refleja la
-        exposición de los fondos subyacentes y se informa en la ficha técnica mensual.
+        Datos ilustrativos — La distribución geográfica refleja la exposición de los activos
+        subyacentes y se informa en la ficha técnica mensual.
       </p>
 
       <style>{`

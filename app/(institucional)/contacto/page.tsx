@@ -1,15 +1,17 @@
 import { FAQ } from "@/components/institucional/FAQ";
 import { ContactForm } from "@/components/institucional/ContactForm";
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { Phone, Mail, Message, Pin } from "@/components/institucional/icons";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Contacto · Bengochea & Cía.",
+export const metadata: Metadata = pageMetadata({
+  title: "Contacto",
   description:
     "Agendá una reunión con la mesa de Bengochea & Cía. Oficina en WTC Montevideo, Uruguay.",
-};
+  path: "/contacto",
+});
 
 const CONTACTO_DATA: { icon: ReactNode; label: string; value: string; href: string }[] = [
   { icon: <Phone />, label: "Teléfono", value: "+598 2628 6447", href: "tel:+59826286447" },
@@ -39,13 +41,20 @@ export default function ContactoPage() {
           </h1>
 
           <p className="t-lead" style={{ marginTop: 24, color: "rgba(255,255,255,0.86)" }}>
-            Agendá una reunión, sin compromiso, con un asesor de la casa y recibí asesoramiento personalizado
+            Agendá una reunión, sin compromiso, con un asesor nuestro y recibí asesoramiento personalizado
             de acuerdo a tu perfil de inversor y necesidades particulares. En oficina o por videollamada.
           </p>
         </Reveal>
-        <div className="hero-figure">
+        <div
+          className="hero-figure"
+          style={{
+            "--hero-ar-sm": "1.15",
+            "--hero-scrim":
+              "linear-gradient(180deg, rgba(2,4,40,0.58) 0%, rgba(2,4,40,0.30) 14%, rgba(2,4,40,0.06) 26%, transparent 36%)",
+          } as CSSProperties}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero/contacto.jpg" alt="Torres de oficinas de vidrio" />
+          <img src="/hero/contacto.jpg" alt="Torre de oficinas del World Trade Center de Montevideo" />
         </div>
       </div>
 
@@ -53,10 +62,10 @@ export default function ContactoPage() {
       <section className="band site-section">
         <div className="site-wrap">
           <div className="split">
-            {/* Datos de la casa */}
+            {/* Nuestros datos */}
             <div>
               <Reveal as="div">
-                <div className="eyebrow-sm">Datos de la casa</div>
+                <div className="eyebrow-sm">Nuestros datos</div>
                 <h2 className="t-h2" style={{ marginTop: 16, maxWidth: "12em" }}>
                   Cuatro maneras de llegar a nosotros.
                 </h2>

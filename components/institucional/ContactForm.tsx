@@ -53,14 +53,14 @@ export function ContactForm() {
       <div className="eyebrow-sm">Escribinos</div>
       <h2 className="t-h3" style={{ marginTop: 16 }}>Envianos un mensaje.</h2>
       <p className="t-lead" style={{ marginTop: 16, marginBottom: 36, maxWidth: "30em" }}>
-        Completá el formulario y un asesor de la casa te responde a la brevedad.
+        Completá el formulario y un asesor nuestro te responde a la brevedad.
       </p>
 
       {status === "ok" ? (
         <div style={{ maxWidth: "34em" }}>
           <h3 className="t-h3" style={{ fontSize: 22 }}>Mensaje enviado.</h3>
           <p className="t-lead" style={{ marginTop: 12 }}>
-            Gracias por escribirnos. Un asesor de la casa se va a poner en
+            Gracias por escribirnos. Un asesor nuestro se va a poner en
             contacto a la brevedad.
           </p>
         </div>

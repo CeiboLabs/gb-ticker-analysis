@@ -1,0 +1,181 @@
+Empresa a analizar: Nutrien Ltd. (NTR)
+Fecha: 2025-07-18
+Sector: Basic Materials | Industria: Agricultural Inputs
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Nutrien Ltd. provides crop inputs and services. The company operates through four segments: Retail, Potash, Nitrogen, and Phosphate. The Retail segment markets crop nutrients, crop protection products, seed, and merchandise, as well as provides agronomic application and financing services and solutions; and produces proprietary products, including proprietary crop nutrient, crop protection, and seed products. The Potash segment includes mining and processing of potash. The Nitrogen segment owns and operates ammonia production facilities that offers ammonia, urea, ammonium nitrate (UAN), ure...
+
+---
+DATOS DE MERCADO
+Precio Actual: $59.04 (N/A hoy)
+Capitalización Bursátil: $28.81B
+Rango 52 semanas: $41.94 – $61.30
+Beta: 0.36
+Acciones en Circulación: $480.02M
+Short Interest (% float): 2.0%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 43.41x | P/E Forward: 15.21x | CAPE (Shiller P/E): 9.8x (3yr avg EPS)
+P/Ventas (TTM): 1.11x | P/Libro: 1.20x | EV/EBITDA: 10.12x
+EPS Trailing: 1.36
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (19 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 9 | Neutral: 9 | Venta: 1 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $59.04 (260 ruedas de historia)
+  Rango 52 semanas: $41.94 – $61.30 | posición en el rango: 88% (-3.7% desde el máximo, +40.8% desde el mínimo)
+  Medias móviles: MM50: $58.11 (precio +1.6%) | MM200: $50.42 (precio +17.1%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M -2.2% | 3M +13.7% | 6M +17.7% | 12M +23.2% | momentum 12-1 (excl. último mes) +26.0%
+  Máx. drawdown de la serie: -14.7% | Volatilidad realizada anualizada: 27.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  CTVA (Corteva, Inc.): P/E Trailing 55.65x | Fwd N/A | Crec.Rev -1.8% | Mg.Op 12.4% | EV/EBITDA 18.6x
+  CTA-PB (EIDP, Inc.): P/E Trailing 49.25x | Fwd N/A | Crec.Rev -1.8% | Mg.Op 12.4% | EV/EBITDA 17.1x
+  CF (CF Industries Holdings, Inc.): P/E Trailing 13.45x | Fwd N/A | Crec.Rev -10.5% | Mg.Op 28.8% | EV/EBITDA 5.7x
+  YARIY (Yara International ASA): P/E Trailing 717.23x | Fwd N/A | Crec.Rev -10.6% | Mg.Op 5.5% | EV/EBITDA 9.1x
+  MOS (The Mosaic Company): P/E Trailing 63.66x | Fwd N/A | Crec.Rev -18.8% | Mg.Op 5.6% | EV/EBITDA 10.2x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 55.65x | Fwd N/A | Crec.Rev -10.5% | Mg.Op 12.4% | EV/EBITDA 10.2x
+  NTR vs cohorte: P/E trailing 43.4x vs mediana peers 55.7x; crec. rev -10.6% vs mediana peers -10.5%; margen op 11.4% vs mediana peers 12.4%; EV/EBITDA 10.1x vs mediana peers 10.2x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  NTR en P/E Trailing: percentil p20 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 55.65x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $25.97B | Crec. Ingresos YoY: -10.6% | Crec. Ganancias YoY: N/A
+Margen Bruto: 29.0% | Margen Operativo: 11.4% | Margen Neto: 2.6% | Margen EBITDA: 16.2%
+EBITDA: $4.21B | FCF: $1.38B | FCF Operativo: N/A
+ROE: 2.8% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Retail Segment: 17.83B USD (YoY: -9% Y/Y)
+  Nitrogen Segment: 4.31B USD (YoY: -9% Y/Y)
+  Potash Segment: 3.38B USD (YoY: -19% Y/Y)
+  Other: 0.46B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     25.97B USD (YoY: -11% Y/Y)
+  Costo de ingresos:    17.49B USD
+  Utilidad bruta:       7.53B USD (margen: 29%)
+  Gastos operativos:    5.67B USD
+    Ventas y marketing: 3.44B USD
+    G&A:                0.64B USD
+    Otros:              1.59B USD
+  Utilidad operativa:   1.86B USD (margen: 7.1%)
+  Impuestos:            0.44B USD
+  Utilidad neta:        0.7B USD (margen: 2.7%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $2.48B (9.5% de rev.) | OCF $8.11B | FCF $5.63B | Recompras $4.52B | Dividendos $1.03B | SBC $63.00M
+  FY2023: CAPEX $2.60B (10.0% de rev.) | OCF $5.07B | FCF $2.47B | Recompras $1.05B | Dividendos $1.03B | SBC $14.00M
+  FY2024: CAPEX $2.15B (8.3% de rev.) | OCF $3.54B | FCF $1.38B | Recompras $184.00M | Dividendos $1.06B | SBC $37.00M
+
+  Capital devuelto al accionista (período): recompras $5.75B + dividendos $3.12B = $8.87B (94% del FCF acumulado del período).
+  Stock-based comp acumulado: $114.00M (~0.1% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $14.71B | Caja Total: $895.00M
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 3.7% | Payout Ratio: 159.6% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 77.9%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 4.08 | Rev. Est. N/A (crec. 0.5%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-17 | Wells Fargo | Mantiene: Equal-Weight → Equal-Weight
+  2025-07-15 | Oppenheimer | Mantiene: Outperform → Outperform
+  2025-07-11 | Jefferies | Downgrade: Buy → Hold
+  2025-07-07 | Barclays | Mantiene: Equal-Weight → Equal-Weight
+  2025-06-26 | Morgan Stanley | Mantiene: Equal-Weight → Equal-Weight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $1.38B / Market Cap $28.81B): 4.8%
+  PEG (P/E fwd 15.21x ÷ crec. EPS 0.5%): 28.17x  [estimación forward +1y]
+  Deuda neta (Deuda $14.71B − Caja $895.00M): $13.81B
+  Deuda neta / EBITDA (EBITDA $4.21B): 3.28x
+  Target base (P/E fwd 15.21x × EPS FY+1 4.08): $62.06 (+5.1% vs precio actual $59.04)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 4.8%, PEG 28.17x]
+    (b) Consenso analistas = buy / strong buy: NO CUMPLE  [consenso: hold]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 2.0%]
+    → AVOID disparado: SÍ
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

@@ -3,6 +3,9 @@ import { getMetricsDb, eventBaseFromRequest } from "@/lib/metrics";
 import { checkNewsletterLimit, clientIpFrom } from "@/lib/rateLimiter";
 import { NewsletterRequestSchema } from "@/lib/validators";
 import { NEWSLETTER_CONSENT_TEXT } from "@/lib/newsletterConsent";
+import { buildLeadCookie, issueLeadToken } from "@/lib/leadGate";
+import { isDisposableDomain, splitEmail } from "@/lib/emailValidation";
+import { domainAcceptsMail } from "@/lib/emailMx";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +47,33 @@ export async function POST(req: NextRequest) {
   }
   const data = parsed.data;
 
+  // ── Validación de la dirección (capa 1) ───────────────────────────────────
+  // Va ACÁ: antes del alta y antes de emitir la cookie del peaje. Una dirección
+  // que no puede recibir correo no entra a la base ni desbloquea /analisis.
+  // Zod ya validó la forma; esto valida que el dominio exista y sirva.
+  const partes = splitEmail(data.email);
+  const dominio = partes?.domain ?? "";
+
+  if (isDisposableDomain(dominio)) {
+    return NextResponse.json(
+      { error: "Ese dominio es de correo temporal. Necesitamos una dirección donde podamos escribirte." },
+      { status: 400 },
+    );
+  }
+
+  const mx = await domainAcceptsMail(dominio);
+  if (!mx.ok) {
+    return NextResponse.json(
+      {
+        error:
+          mx.motivo === "dominio_inexistente"
+            ? `No existe el dominio "${dominio}". ¿Está bien escrito?`
+            : `El dominio "${dominio}" no recibe correo. ¿Está bien escrito?`,
+      },
+      { status: 400 },
+    );
+  }
+
   const db = getMetricsDb();
   if (!db) {
     return NextResponse.json({ error: "service unavailable" }, { status: 503 });
@@ -69,5 +99,12 @@ export async function POST(req: NextRequest) {
     )
     .run();
 
-  return NextResponse.json({ ok: true });
+  // Junto con el alta emitimos el token del gate de /analisis: quien ya dejó su
+  // correo —acá o en el bloque de /informes— no vuelve a ver el formulario. Es
+  // una cookie de identidad, no una sesión (ver lib/leadGate.ts). Si el gate no
+  // está configurado, issueLeadToken devuelve null y simplemente no se manda.
+  const res = NextResponse.json({ ok: true });
+  const token = await issueLeadToken(data.email);
+  if (token) res.headers.set("Set-Cookie", buildLeadCookie(token));
+  return res;
 }

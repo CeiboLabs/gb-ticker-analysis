@@ -3,9 +3,10 @@ import OpenAI from "openai";
 import { AnalyzeRequestSchema } from "@/lib/validators";
 import { fetchStockData, fetchPeerComparison } from "@/lib/fetchStockData";
 import { fetchSegmentData } from "@/lib/fetchSegmentData";
-import { fetchEdgar8KIncomeStatement, type Edgar8KIncomeStatement } from "@/lib/fetchEdgar8K";
+import { fetchEdgar8KIncomeStatement, fetchEdgarGuidance, type Edgar8KIncomeStatement, type EdgarGuidance } from "@/lib/fetchEdgar8K";
 import { fetchUsdRate } from "@/lib/fxRates";
 import { buildPrompt } from "@/lib/buildPrompt";
+import { computeDerivedMetrics, checkVerdictCoherence, enforceConvictionDiscipline } from "@/lib/derivedMetrics";
 import { getOpenAIClient } from "@/lib/openai";
 import {
   StructuredReportSchema,
@@ -19,14 +20,24 @@ import {
   checkIpHourlyLimit,
   checkDailyFreshLimit,
   checkGlobalDailyFreshLimit,
+  isIpAllowlisted,
   trustedClientIp,
 } from "@/lib/rateLimiter";
 import {
   recordAnalyzeEvent,
   eventBaseFromRequest,
+  getMetricsDb,
   type AnalyzeEvent,
   type SankeySource,
 } from "@/lib/metrics";
+import { readFlag } from "@/lib/flags";
+import { leadCookieName, leadGateConfigured, verifyLeadToken } from "@/lib/leadGate";
+import { reportError } from "@/lib/errorReporter";
+import { buildVerdictLogRow, recordVerdictLog } from "@/lib/verdictLog";
+import { fetchChartRange } from "@/lib/fetchChartRange";
+import { computeTechnicalContext, type TechnicalContext } from "@/lib/technicalContext";
+import { computeScenarioRange } from "@/lib/scenarioRange";
+import { computeQualityMetrics } from "@/lib/qualityMetrics";
 import { scoreSankey, snapshotSankey } from "@/lib/sankeyQuality";
 
 // Slim helpers for monitor snapshots — keep the JSON small but informative.
@@ -197,7 +208,10 @@ function isAnalysisStale(
 async function convertEdgar8KToUsd(s: Edgar8KIncomeStatement): Promise<Edgar8KIncomeStatement | null> {
   const code = (s.currency ?? "USD").toUpperCase();
   if (code === "USD") return s;
-  const rate = await fetchUsdRate(code);
+  // FX del cierre del período reportado, no el de hoy: una cifra de un
+  // trimestre pasado convertida al rate actual fabrica un "USD histórico"
+  // que nunca existió.
+  const rate = await fetchUsdRate(code, s.endDate);
   if (!rate || rate <= 0) return null;
   const m = (v: number | null): number | null => (v === null ? null : v * rate);
   return {
@@ -257,11 +271,18 @@ function buildSankeyFrom8K(
   // "Total operating costs and expenses" that includes COGS, which would
   // double-count if we used it directly for the GP→OpEx Sankey edge.
   const opex  = Math.max(0, gp - Math.max(0, opInc));
-  // The op→ni gap is taxes + interest + other non-operating items. Charge
-  // it all to the "tax" bucket so the Sankey balances; the label "Taxes"
-  // is imperfect when interest/non-op dominate (e.g. ABBV) but the alternative
-  // is a dangling op-side height with no outflow.
-  const tax   = opInc > 0 && opInc > ni ? Math.max(0, opInc - Math.max(0, ni)) : (s.incomeTaxExpense ?? 0);
+  // The op→ni gap is taxes + interest + other non-operating items. Antes TODO
+  // el gap caía al bucket "Taxes" y en emisores con deuda pesada (ABBV) la
+  // etiqueta mentía. Ahora: tax = el impuesto TAGUEADO si existe (si no, el
+  // gap neto de interés), y el interés tagueado va a nonOpBreakdown — el
+  // layout estándar del chart ya lo dibuja como brazo "Interest Exp." (capped
+  // al gap) y manda el residuo restante a "Non-Op Exp.", así que el Sankey
+  // sigue balanceando sin inventar nada.
+  const intExp = Math.max(0, s.interestExpense ?? 0);
+  const gapBelowOp = opInc > 0 && opInc > ni ? Math.max(0, opInc - Math.max(0, ni)) : 0;
+  const tax = s.incomeTaxExpense != null
+    ? Math.max(0, s.incomeTaxExpense)
+    : Math.max(0, gapBelowOp - intExp);
 
   const unit    = rev >= 1e12 ? "T" : rev >= 1e9 ? "B" : "M";
   const divisor = rev >= 1e12 ? 1e12 : rev >= 1e9 ? 1e9 : 1e6;
@@ -413,6 +434,7 @@ function buildSankeyFrom8K(
       depreciation:   depAmort > 0 ? sc(depAmort) : undefined,
     } : undefined,
     tax: sc(Math.max(0, tax)),
+    nonOpBreakdown: intExp > 0 ? { interestExpense: sc(intExp) } : undefined,
     nonOperatingIncome: (() => {
       const nonOp = ibt - Math.max(0, opInc);
       return nonOp > Math.max(0, opInc) * 0.01 ? sc(nonOp) : undefined;
@@ -672,38 +694,6 @@ async function deriveH2FromAnnualAnd6K(
   };
 }
 
-// Convert a field value to a readable string if GPT-4o returns an object instead of prose
-function serializeField(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value === null || value === undefined) return "";
-  if (typeof value !== "object") return String(value);
-
-  // Format known moat object shape: { poderDeFijacionDePrecios, fuerzaDeMarca, costosDeCambio, efectosDeRed, conclusion }
-  const obj = value as Record<string, unknown>;
-  const labelMap: Record<string, string> = {
-    poderDeFijacionDePrecios: "Poder de fijación de precios",
-    fuerzaDeMarca: "Fuerza de marca",
-    costosDeCambio: "Costos de cambio",
-    efectosDeRed: "Efectos de red",
-    pricingPower: "Poder de fijación de precios",
-    brandStrength: "Fuerza de marca",
-    switchingCosts: "Costos de cambio",
-    networkEffects: "Efectos de red",
-  };
-
-  const parts: string[] = [];
-  for (const [key, val] of Object.entries(obj)) {
-    if (key === "conclusion" || key === "overall" || key === "compositeScore") continue;
-    const label = labelMap[key] ?? key;
-    parts.push(`${label}: ${val}/10`);
-  }
-
-  const conclusion = obj.conclusion ?? obj.overall ?? obj.compositeScore;
-  if (conclusion) parts.push(String(conclusion));
-
-  return parts.join(". ") || JSON.stringify(obj);
-}
-
 // Best-effort in-flight dedup, per isolate. A fresh analysis takes 40-90s and
 // the cache isn't written until it finishes, so a burst of concurrent requests
 // for the same uncached ticker (double-clicks, retries, scripted floods) would
@@ -872,6 +862,51 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Peaje de captura de mail — va EN EL MEDIO de los dos caps, y la posición es
+  // deliberada:
+  //   · DESPUÉS del cap horario por IP, porque el peaje ya no es gratis: arma un
+  //     teaser leyendo Yahoo. Sin ese techo arriba sería una forma barata de
+  //     martillar el upstream sin pagar nada.
+  //   · ANTES del cap diario de frescos, que es el presupuesto de OpenAI. Los
+  //     contadores INCREMENTAN al consultarlos, así que un pedido que termina en
+  //     el formulario no puede gastar cuota de análisis que nunca se generó.
+  //
+  // Un cache hit ya salió por arriba sin pasar por acá: leer es gratis, generar
+  // es lo que cuesta (~40-90 s de GPT-4o). El flag `lead_gate` (default OFF, se
+  // prende desde /admin) decide si el peaje está activo y la allowlist de IPs
+  // —el equipo— nunca lo ve. Cualquier problema de config degrada a "sin peaje":
+  // ver la nota de fail-open en lib/leadGate.ts.
+  if (!isIpAllowlisted(clientIp) && leadGateConfigured() && (await readFlag(getMetricsDb(), "lead_gate"))) {
+    const lead = await verifyLeadToken(req.cookies.get(leadCookieName())?.value);
+    if (!lead) {
+      // La ficha de Yahoo (nombre, logo, precio, variación, múltiplos) alcanza
+      // para dibujar la cabecera REAL y borronear el resto. Es la parte gratis
+      // del pipeline: ni EDGAR ni OpenAI.
+      let teaser: StockData | null = null;
+      try {
+        teaser = await fetchStockData(ticker);
+      } catch (err) {
+        reportError("api/analyze/gate-teaser", err, { ticker });
+      }
+
+      // Sin ficha NO se cobra peaje: el pedido sigue de largo y el camino normal
+      // devuelve el 404/400 que corresponde (el mismo fetch vuelve a fallar allá,
+      // así que tampoco se gasta en OpenAI). Pedirle el correo a alguien que
+      // tipeó mal el ticker sería la peor primera impresión posible.
+      if (teaser) {
+        fireEvent({ ticker, status: "email_gate" });
+        return NextResponse.json(
+          {
+            error: "Dejanos tu correo para generar este análisis.",
+            code: "email_required",
+            stockData: teaser,
+          },
+          { status: 403 }
+        );
+      }
+    }
+  }
+
   const freshGate = await checkDailyFreshLimit(clientIp);
   if (!freshGate.allowed) {
     fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
@@ -932,6 +967,8 @@ export async function POST(req: NextRequest) {
   let edgar8kOk: boolean | null = null;
   let segmentsOk: boolean | null = null;
   let edgar8K: Edgar8KIncomeStatement | null = null;
+  let guidance: EdgarGuidance | null = null;
+  let technical: TechnicalContext | null = null;
   let xbrlSegmentsRaw: SegmentSankeyData | null = null;
   let overridePath: "8k_override" | "yahoo_fallback" | "segments_kept" | "stub" | "cache" = "segments_kept";
   try {
@@ -949,7 +986,7 @@ export async function POST(req: NextRequest) {
     // Sankey es infinitamente mejor que un 502 (o que el cuelgue eterno que
     // esto reemplaza). Los flags segmentsOk/edgar8kOk quedan en false para
     // que el monitor vea la degradación en el evento "ok".
-    [stockData, segmentData, peerComparison, edgar8K] = await Promise.all([
+    [stockData, segmentData, peerComparison, edgar8K, guidance, technical] = await Promise.all([
       stockDataPromise,
       fetchSegmentData(ticker).then(
         (r) => { segmentsOk = r != null; return r; },
@@ -960,6 +997,15 @@ export async function POST(req: NextRequest) {
         (r) => { edgar8kOk = r != null; return r; },
         () => { edgar8kOk = false; return null; },
       ),
+      // Management guidance from the latest earnings release's Ex-99.1. Reuses
+      // secFetch's cache (the 8-K path above fetches the same exhibit), so it
+      // adds no uncached SEC requests in the common case. Best-effort.
+      fetchEdgarGuidance(ticker).then((r) => r, () => null),
+      // Contexto técnico (momentum determinístico) desde la serie 1Y diaria
+      // ajustada. Best-effort con el mismo perfil de riesgo que el resto de las
+      // llamadas Yahoo (deadline global de fetch); sin serie → null y el prompt
+      // declara honestamente que no hay lectura de momentum.
+      fetchChartRange(ticker, "1Y").then((r) => computeTechnicalContext(r.prices)).catch(() => null),
     ]);
     stockData.peerComparison = peerComparison;
     xbrlSegmentsRaw = segmentData;
@@ -1184,7 +1230,7 @@ export async function POST(req: NextRequest) {
       competitiveAdvantages: "", managementQuality: "",
       valuationSnapshot: "", recentEarnings: "", riskFactors: "",
       catalysts: "", industryContext: "",
-      verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real.", priceTarget: "—", sizing: "" },
+      verdict: { rating: "HOLD", conviction: "LOW", rationale: "Mock mode — sin análisis real.", priceTarget: "—" },
       bullCase: { narrative: "", priceTarget: "—", probability: "0" },
       bearCase: { narrative: "", priceTarget: "—", probability: "0" },
       segmentData: segmentData ?? null,
@@ -1227,7 +1273,23 @@ export async function POST(req: NextRequest) {
   // 5. Build prompt (single-call architecture with rich enrichments:
   // insider classification, peer percentile ranking, forward estimate
   // divergence, industry-aware hints, Sankey quality feedback).
-  const { systemPrompt, userPrompt } = buildPrompt(stockData, segmentData);
+  // Derived valuation layer (PEG, FCF yield, net debt/EBITDA, base target) plus
+  // the rating framework pre-evaluated in code. Computed once here so the prompt
+  // and the post-response coherence gate see identical figures.
+  const derived = computeDerivedMetrics(stockData, segmentData, {
+    // Serie <1 año (post-IPO/reestructuración) ⇒ el gate de deuda/EBITDA no
+    // opina — un balance recién recapitalizado no es deterioro en curso.
+    seasonedListing: technical ? technical.coversFullYear : true,
+  });
+  // Rango de escenarios bull–bear a 12m desde la vol realizada (cono). Cuando
+  // hay serie técnica, reemplaza el rango que estimaba el LLM (contenía el
+  // realizado 36-43%; el mecánico ~80%). Null sin vol ⇒ fallback al rango del
+  // modelo recortado a analistas.
+  const scenarioRange = computeScenarioRange(stockData.currentPrice, technical?.realizedVolPct);
+  // Factores de calidad (contexto para trampa de valor / conviction; observador
+  // en verdict_log hasta que se calibre).
+  const quality = computeQualityMetrics(stockData.qualityAnnual, derived.isFinancial);
+  const { systemPrompt, userPrompt } = buildPrompt(stockData, segmentData, derived, guidance?.text ?? null, technical, scenarioRange, quality);
 
   // Seed determinístico = hash(ticker + fecha UTC). GPT-4o a temperature=0
   // NO es bit-determinístico (MoE routing + mixed-precision); enviar el mismo
@@ -1358,6 +1420,11 @@ export async function POST(req: NextRequest) {
         // retry with the errors fed back as a follow-up user message.
         let report: StructuredReport | null = null;
         let validationError: string | null = null;
+        // Guards the total paid-call budget (maxDuration=60): at most one
+        // follow-up regeneration across the Zod-validation retry AND the verdict
+        // coherence retry combined.
+        let usedFollowupCall = false;
+        const coherenceFlags: string[] = [];
 
         const STRING_FIELDS = [
           "keyDebate",
@@ -1383,6 +1450,7 @@ export async function POST(req: NextRequest) {
         // Retry once with feedback if validation failed.
         if (!report) {
           try {
+            usedFollowupCall = true;
             const retry = await getOpenAIClient().chat.completions.create({
               model: "gpt-4o-2024-11-20",
               response_format: { type: "json_object" },
@@ -1436,12 +1504,90 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        // Verdict coherence gate. The rating-framework conditions were computed
+        // in code and handed to the model as authoritative (MÉTRICAS DERIVADAS);
+        // if the returned rating still contradicts them (BUY with an AVOID
+        // condition triggered, or AVOID with all BUY conditions met), regenerate
+        // once with a targeted correction. Budget-guarded (skip if the Zod retry
+        // already fired) and never hard-fails: a readable report beats a blank
+        // error, so on a persistent contradiction we serve it and flag it for
+        // the monitor.
+        {
+          const coh = checkVerdictCoherence(report.verdict.rating, derived.conditions);
+          if (!coh.coherent) {
+            coherenceFlags.push(coh.code!);
+            if (!usedFollowupCall) {
+              usedFollowupCall = true;
+              try {
+                const fix = await getOpenAIClient().chat.completions.create({
+                  model: "gpt-4o-2024-11-20",
+                  response_format: { type: "json_object" },
+                  temperature: 0,
+                  seed: openaiSeed,
+                  max_tokens: 7000,
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                    { role: "assistant", content: JSON.stringify(report) },
+                    {
+                      role: "user",
+                      content:
+                        `${coh.reason}\n\nRegenerá el JSON COMPLETO con el mismo esquema, corrigiendo el rating y ` +
+                        `todo lo que dependa de él (rationale, priceTarget, probabilidades). ` +
+                        `No agregues markdown exterior, sólo JSON puro.`,
+                    },
+                  ],
+                }, { signal: ac.signal });
+                const fixText = fix.choices[0]?.message?.content ?? "";
+                const raw = JSON.parse(fixText) as Record<string, unknown>;
+                const coerced = coerceStringFields(raw, STRING_FIELDS as unknown as (keyof typeof raw)[]);
+                const parsed = StructuredReportSchema.safeParse(coerced);
+                if (parsed.success) {
+                  const repaired = parsed.data as unknown as StructuredReport;
+                  const coh2 = checkVerdictCoherence(repaired.verdict.rating, derived.conditions);
+                  report = repaired;
+                  coherenceFlags.push(coh2.coherent ? "verdict_repaired" : "verdict_incoherent_final");
+                } else {
+                  // Regeneration was invalid — keep the original valid report.
+                  coherenceFlags.push("verdict_incoherent_final");
+                }
+              } catch {
+                coherenceFlags.push("verdict_incoherent_final");
+              }
+            } else {
+              // Budget already spent on the Zod retry — serve but flag.
+              coherenceFlags.push("verdict_incoherent_final");
+            }
+          }
+        }
+
+        // Disciplina de conviction (backtest 2026-07-19): HIGH sin respaldo
+        // mecánico del framework acertó 2/5, y los AVOID·HIGH sobre nombres ya
+        // desplomados (≥35% bajo el máximo 52s) rebotaron. Sólo baja conviction
+        // (nunca el rating) — sin retry: es un cap barato y determinístico.
+        {
+          const disc = enforceConvictionDiscipline(
+            report.verdict.rating,
+            report.verdict.conviction,
+            derived.conditions,
+            technical,
+            derived.buyValuationSpeculative,
+            derived.shortPct,
+            derived.revisionsNetDown,
+          );
+          if (disc.flags.length > 0) {
+            report.verdict.conviction = disc.conviction;
+            coherenceFlags.push(...disc.flags);
+          }
+        }
+
         // Attach segmentData (Sankey) — real fields only, never fabricate.
         report.segmentData = segmentData ?? null;
 
-        // Clamp bull/bear price targets against analyst high/low (±30%) to
-        // prevent the model from emitting wildly out-of-range numbers.
-        report = clampReportPriceTargets(report, stockData);
+        // Rango de escenarios: cuando hay cono de vol, sobrescribe bull/bear
+        // con sus límites mecánicos (calibrados a ~80% de cobertura); sin cono,
+        // recorta el rango del modelo contra analistas (±30%) como antes.
+        report = clampReportPriceTargets(report, stockData, scenarioRange);
 
         const stale = isAnalysisStale(stockData, report.segmentData ?? null);
         const ttl = stale ? SHORT_TTL : undefined;
@@ -1463,7 +1609,7 @@ export async function POST(req: NextRequest) {
           costBalancePct: q.costBalancePct,
           opexBalancePct: q.opexBalancePct,
           opChainBalancePct: q.opChainBalancePct,
-          qualityFlags: q.findings.map((f) => f.code),
+          qualityFlags: [...q.findings.map((f) => f.code), ...coherenceFlags, ...(guidance ? ["has_guidance"] : []), ...(technical ? ["has_technical"] : [])],
           qualityFindings: q.findings.length > 0 ? JSON.stringify(q.findings) : null,
           sankeySnapshot: snapshotSankey({
             finalSankey: report.segmentData ?? null,
@@ -1483,6 +1629,24 @@ export async function POST(req: NextRequest) {
           bullTarget: report.bullCase?.priceTarget ?? null,
           bearTarget: report.bearCase?.priceTarget ?? null,
         });
+
+        // Historial de veredictos (verdict_log): fila append-only por generación
+        // fresca, exenta de retención — analyze_events guarda el rating pero se
+        // purga a los 90 días, y el backtest de calidad necesita comparar cada
+        // veredicto contra el retorno 6-12 meses después. Payload eager, escritura
+        // diferida y best-effort (mismo patrón que fireEvent).
+        const verdictRow = buildVerdictLogRow({
+          ticker,
+          report,
+          stockData,
+          derived,
+          technical,
+          scenarioRange,
+          quality,
+          coherenceFlags,
+          model: baseParams.model,
+        });
+        after(() => recordVerdictLog(verdictRow));
 
         // Send final payload: full structured report + stockData for UI components
         controller.enqueue(

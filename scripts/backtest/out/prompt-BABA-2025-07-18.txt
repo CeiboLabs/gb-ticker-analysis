@@ -1,0 +1,186 @@
+Empresa a analizar: Alibaba Group Holding Limited (BABA)
+Fecha: 2025-07-18
+Sector: Consumer Cyclical | Industria: Internet Retail
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Alibaba Group Holding Limited, through its subsidiaries, provides technology infrastructure and marketing reach to help merchants, brands, retailers, and other businesses in the People's Republic of China and internationally. It operates through the Alibaba China E-Commerce Group, Alibaba International Digital Commerce Group, Cloud Intelligence Group, and All Others segments. The Alibaba China E-commerce Group segment operates Taobao and Tmall, which are digital retail platforms; Taobao Instant Commerce, a local services and on-demand delivery platform; 1688.com, a domestic wholesale market...
+
+---
+DATOS DE MERCADO
+Precio Actual: $119.14 (N/A hoy)
+Capitalización Bursátil: $288.18B
+Rango 52 semanas: $71.62 – $143.80
+Beta: 0.73
+Acciones en Circulación: $2.40B
+Short Interest (% float): 1.3%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 15.95x | P/E Forward: 10.13x | CAPE (Shiller P/E): 22.8x (3yr avg EPS)
+P/Ventas (TTM): 2.08x | P/Libro: 2.05x | EV/EBITDA: 9.10x
+EPS Trailing: 7.47
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (15 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 14 | Neutral: 1 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $119.14 (260 ruedas de historia)
+  Rango 52 semanas: $71.62 – $143.80 | posición en el rango: 66% (-17.1% desde el máximo, +66.3% desde el mínimo)
+  Medias móviles: MM50: $115.32 (precio +3.3%) | MM200: $106.71 (precio +11.6%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +4.5% | 3M +14.5% | 6M +48.3% | 12M +56.0% | momentum 12-1 (excl. último mes) +49.2%
+  Máx. drawdown de la serie: -32.7% | Volatilidad realizada anualizada: 46.5%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  AMZN (Amazon.com, Inc.): P/E Trailing 40.89x | Fwd N/A | Crec.Rev 11.0% | Mg.Op 10.8% | EV/EBITDA 20.0x
+  BABAF (Alibaba Group Holding Limited): P/E Trailing 16.09x | Fwd N/A | Crec.Rev 5.9% | Mg.Op 14.8% | EV/EBITDA 9.1x
+  PDD (PDD Holdings Inc.): P/E Trailing 10.29x | Fwd N/A | Crec.Rev 59.0% | Mg.Op 27.5% | EV/EBITDA 5.6x
+  PROSY (Prosus N.V.): P/E Trailing 9.93x | Fwd N/A | Crec.Rev 12.9% | Mg.Op 2.6% | EV/EBITDA 9.0x
+  MELI (MercadoLibre, Inc.): P/E Trailing 64.04x | Fwd N/A | Crec.Rev 37.5% | Mg.Op 12.7% | EV/EBITDA 39.3x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 16.09x | Fwd N/A | Crec.Rev 12.9% | Mg.Op 12.7% | EV/EBITDA 9.1x
+  BABA vs cohorte: P/E trailing 16.0x vs mediana peers 16.1x; crec. rev 5.9% vs mediana peers 12.9%; margen op 14.8% vs mediana peers 12.7%; EV/EBITDA 9.1x vs mediana peers 9.1x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  BABA en P/E Trailing: percentil p40 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 16.09x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $138.81B | Crec. Ingresos YoY: 5.9% | Crec. Ganancias YoY: N/A
+Margen Bruto: 40.0% | Margen Operativo: 14.8% | Margen Neto: 13.1% | Margen EBITDA: 20.8%
+EBITDA: $28.91B | FCF: $10.80B | FCF Operativo: N/A
+ROE: 12.9% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2025
+
+Segmentos de ingresos:
+  Taobao And Tmall Group: 60.4B USD (YoY: +3% Y/Y)
+  International Digital Commerce Group: 17.76B USD (YoY: +29% Y/Y)
+  Alibaba International Digital Commerce Group: 17.76B USD (YoY: +29% Y/Y)
+  Cloud Intelligence Group: 15.85B USD (YoY: +11% Y/Y)
+  Cainiao Smart Logistics Network Limited: 13.6B USD (YoY: +2% Y/Y)
+  Local Services Group: 9.01B USD (YoY: +12% Y/Y)
+  Hujing Digital Media And Entertainment Group: 2.99B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     137.37B USD (YoY: +6% Y/Y)
+  Costo de ingresos:    82.49B USD
+  Utilidad bruta:       54.88B USD (margen: 40%)
+  Gastos operativos:    35.45B USD
+    I+D:                7.88B USD
+    Ventas y marketing: 19.86B USD
+    G&A:                6.1B USD
+    Otros:              0.77B USD
+  Utilidad operativa:   19.43B USD (margen: 14.1%)
+  Ingreso no operativo: 2.01B USD
+  Impuestos:            4.89B USD
+  Utilidad neta:        17.94B USD (margen: 13.1%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2023: CAPEX $5.00B (3.6% de rev.) | OCF $29.06B | FCF $24.06B | Recompras $10.87B | Dividendos N/A | SBC $4.48B
+  FY2024: CAPEX $4.56B (3.3% de rev.) | OCF $25.26B | FCF $20.71B | Recompras $12.28B | Dividendos $2.48B | SBC $2.57B
+  FY2025: CAPEX $11.85B (8.5% de rev.) | OCF $22.54B | FCF $10.69B | Recompras $11.95B | Dividendos $4.01B | SBC $1.93B
+
+  Capital devuelto al accionista (período): recompras $35.10B + dividendos $6.49B = $41.59B (75% del FCF acumulado del período).
+  Stock-based comp acumulado: $8.98B (~2.2% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $34.57B | Caja Total: $59.64B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 1.7% | Payout Ratio: 26.8% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 14.1%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 9.84 | Rev. Est. N/A (crec. 10.8%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-15 | Barclays | Mantiene: Overweight → Overweight
+  2025-07-11 | B of A Securities | Mantiene: Buy → Buy
+  2025-05-16 | Mizuho | Mantiene: Outperform → Outperform
+  2025-05-16 | Baird | Mantiene: Outperform → Outperform
+  2025-05-16 | Benchmark | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $10.80B / Market Cap $288.18B): 3.7%
+  PEG (P/E fwd 10.13x ÷ crec. EPS 10.8%): 0.93x  [estimación forward +1y]
+  Deuda neta (Deuda $34.57B − Caja $59.64B): $-25.08B
+  Deuda neta / EBITDA (EBITDA $28.91B): -0.87x
+  Target base (P/E fwd 10.13x × EPS FY+1 9.84): $99.68 (-16.3% vs precio actual $119.14)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 3.7%, PEG 0.93x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 1.3%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

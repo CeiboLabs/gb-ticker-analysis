@@ -12,9 +12,9 @@ import { ArrowRight, FileDown } from "@/components/institucional/icons";
 
 // Fallback = los cuatro documentos ofrecidos a pedido, como hasta ahora.
 const FALLBACK: { titulo: string; desc: string }[] = [
-  { titulo: "Ficha técnica", desc: "Resumen mensual del fondo: objetivo, cartera y datos clave." },
+  { titulo: "Ficha técnica", desc: "Resumen mensual de BNG Selección Global: objetivo, cartera y datos clave." },
   { titulo: "Datos fundamentales para el inversor", desc: "Documento con el perfil de riesgo, costos y características esenciales." },
-  { titulo: "Reglamento de gestión", desc: "Marco legal del fondo: política de inversión, suscripción y rescate." },
+  { titulo: "Reglamento de gestión", desc: "Marco legal de BNG Selección Global: política de inversión, suscripción y rescate." },
   { titulo: "Informe de cartera", desc: "Composición de la cartera y comentario de gestión del período." },
 ];
 

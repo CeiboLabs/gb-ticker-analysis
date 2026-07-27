@@ -22,7 +22,7 @@ const LINKS = [
   { id: "resumen", label: "Resumen" },
   { id: "estrategia", label: "Estrategia" },
   { id: "cartera", label: "Cartera" },
-  { id: "casa", label: "La casa" },
+  { id: "casa", label: "Nosotros" },
   { id: "performance", label: "Performance" },
   { id: "calculadora", label: "Calculadora" },
   { id: "documentos", label: "Documentos" },

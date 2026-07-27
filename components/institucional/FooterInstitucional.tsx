@@ -1,14 +1,17 @@
 import Link from "next/link";
+import { HAY_PRENSA } from "@/lib/prensa";
 
 type FooterLink = { label: string; href: string; external?: boolean };
 
 const NAV_GROUPS: { title: string; links: FooterLink[] }[] = [
   {
-    title: "La casa",
+    title: "Nosotros",
     links: [
       { label: "Nosotros", href: "/nosotros" },
       { label: "Historia", href: "/historia" },
       { label: "Equipo", href: "/equipo" },
+      // Aparece solo cuando hay apariciones cargadas (ver lib/prensa · HAY_PRENSA).
+      ...(HAY_PRENSA ? [{ label: "Prensa", href: "/prensa" }] : []),
       { label: "Contacto", href: "/contacto" },
     ],
   },
@@ -21,6 +24,7 @@ const NAV_GROUPS: { title: string; links: FooterLink[] }[] = [
       { label: "Proceso de inversión", href: "/servicios#proceso" },
       { label: "Calculadora", href: "/calculadora" },
       { label: "Análisis de acciones", href: "/analisis" },
+      { label: "Educación", href: "/educacion" },
     ],
   },
   {
@@ -44,6 +48,9 @@ const NAV_GROUPS: { title: string; links: FooterLink[] }[] = [
     ],
   },
 ];
+
+// Igual que el navbar: el pie lista el mapa COMPLETO, secciones sin publicar
+// incluidas (`lib/paginasOcultas.ts`). Esas rutas devuelven 404.
 
 const SOCIAL = [
   {

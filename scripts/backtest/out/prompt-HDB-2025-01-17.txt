@@ -1,0 +1,180 @@
+Empresa a analizar: HDFC Bank Limited (HDB)
+Fecha: 2025-01-17
+Sector: Financial Services | Industria: Banks - Regional
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — BANCO: priorizá Net Interest Margin (NIM), eficiencia (efficiency ratio), provisiones para préstamos perdidos (provision for loan losses) y ratio CET1 si están disponibles. Los márgenes brutos/operativos típicos de manufactura no aplican; usá ROE/ROA y NIM como métricas de rentabilidad.
+INDUSTRY HINT — BANCO: la valuación se mide en P/Book más que P/E para bancos (P/B 1.0× es paridad con valor contable). ROE >12% suele justificar P/B premium. Mencioná price/tangible book si los datos permiten.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+HDFC Bank Limited provides banking and financial products and services to individuals and businesses in India, Bahrain, Hong Kong, Singapore, and Dubai. The company operates through Treasury, Retail Banking, Wholesale Banking, Other Banking Business, Insurance Business, and Other segments. It offers savings, salary, current, rural, public provident fund, pension, and demat accounts; fixed and recurring deposits; and safe deposit lockers, as well as offshore accounts and deposits, and overdrafts against fixed deposits. The company also provides personal, home, car and pre owned car, marriage...
+
+---
+DATOS DE MERCADO
+Precio Actual: $28.84 (N/A hoy)
+Capitalización Bursátil: $149.91B
+Rango 52 semanas: $25.56 – $33.59
+Beta: 0.42
+Acciones en Circulación: $5.13B
+Short Interest (% float): 0.4%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 18.87x | P/E Forward: 16.89x | CAPE (Shiller P/E): 18.9x (3yr avg EPS)
+P/Ventas (TTM): 6.54x | P/Libro: 1.87x | EV/EBITDA: N/Ax
+EPS Trailing: 1.53
+Precio Objetivo Medio Analistas: $70.05 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (N/A analistas)
+Desglose: Compra Fuerte: 0 | Compra: 0 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $28.84 (260 ruedas de historia)
+  Rango 52 semanas: $25.56 – $33.59 | posición en el rango: 41% (-14.1% desde el máximo, +12.8% desde el mínimo)
+  Medias móviles: MM50: $31.61 (precio -8.8%) | MM200: $30.14 (precio -4.3%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -12.4% | 3M -6.2% | 6M -2.0% | 12M +6.3% | momentum 12-1 (excl. último mes) +21.4%
+  Máx. drawdown de la serie: -20.6% | Volatilidad realizada anualizada: 26.1%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  DBSDY (DBS Group Holdings Ltd): P/E Trailing 11.80x | Fwd N/A | Crec.Rev 22.1%
+  CIHHF (China Merchants Bank Co., Ltd.): P/E Trailing 5.41x | Fwd N/A | Crec.Rev -1.6%
+  UNCRY (UniCredit S.p.A.): P/E Trailing 6.66x | Fwd N/A | Crec.Rev 20.5%
+  BNPQY (BNP Paribas SA): P/E Trailing 6.61x | Fwd N/A | Crec.Rev 3.9%
+  ISNPY (Intesa Sanpaolo S.p.A.): P/E Trailing 9.24x | Fwd N/A | Crec.Rev 17.9%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 6.66x | Fwd N/A | Crec.Rev 17.9%
+  HDB vs cohorte: P/E trailing 18.9x vs mediana peers 6.7x; crec. rev 64.8% vs mediana peers 17.9%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  HDB en P/E Trailing: percentil p100 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 6.66x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $22.93B | Crec. Ingresos YoY: 64.8% | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: 31.3% | Margen EBITDA: N/A
+EBITDA: N/A | FCF: $11.18B | FCF Operativo: N/A
+ROE: 9.0% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Net Interest Income: 13.96B USD
+  Noninterest Income: 8.27B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     22.23B USD (YoY: +64% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+  Utilidad operativa:   8.46B USD (margen: 38.1%)
+  Impuestos:            0.93B USD
+  Utilidad neta:        7.47B USD (margen: 33.6%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance (originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y dividendos contra la utilidad neta y la solvencia regulatoria.
+
+  FY2022: CAPEX $347.48M (1.5% de rev.) | OCF $7.67B | FCF $7.32B | Recompras N/A | Dividendos $478.36M | SBC $183.14M
+  FY2023: CAPEX $530.42M (2.3% de rev.) | OCF $5.80B | FCF $5.27B | Recompras N/A | Dividendos $1.05B | SBC $170.42M
+  FY2024: CAPEX $645.52M (2.8% de rev.) | OCF $12.26B | FCF $11.61B | Recompras $27.58M | Dividendos $1.04B | SBC $241.19M
+
+  Capital devuelto al accionista (período): recompras $27.58M + dividendos $2.57B = $2.60B.
+  Stock-based comp acumulado: $594.75M (~0.9% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $93.40B | Caja Total: $39.54B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 1.2% | Payout Ratio: 22.8% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.3% | Institucional: 13.1%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 3.62 | Rev. Est. N/A (crec. 14.0%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2024-07-22 | JP Morgan | Downgrade: Overweight → Neutral
+  2019-09-09 | Bernstein | Downgrade: Outperform → Market Perform
+  2019-06-11 | Nomura | Downgrade: Buy → Neutral
+  2017-03-21 | Morgan Stanley | Downgrade: Overweight → Equal-Weight
+  2016-09-14 | Goldman Sachs | Mantiene: Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield: NO SIGNIFICATIVO para este perfil (bank) — el flujo de caja de una financiera está dominado por movimientos de balance (préstamos, depósitos, trading). NO lo uses como métrica de valuación ni como base de "capital devuelto vs FCF".
+  Valuación del perfil financiero: P/Libro 1.87x | ROE 9.0% | P/E trailing 18.87x
+  PEG (P/E fwd 16.89x ÷ crec. EPS 14.0%): 1.20x  [estimación forward +1y]
+  Deuda neta (Deuda $93.40B − Caja $39.54B): $53.86B
+  Deuda neta / EBITDA: no aplica a este perfil (bank) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 16.89x × EPS FY+1 3.62): $61.14 (+112.0% vs precio actual $28.84)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (P/B <1x, P/B <1.5x con ROE >10%, P/E <12x o PEG <1.5x): CUMPLE  [evaluada con: perfil financiero — P/B 1.87x con ROE 9.0%, P/E trailing 18.9x, PEG 1.20x]
+    (b) Consenso analistas = buy / strong buy: N/D (sin dato concluyente — no bloquea)  [consenso: N/D]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (bank) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.4%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

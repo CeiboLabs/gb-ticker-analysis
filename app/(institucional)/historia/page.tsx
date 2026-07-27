@@ -1,13 +1,17 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Reveal } from "@/components/motion";
 import { HistoriaTimeline, type Era } from "@/components/institucional/HistoriaTimeline";
+import { pageMetadata } from "@/lib/seo";
+import { estaOculta } from "@/lib/paginasOcultas";
 
-export const metadata: Metadata = {
-  title: "Historia · Bengochea & Cía.",
+export const metadata: Metadata = pageMetadata({
+  title: "Historia",
   description:
     "Sesenta años de confianza e idoneidad. La trayectoria de Gastón Bengochea CB, año por año.",
-};
+  path: "/historia",
+});
 
 // Cronología agrupada en capítulos con nombre. Cada hito traza a la fuente
 // oficial (gbengochea.com.uy/historia.php), incluidos los dos claims verificados
@@ -33,7 +37,7 @@ const ERAS: Era[] = [
       {
         year: "Años 80",
         title: "Fondos mutuos con Fidelity",
-        body: "Acuerdo de distribución de Fondos Mutuos con Fidelity Investments. La casa es el primer corredor de bolsa local en incorporar fondos mutuos a las carteras de sus clientes.",
+        body: "Acuerdo de distribución de Fondos Mutuos con Fidelity Investments. Fuimos el primer corredor de bolsa local en incorporar fondos mutuos a las carteras de nuestros clientes.",
       },
       {
         year: "2003",
@@ -43,7 +47,7 @@ const ERAS: Era[] = [
       {
         year: "2005",
         title: "Cuentas en el exterior",
-        body: "La casa abre el servicio de apertura de cuentas de inversión en el exterior, complementario a la cuenta local en Uruguay.",
+        body: "Abrimos el servicio de apertura de cuentas de inversión en el exterior, complementario a la cuenta local en Uruguay.",
       },
     ],
   },
@@ -107,7 +111,7 @@ const SPRINGBOARD = [
   {
     href: "/bng-seleccion-global",
     title: "BNG Selección Global",
-    desc: "El fondo de la casa: una cartera global gestionada desde Montevideo.",
+    desc: "Nuestro fondo: una cartera global gestionada desde Montevideo.",
   },
   {
     href: "/informes",
@@ -117,7 +121,7 @@ const SPRINGBOARD = [
   {
     href: "/contacto",
     title: "Conversemos",
-    desc: "Una reunión para conocer tu perfil y cómo trabaja la casa.",
+    desc: "Una reunión para conocer tu perfil y cómo trabajamos.",
   },
 ];
 
@@ -128,13 +132,17 @@ const ArrowRight = () => (
 );
 
 export default function HistoriaPage() {
+  // 404 con el not-found de la casa mientras la sección siga listada en
+  // lib/paginasOcultas.ts. Publicada = la guarda queda inerte.
+  if (estaOculta("/historia")) notFound();
+
   return (
     <main className="site">
       {/* Hero split — contenido + imagen */}
       <div className="hero-split">
         <div className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
-            La casa · Historia
+            Nosotros · Historia
           </div>
           <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             Sesenta años de confianza e idoneidad.
@@ -191,7 +199,7 @@ export default function HistoriaPage() {
               decisiones discutidas en la mesa— se mantiene intacta seis décadas después.
             </p>
             <p className="t-body" style={{ marginTop: 18, maxWidth: "34em" }}>
-              La casa lleva el nombre de su fundador y Gastón Bengochea la preside hoy, junto a cuatro
+              Llevamos el nombre de nuestro fundador y Gastón Bengochea nos preside hoy, junto a cuatro
               socios-directores. Una sola firma, independiente, que nunca cambió de oficio.
             </p>
           </Reveal>
@@ -219,9 +227,9 @@ export default function HistoriaPage() {
         <div className="site-wrap-narrow">
           <Reveal as="div">
             <div className="eyebrow-sm" style={{ color: "var(--gold-deep)" }}>Continuidad</div>
-            <h2 className="t-h2" style={{ marginTop: 18, maxWidth: "13em" }}>La misma mesa que abrió la casa.</h2>
+            <h2 className="t-h2" style={{ marginTop: 18, maxWidth: "13em" }}>La misma mesa que abrió la firma.</h2>
             <p className="t-lead" style={{ marginTop: 24, maxWidth: "34em" }}>
-              Gastón Bengochea preside la casa; cinco socios la dirigen y un equipo en una sola mesa la
+              Gastón Bengochea preside la firma; cinco socios la dirigen y un equipo en una sola mesa la
               opera. La estructura horizontal del primer día sigue siendo la forma de trabajar.
             </p>
             <p className="t-small" style={{ marginTop: 18, maxWidth: "34em" }}>
@@ -243,7 +251,7 @@ export default function HistoriaPage() {
           <Reveal as="div">
             <div className="eyebrow-sm" style={{ color: "var(--gold-deep)" }}>Hoy</div>
             <h2 className="t-h2" style={{ marginTop: 18, maxWidth: "14em" }}>
-              La misma lectura prudente con la que empezó la casa.
+              La misma lectura prudente con la que empezamos.
             </h2>
             <p className="t-lead" style={{ marginTop: 24, maxWidth: "34em" }}>
               Invertimos en el mundo desde Montevideo: cuentas a nombre del cliente, asesoramiento de la

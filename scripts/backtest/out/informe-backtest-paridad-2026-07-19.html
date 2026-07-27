@@ -1,0 +1,378 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Backtest con paridad total · /analyze</title>
+<style>
+@font-face { font-family: "Newsreader"; src: url("file:///Users/emirodriguez/Developer/ticker/assets/fonts/Newsreader-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Plex Mono"; src: url("file:///Users/emirodriguez/Developer/ticker/assets/fonts/IBMPlexMono-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Plex Sans SB"; src: url("file:///Users/emirodriguez/Developer/ticker/assets/fonts/IBMPlexSans-SemiBold.ttf"); font-weight: 600; }
+@page { size: A4; margin: 12mm 12mm 16mm; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; }
+body { font-family: "Helvetica Neue", Arial, sans-serif; color: #0E1130; font-size: 10.5px; line-height: 1.55; background: #FBFBFE; }
+.serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
+.mono, .num { font-family: "Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+h1 { font-family: "Newsreader", Georgia, serif; font-weight: 500; font-size: 30px; line-height: 1.15; letter-spacing: -0.01em; }
+h2 { font-family: "Newsreader", Georgia, serif; font-weight: 500; font-size: 17px; margin: 26px 0 4px; padding-top: 10px; border-top: 1px solid #0E1130; break-after: avoid; }
+h2 .no { font-family: "Plex Mono", monospace; font-size: 10px; color: #A07C28; margin-right: 8px; letter-spacing: .1em; }
+h3 { font-family: "Plex Sans SB", Arial, sans-serif; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: #3A3E5C; margin: 14px 0 4px; break-after: avoid; }
+p { margin: 5px 0; color: #3A3E5C; }
+p strong { color: #0E1130; font-weight: 600; font-family: "Plex Sans SB", Arial, sans-serif; }
+ul { margin: 4px 0 8px 16px; color: #3A3E5C; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5px; }
+thead { display: table-header-group; }
+th { font-family: "Plex Sans SB", Arial, sans-serif; font-size: 8px; letter-spacing: .07em; text-transform: uppercase; color: #6E7290; text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid #0E1130; }
+td { padding: 3.5px 8px 3.5px 0; border-bottom: 1px solid #ECEDF6; vertical-align: top; }
+tr { break-inside: avoid; }
+.num { text-align: right; font-size: 9px; }
+th.num { text-align: right; }
+.pos { color: #1F6B45; } .neg { color: #8E2A2A; } .dim { color: #9FA2C0; }
+.hero { border-top: 3px solid #0E1130; padding-top: 14px; margin-bottom: 8px; }
+.kicker { font-family: "Plex Mono", monospace; font-size: 9px; letter-spacing: .18em; color: #A07C28; text-transform: uppercase; margin-bottom: 10px; }
+.lede { font-size: 12.5px; color: #3A3E5C; margin-top: 10px; max-width: 60ch; }
+.meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 18px; margin: 16px 0 4px; border-top: 1px solid #C6C8E0; border-bottom: 1px solid #C6C8E0; padding: 8px 0; }
+.meta div { font-size: 9px; color: #6E7290; }
+.meta b { display: block; font-family: "Plex Mono", monospace; font-size: 11px; color: #0E1130; font-weight: 500; margin-top: 1px; }
+.charts { display: flex; gap: 26px; margin: 10px 0 2px; break-inside: avoid; }
+.cap { font-size: 8.5px; color: #9FA2C0; margin: 2px 0 10px; }
+.hallazgo { border-left: 2px solid #A07C28; padding: 2px 0 2px 10px; margin: 10px 0; break-inside: avoid; }
+.hallazgo b { font-family: "Plex Sans SB", Arial, sans-serif; color: #0E1130; }
+.appendix table { font-size: 8.3px; }
+.appendix td { padding: 2.5px 6px 2.5px 0; }
+.pagebreak { break-before: page; }
+.dist { display: flex; height: 16px; margin: 10px 0 2px; gap: 2px; }
+.dist div { color: #fff; font-family: "Plex Mono", monospace; font-size: 8.5px; display: flex; align-items: center; padding-left: 6px; border-radius: 2px; }
+.ficha td:first-child { white-space: nowrap; color: #6E7290; padding-right: 16px; }
+</style></head><body>
+
+<div class="hero">
+  <div class="kicker">Informe técnico interno · Analizador /analyze · segunda corrida</div>
+  <h1>Backtest con paridad total:<br>¿las mejoras mejoraron?</h1>
+  <p class="lede">Tras la primera corrida se aplicaron las mejoras que sus resultados sugirieron —gate de valuación
+  sectorial, disciplina de conviction, y una reconstrucción as-of que le da al modelo casi toda la información de un
+  informe vivo—. Esta segunda corrida repite los mismos cortes con los mismos seeds (A/B limpio contra la línea de
+  base), agrega un corte de enero de 2026 en un régimen de mercado distinto, y mide si el sistema mejoró.</p>
+  <div class="meta">
+    <div>Veredictos<b>122</b></div>
+    <div>Universo<b>41 tickers · 3 cortes</b></div>
+    <div>Modelo<b>gpt-4o</b></div>
+    <div>Fecha del informe<b>2026-07-19</b></div>
+  </div>
+</div>
+
+<h2><span class="no">01</span>Resumen ejecutivo</h2>
+<div class="hallazgo"><b>El lado BUY dejó de estar muerto — y mejoró.</b> En los cortes compartidos con la primera
+corrida, el BUY pasó de 12 a 26 veredictos y su mediana de exceso a 12 meses subió de
++6.7% a +12.9%. La anomalía más incómoda del estudio anterior —el promedio de
+HOLD (+16.0%) le ganaba al de BUY (+2.9%)— se invirtió: ahora BUY promedia
++16.8% contra +10.8% de HOLD. Los grandes ganadores que dormían en HOLD
+(BABA, ASML, NOK, ITUB) ahora son BUY. Los 18 upgrades a BUY rindieron +11.5%
+de mediana a 12 meses.</div>
+<div class="hallazgo"><b>Los downgrades fueron quirúrgicos.</b> Los 4 BUY de la primera corrida que la
+nueva bajó a HOLD terminaron en −26.6% de mediana — el sistema sacó de BUY exactamente
+a los tóxicos (HDB −48.8, PGR −29.9, BABA de julio −23.2) al costo de un solo acierto perdido (LTM +8.0).</div>
+<div class="hallazgo"><b>AVOID + tendencia alcista se confirma como la celda estrella.</b> Con 11 casos
+(la primera corrida tenía 3), los AVOID emitidos contra una tendencia todavía positiva rindieron
+−33.0% de mediana a 12 meses. Y en el corte de enero 2026 —un régimen que el estudio original no
+vio— el orden BUY &gt; HOLD &gt; AVOID se sostuvo a 6 meses (+8.9% /
++3.3% / −4.7%).</div>
+<div class="hallazgo"><b>La disciplina de conviction no necesitó intervenir.</b> El enforcement en código (HIGH exige
+respaldo mecánico; AVOID sobre nombres desplomados se capea) corrió las 122 veces y no capeó ninguna: el
+modelo cumplió las reglas leyéndolas en el prompt. Los AVOID·HIGH discrecionales de la primera corrida —MRNA, que costó
++78 puntos en contra— ahora salen HOLD·LOW por sí solos.</div>
+<div class="hallazgo"><b>Los costos, sin maquillar.</b> (1) El spread BUY−AVOID a 6 meses se comprimió
+(+25.9% → +9.4% en los cortes compartidos): el BUY nuevo es más
+value/contrarian y paga a 12 meses, no a 6. (2) El AVOID mecánico se diluyó (−5.8% de mediana) por un
+falso positivo doloroso: LTM en enero 2025 (+107 de exceso), leverage post-reestructuración que disparó el gate — el
+mismo trigger sobre LTM <b>acertó</b> en enero 2026 (−18.8). (3) El rango bull–bear contiene el retorno realizado sólo
+el 43% de las veces a 6 meses: es demasiado angosto para leerse
+como intervalo.</div>
+
+<h2><span class="no">02</span>Qué cambió desde la primera corrida</h2>
+<h3>Mejoras al pipeline (aplicadas también en producción)</h3>
+<ul>
+<li><strong>Gate de valuación sectorial:</strong> las financieras se evalúan con P/B + ROE, P/E o PEG — nunca FCF yield (el flujo de caja de un banco es ruido de balance; el FCF de JPM en 2024 fue −$42B). Con fallbacks por P/E y EV/EBITDA cuando faltan FCF y PEG.</li>
+<li><strong>Disciplina de conviction:</strong> HIGH exige respaldo mecánico del framework; un AVOID con el precio ≥35% debajo del máximo de 52 semanas lleva tope MEDIUM (tesis consumada, riesgo de rebote).</li>
+<li><strong>PEG con guard de turnaround:</strong> crecimiento proyectado &gt;100% (rebote desde base deprimida) invalida el PEG — sin esto, aerolíneas quebradas marcaban "valuación atractiva" con PEG 0.02x.</li>
+<li><strong>Perfil de industria sin EDGAR</strong> (inferido de Yahoo) y confirmación de BUY que no queda bloqueada de por vida en perfiles exentos de leverage.</li>
+</ul>
+<h3>Paridad de datos: lo que el modelo ahora SÍ ve al corte</h3>
+<table>
+<thead><tr><th>Pieza</th><th>Fuente as-of</th><th>Frontera anti-fuga</th><th class="num">Cobertura</th></tr></thead>
+<tbody>
+<tr><td>Segmentos + estado de resultados (Sankey)</td><td>EDGAR 10-Q/K/20-F/40-F, pipeline XBRL de producción</td><td>Fecha real de filing ≤ corte</td><td class="num">80/82</td></tr>
+<tr><td>Guidance de la dirección</td><td>Ex-99.1 del último 8-K Item 2.02 ≤ corte</td><td>Fecha de filing</td><td class="num">19/82</td></tr>
+<tr><td>Consenso de analistas</td><td>Finnhub (mensual histórico) + sintético por firma (historial de grades)</td><td>Período/fecha del rating ≤ corte</td><td class="num">69/82</td></tr>
+<tr><td>Acciones de analistas (últimas 5)</td><td>Historial de upgrades/downgrades de Yahoo (llega a 2012)</td><td>Fecha exacta de la acción</td><td class="num">82/82</td></tr>
+<tr><td>EPS forward + P/E forward + target medio</td><td>Snapshot de finviz vía Wayback Machine</td><td>Snapshot ESTRICTAMENTE ≤ corte; antigüedad declarada (mediana 26–63 días)</td><td class="num">~69/82</td></tr>
+<tr><td>Short interest</td><td>FINRA consolidated short interest (bi-mensual)</td><td>Settlement ≤ corte − 12 días (lag de publicación)</td><td class="num">82/82</td></tr>
+<tr><td>Insiders (Form 4)</td><td>EDGAR, XML de ownership, texto desde transaction codes</td><td>Fecha de filing; flag 10b5-1 del propio form</td><td class="num">45/82</td></tr>
+<tr><td>Peers con múltiplos</td><td>Cohorte del screener, métricas reconstruidas al corte</td><td>Misma maquinaria as-of por peer</td><td class="num">82/82</td></tr>
+<tr><td>Beta · dividendos · P/B · ROE · EV/EBITDA</td><td>Series propias + equity/FX por período</td><td>Al corte</td><td class="num">~80/82</td></tr>
+</tbody></table>
+<p class="cap">Cobertura medida sobre los cortes de 2025 (82 filas). Insiders: los emisores extranjeros no presentan Form 4 — N/D honesto, igual que producción. Lo único irrecuperable sin data institucional paga: la dinámica de revisiones del consenso (deriva 30/90 días) y las estimaciones por trimestre.</p>
+<h3>Fugas de la primera corrida, encontradas y eliminadas</h3>
+<ul>
+<li><strong>Fuga de publicación:</strong> el estudio original filtraba estados contables por fecha de CIERRE del período, no de publicación — un año fiscal cerrado el 31-dic entraba a un corte del 17-ene aunque la empresa reportara el 23. Ahora cada estado entra sólo si su release/filing real (EDGAR) fue ≤ corte, con fallback conservador de 45 días.</li>
+<li><strong>Moneda y ratio ADR:</strong> los estados de Yahoo vienen en moneda local y acciones locales; sin conversión, HDB mostraba P/B 0.03 (real: ~3) y el gate de valuación bancario operaba sobre basura — que también contaminó a la primera corrida donde el dato existía.</li>
+<li>Parte del delta A/B proviene de estas correcciones de datos además de las mejoras de diseño; ambas van en la misma dirección: el sistema que se midió acá es el honesto.</li>
+</ul>
+
+<h2 class="pagebreak"><span class="no">03</span>Resultados</h2>
+<h3>Distribución de veredictos (3 cortes)</h3>
+<div class="dist">
+  <div style="background:#1F6B45;width:30.327868852459016%">BUY 37</div>
+  <div style="background:#5C5F7A;width:54.91803278688525%">HOLD 67</div>
+  <div style="background:#8E2A2A;width:14.754098360655737%">AVOID 18</div>
+</div>
+<p class="cap">122 veredictos · 1 exclusión (CVX @ ene-2025: el modelo devolvió un JSON degenerado dos veces — anomalía puntual). HOLD bajó del 74% al 55%: el sistema toma posición.</p>
+
+<h3>Exceso de retorno por rating</h3>
+<div class="charts"><svg viewBox="0 0 380 96" width="380" style="font-family:'Plex Mono',monospace"><text x="0" y="10" font-size="8.5" fill="#6E7290" letter-spacing=".08em">MEDIANA EXCESO VS SPY · 6 MESES · 3 CORTES</text><line x1="236" y1="16" x2="236" y2="94" stroke="#C6C8E0" stroke-width="1"/><text x="0" y="32" font-size="9" fill="#0E1130">BUY</text><rect x="236.0" y="23" width="86.0" height="12" fill="#1F6B45" rx="2"/><text x="380" y="32.5" text-anchor="end" font-size="9" fill="#1F6B45">+6.5%</text><text x="0" y="58" font-size="9" fill="#0E1130">HOLD</text><rect x="236.0" y="49" width="58.9" height="12" fill="#1F6B45" rx="2"/><text x="380" y="58.5" text-anchor="end" font-size="9" fill="#1F6B45">+4.4%</text><text x="0" y="84" font-size="9" fill="#0E1130">AVOID</text><rect x="173.3" y="75" width="62.7" height="12" fill="#8E2A2A" rx="2"/><text x="380" y="84.5" text-anchor="end" font-size="9" fill="#8E2A2A">−4.7%</text></svg><svg viewBox="0 0 380 96" width="380" style="font-family:'Plex Mono',monospace"><text x="0" y="10" font-size="8.5" fill="#6E7290" letter-spacing=".08em">MEDIANA EXCESO VS SPY · 12 MESES · CORTES 2025</text><line x1="236" y1="16" x2="236" y2="94" stroke="#C6C8E0" stroke-width="1"/><text x="0" y="32" font-size="9" fill="#0E1130">BUY</text><rect x="236.0" y="23" width="86.0" height="12" fill="#1F6B45" rx="2"/><text x="380" y="32.5" text-anchor="end" font-size="9" fill="#1F6B45">+12.9%</text><text x="0" y="58" font-size="9" fill="#0E1130">HOLD</text><rect x="236.0" y="49" width="12.4" height="12" fill="#1F6B45" rx="2"/><text x="380" y="58.5" text-anchor="end" font-size="9" fill="#1F6B45">+1.9%</text><text x="0" y="84" font-size="9" fill="#0E1130">AVOID</text><rect x="216.6" y="75" width="19.4" height="12" fill="#8E2A2A" rx="2"/><text x="380" y="84.5" text-anchor="end" font-size="9" fill="#8E2A2A">−2.9%</text></svg></div>
+<p class="cap">Barras desde la línea de cero: derecha = le ganó al S&amp;P 500, izquierda = perdió. El 12m sólo existe para los cortes de 2025.</p>
+<table><thead><tr><th>Cohorte</th><th class="num">n</th><th class="num">6m med.</th><th class="num">6m prom.</th><th class="num">12m med.</th><th class="num">12m prom.</th></tr></thead><tbody><tr><td>BUY</td><td class="num">37</td><td class="num pos">+6.5%</td><td class="num pos">+5.0%</td><td class="num pos">+12.9%</td><td class="num pos">+16.8%</td></tr><tr><td>HOLD</td><td class="num">67</td><td class="num pos">+4.4%</td><td class="num pos">+5.4%</td><td class="num pos">+1.9%</td><td class="num pos">+10.8%</td></tr><tr><td>AVOID</td><td class="num">18</td><td class="num neg">−4.7%</td><td class="num neg">−5.0%</td><td class="num neg">−2.9%</td><td class="num pos">+2.0%</td></tr></tbody></table>
+
+<h3>El A/B contra la primera corrida (cortes compartidos, mismos seeds)</h3>
+<table><thead><tr><th>Rating</th><th class="num">n</th><th class="num">12m med.</th><th class="num">12m prom.</th><th></th><th class="num">n</th><th class="num">12m med.</th><th class="num">12m prom.</th></tr>
+  <tr><th></th><th colspan="3" style="text-align:center;border-bottom:none;">— primera corrida —</th><th style="border-bottom:none;"></th><th colspan="3" style="text-align:center;border-bottom:none;">— paridad total —</th></tr></thead><tbody><tr><td>BUY</td><td class="num">12</td><td class="num pos">+6.7%</td><td class="num pos">+2.9%</td><td class="num dim">→</td><td class="num">26</td><td class="num pos">+12.9%</td><td class="num pos">+16.8%</td></tr><tr><td>HOLD</td><td class="num">61</td><td class="num pos">+5.9%</td><td class="num pos">+16.0%</td><td class="num dim">→</td><td class="num">47</td><td class="num pos">+1.9%</td><td class="num pos">+10.8%</td></tr><tr><td>AVOID</td><td class="num">9</td><td class="num neg">−8.6%</td><td class="num neg">−6.4%</td><td class="num dim">→</td><td class="num">8</td><td class="num neg">−2.9%</td><td class="num pos">+2.0%</td></tr></tbody></table>
+<p>La mejora del BUY viene de los dos lados: <strong>entraron los ganadores</strong> (upgrades a BUY, n=18:
++11.5% de mediana) y <strong>salieron los tóxicos</strong> (downgrades, n=4:
+−26.6%). El costo del giro value: a 6 meses los BUY nuevos apenas empatan
+(+2.4%) porque compran antes de que la tesis pague — ASML entró −8.0% abajo a 6 meses y +64 arriba a 12.</p>
+
+<h3>Conviction dentro de BUY</h3>
+<table><thead><tr><th>Cohorte</th><th class="num">n</th><th class="num">6m med.</th><th class="num">6m prom.</th><th class="num">12m med.</th><th class="num">12m prom.</th></tr></thead><tbody><tr><td>BUY · HIGH</td><td class="num">18</td><td class="num pos">+5.7%</td><td class="num pos">+5.1%</td><td class="num pos">+10.4%</td><td class="num pos">+14.6%</td></tr><tr><td>BUY · MEDIUM</td><td class="num">19</td><td class="num pos">+6.5%</td><td class="num pos">+4.9%</td><td class="num pos">+14.1%</td><td class="num pos">+19.0%</td></tr></tbody></table>
+<p class="cap">BUY·HIGH ahora existe a escala (n=18) porque el consenso as-of permite la confirmación mecánica del framework: 26 veredictos confirmados en los cortes 2025, 25 salieron BUY (+12.6% de mediana a 12m).</p>
+
+<h3>Interacción rating × tendencia</h3>
+<table><thead><tr><th>Cohorte</th><th class="num">n</th><th class="num">6m med.</th><th class="num">6m prom.</th><th class="num">12m med.</th><th class="num">12m prom.</th></tr></thead><tbody><tr><td>BUY + alcista</td><td class="num">15</td><td class="num pos">+2.3%</td><td class="num pos">+4.4%</td><td class="num pos">+1.9%</td><td class="num pos">+7.7%</td></tr><tr><td>BUY + bajista</td><td class="num">9</td><td class="num neg">−3.0%</td><td class="num pos">+2.4%</td><td class="num pos">+8.9%</td><td class="num pos">+7.1%</td></tr><tr><td>AVOID + alcista</td><td class="num">11</td><td class="num neg">−5.0%</td><td class="num neg">−10.7%</td><td class="num neg">−33.0%</td><td class="num neg">−31.5%</td></tr><tr><td>AVOID + bajista</td><td class="num">1</td><td class="num neg">−13.9%</td><td class="num neg">−13.9%</td><td class="num pos">+5.7%</td><td class="num pos">+5.7%</td></tr></tbody></table>
+<p>La celda decisiva sigue siendo <strong>AVOID + alcista</strong> (−33.0% a 12m, ahora con n=11):
+el fundamental pisando a la tendencia es donde el sistema genera más valor. La tendencia sola sigue sin ser monotónica
+— contexto narrativo, jamás gate.</p>
+
+<h3>Condiciones del framework</h3>
+<div class="charts"><svg viewBox="0 0 380 96" width="380" style="font-family:'Plex Mono',monospace"><text x="0" y="10" font-size="8.5" fill="#6E7290" letter-spacing=".08em">MEDIANA EXCESO VS SPY · 12 MESES</text><line x1="236" y1="16" x2="236" y2="94" stroke="#C6C8E0" stroke-width="1"/><text x="0" y="32" font-size="9" fill="#0E1130">Valuación CUMPLE</text><rect x="236.0" y="23" width="86.0" height="12" fill="#1F6B45" rx="2"/><text x="380" y="32.5" text-anchor="end" font-size="9" fill="#1F6B45">+12.9%</text><text x="0" y="58" font-size="9" fill="#0E1130">Valuación NO CUMPLE</text><rect x="199.3" y="49" width="36.7" height="12" fill="#8E2A2A" rx="2"/><text x="380" y="58.5" text-anchor="end" font-size="9" fill="#8E2A2A">−5.5%</text><text x="0" y="84" font-size="9" fill="#0E1130">AVOID mecánico disparado</text><rect x="197.3" y="75" width="38.7" height="12" fill="#8E2A2A" rx="2"/><text x="380" y="84.5" text-anchor="end" font-size="9" fill="#8E2A2A">−5.8%</text></svg></div>
+<table><thead><tr><th>Cohorte</th><th class="num">n</th><th class="num">6m med.</th><th class="num">6m prom.</th><th class="num">12m med.</th><th class="num">12m prom.</th></tr></thead><tbody><tr><td>Valuación CUMPLE</td><td class="num">70</td><td class="num pos">+6.6%</td><td class="num pos">+6.6%</td><td class="num pos">+12.9%</td><td class="num pos">+16.8%</td></tr><tr><td>Valuación NO CUMPLE</td><td class="num">52</td><td class="num neg">−1.3%</td><td class="num neg">−0.0%</td><td class="num neg">−5.5%</td><td class="num pos">+4.7%</td></tr><tr><td>AVOID mecánico disparado</td><td class="num">12</td><td class="num neg">−7.8%</td><td class="num neg">−6.4%</td><td class="num neg">−5.8%</td><td class="num pos">+1.5%</td></tr></tbody></table>
+<p><strong>La lectura del AVOID mecánico exige honestidad:</strong> su mediana (−5.8%) esconde dos
+poblaciones. Los disparos <strong>antes</strong> del deterioro del precio siguieron funcionando (AAL enero −33, ULCC enero −56,
+ALK julio −34). El falso positivo fue LTM en enero 2025 (+107): deuda post-reestructuración que el gate leyó como deterioro.
+El mismo trigger sobre LTM acertó en enero 2026 (−18.8) — el problema es de contexto (reestructuración reciente), no del gate.</p>
+
+<h3>Targets de precio: el puntual y el rango</h3>
+<p>El target puntual sigue siendo la pieza más débil, ahora medido contra el baseline que corresponde: dirección correcta
+48% a 6 meses contra un 73% de
+la regla trivial "siempre sube" (a 12m: 56% vs 79%).
+<strong>Hallazgo nuevo:</strong> el rango bull–bear contiene el retorno realizado sólo el
+<strong>43%</strong> de las veces a 6 meses y el
+<strong>36%</strong> a 12 — un rango calibrado debería contener ~70-80%.
+Los escenarios del modelo son demasiado angostos: sirven como escenarios centrales, no como intervalo de confianza.</p>
+
+<h3>El corte de enero 2026: primer test fuera del régimen original</h3>
+<table><thead><tr><th>Cohorte</th><th class="num">n</th><th class="num">6m med.</th><th class="num">6m prom.</th></tr></thead><tbody><tr><td>BUY</td><td class="num">11</td><td class="num pos">+8.9%</td><td class="num pos">+6.9%</td></tr><tr><td>HOLD</td><td class="num">20</td><td class="num pos">+3.3%</td><td class="num pos">+1.6%</td></tr><tr><td>AVOID</td><td class="num">10</td><td class="num neg">−4.7%</td><td class="num neg">−4.4%</td></tr></tbody></table>
+<p>Spread BUY−AVOID a 6 meses: <strong>+13.6%</strong> — en un mercado distinto del rally de 2025 y con
+el sistema ya mejorado. Los AVOID de ese corte, con desenlace:</p>
+<table><thead><tr><th>Ticker</th><th>Conv.</th><th class="num">Upside impl.</th><th>Tendencia</th><th class="num">Exceso 6m</th></tr></thead><tbody>
+<tr><td>CCJ</td><td>MEDIUM</td><td class="num">−21.8%</td><td>alcista</td><td class="num neg">−34.5%</td></tr>
+<tr><td>LTM</td><td>MEDIUM</td><td class="num">−11.8%</td><td>alcista</td><td class="num neg">−18.8%</td></tr>
+<tr><td>ALK</td><td>MEDIUM</td><td class="num">−14.1%</td><td>mixta</td><td class="num neg">−17.1%</td></tr>
+<tr><td>AAL</td><td>MEDIUM</td><td class="num">−18.7%</td><td>alcista</td><td class="num neg">−10.6%</td></tr>
+<tr><td>NTR</td><td>MEDIUM</td><td class="num">−17.3%</td><td>alcista</td><td class="num neg">−5.0%</td></tr>
+<tr><td>NIO</td><td>MEDIUM</td><td class="num">−15.1%</td><td>mixta</td><td class="num neg">−4.4%</td></tr>
+<tr><td>PLD</td><td>HIGH</td><td class="num">−5.5%</td><td>alcista</td><td class="num pos">+6.1%</td></tr>
+<tr><td>SMFG</td><td>MEDIUM</td><td class="num">−23.0%</td><td>alcista</td><td class="num pos">+9.0%</td></tr>
+<tr><td>ULCC</td><td>MEDIUM</td><td class="num">−37.4%</td><td>alcista</td><td class="num pos">+10.2%</td></tr>
+<tr><td>ASML</td><td>MEDIUM</td><td class="num">−39.9%</td><td>alcista</td><td class="num pos">+21.0%</td></tr>
+</tbody></table>
+<p class="cap">Seis de diez del lado correcto — incluido LTM (−18.8), el mismo nombre que fue falso positivo un año antes. Las
+excepciones: ASML (+21.0, el modelo fue contra el rally de semis y perdió) y los rebotes de ULCC/SMFG.</p>
+
+<h2 class="pagebreak"><span class="no">04</span>Las 27 transiciones de rating</h2>
+<p>Cada fila es un ticker×corte donde la corrida nueva cambió el veredicto de la primera. Ordenadas de peor a mejor desenlace —
+la mitad superior son los AVOID/HOLD que protegieron capital; la inferior, los BUY que capturaron upside.</p>
+<table>
+<thead><tr><th>Corte</th><th>Ticker</th><th>Antes</th><th>Ahora</th><th class="num">Exceso 6m</th><th class="num">Exceso 12m</th></tr></thead>
+<tbody>
+<tr><td class="num">2025-07-18</td><td>HDB</td><td>BUY<span class="dim"> · MEDIUM</span></td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num neg">−23.0%</td><td class="num neg">−48.8%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ALK</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num neg">−25.5%</td><td class="num neg">−41.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>NVO</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num neg">−22.6%</td><td class="num neg">−35.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>PGR</td><td>BUY<span class="dim"> · MEDIUM</span></td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num neg">−23.5%</td><td class="num neg">−29.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>MET</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num neg">−15.5%</td><td class="num neg">−26.1%</td></tr>
+<tr><td class="num">2025-07-18</td><td>BABA</td><td>BUY<span class="dim"> · HIGH</span></td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num pos">+26.7%</td><td class="num neg">−23.2%</td></tr>
+<tr><td class="num">2025-01-17</td><td>AMT</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num pos">+14.3%</td><td class="num neg">−17.3%</td></tr>
+<tr><td class="num">2025-01-17</td><td>UAL</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num neg">−19.7%</td><td class="num neg">−11.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>WFC</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num neg">−0.0%</td><td class="num neg">−8.8%</td></tr>
+<tr><td class="num">2025-01-17</td><td>DAL</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num neg">−19.7%</td><td class="num neg">−8.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NIO</td><td>AVOID<span class="dim"> · HIGH</span></td><td>HOLD<span class="dim"> · LOW</span></td><td class="num neg">−3.6%</td><td class="num neg">−8.6%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NTR</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num neg">−0.2%</td><td class="num neg">−5.8%</td></tr>
+<tr><td class="num">2025-01-17</td><td>XOM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num neg">−7.9%</td><td class="num pos">+2.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>LTM</td><td>BUY<span class="dim"> · MEDIUM</span></td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num pos">+32.3%</td><td class="num pos">+8.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>PLD</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num neg">−6.3%</td><td class="num pos">+8.9%</td></tr>
+<tr><td class="num">2025-07-18</td><td>CVX</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num pos">+2.5%</td><td class="num pos">+10.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>BAC</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num pos">+2.3%</td><td class="num pos">+12.6%</td></tr>
+<tr><td class="num">2025-01-17</td><td>SU</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num neg">−3.9%</td><td class="num pos">+13.2%</td></tr>
+<tr><td class="num">2025-01-17</td><td>NTR</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num pos">+13.0%</td><td class="num pos">+14.1%</td></tr>
+<tr><td class="num">2025-07-18</td><td>PLD</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num pos">+16.0%</td><td class="num pos">+25.1%</td></tr>
+<tr><td class="num">2025-01-17</td><td>RY</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num pos">+6.5%</td><td class="num pos">+26.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ITUB</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num pos">+32.5%</td><td class="num pos">+61.3%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ASML</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num neg">−8.0%</td><td class="num pos">+64.2%</td></tr>
+<tr><td class="num">2025-07-18</td><td>MRNA</td><td>AVOID<span class="dim"> · HIGH</span></td><td>HOLD<span class="dim"> · LOW</span></td><td class="num pos">+23.0%</td><td class="num pos">+78.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>BABA</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num pos">+38.0%</td><td class="num pos">+80.5%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NOK</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>BUY<span class="dim"> · HIGH</span></td><td class="num pos">+28.6%</td><td class="num pos">+95.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>LTM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num pos">+51.1%</td><td class="num pos">+107.4%</td></tr>
+</tbody></table>
+<p class="cap">Los flips malos concentran una lección cada uno: NVO y MET a BUY (value traps vía PEG con earnings deprimidos),
+LTM a AVOID (leverage post-reestructuración). Los flips buenos: HDB/PGR/BABA fuera de BUY, y los ganadores de 2025 adentro.</p>
+
+<h2><span class="no">05</span>Recomendaciones</h2>
+<ul>
+<li><strong>Adoptar el pipeline nuevo como vigente.</strong> El A/B valida las mejoras: BUY con selección real (+6.2 puntos de mediana a 12m), downgrades que protegen, AVOID+alcista robustecida, y orden sostenido en un régimen nuevo.</li>
+<li><strong>Refinar el gate de leverage con contexto de reestructuración</strong> (el caso LTM): deuda post-chapter-11 con equity recién emitido no es lo mismo que deuda deteriorándose. Candidato: exigir también deterioro secuencial o dejar que el modelo vete el trigger con justificación explícita registrada.</li>
+<li><strong>Ensanchar o re-etiquetar el rango bull–bear.</strong> Con 43% de cobertura real, hoy comunica una certeza que no tiene. O se calibra (±1σ de la vol realizada como piso) o se presenta como "escenarios centrales".</li>
+<li><strong>Horizontes por señal:</strong> el rating rinde a 6-12 meses según el estilo (los AVOID pagan rápido, el BUY value paga a 12); la vigencia práctica del veredicto sigue siendo hasta los próximos resultados.</li>
+<li><strong>Dejar madurar el <span class="mono">verdict_log</span> vivo</strong> (registra con información completa desde julio 2026, versión v34 distinguible) — es el test definitivo sin reconstrucción, y el dashboard de calibración en /admin/monitor se justifica cuando haya masa.</li>
+</ul>
+
+<h2><span class="no">06</span>Ficha técnica</h2>
+<table class="ficha">
+<tbody>
+<tr><td>Universo</td><td>Golden set de 41 tickers por industria (aerolíneas, bancos, seguros, REITs, biotech, oil&amp;gas, servicios, ADRs internacionales)</td></tr>
+<tr><td>Cortes</td><td class="mono">2025-01-17 · 2025-07-18 · 2026-01-16</td></tr>
+<tr><td>Modelo</td><td class="mono">gpt-4o-2024-11-20 (cutoff de conocimiento: oct-2023) · temperatura 0 · seed determinístico por ticker+corte — idéntico a la primera corrida</td></tr>
+<tr><td>Benchmark</td><td>SPY (retorno total, precios ajustados)</td></tr>
+<tr><td>Pipeline</td><td>Producción v34: gate sectorial + disciplina de conviction + coherencia + guard PEG-turnaround; mismos prompts y reintentos que /analyze</td></tr>
+<tr><td>Datos as-of</td><td>Yahoo (FX por período, ADR-equivalente) · EDGAR (segmentos, guidance, Form 4, fechas de release) · FINRA (short) · Finnhub (consenso, key propia) · Wayback/finviz (forward, staleness declarada)</td></tr>
+<tr><td>Costo de la corrida</td><td class="mono">≈ US$6,71 (OpenAI)</td></tr>
+<tr><td>Archivos fuente</td><td class="mono">backtest-2026-07-19-20-15.json · backtest-2026-07-19-13-31.json (baseline) · verdict_log (v34 vs v33)</td></tr>
+</tbody></table>
+<p class="cap">Informe generado el 2026-07-19 por el harness de scripts/backtest/. Uso interno — no es material para clientes ni constituye recomendación de inversión.</p>
+
+<div class="appendix pagebreak">
+<h2><span class="no">07</span>Apéndice · Los 122 veredictos</h2>
+<table>
+<thead><tr><th>Corte</th><th>Ticker</th><th>Veredicto</th><th class="num">Precio</th><th class="num">Target</th><th class="num">Upside impl.</th><th>Tendencia</th><th class="num">Exceso 6m</th><th class="num">Exceso 12m</th></tr></thead>
+<tbody>
+<tr><td class="num">2025-01-17</td><td>AAL</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$18.27</td><td class="num">$16.00</td><td class="num">−12.4%</td><td>alcista</td><td class="num neg">−37.2%</td><td class="num neg">−33.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>AAPL</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$228.52</td><td class="num">$228.00</td><td class="num">−0.2%</td><td>mixta</td><td class="num neg">−13.6%</td><td class="num neg">−5.5%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ALK</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$66.34</td><td class="num">$65.00</td><td class="num">−2.0%</td><td>alcista</td><td class="num neg">−25.5%</td><td class="num neg">−41.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>AMT</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$180.39</td><td class="num">$193.00</td><td class="num">+7.0%</td><td>bajista</td><td class="num pos">+14.3%</td><td class="num neg">−17.3%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ASML</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$746.55</td><td class="num">$710.00</td><td class="num">−4.9%</td><td>mixta</td><td class="num neg">−8.0%</td><td class="num pos">+64.2%</td></tr>
+<tr><td class="num">2025-01-17</td><td>BABA</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$82.94</td><td class="num">$92.50</td><td class="num">+11.5%</td><td>mixta</td><td class="num pos">+38.0%</td><td class="num pos">+80.5%</td></tr>
+<tr><td class="num">2025-01-17</td><td>BAC</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$44.99</td><td class="num">$45.00</td><td class="num">+0.0%</td><td>alcista</td><td class="num neg">−2.7%</td><td class="num neg">−0.6%</td></tr>
+<tr><td class="num">2025-01-17</td><td>BLK</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$973.83</td><td class="num">$955.00</td><td class="num">−1.9%</td><td>mixta</td><td class="num pos">+5.4%</td><td class="num pos">+1.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>BNS</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$48.91</td><td class="num">$48.60</td><td class="num">−0.6%</td><td>mixta</td><td class="num pos">+6.2%</td><td class="num pos">+31.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>CCJ</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$51.53</td><td class="num">$50.00</td><td class="num">−3.0%</td><td>mixta</td><td class="num pos">+47.3%</td><td class="num pos">+108.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>DAL</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$64.53</td><td class="num">$70.00</td><td class="num">+8.5%</td><td>alcista</td><td class="num neg">−19.7%</td><td class="num neg">−8.8%</td></tr>
+<tr><td class="num">2025-01-17</td><td>HDB</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$28.84</td><td class="num">$61.00</td><td class="num">+111.5%</td><td>mixta</td><td class="num pos">+23.3%</td><td class="num neg">−3.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ITUB</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$4.05</td><td class="num">$6.50</td><td class="num">+60.3%</td><td>bajista</td><td class="num pos">+32.5%</td><td class="num pos">+61.3%</td></tr>
+<tr><td class="num">2025-01-17</td><td>JPM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$251.53</td><td class="num">$233.00</td><td class="num">−7.4%</td><td>alcista</td><td class="num pos">+8.0%</td><td class="num pos">+5.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>LTM</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$26.25</td><td class="num">$23.00</td><td class="num">−12.4%</td><td>—</td><td class="num pos">+51.1%</td><td class="num pos">+107.4%</td></tr>
+<tr><td class="num">2025-01-17</td><td>LUV</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$31.14</td><td class="num">$30.00</td><td class="num">−3.7%</td><td>mixta</td><td class="num pos">+9.4%</td><td class="num pos">+20.2%</td></tr>
+<tr><td class="num">2025-01-17</td><td>MA</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$519.92</td><td class="num">$520.00</td><td class="num">+0.0%</td><td>alcista</td><td class="num neg">−0.0%</td><td class="num neg">−13.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>MET</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$83.10</td><td class="num">$88.00</td><td class="num">+5.9%</td><td>alcista</td><td class="num neg">−15.5%</td><td class="num neg">−26.1%</td></tr>
+<tr><td class="num">2025-01-17</td><td>MRNA</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$34.06</td><td class="num">$30.00</td><td class="num">−11.9%</td><td>bajista</td><td class="num neg">−13.9%</td><td class="num pos">+5.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>MSFT</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$424.00</td><td class="num">$426.00</td><td class="num">+0.5%</td><td>alcista</td><td class="num pos">+13.7%</td><td class="num neg">−9.1%</td></tr>
+<tr><td class="num">2025-01-17</td><td>MUFG</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$11.82</td><td class="num">$10.08</td><td class="num">−14.7%</td><td>alcista</td><td class="num pos">+6.8%</td><td class="num pos">+42.8%</td></tr>
+<tr><td class="num">2025-01-17</td><td>NIO</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$4.36</td><td class="num">$4.50</td><td class="num">+3.2%</td><td>bajista</td><td class="num neg">−5.0%</td><td class="num neg">−9.1%</td></tr>
+<tr><td class="num">2025-01-17</td><td>NOK</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$4.39</td><td class="num">$4.20</td><td class="num">−4.3%</td><td>alcista</td><td class="num pos">+1.4%</td><td class="num pos">+32.1%</td></tr>
+<tr><td class="num">2025-01-17</td><td>NTR</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$49.76</td><td class="num">$52.50</td><td class="num">+5.5%</td><td>mixta</td><td class="num pos">+13.0%</td><td class="num pos">+14.1%</td></tr>
+<tr><td class="num">2025-01-17</td><td>NVO</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$73.87</td><td class="num">$104.00</td><td class="num">+40.8%</td><td>bajista</td><td class="num neg">−22.6%</td><td class="num neg">−35.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>O</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$50.31</td><td class="num">$60.00</td><td class="num">+19.3%</td><td>bajista</td><td class="num pos">+0.7%</td><td class="num pos">+1.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>PBR</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$12.61</td><td class="num">$16.50</td><td class="num">+30.9%</td><td>mixta</td><td class="num neg">−13.5%</td><td class="num neg">−17.8%</td></tr>
+<tr><td class="num">2025-01-17</td><td>PGR</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$228.64</td><td class="num">$225.00</td><td class="num">−1.6%</td><td>mixta</td><td class="num neg">−4.5%</td><td class="num neg">−28.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>PLD</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$104.11</td><td class="num">$114.00</td><td class="num">+9.5%</td><td>bajista</td><td class="num neg">−6.3%</td><td class="num pos">+8.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>RY</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$116.65</td><td class="num">$126.00</td><td class="num">+8.0%</td><td>mixta</td><td class="num pos">+6.5%</td><td class="num pos">+26.9%</td></tr>
+<tr><td class="num">2025-01-17</td><td>SMFG</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$14.46</td><td class="num">$14.00</td><td class="num">−3.2%</td><td>alcista</td><td class="num neg">−5.1%</td><td class="num pos">+30.3%</td></tr>
+<tr><td class="num">2025-01-17</td><td>SU</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$37.63</td><td class="num">$40.50</td><td class="num">+7.6%</td><td>alcista</td><td class="num neg">−3.9%</td><td class="num pos">+13.2%</td></tr>
+<tr><td class="num">2025-01-17</td><td>TD</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$55.37</td><td class="num">$54.01</td><td class="num">−2.5%</td><td>mixta</td><td class="num pos">+25.3%</td><td class="num pos">+50.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>TM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$177.29</td><td class="num">$185.00</td><td class="num">+4.3%</td><td>mixta</td><td class="num neg">−10.5%</td><td class="num pos">+13.4%</td></tr>
+<tr><td class="num">2025-01-17</td><td>TSM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$207.62</td><td class="num">$205.00</td><td class="num">−1.3%</td><td>alcista</td><td class="num pos">+8.9%</td><td class="num pos">+47.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>UAL</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$107.38</td><td class="num">$100.00</td><td class="num">−6.9%</td><td>alcista</td><td class="num neg">−19.7%</td><td class="num neg">−11.4%</td></tr>
+<tr><td class="num">2025-01-17</td><td>ULCC</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$8.58</td><td class="num">$5.50</td><td class="num">−35.9%</td><td>alcista</td><td class="num neg">−57.6%</td><td class="num neg">−55.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>V</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$316.06</td><td class="num">$277.75</td><td class="num">−12.1%</td><td>alcista</td><td class="num pos">+3.9%</td><td class="num neg">−13.7%</td></tr>
+<tr><td class="num">2025-01-17</td><td>WFC</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$74.64</td><td class="num">$71.00</td><td class="num">−4.9%</td><td>alcista</td><td class="num pos">+0.1%</td><td class="num pos">+0.0%</td></tr>
+<tr><td class="num">2025-01-17</td><td>XOM</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$106.90</td><td class="num">$121.00</td><td class="num">+13.2%</td><td>bajista</td><td class="num neg">−7.9%</td><td class="num pos">+2.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>AAL</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$12.51</td><td class="num">$10.00</td><td class="num">−20.1%</td><td>mixta</td><td class="num pos">+12.0%</td><td class="num neg">−0.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>AAPL</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$210.35</td><td class="num">$208.00</td><td class="num">−1.1%</td><td>mixta</td><td class="num pos">+10.4%</td><td class="num pos">+38.9%</td></tr>
+<tr><td class="num">2025-07-18</td><td>ALK</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$53.15</td><td class="num">$41.92</td><td class="num">−21.1%</td><td>mixta</td><td class="num neg">−16.7%</td><td class="num neg">−34.1%</td></tr>
+<tr><td class="num">2025-07-18</td><td>AMT</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$216.41</td><td class="num">$220.00</td><td class="num">+1.7%</td><td>alcista</td><td class="num neg">−27.7%</td><td class="num neg">−41.2%</td></tr>
+<tr><td class="num">2025-07-18</td><td>ASML</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$728.87</td><td class="num">$794.00</td><td class="num">+8.9%</td><td>mixta</td><td class="num pos">+74.9%</td><td class="num pos">+120.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>BABA</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$119.14</td><td class="num">$110.00</td><td class="num">−7.7%</td><td>alcista</td><td class="num pos">+26.7%</td><td class="num neg">−23.2%</td></tr>
+<tr><td class="num">2025-07-18</td><td>BAC</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$46.31</td><td class="num">$48.50</td><td class="num">+4.7%</td><td>alcista</td><td class="num pos">+2.3%</td><td class="num pos">+12.6%</td></tr>
+<tr><td class="num">2025-07-18</td><td>BLK</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$1080.94</td><td class="num">$1046.00</td><td class="num">−3.2%</td><td>alcista</td><td class="num neg">−4.4%</td><td class="num neg">−20.6%</td></tr>
+<tr><td class="num">2025-07-18</td><td>BNS</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$54.68</td><td class="num">$52.69</td><td class="num">−3.6%</td><td>alcista</td><td class="num pos">+22.3%</td><td class="num pos">+43.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>CCJ</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$78.82</td><td class="num">$70.00</td><td class="num">−11.2%</td><td>alcista</td><td class="num pos">+36.9%</td><td class="num neg">−11.1%</td></tr>
+<tr><td class="num">2025-07-18</td><td>CVX</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$144.01</td><td class="num">$151.00</td><td class="num">+4.9%</td><td>mixta</td><td class="num pos">+2.5%</td><td class="num pos">+10.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>DAL</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$55.49</td><td class="num">$60.00</td><td class="num">+8.1%</td><td>mixta</td><td class="num pos">+15.1%</td><td class="num pos">+31.9%</td></tr>
+<tr><td class="num">2025-07-18</td><td>HDB</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$37.18</td><td class="num">$36.00</td><td class="num">−3.2%</td><td>alcista</td><td class="num neg">−23.0%</td><td class="num neg">−48.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>ITUB</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$5.60</td><td class="num">$5.67</td><td class="num">+1.3%</td><td>mixta</td><td class="num pos">+18.3%</td><td class="num pos">+26.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>JPM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$285.80</td><td class="num">$286.00</td><td class="num">+0.1%</td><td>alcista</td><td class="num neg">−2.6%</td><td class="num neg">−0.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>LTM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$41.15</td><td class="num">$41.85</td><td class="num">+1.7%</td><td>alcista</td><td class="num pos">+32.3%</td><td class="num pos">+8.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>LUV</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$35.84</td><td class="num">$35.00</td><td class="num">−2.3%</td><td>alcista</td><td class="num pos">+8.4%</td><td class="num pos">+14.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>MA</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$549.24</td><td class="num">$555.00</td><td class="num">+1.0%</td><td>mixta</td><td class="num neg">−13.0%</td><td class="num neg">−20.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>MET</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$74.90</td><td class="num">$75.00</td><td class="num">+0.1%</td><td>bajista</td><td class="num neg">−9.9%</td><td class="num pos">+5.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>MRNA</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$31.26</td><td class="num">$30.00</td><td class="num">−4.0%</td><td>mixta</td><td class="num pos">+23.0%</td><td class="num pos">+78.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>MSFT</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$506.01</td><td class="num">$472.00</td><td class="num">−6.7%</td><td>alcista</td><td class="num neg">−20.4%</td><td class="num neg">−41.9%</td></tr>
+<tr><td class="num">2025-07-18</td><td>MUFG</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$13.29</td><td class="num">$12.50</td><td class="num">−5.9%</td><td>mixta</td><td class="num pos">+31.4%</td><td class="num pos">+40.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NIO</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$4.39</td><td class="num">$4.50</td><td class="num">+2.5%</td><td>mixta</td><td class="num neg">−3.6%</td><td class="num neg">−8.6%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NOK</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$4.70</td><td class="num">$5.80</td><td class="num">+23.5%</td><td>mixta</td><td class="num pos">+28.6%</td><td class="num pos">+95.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NTR</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$59.04</td><td class="num">$55.00</td><td class="num">−6.8%</td><td>alcista</td><td class="num neg">−0.2%</td><td class="num neg">−5.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>NVO</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$61.34</td><td class="num">$73.79</td><td class="num">+20.3%</td><td>bajista</td><td class="num neg">−12.8%</td><td class="num neg">−37.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>O</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$53.50</td><td class="num">$58.00</td><td class="num">+8.4%</td><td>alcista</td><td class="num pos">+1.0%</td><td class="num pos">+3.1%</td></tr>
+<tr><td class="num">2025-07-18</td><td>PBR</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$11.61</td><td class="num">$12.50</td><td class="num">+7.7%</td><td>bajista</td><td class="num neg">−3.0%</td><td class="num pos">+35.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>PGR</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$231.38</td><td class="num">$246.00</td><td class="num">+6.3%</td><td>mixta</td><td class="num neg">−23.5%</td><td class="num neg">−29.9%</td></tr>
+<tr><td class="num">2025-07-18</td><td>PLD</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$103.43</td><td class="num">$105.00</td><td class="num">+1.5%</td><td>bajista</td><td class="num pos">+16.0%</td><td class="num pos">+25.1%</td></tr>
+<tr><td class="num">2025-07-18</td><td>RY</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$130.79</td><td class="num">$116.22</td><td class="num">−11.1%</td><td>alcista</td><td class="num pos">+17.6%</td><td class="num pos">+45.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>SMFG</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$14.53</td><td class="num">$16.40</td><td class="num">+12.9%</td><td>mixta</td><td class="num pos">+35.8%</td><td class="num pos">+52.0%</td></tr>
+<tr><td class="num">2025-07-18</td><td>SU</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$38.30</td><td class="num">$40.94</td><td class="num">+6.9%</td><td>alcista</td><td class="num pos">+17.2%</td><td class="num pos">+43.3%</td></tr>
+<tr><td class="num">2025-07-18</td><td>TD</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$72.52</td><td class="num">$70.00</td><td class="num">−3.5%</td><td>alcista</td><td class="num pos">+16.7%</td><td class="num pos">+50.7%</td></tr>
+<tr><td class="num">2025-07-18</td><td>TM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$168.65</td><td class="num">$170.00</td><td class="num">+0.8%</td><td>mixta</td><td class="num pos">+26.4%</td><td class="num neg">−14.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>TSM</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$237.77</td><td class="num">$240.00</td><td class="num">+0.9%</td><td>alcista</td><td class="num pos">+32.4%</td><td class="num pos">+47.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>UAL</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$92.25</td><td class="num">$100.00</td><td class="num">+8.4%</td><td>mixta</td><td class="num pos">+12.2%</td><td class="num pos">+5.4%</td></tr>
+<tr><td class="num">2025-07-18</td><td>ULCC</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$4.12</td><td class="num">$3.50</td><td class="num">−15.0%</td><td>mixta</td><td class="num pos">+17.1%</td><td class="num pos">+31.5%</td></tr>
+<tr><td class="num">2025-07-18</td><td>V</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$346.31</td><td class="num">$350.50</td><td class="num">+1.2%</td><td>mixta</td><td class="num neg">−16.4%</td><td class="num neg">−16.2%</td></tr>
+<tr><td class="num">2025-07-18</td><td>WFC</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$78.91</td><td class="num">$83.50</td><td class="num">+5.8%</td><td>alcista</td><td class="num neg">−0.0%</td><td class="num neg">−8.8%</td></tr>
+<tr><td class="num">2025-07-18</td><td>XOM</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$104.44</td><td class="num">$113.85</td><td class="num">+9.0%</td><td>bajista</td><td class="num pos">+11.9%</td><td class="num pos">+21.3%</td></tr>
+<tr><td class="num">2026-01-16</td><td>AAL</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$15.37</td><td class="num">$12.50</td><td class="num">−18.7%</td><td>alcista</td><td class="num neg">−10.6%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>AAPL</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$255.06</td><td class="num">$245.00</td><td class="num">−3.9%</td><td>mixta</td><td class="num pos">+22.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>ALK</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$50.04</td><td class="num">$43.00</td><td class="num">−14.1%</td><td>mixta</td><td class="num neg">−17.1%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>AMT</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$180.04</td><td class="num">$198.00</td><td class="num">+10.0%</td><td>mixta</td><td class="num neg">−13.6%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>ASML</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$1353.82</td><td class="num">$813.74</td><td class="num">−39.9%</td><td>alcista</td><td class="num pos">+21.0%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>BABA</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$163.89</td><td class="num">$165.00</td><td class="num">+0.7%</td><td>alcista</td><td class="num neg">−37.9%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>BAC</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$52.40</td><td class="num">$55.85</td><td class="num">+6.6%</td><td>mixta</td><td class="num pos">+8.9%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>BLK</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$1150.25</td><td class="num">$1029.90</td><td class="num">−10.5%</td><td>alcista</td><td class="num neg">−14.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>BNS</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$72.79</td><td class="num">$67.50</td><td class="num">−7.3%</td><td>alcista</td><td class="num pos">+14.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>CCJ</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$116.44</td><td class="num">$91.00</td><td class="num">−21.8%</td><td>alcista</td><td class="num neg">−34.5%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>CVX</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$163.15</td><td class="num">$165.00</td><td class="num">+1.1%</td><td>alcista</td><td class="num pos">+6.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>DAL</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$69.88</td><td class="num">$54.70</td><td class="num">−21.7%</td><td>alcista</td><td class="num pos">+12.4%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>HDB</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$32.65</td><td class="num">$65.00</td><td class="num">+99.1%</td><td>bajista</td><td class="num neg">−27.2%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>ITUB</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$7.23</td><td class="num">$5.67</td><td class="num">−21.6%</td><td>alcista</td><td class="num pos">+5.3%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>JPM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$309.48</td><td class="num">$296.00</td><td class="num">−4.4%</td><td>mixta</td><td class="num pos">+2.2%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>LTM</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$58.93</td><td class="num">$52.00</td><td class="num">−11.8%</td><td>alcista</td><td class="num neg">−18.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>LUV</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$42.75</td><td class="num">$44.00</td><td class="num">+2.9%</td><td>alcista</td><td class="num pos">+4.4%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>MA</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$537.66</td><td class="num">$542.00</td><td class="num">+0.8%</td><td>bajista</td><td class="num neg">−6.9%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>MET</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$75.64</td><td class="num">$80.00</td><td class="num">+5.8%</td><td>mixta</td><td class="num pos">+16.2%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>MRNA</td><td>HOLD<span class="dim"> · LOW</span></td><td class="num">$41.83</td><td class="num">$42.00</td><td class="num">+0.4%</td><td>alcista</td><td class="num pos">+39.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>MSFT</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$457.82</td><td class="num">$490.00</td><td class="num">+7.0%</td><td>mixta</td><td class="num neg">−22.0%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>MUFG</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$18.90</td><td class="num">$17.00</td><td class="num">−10.1%</td><td>alcista</td><td class="num pos">+4.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>NIO</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$4.71</td><td class="num">$4.00</td><td class="num">−15.1%</td><td>mixta</td><td class="num neg">−4.4%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>NOK</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$6.55</td><td class="num">$7.00</td><td class="num">+6.9%</td><td>alcista</td><td class="num pos">+46.5%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>NTR</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$65.31</td><td class="num">$54.00</td><td class="num">−17.3%</td><td>alcista</td><td class="num neg">−5.0%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>NVO</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$60.12</td><td class="num">$58.85</td><td class="num">−2.1%</td><td>mixta</td><td class="num neg">−24.3%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>O</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$59.85</td><td class="num">$58.00</td><td class="num">−3.1%</td><td>alcista</td><td class="num pos">+1.8%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>PBR</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$12.52</td><td class="num">$14.50</td><td class="num">+15.8%</td><td>alcista</td><td class="num pos">+35.5%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>PGR</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$202.18</td><td class="num">$243.00</td><td class="num">+20.2%</td><td>bajista</td><td class="num neg">−5.2%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>PLD</td><td>AVOID<span class="dim"> · HIGH</span></td><td class="num">$131.19</td><td class="num">$124.00</td><td class="num">−5.5%</td><td>alcista</td><td class="num pos">+6.1%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>RY</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$168.03</td><td class="num">$150.00</td><td class="num">−10.7%</td><td>alcista</td><td class="num pos">+20.2%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>SMFG</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$21.31</td><td class="num">$16.40</td><td class="num">−23.0%</td><td>alcista</td><td class="num pos">+9.0%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>SU</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$49.03</td><td class="num">$45.00</td><td class="num">−8.2%</td><td>alcista</td><td class="num pos">+19.3%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>TD</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$92.50</td><td class="num">$85.00</td><td class="num">−8.1%</td><td>alcista</td><td class="num pos">+25.6%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>TM</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$231.42</td><td class="num">$245.00</td><td class="num">+5.9%</td><td>alcista</td><td class="num neg">−31.3%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>TSM</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$340.64</td><td class="num">$320.00</td><td class="num">−6.1%</td><td>alcista</td><td class="num pos">+8.9%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>UAL</td><td>BUY<span class="dim"> · HIGH</span></td><td class="num">$113.49</td><td class="num">$110.00</td><td class="num">−3.1%</td><td>alcista</td><td class="num neg">−6.3%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>ULCC</td><td>AVOID<span class="dim"> · MEDIUM</span></td><td class="num">$5.27</td><td class="num">$3.30</td><td class="num">−37.4%</td><td>alcista</td><td class="num pos">+10.2%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>V</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$326.95</td><td class="num">$339.00</td><td class="num">+3.7%</td><td>bajista</td><td class="num pos">+1.6%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>WFC</td><td>BUY<span class="dim"> · MEDIUM</span></td><td class="num">$87.45</td><td class="num">$94.50</td><td class="num">+8.1%</td><td>mixta</td><td class="num neg">−8.0%</td><td class="num ">—</td></tr>
+<tr><td class="num">2026-01-16</td><td>XOM</td><td>HOLD<span class="dim"> · MEDIUM</span></td><td class="num">$128.16</td><td class="num">$121.00</td><td class="num">−5.6%</td><td>alcista</td><td class="num pos">+6.9%</td><td class="num ">—</td></tr>
+</tbody></table>
+<p class="cap">El corte 2026-01-16 no tiene todavía horizonte de 12 meses (madura en enero de 2027).</p>
+</div>
+
+</body></html>

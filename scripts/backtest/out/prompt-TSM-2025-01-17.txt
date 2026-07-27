@@ -1,0 +1,177 @@
+Empresa a analizar: Taiwan Semiconductor Manufacturing Company Limited (TSM)
+Fecha: 2025-01-17
+Sector: Technology | Industria: Semiconductors
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Taiwan Semiconductor Manufacturing Company Limited, together with its subsidiaries, manufactures, packages, tests, and sells integrated circuits and other semiconductor devices in Taiwan, China, Europe, the Middle East, Africa, Japan, the United States, and internationally. It provides various wafer fabrication processes, such as processes to manufacture complementary metal- oxide-semiconductor (CMOS) logic, mixed-signal, radio frequency, embedded memory, bipolar CMOS mixed-signal, and others. The company also involved in providing customer and engineering support services; manufacturing of...
+
+---
+DATOS DE MERCADO
+Precio Actual: $207.62 (N/A hoy)
+Capitalización Bursátil: $1.10T
+Rango 52 semanas: $96.42 – $215.97
+Beta: 1.80
+Acciones en Circulación: $5.19B
+Short Interest (% float): 0.6%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 36.68x | P/E Forward: N/Ax | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 14.50x | P/Libro: 9.14x | EV/EBITDA: 20.07x
+EPS Trailing: 5.66
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (4 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 4 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $207.62 (260 ruedas de historia)
+  Rango 52 semanas: $96.42 – $215.97 | posición en el rango: 93% (-3.9% desde el máximo, +115.3% desde el mínimo)
+  Medias móviles: MM50: $194.03 (precio +7.0%) | MM200: $170.20 (precio +22.0%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +4.6% | 3M +13.2% | 6M +23.9% | 12M +108.3% | momentum 12-1 (excl. último mes) +99.2%
+  Máx. drawdown de la serie: -22.6% | Volatilidad realizada anualizada: 41.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  NVDA (NVIDIA Corporation): P/E Trailing 115.55x | Fwd N/A | Crec.Rev 125.9% | Mg.Op 54.1% | EV/EBITDA 93.3x
+  AVGO (Broadcom Inc.): P/E Trailing 190.61x | Fwd N/A | Crec.Rev 44.0% | Mg.Op 29.1% | EV/EBITDA 49.7x
+  MU (Micron Technology, Inc.): P/E Trailing 150.49x | Fwd N/A | Crec.Rev 61.6% | Mg.Op 5.2% | EV/EBITDA 13.1x
+  AMD (Advanced Micro Devices, Inc.): P/E Trailing 229.17x | Fwd N/A | Crec.Rev -3.9% | Mg.Op 1.8% | EV/EBITDA 48.2x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 170.55x | Fwd N/A | Crec.Rev 52.8% | Mg.Op 17.1% | EV/EBITDA 49.0x
+  TSM vs cohorte: P/E trailing 36.7x vs mediana peers 170.6x; crec. rev -4.5% vs mediana peers 52.8%; margen op 42.6% vs mediana peers 17.1%; EV/EBITDA 20.1x vs mediana peers 49.0x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  TSM en P/E Trailing: percentil p0 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 170.55x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $75.66B | Crec. Ingresos YoY: -4.5% | Crec. Ganancias YoY: N/A
+Margen Bruto: 54.4% | Margen Operativo: 42.6% | Margen Neto: 39.4% | Margen EBITDA: 70.5%
+EBITDA: $53.32B | FCF: $10.03B | FCF Operativo: N/A
+ROE: 24.8% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2023
+
+Segmentos de ingresos:
+  Wafer: 65.89B USD (YoY: -5% Y/Y)
+  Other Products: 9.77B USD (YoY: +3% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     75.66B USD (YoY: -5% Y/Y)
+  Costo de ingresos:    34.53B USD
+  Utilidad bruta:       41.13B USD (margen: 54.4%)
+  Gastos operativos:    8.88B USD
+    I+D:                6.38B USD
+    G&A:                2.13B USD
+    Otros:              0.36B USD
+  Utilidad operativa:   32.25B USD (margen: 42.6%)
+  Ingreso no operativo: 2.02B USD
+  Impuestos:            4.49B USD
+  Utilidad neta:        29.79B USD (margen: 39.4%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $38.14B (50.4% de rev.) | OCF $56.37B | FCF $18.23B | Recompras $30.51M | Dividendos $9.98B | SBC $10.58M
+  FY2023: CAPEX $33.44B (44.2% de rev.) | OCF $43.47B | FCF $10.03B | Recompras N/A | Dividendos $10.21B | SBC $16.91M
+
+  Capital devuelto al accionista (período): recompras $30.51M + dividendos $20.19B = $20.22B (72% del FCF acumulado del período).
+  Stock-based comp acumulado: $27.49M (~0.0% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $33.47B | Caja Total: $59.99B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 1.1% | Payout Ratio: 41.3% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: N/A | Institucional: N/A
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+N/A
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-17 | Barclays | Mantiene: Overweight → Overweight
+  2025-01-16 | Needham | Reitera: Buy → Buy
+  2024-11-18 | Barclays | Mantiene: Overweight → Overweight
+  2024-10-23 | Barclays | Mantiene: Overweight → Overweight
+  2024-10-18 | Needham | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $10.03B / Market Cap $1.10T): 0.9%
+  PEG: N/D  [falta P/E fwd o crecimiento]
+  Deuda neta (Deuda $33.47B − Caja $59.99B): $-26.52B
+  Deuda neta / EBITDA (EBITDA $53.32B): -0.50x
+  Target base: N/D — faltan estimaciones de EPS forward; derivá el target con otro método y explicitalo.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 0.9%]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): N/D (sin dato concluyente — no bloquea)
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.6%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

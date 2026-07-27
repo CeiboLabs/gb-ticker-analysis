@@ -1,0 +1,185 @@
+Empresa a analizar: Moderna, Inc. (MRNA)
+Fecha: 2025-07-18
+Sector: Healthcare | Industria: Biotechnology
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — BIOTECH: pre-revenue común; foco en cash burn rate, runway (cash / quarterly burn), pipeline value. R&D >100% de revenue es esperable en clinical stage.
+INDUSTRY HINT — BIOTECH: valuación dirigida por probabilidad ajustada de aprobación regulatoria (PoS-weighted NPV), no múltiplos. Catalizadores son data readouts y FDA decisions con fechas específicas.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Moderna, Inc., a biotechnology company, provides messenger RNA medicines in the United States, Europe, and internationally. The company's respiratory vaccines include spikevax, mNEXSPIKE, mRESVIA, COVID, RSV, seasonal influenza, combination, and pandemic influenza vaccine; latent vaccines comprise cytomegalovirus, epstein-barr virus, and human immunodeficiency virus vaccines; enteric viruses include norovirus; public health vaccines consist of Zika, Nipah, and Mpox vaccines; and bacterial diseases vaccines, such as lyme vaccines. It also provides oncology therapeutics, such as intismeran au...
+
+---
+DATOS DE MERCADO
+Precio Actual: $31.26 (N/A hoy)
+Capitalización Bursátil: $12.40B
+Rango 52 semanas: $23.65 – $125.14
+Beta: 1.26
+Acciones en Circulación: $396.79M
+Short Interest (% float): 16.5%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: N/Ax | P/E Forward: N/Ax | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 3.88x | P/Libro: 1.23x | EV/EBITDA: N/Ax
+EPS Trailing: -9.28
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (18 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 6 | Neutral: 9 | Venta: 3 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $31.26 (260 ruedas de historia)
+  Rango 52 semanas: $23.65 – $125.14 | posición en el rango: 7% (-75.0% desde el máximo, +32.2% desde el mínimo)
+  Medias móviles: MM50: $27.72 (precio +12.8%) | MM200: $36.50 (precio -14.4%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M +22.3% | 3M +24.1% | 6M -10.1% | 12M -75.0% | momentum 12-1 (excl. último mes) -79.6%
+  Máx. drawdown de la serie: -81.1% | Volatilidad realizada anualizada: 69.5%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  VRTX (Vertex Pharmaceuticals Incorporated): P/E Trailing N/A | Fwd N/A | Crec.Rev 11.7% | Mg.Op -2.1% | EV/EBITDA 230.6x
+  REGN (Regeneron Pharmaceuticals, Inc.): P/E Trailing 14.07x | Fwd N/A | Crec.Rev 8.3% | Mg.Op 28.1% | EV/EBITDA 9.6x
+  ARGX (argenx SE): P/E Trailing 44.18x | Fwd N/A | Crec.Rev 78.6% | Mg.Op -0.8% | EV/EBITDA 302.1x
+  UCBJY (UCB SA): P/E Trailing 31.11x | Fwd N/A | Crec.Rev 17.1% | Mg.Op 13.8% | EV/EBITDA 17.5x
+  CSLLY (CSL Limited): P/E Trailing 30.37x | Fwd N/A | Crec.Rev 11.5% | Mg.Op 18.8% | EV/EBITDA 19.2x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 30.74x | Fwd N/A | Crec.Rev 11.7% | Mg.Op 13.8% | EV/EBITDA 19.2x
+  MRNA vs cohorte: crec. rev -52.6% vs mediana peers 11.7%; margen op -123.3% vs mediana peers 13.8%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+Mediana peers — P/E Trailing: 30.74x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $3.20B | Crec. Ingresos YoY: -52.6% | Crec. Ganancias YoY: N/A
+Margen Bruto: 54.2% | Margen Operativo: -123.3% | Margen Neto: -111.3% | Margen EBITDA: -106.1%
+EBITDA: $-3,394,000,000 | FCF: $-4,055,000,000 | FCF Operativo: N/A
+ROE: -35.4% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q1 FY2025
+
+Segmentos de ingresos:
+  Product Sales: 0.09B USD (YoY: -49% Y/Y)
+  Product and Service, Other: 0.02B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     0.11B USD (YoY: -35% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    1.16B USD
+    I+D:                0.86B USD
+    G&A:                0.21B USD
+    Otros:              0.05B USD
+  Utilidad operativa:   0B USD (margen: 0%)
+  Impuestos:            0.01B USD
+  Utilidad neta:        0B USD (margen: 0%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $400.00M (12.5% de rev.) | OCF $4.98B | FCF $4.58B | Recompras $3.33B | Dividendos N/A | SBC $226.00M
+  FY2023: CAPEX $707.00M (22.1% de rev.) | OCF $-3,118,000,000 | FCF $-3,825,000,000 | Recompras $1.15B | Dividendos N/A | SBC $305.00M
+  FY2024: CAPEX $1.05B (32.9% de rev.) | OCF $-3,004,000,000 | FCF $-4,055,000,000 | Recompras N/A | Dividendos N/A | SBC $429.00M
+
+  Capital devuelto al accionista (período): recompras $4.48B + dividendos $0 = $4.48B.
+  Stock-based comp acumulado: $960.00M (~10.0% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $745.00M | Caja Total: $5.97B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: N/A | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 11.4% | Institucional: 72.2%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. -7.47 | Rev. Est. N/A (crec. 25.9%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-05-22 | JP Morgan | Mantiene: Underweight → Underweight
+  2025-05-02 | UBS | Mantiene: Buy → Buy
+  2025-05-02 | Barclays | Mantiene: Equal-Weight → Equal-Weight
+  2025-05-02 | RBC Capital | Mantiene: Sector Perform → Sector Perform
+  2025-05-02 | Evercore ISI Group | Mantiene: In-Line → In-Line
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-07-03 | Mock James M (Chief Financial Officer) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal]
+  2025-07-03 | Mock James M (Chief Financial Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $21,286.84
+  2025-06-11 | Hussain Abbas (Director) | Sale at price 28.00 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $8,736
+  2025-06-06 | Klinger Shannon Thyme (Chief Legal Officer) | Stock option exercise (non-open market) [MECÁNICA · RSU/opciones, no señal]
+  2025-06-06 | Klinger Shannon Thyme (Chief Legal Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $14,392.12
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $44,414.96
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $-4.05B / Market Cap $12.40B): -32.7%
+  PEG: N/D  [falta P/E fwd o crecimiento]
+  Deuda neta (Deuda $745.00M − Caja $5.97B): $-5.23B
+  Deuda neta / EBITDA (EBITDA $-3.39B): N/D
+  Target base: N/D — faltan estimaciones de EPS forward; derivá el target con otro método y explicitalo.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield -32.7%]
+    (b) Consenso analistas = buy / strong buy: NO CUMPLE  [consenso: hold]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): N/D (sin dato concluyente — no bloquea)
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): N/D (sin dato concluyente — no bloquea)
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 16.5%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

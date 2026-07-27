@@ -151,13 +151,11 @@ export interface Verdict {
   // stockData.targetMeanPrice. The hero displays this one as "Target casa";
   // analyst consensus is shown separately on the Wall Street panel.
   priceTarget: string;
-  // Position sizing recommendation: 1-2 sentences telling the advisory client
-  // how to size this position in a portfolio. Derived from conviction × beta
-  // × overall thesis strength. Example:
-  //   "Holding core 3-5% en portfolios growth. Conviction HIGH justifica
-  //    entrada en una tranche. Hedge opcional con QQQ short si el riesgo
-  //    sectorial preocupa."
-  sizing: string;
+  // Ya no se genera ni se muestra: publicar instrucciones de asignación de
+  // cartera chocaba con el régimen de oferta pública (Ley 18.627) — el sizing
+  // vive en la conversación con el asesor. Opcional porque los reportes
+  // cacheados en D1 todavía lo traen.
+  sizing?: string;
 }
 
 export interface BullBearCase {

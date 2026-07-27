@@ -1,0 +1,184 @@
+Empresa a analizar: Mastercard Incorporated (MA)
+Fecha: 2025-07-18
+Sector: Financial Services | Industria: Credit Services
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Mastercard Incorporated, a technology company, provides transaction processing and other payment-related products and services in the United States and internationally. The company offers products and services for account holders, merchants, financial institutions, digital partners, businesses, governments, and other organizations, such as programs that enable issuers to provide consumers with credits to defer payments; payment products and solutions that allow its customers to access funds in deposit and other accounts; prepaid programs services; consumer bill payment services; and commerc...
+
+---
+DATOS DE MERCADO
+Precio Actual: $549.24 (N/A hoy)
+Capitalización Bursátil: $488.32B
+Rango 52 semanas: $424.50 – $586.29
+Beta: 0.77
+Acciones en Circulación: $883.58M
+Short Interest (% float): 0.6%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 39.54x | P/E Forward: 29.78x | CAPE (Shiller P/E): 45.8x (3yr avg EPS)
+P/Ventas (TTM): 17.34x | P/Libro: 73.20x | EV/EBITDA: 29.72x
+EPS Trailing: 13.89
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (26 analistas)
+Desglose: Compra Fuerte: 1 | Compra: 22 | Neutral: 3 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $549.24 (260 ruedas de historia)
+  Rango 52 semanas: $424.50 – $586.29 | posición en el rango: 77% (-6.3% desde el máximo, +29.4% desde el mínimo)
+  Medias móviles: MM50: $563.95 (precio -2.6%) | MM200: $534.36 (precio +2.8%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -2.8% | 3M +7.8% | 6M +6.1% | 12M +25.3% | momentum 12-1 (excl. último mes) +29.0%
+  Máx. drawdown de la serie: -16.7% | Volatilidad realizada anualizada: 22.7%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  V (Visa Inc.): P/E Trailing 35.59x | Fwd N/A | Crec.Rev 10.0% | Mg.Op 67.0% | EV/EBITDA 26.2x
+  AXP (American Express Company): P/E Trailing 21.75x | Fwd N/A | Crec.Rev 9.0%
+  COF (Capital One Financial Corporation): P/E Trailing 28.31x | Fwd N/A | Crec.Rev 6.3%
+  PYPL (PayPal Holdings, Inc.): P/E Trailing 18.43x | Fwd N/A | Crec.Rev 6.8% | Mg.Op 18.1% | EV/EBITDA 9.7x
+  AFRM (Affirm Holdings, Inc.): P/E Trailing N/A | Fwd N/A | Crec.Rev 46.3% | Mg.Op -11.4%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 25.03x | Fwd N/A | Crec.Rev 9.0% | Mg.Op 18.1% | EV/EBITDA 18.0x
+  MA vs cohorte: P/E trailing 39.5x vs mediana peers 25.0x; crec. rev 12.2% vs mediana peers 9.0%; margen op 58.0% vs mediana peers 18.1%; EV/EBITDA 29.7x vs mediana peers 18.0x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  MA en P/E Trailing: percentil p100 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 25.03x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $28.17B | Crec. Ingresos YoY: 12.2% | Crec. Ganancias YoY: N/A
+Margen Bruto: 76.3% | Margen Operativo: 58.0% | Margen Neto: 45.7% | Margen EBITDA: 59.6%
+EBITDA: $16.80B | FCF: $13.59B | FCF Operativo: N/A
+ROE: 193.0% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q1 FY2025
+
+Segmentos de ingresos:
+  Payment Solutions: 7.25B USD (YoY: +14% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     7.25B USD (YoY: +14% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    3.1B USD
+    G&A:                2.52B USD
+    Otros:              0.3B USD
+  Utilidad operativa:   4.15B USD (margen: 57.2%)
+  Impuestos:            0.75B USD
+  Utilidad neta:        3.28B USD (margen: 45.2%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $1.10B (3.9% de rev.) | OCF $11.20B | FCF $10.10B | Recompras $8.75B | Dividendos $1.90B | SBC $295.00M
+  FY2023: CAPEX $1.09B (3.9% de rev.) | OCF $11.98B | FCF $10.89B | Recompras $9.03B | Dividendos $2.16B | SBC $460.00M
+  FY2024: CAPEX $1.19B (4.2% de rev.) | OCF $14.78B | FCF $13.59B | Recompras $10.95B | Dividendos $2.45B | SBC $526.00M
+
+  Capital devuelto al accionista (período): recompras $28.74B + dividendos $6.51B = $35.25B (102% del FCF acumulado del período).
+  Stock-based comp acumulado: $1.28B (~1.5% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $18.80B | Caja Total: $7.89B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 0.5% | Payout Ratio: 21.2% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 9.7% | Institucional: 80.9%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 18.65 | Rev. Est. N/A (crec. 16.7%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-17 | Truist Securities | Mantiene: Buy → Buy
+  2025-07-15 | RBC Capital | Reitera: Outperform → Outperform
+  2025-07-14 | Seaport Global | Upgrade: Neutral → Buy
+  2025-06-03 | UBS | Mantiene: Buy → Buy
+  2025-06-02 | Truist Securities | Inicio cobertura: Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-07-07 | GENACHOWSKI JULIUS (Director) | Sale at price 570.67 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $178,049.04
+  2025-06-30 | Kirkpatrick Linda Pistecchia (President, Americas) | Sale at price 560.00 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $536,480
+  2025-06-27 | Seshadri Raj (Chief Commercial Pmts Officer) | Sale at price 546.77 per share under 10b5-1 plan [MECÁNICA · RSU/opciones, no señal] | Valor: $601,447
+  2025-06-24 | Bracher Candido (Director) | Stock award/grant [GRANT · compensación, no señal]
+  2025-06-24 | Talwar Harit (Director) | Stock award/grant [GRANT · compensación, no señal]
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $1.32M
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $13.59B / Market Cap $488.32B): 2.8%
+  PEG (P/E fwd 29.78x ÷ crec. EPS 16.7%): 1.78x  [estimación forward +1y]
+  Deuda neta (Deuda $18.80B − Caja $7.89B): $10.91B
+  Deuda neta / EBITDA (EBITDA $16.80B): 0.65x
+  Target base (P/E fwd 29.78x × EPS FY+1 18.65): $555.40 (+1.1% vs precio actual $549.24)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 2.8%, PEG 1.78x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 0.6%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

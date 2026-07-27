@@ -116,7 +116,7 @@ export const AUTORES: Autor[] = [
     nombre: "Adrián Moreira",
     cadencia: "Informes semanales",
     tag: "Semanal",
-    foto: "/equipo/adrian-moreira.jpeg",
+    foto: "/equipo/adrian-moreira.jpg",
     bio:
       "Desde la mesa de operaciones firma el informe semanal: el seguimiento de cada cierre de mercado y los movimientos relevantes de la semana en las plazas locales e internacionales.",
   },

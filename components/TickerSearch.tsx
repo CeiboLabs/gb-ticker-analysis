@@ -25,7 +25,7 @@ interface TickerSearchProps {
   onSubmit: (ticker: string) => void;
   disabled?: boolean;
   defaultValue?: string;
-  variant: "hero" | "footer" | "header";
+  variant: "hero" | "footer" | "header" | "masthead";
 }
 
 const RECENTS_KEY = "ticker:recent-searches";
@@ -91,6 +91,19 @@ const variantStyles = {
     meta: "text-[var(--site-ink-3,#797D99)]",
     button: "",
   },
+  // Reporte de /analisis (sistema editorial): el dropdown se portea a
+  // document.body, así que no lo alcanza ningún scope del masthead. En vez de
+  // pelear con utilidades de Tailwind acá, sólo se marcan los nodos con clases
+  // propias y el estilo vive en globals.css junto al resto del sistema.
+  masthead: {
+    input: "",
+    dropdown: "ts-drop",
+    item: "",
+    itemActive: "ts-drop-on",
+    symbol: "ts-drop-sym",
+    meta: "ts-drop-meta",
+    button: "",
+  },
 };
 
 export function TickerSearch({
@@ -113,7 +126,7 @@ export function TickerSearch({
   const [portalReady, setPortalReady] = useState(false);
 
   const styles = variantStyles[variant];
-  // header = navbar oscuro de /analyze (estilo legacy intacto); hero/footer = sitio moderno.
+  // header = navbar oscuro del reporte de /analisis (estilo legacy intacto); hero/footer = sitio moderno.
   const isModern = variant !== "header";
 
   // Defer portal rendering until after mount so we don't try to portal into
@@ -390,6 +403,11 @@ export function TickerSearch({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           onFocus={() => {
+            // Con defaultValue el campo llega con el ticker actual dentro (en
+            // /analisis dice el que estás viendo). Seleccionarlo al enfocar
+            // deja escribir el siguiente encima sin borrar antes. Inocuo en los
+            // usos sin defaultValue: seleccionar un campo vacío no hace nada.
+            inputRef.current?.select();
             const val = inputRef.current?.value.trim() ?? "";
             if (val.length === 0 && recents.length > 0) {
               setShowRecents(true);
@@ -415,7 +433,12 @@ export function TickerSearch({
             // by positionDropdown and kept out of this style object on purpose,
             // so re-renders can't clobber it. A layout effect sets it before the
             // first paint, so there's no flash at the static origin.
-            className={`overflow-hidden z-[100] ${styles.dropdown}`}
+            // z-40 lo deja por DEBAJO del navbar fijo (.nav-root z-50 y su
+            // mega-panel z-49): al scrollear con la lista abierta, el dropdown
+            // está anclado al documento y sube hasta la barra — con z-100 se le
+            // montaba encima. Sigue muy por encima del contenido de página, que
+            // no pasa de z-30 (tooltips, MetricsDashboard).
+            className={`overflow-hidden z-40 ${styles.dropdown}`}
           >
             {showRecents && results.length === 0 && !noResults ? (
               <>

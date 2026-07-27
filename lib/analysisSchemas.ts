@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { StockData } from "@/types/StockData";
 import type { StructuredReport } from "@/types/Report";
+import type { ScenarioRange } from "@/lib/scenarioRange";
 
 /* ──────────────────────────────────────────────────────────────────────────
    Zod schemas for each pipeline call. Strict validation guards against:
@@ -10,71 +11,6 @@ import type { StructuredReport } from "@/types/Report";
    - Price targets in wrong format
    ────────────────────────────────────────────────────────────────────────── */
 
-// Minimum character counts are tuned to current section depth. If GPT-4o
-// returns "N/A — no data available", that's ~25 chars; reject. If it returns
-// a full paragraph, that's 400+. Threshold of 200 lets short-but-substantive
-// sections through (when data really is sparse) while catching empty filler.
-const MIN_SUBSTANCE = 200;
-const MIN_LIST = 120;
-
-export const BusinessSchema = z.object({
-  businessModel: z.string().min(MIN_SUBSTANCE),
-  revenueStreams: z.string().min(MIN_SUBSTANCE),
-  competitiveAdvantages: z.string().min(MIN_LIST), // markdown list
-  industryContext: z.string().min(MIN_SUBSTANCE),
-});
-
-export const FinancialsSchema = z.object({
-  profitabilityAnalysis: z.string().min(MIN_SUBSTANCE),
-  balanceSheetHealth: z.string().min(MIN_LIST),
-  freeCashFlow: z.string().min(MIN_LIST),
-  capitalExpenditure: z.string().min(MIN_SUBSTANCE),
-});
-
-export const MarketSchema = z.object({
-  valuationSnapshot: z.string().min(MIN_SUBSTANCE),
-  recentEarnings: z.string().min(MIN_SUBSTANCE),
-  managementQuality: z.string().min(MIN_SUBSTANCE),
-});
-
-export const ForwardSchema = z.object({
-  riskFactors: z.string().min(MIN_LIST),
-  catalysts: z.string().min(MIN_LIST),
-});
-
-const PriceTargetSchema = z.string().regex(/^\d+(\.\d{1,2})?$/, {
-  message: "priceTarget must be a number like '215' or '215.50' — no currency symbol",
-});
-
-export const SynthesisSchema = z.object({
-  scratchpad: z.object({
-    fcfYield: z.string().min(20),
-    peg: z.string().min(20),
-    consensus: z.string().min(20),
-    balance: z.string().min(20),
-    insiders: z.string().min(15),
-    verdictReasoning: z.string().min(60),
-  }),
-  verdict: z.object({
-    rating: z.enum(["BUY", "HOLD", "AVOID"]),
-    conviction: z.enum(["HIGH", "MEDIUM", "LOW"]),
-    rationale: z.string().min(180),
-  }),
-  bullCase: z.object({
-    narrative: z.string().min(MIN_SUBSTANCE),
-    priceTarget: PriceTargetSchema,
-  }),
-  bearCase: z.object({
-    narrative: z.string().min(MIN_SUBSTANCE),
-    priceTarget: PriceTargetSchema,
-  }),
-});
-
-export type BusinessOutput = z.infer<typeof BusinessSchema>;
-export type FinancialsOutput = z.infer<typeof FinancialsSchema>;
-export type MarketOutput = z.infer<typeof MarketSchema>;
-export type ForwardOutput = z.infer<typeof ForwardSchema>;
-export type SynthesisOutput = z.infer<typeof SynthesisSchema>;
 
 /* ──────────────────────────────────────────────────────────────────────────
    Helper to format Zod errors back to the model so it can self-correct on retry.
@@ -195,7 +131,6 @@ export const StructuredReportSchema = z.object({
     priceTarget: z.string().regex(/^\d+(\.\d{1,2})?$/, {
       message: "verdict.priceTarget must be a number like '215' or '215.50'",
     }),
-    sizing: z.string().min(60),
   }),
 }).refine((r) => {
   const b = parseInt(r.bullCase.probability, 10);
@@ -212,7 +147,11 @@ export const StructuredReportSchema = z.object({
    high/low; beyond that, snap to bounds.
    ────────────────────────────────────────────────────────────────────────── */
 
-export function clampReportPriceTargets(report: StructuredReport, d: StockData): StructuredReport {
+export function clampReportPriceTargets(
+  report: StructuredReport,
+  d: StockData,
+  scenarioRange?: ScenarioRange | null,
+): StructuredReport {
   const low = d.targetLowPrice;
   const high = d.targetHighPrice;
   const price = d.currentPrice ?? null;
@@ -228,18 +167,28 @@ export function clampReportPriceTargets(report: StructuredReport, d: StockData):
 
   if (!isFinite(bullNum) || !isFinite(bearNum)) return report;
 
-  let bullClamped = bullNum;
-  let bearClamped = bearNum;
+  // Rango de escenarios mecánico (cono de volatilidad realizada): cuando existe
+  // es AUTORITATIVO para bull/bear y reemplaza los precios del LLM — el rango
+  // que estimaba el modelo contenía el retorno realizado sólo 36-43% de las
+  // veces (backtest 2026-07-19); el cono con z=1.5 llega a ~80%. La coherencia
+  // base∈[bear,bull] y rating↔target se sigue aplicando abajo. Sin cono (serie
+  // corta / IPO) se conserva el recorte contra analistas de siempre.
+  let bullClamped = scenarioRange ? scenarioRange.bull : bullNum;
+  let bearClamped = scenarioRange ? scenarioRange.bear : bearNum;
   let baseClamped = baseNum;
 
-  // Clamp against analyst range when available (±30%).
+  // Clamp against analyst range when available (±30%). Con cono, bull/bear ya
+  // están fijados (no se recortan contra analistas); sin cono se conserva el
+  // recorte. El target base siempre se recorta contra el rango de analistas.
   if (low != null && high != null) {
     const bullMax = high * 1.3;
     const bearMin = low * 0.7;
-    if (bullNum > bullMax) bullClamped = bullMax;
-    if (bullNum < bearMin) bullClamped = high; // bull below bear floor → snap to analyst high
-    if (bearNum < bearMin) bearClamped = bearMin;
-    if (bearNum > bullMax) bearClamped = low;  // bear above bull ceiling → snap to analyst low
+    if (!scenarioRange) {
+      if (bullNum > bullMax) bullClamped = bullMax;
+      if (bullNum < bearMin) bullClamped = high; // bull below bear floor → snap to analyst high
+      if (bearNum < bearMin) bearClamped = bearMin;
+      if (bearNum > bullMax) bearClamped = low;  // bear above bull ceiling → snap to analyst low
+    }
     if (isFinite(baseNum)) {
       if (baseNum > bullMax) baseClamped = bullMax;
       if (baseNum < bearMin) baseClamped = bearMin;
@@ -273,11 +222,13 @@ export function clampReportPriceTargets(report: StructuredReport, d: StockData):
     const holdHigh = price * 1.10;
 
     if (rating === "AVOID" && baseClamped > upCeiling) {
-      // Preferí el bear target si ya está debajo del techo; si no, snap al 95% del precio.
-      baseClamped = isFinite(bearClamped) && bearClamped < upCeiling ? bearClamped : upCeiling;
+      // Con cono, bear es el piso mecánico (extremo, no un target casa) ⇒ snap
+      // al mínimo coherente (95% del precio). Sin cono, preferí el bear del
+      // modelo si ya es un downside coherente.
+      baseClamped = !scenarioRange && isFinite(bearClamped) && bearClamped < upCeiling ? bearClamped : upCeiling;
     } else if (rating === "BUY" && baseClamped < downFloor) {
-      // Preferí el bull target si ya supera el piso; si no, snap al 105% del precio.
-      baseClamped = isFinite(bullClamped) && bullClamped > downFloor ? bullClamped : downFloor;
+      // Ídem: sin cono preferí el bull del modelo; con cono, snap al 105%.
+      baseClamped = !scenarioRange && isFinite(bullClamped) && bullClamped > downFloor ? bullClamped : downFloor;
     } else if (rating === "HOLD") {
       if (baseClamped > holdHigh) baseClamped = holdHigh;
       else if (baseClamped < holdLow) baseClamped = holdLow;

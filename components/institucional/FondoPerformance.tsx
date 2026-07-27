@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { FundNavPoint, ReturnKey } from "@/lib/fondo";
-import { BENCHMARK } from "@/lib/fondo";
-import { useFondo, fmtNav, fmtIndex, fmtPct, fmtAum, fmtFechaCorta, fmtMesAnio } from "@/lib/useFondo";
+import { BENCHMARK, MONEDA } from "@/lib/fondo";
+import { useFondo, fmtNav, fmtIndex, fmtPct, fmtAum, fmtFechaCorta } from "@/lib/useFondo";
 import { FondoChart } from "@/components/institucional/FondoChart";
+import { PeriodSlider } from "@/components/institucional/PeriodSlider";
 
 // Módulo de performance: selector de períodos + gráfico del valor cuota +
 // rendimientos acumulados, por año calendario y estadísticas derivadas de la
@@ -21,6 +22,27 @@ const PERIODS: { id: PeriodId; label: string }[] = [
   { id: "1A", label: "1A" },
   { id: "SI", label: "Máx" },
 ];
+
+// Glosa bajo el chip de la cotización: qué ventana mide el porcentaje.
+const PERIOD_GLOSS: Record<PeriodId, string> = {
+  "1M": "último mes",
+  "3M": "últimos 3 meses",
+  YTD: "en el año",
+  "1A": "último año",
+  SI: "desde el inicio",
+};
+
+// El chip no recalcula sobre la ventana visible: toma el rendimiento que ya
+// computa el server (YTD contra el cierre del año anterior, 1M contra el punto
+// on-or-before, etc.). Derivarlo del primer punto de la ventana daría otro
+// número que contradiría la tabla de rentabilidad acumulada de más abajo.
+const PERIOD_RETURN: Record<PeriodId, ReturnKey> = {
+  "1M": "1M",
+  "3M": "3M",
+  YTD: "YTD",
+  "1A": "1Y",
+  SI: "SI",
+};
 
 function isoMinusMonths(dia: string, months: number): string {
   const [y, m, d] = dia.split("-").map(Number);
@@ -143,8 +165,10 @@ export function FondoPerformance() {
     calAsc[calAsc.length - 1].year === asOfYear &&
     (data?.asOf ?? "").slice(5) !== "12-31";
 
-  // Indicadores de riesgo — todo derivado de la serie NAV. No hay Sharpe porque
-  // exige un supuesto de tasa libre de riesgo que no vamos a inventar.
+  // Indicadores de riesgo — derivados de la serie NAV. Se muestran sólo los dos
+  // más estables (volatilidad y retorno anualizado); drawdown, mejor/peor mes y
+  // meses positivos se retiraron a pedido del responsable del fondo. No hay
+  // Sharpe porque exige un supuesto de tasa libre de riesgo que no vamos a inventar.
   const riskItems: { label: string; value: string; sub?: string; accent?: "up" | "down" }[] = [
     { label: "Volatilidad (1A)", value: stats?.vol1y != null ? fmtPct(stats.vol1y, false) : "—" },
     {
@@ -152,32 +176,11 @@ export function FondoPerformance() {
       value: stats?.annualizedSI != null ? fmtPct(stats.annualizedSI) : "—",
       accent: stats?.annualizedSI != null ? (stats.annualizedSI >= 0 ? "up" : "down") : undefined,
     },
-    {
-      label: "Máx. caída",
-      value: stats?.maxDrawdown != null ? fmtPct(stats.maxDrawdown) : "—",
-      accent: stats?.maxDrawdown != null ? "down" : undefined,
-    },
-    {
-      label: "Mejor mes",
-      value: stats?.bestMonth ? fmtPct(stats.bestMonth.pct) : "—",
-      sub: stats?.bestMonth ? fmtMesAnio(stats.bestMonth.ym) : undefined,
-      accent: stats?.bestMonth ? "up" : undefined,
-    },
-    {
-      label: "Peor mes",
-      value: stats?.worstMonth ? fmtPct(stats.worstMonth.pct) : "—",
-      sub: stats?.worstMonth ? fmtMesAnio(stats.worstMonth.ym) : undefined,
-      accent: stats?.worstMonth ? "down" : undefined,
-    },
-    {
-      label: "Meses positivos",
-      value: stats?.positiveMonths != null ? `${Math.round(stats.positiveMonths)}%` : "—",
-    },
   ];
 
   const latest = data?.latest ?? null;
-  const dayPct = latest?.changePct ?? null;
-  const activeIndex = PERIODS.findIndex((p) => p.id === period);
+  // Variación del período elegido en el slider — sigue al gráfico, no al día.
+  const periodPct = returns.find((r) => r.key === PERIOD_RETURN[period])?.pct ?? null;
 
   // Estado vacío: distinguir carga, error y pre-lanzamiento. En prod sin datos
   // reales esto queda en "en proceso de lanzamiento" (no un spinner perpetuo).
@@ -193,11 +196,35 @@ export function FondoPerformance() {
       {/* Cotización al día — único lugar de la página con el dato vivo. */}
       <div className="perf-quote">
         <div className="perf-quote-main">
-          <span className="perf-quote-label">Valor cuota</span>
-          <span className="perf-quote-nav">{latest ? fmtNav(latest.nav) : "—"}</span>
-          {dayPct != null && (
-            <span className="perf-quote-day" data-accent={dayPct >= 0 ? "up" : "down"}>
-              {fmtPct(dayPct)} hoy
+          {/* La moneda va pegada a la cifra y DESPUÉS de ella —convención de
+              ficha de fondo—, en marca chica: primero se lee el número. Debajo,
+              el cierre al que corresponde ese valor cuota. */}
+          <span className="perf-quote-navwrap">
+            <span className="perf-quote-nav">
+              {latest ? (
+                <>
+                  {fmtNav(latest.nav)}
+                  <span className="perf-quote-cur">{MONEDA}</span>
+                </>
+              ) : (
+                "—"
+              )}
+            </span>
+            {latest && data?.asOf && (
+              <span className="perf-quote-navdate">{fmtFechaCorta(data.asOf)}</span>
+            )}
+          </span>
+          {latest && (
+            <span className="perf-quote-delta">
+              {/* Sin dato para el período (serie más corta que la ventana) el
+                  chip va en pizarra: no se inventa un signo que no se sabe. */}
+              <span
+                className="perf-quote-day"
+                data-accent={periodPct == null ? "neu" : periodPct >= 0 ? "up" : "down"}
+              >
+                {fmtPct(periodPct)}
+              </span>
+              <em>{PERIOD_GLOSS[period]}</em>
             </span>
           )}
         </div>
@@ -205,13 +232,13 @@ export function FondoPerformance() {
           <span className="perf-quote-aum">
             <em>Activos bajo manejo</em>
             <span className="perf-quote-aum-val">
-              {latest && latest.aum != null ? `USD ${fmtAum(latest.aum)}` : "—"}
+              {latest && latest.aum != null ? `${fmtAum(latest.aum)} ${MONEDA}` : "—"}
             </span>
             {live && aumSpark.length > 1 && <AumSparkline values={aumSpark} />}
           </span>
-          <span className="perf-quote-asof">
-            {data?.asOf ? `Datos al ${fmtFechaCorta(data.asOf)} · USD` : "Actualización diaria · USD"}
-          </span>
+          {/* La fecha del dato vive ahora bajo el valor cuota; a la derecha sólo
+              queda la cadencia, y sólo mientras no haya un cierre publicado. */}
+          {!(latest && data?.asOf) && <span className="perf-quote-asof">Actualización diaria</span>}
         </div>
       </div>
 
@@ -239,46 +266,24 @@ export function FondoPerformance() {
         ) : (
           <span className="perf-bar-label">Evolución del valor cuota</span>
         )}
-        <div
-          className="perf-periods"
-          role="tablist"
-          aria-label="Período"
-          style={{ ["--perf-count" as string]: PERIODS.length }}
-        >
-          <span
-            className="perf-period-thumb"
-            aria-hidden
-            style={{ transform: `translateX(${activeIndex * 100}%)` }}
-          />
-          {PERIODS.map((p) => (
-            <button
-              key={p.id}
-              role="tab"
-              aria-selected={period === p.id}
-              disabled={!live}
-              onClick={() => setPeriod(p.id)}
-              className="perf-period"
-              data-active={period === p.id ? "1" : "0"}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <PeriodSlider
+          periods={PERIODS}
+          value={period}
+          onChange={setPeriod}
+          disabled={!live}
+        />
       </div>
 
       <div className="perf-chart-frame">
         {live ? (
-          chart.benchmark.length > 0 ? (
-            <FondoChart
-              series={chart.series}
-              benchmark={chart.benchmark}
-              formatValue={chart.format}
-              seriesLabel="BNG Selección Global"
-              benchLabel={BENCHMARK.corto}
-            />
-          ) : (
-            <FondoChart series={chart.series} formatValue={chart.format} />
-          )
+          <FondoChart
+            series={chart.series}
+            benchmark={chart.benchmark}
+            formatValue={chart.format}
+            unitLabel={view === "base100" ? "Índice · base 100" : MONEDA}
+            seriesLabel="BNG Selección Global"
+            benchLabel={BENCHMARK.corto}
+          />
         ) : (
           <div className="perf-empty">
             <p className="perf-empty-title">{emptyMsg}</p>
@@ -451,12 +456,12 @@ export function FondoPerformance() {
       </div>
 
       <p className="perf-disclaimer">
-        Los rendimientos pasados no garantizan resultados futuros. Cifras netas, expresadas en la moneda del fondo.
-        Volatilidad, drawdown y retornos mensuales se calculan sobre la serie diaria de valor cuota.
+        Los rendimientos pasados no garantizan resultados futuros. Cifras netas, expresadas en {MONEDA}, la moneda del fondo.
+        La volatilidad y el retorno anualizado se calculan sobre la serie diaria de valor cuota.
         {view === "base100" &&
           (benchSeries.length > 0 ? (
-            <> En la vista base 100, el fondo y su benchmark de referencia ({BENCHMARK.nombre}) parten
-            de 100 al inicio del período para comparar su evolución relativa.</>
+            <> En la vista base 100, el fondo y su benchmark —un compuesto de referencia— parten
+            de 100 al inicio del período para comparar la evolución de ambas series.</>
           ) : (
             <> En la vista base 100, el valor cuota se reescala a 100 al inicio del período.</>
           ))}
@@ -468,18 +473,37 @@ export function FondoPerformance() {
           flex-wrap: wrap; margin-bottom: 24px; padding-bottom: 20px;
           border-bottom: 1px solid var(--site-border);
         }
-        .perf-quote-main { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-        .perf-quote-label {
-          font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-          color: var(--site-ink-3); align-self: center;
-        }
+        /* Gap holgado: la marca de moneda cuelga del número (margin chico), así
+           que el % del día necesita más aire para no leerse pegado a ella. */
+        .perf-quote-main { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+        .perf-quote-navwrap { display: inline-flex; flex-direction: column; gap: 8px; }
+        .perf-quote-navdate { font-size: 12px; color: var(--site-ink-3); font-variant-numeric: tabular-nums; }
         .perf-quote-nav {
           font-size: clamp(32px, 3.4vw, 44px); font-weight: 400; line-height: 1;
           letter-spacing: -0.02em; color: var(--site-ink); font-variant-numeric: tabular-nums;
         }
-        .perf-quote-day { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-        .perf-quote-day[data-accent="up"] { color: #15803d; }
-        .perf-quote-day[data-accent="down"] { color: #b91c1c; }
+        /* Marca de moneda: misma línea de base que la cifra, tamaño relativo
+           (escala con el clamp) y tono subordinado — unidad, no dato. */
+        .perf-quote-cur {
+          font-size: 0.42em; font-weight: 600; letter-spacing: 0.08em;
+          color: var(--site-ink-3); margin-left: 0.19em;
+        }
+        /* Variación del día: chip de fondo pleno en los tokens de dato del
+           sistema (verde bosque / oxblood), no verdes-semáforo. Radio 4px para
+           que lea etiqueta de dato y no botón —los pills de abajo sí lo son—.
+           "hoy" va fuera del chip: es glosa temporal, no parte de la cifra. */
+        .perf-quote-delta { display: inline-flex; align-items: baseline; gap: 8px; }
+        .perf-quote-delta em {
+          font-style: normal; font-size: 12.5px; color: var(--site-ink-3);
+        }
+        .perf-quote-day {
+          font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+          color: var(--paper); line-height: 1; padding: 5px 9px; border-radius: 4px;
+          transition: background 200ms ease;
+        }
+        .perf-quote-day[data-accent="up"] { background: var(--pos); }
+        .perf-quote-day[data-accent="down"] { background: var(--neg); }
+        .perf-quote-day[data-accent="neu"] { background: var(--neu); }
 
         .perf-quote-side {
           display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;
@@ -514,27 +538,8 @@ export function FondoPerformance() {
           font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
           color: var(--site-ink-3);
         }
-        .perf-periods {
-          position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-          padding: 3px; background: var(--surface-muted, #f3f4f8);
-          border: 1px solid var(--site-border); border-radius: 999px;
-        }
-        .perf-period-thumb {
-          position: absolute; top: 3px; bottom: 3px; left: 3px;
-          width: calc((100% - 6px) / var(--perf-count, 5));
-          background: var(--navy); border-radius: 999px;
-          box-shadow: 0 6px 16px -6px rgba(15,34,73,0.6);
-          transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
-        }
-        .perf-period {
-          position: relative; z-index: 1; text-align: center; white-space: nowrap;
-          border: 0; background: none; cursor: pointer;
-          font-size: 13px; font-weight: 600; color: var(--site-ink-3);
-          padding: 6px 14px; border-radius: 999px; transition: color 220ms ease;
-        }
-        .perf-period[data-active="1"] { color: #fff; }
-        .perf-period:disabled { cursor: not-allowed; opacity: 0.5; }
-        .perf-period:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
+        /* El selector de períodos (píldora + thumb) es el componente compartido
+           PeriodSlider — sus estilos (.pslider*) viven en globals.css. */
 
         /* Toggle del modo del gráfico (valor cuota ↔ base 100). Mismo pill firma
            que el selector de períodos; dos celdas iguales vía grid para que el
@@ -603,16 +608,19 @@ export function FondoPerformance() {
           text-align: right; font-weight: 500; color: var(--site-ink); font-size: 15px;
           padding: 14px 0 14px 28px; white-space: nowrap;
         }
-        .perf-grid td[data-accent="up"] { color: #15803d; }
-        .perf-grid td[data-accent="down"] { color: #b91c1c; }
+        .perf-grid td[data-accent="up"] { color: var(--pos); }
+        .perf-grid td[data-accent="down"] { color: var(--neg); }
         .perf-grid tr.perf-bench th { color: var(--site-ink-2); font-weight: 400; }
         .perf-grid tr.perf-bench td { font-weight: 400; }
 
         .perf-foot { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); }
 
         /* Indicadores de riesgo: grilla de celdas regladas, subordinada — no tarjetas. */
+        /* Dos indicadores: strip compacto alineado a la izquierda (no dos celdas
+           estiradas a media página). La regla navy superior acompaña al ancho. */
         .perf-risk {
-          margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+          margin: 0; display: grid; grid-template-columns: repeat(2, minmax(150px, 240px));
+          width: fit-content; max-width: 100%;
           border-top: 1.5px solid var(--navy); border-left: 1px solid var(--site-border);
         }
         .perf-risk-item {
@@ -626,8 +634,8 @@ export function FondoPerformance() {
           display: block; font-style: normal; font-size: 11px; font-weight: 400;
           color: var(--site-ink-3); margin-top: 3px;
         }
-        .perf-risk-item dd[data-accent="up"] { color: #15803d; }
-        .perf-risk-item dd[data-accent="down"] { color: #b91c1c; }
+        .perf-risk-item dd[data-accent="up"] { color: var(--pos); }
+        .perf-risk-item dd[data-accent="down"] { color: var(--neg); }
 
         .perf-disclaimer { margin-top: 20px; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); }
 
@@ -638,8 +646,8 @@ export function FondoPerformance() {
           .perf-table-scroll { display: none; }
           .perf-grid--mobile { display: table; }
           .perf-grid--mobile .perf-bench-cell { color: var(--site-ink-2); font-weight: 400; }
-          .perf-grid--mobile .perf-bench-cell[data-accent="up"] { color: #15803d; }
-          .perf-grid--mobile .perf-bench-cell[data-accent="down"] { color: #b91c1c; }
+          .perf-grid--mobile .perf-bench-cell[data-accent="up"] { color: var(--pos); }
+          .perf-grid--mobile .perf-bench-cell[data-accent="down"] { color: var(--neg); }
         }
       `}</style>
     </div>

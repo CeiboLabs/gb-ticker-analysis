@@ -1,0 +1,169 @@
+Empresa a analizar: LATAM Airlines Group S.A. (LTM)
+Fecha: 2025-01-17
+Sector: Industrials | Industria: Airlines
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+LATAM Airlines Group S.A., together with its subsidiaries, provides passenger and cargo air transportation services in Chile, Argentina, Peru, Colombia, Ecuador, Brazil, the United States, other Latin American countries, the Caribbean, Europe, and Oceania. As of December 31, 2024, the company provides passenger transport services to 160 destinations in 27 countries; and operated 371 fleet of aircraft. The company was formerly known as LAN Airlines S.A. and changed its name to LATAM Airlines Group S.A. in June 2012. LATAM Airlines Group S.A. was founded in 1929 and is headquartered in Santia...
+
+---
+DATOS DE MERCADO
+Precio Actual: $26.25 (N/A hoy)
+Capitalización Bursátil: $7.98B
+Rango 52 semanas: $21.99 – $27.68
+Beta: 0.62
+Acciones en Circulación: $292.74M
+Short Interest (% float): 0.1%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 13.63x | P/E Forward: 8.85x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 0.69x | P/Libro: 17.72x | EV/EBITDA: 10.21x
+EPS Trailing: 1.93
+Precio Objetivo Medio Analistas: $38.26 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (N/A analistas)
+Desglose: Compra Fuerte: 0 | Compra: 0 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $26.25 (122 ruedas de historia)
+  Rango de la serie disponible (122 ruedas — MENOS de un año, empresa de listado reciente): $21.99 – $27.68 | posición en el rango: 75% (-5.1% desde el máximo, +19.4% desde el mínimo)
+  Medias móviles: MM50: $26.59 (precio -1.3%)
+  Retornos (ajustados): 1M -4.9% | 3M +3.0%
+  Máx. drawdown de la serie: -9.5% | Volatilidad realizada anualizada: 23.8%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  DAL (Delta Air Lines, Inc.): P/E Trailing 9.00x | Fwd N/A | Crec.Rev 14.8% | Mg.Op 9.5% | EV/EBITDA 7.6x
+  UAL (United Airlines Holdings, Inc.): P/E Trailing 13.61x | Fwd N/A | Crec.Rev 19.5% | Mg.Op 9.6% | EV/EBITDA 7.3x
+  RYAAY (Ryanair Holdings plc): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 24.8% | Mg.Op 15.3% | EV/EBITDA 6.0x
+  ICAGY (International Consolidated Airlines Group S.A.): P/E Trailing 7.16x | Fwd N/A | Crec.Rev 27.7% | Mg.Op 12.0% | EV/EBITDA 4.2x
+  LUV (Southwest Airlines Co.): P/E Trailing 33.74x | Fwd N/A | Crec.Rev 9.6% | Mg.Op 0.9% | EV/EBITDA 5.6x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 19.5% | Mg.Op 9.6% | EV/EBITDA 6.0x
+  LTM vs cohorte: P/E trailing 13.6x vs mediana peers 11.9x; crec. rev 24.3% vs mediana peers 19.5%; margen op 10.0% vs mediana peers 9.6%; EV/EBITDA 10.2x vs mediana peers 6.0x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  LTM en P/E Trailing: percentil p80 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 11.89x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $11.64B | Crec. Ingresos YoY: 24.3% | Crec. Ganancias YoY: N/A
+Margen Bruto: 24.3% | Margen Operativo: 10.0% | Margen Neto: 5.0% | Margen EBITDA: 11.0%
+EBITDA: $1.28B | FCF: $1.40B | FCF Operativo: N/A
+ROE: 129.2% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2023
+
+Segmentos de ingresos:
+  Passengers2 Member: 10.22B USD (YoY: +34% Y/Y)
+  Cargo Member: 1.43B USD (YoY: -17% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     11.64B USD (YoY: +24% Y/Y)
+  Costo de ingresos:    8.82B USD
+  Utilidad bruta:       2.82B USD (margen: 24.3%)
+  Gastos operativos:    1.75B USD
+    G&A:                0.68B USD
+  Utilidad operativa:   1.08B USD (margen: 9.3%)
+  Impuestos:            0.01B USD
+  Utilidad neta:        0.58B USD (margen: 5%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $830.65M (7.1% de rev.) | OCF N/A | FCF $-733,857,000 | Recompras N/A | Dividendos N/A | SBC N/A
+  FY2023: CAPEX $863.84M (7.4% de rev.) | OCF N/A | FCF $1.40B | Recompras N/A | Dividendos N/A | SBC N/A
+
+---
+BALANCE
+Deuda Total: $6.94B | Caja Total: $1.85B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: N/A | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: N/A | Institucional: 0.0%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 2.94 | Rev. Est. N/A (crec. 33.8%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2024-08-21 | Deutsche Bank | Inicio cobertura: Buy
+  2024-08-20 | Barclays | Inicio cobertura: Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $1.40B / Market Cap $7.98B): 17.5%
+  PEG (P/E fwd 8.85x ÷ crec. EPS 33.8%): 0.26x  [estimación forward +1y]
+  Deuda neta (Deuda $6.94B − Caja $1.85B): $5.08B
+  Deuda neta / EBITDA (EBITDA $1.28B): 3.97x
+  Target base (P/E fwd 8.85x × EPS FY+1 2.94): $26.02 (-0.9% vs precio actual $26.25)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 17.5%, PEG 0.26x]
+    (b) Consenso analistas = buy / strong buy: N/D (sin dato concluyente — no bloquea)  [consenso: N/D]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.1%]
+    → AVOID disparado: SÍ
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

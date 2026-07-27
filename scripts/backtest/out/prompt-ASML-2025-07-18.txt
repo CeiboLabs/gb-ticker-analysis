@@ -1,0 +1,178 @@
+Empresa a analizar: ASML Holding N.V. (ASML)
+Fecha: 2025-07-18
+Sector: Technology | Industria: Semiconductor Equipment & Materials
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+ASML Holding N.V. provides lithography solutions for the development, production, marketing, sales, upgrading, and servicing of advanced semiconductor equipment systems. The company offers lithography, metrology, and inspection systems. It also provides extreme ultraviolet lithography systems; and deep ultraviolet lithography systems comprising immersion and dry lithography systems solutions to manufacture various range of semiconductor nodes and technologies. In addition, the company offers metrology and inspection systems, including YieldStar optical metrology systems, a diffraction-based...
+
+---
+DATOS DE MERCADO
+Precio Actual: $728.87 (N/A hoy)
+Capitalización Bursátil: $282.15B
+Rango 52 semanas: $588.92 – $1,080.23
+Beta: 1.50
+Acciones en Circulación: $384.10M
+Short Interest (% float): 0.7%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 31.99x | P/E Forward: 26.21x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 8.57x | P/Libro: 13.11x | EV/EBITDA: 23.13x
+EPS Trailing: N/A
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (9 analistas)
+Desglose: Compra Fuerte: 1 | Compra: 4 | Neutral: 4 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $728.87 (260 ruedas de historia)
+  Rango 52 semanas: $588.92 – $1080.23 | posición en el rango: 28% (-32.5% desde el máximo, +23.8% desde el mínimo)
+  Medias móviles: MM50: $760.27 (precio -4.1%) | MM200: $717.75 (precio +1.5%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -3.3% | 3M +16.1% | 6M +1.7% | 12M -30.6% | momentum 12-1 (excl. último mes) -28.2%
+  Máx. drawdown de la serie: -45.5% | Volatilidad realizada anualizada: 48.5%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  ASMLF (ASML Holding N.V.): P/E Trailing 32.70x | Fwd N/A | Crec.Rev 2.6% | Mg.Op 31.9% | EV/EBITDA 23.1x
+  AMAT (Applied Materials, Inc.): P/E Trailing 21.96x | Fwd N/A | Crec.Rev 2.5% | Mg.Op 28.9% | EV/EBITDA 17.2x
+  LRCX (Lam Research Corporation): P/E Trailing 34.52x | Fwd N/A | Crec.Rev -14.5% | Mg.Op 28.7% | EV/EBITDA 25.5x
+  KLAC (KLA Corporation): P/E Trailing 45.62x | Fwd N/A | Crec.Rev -6.5% | Mg.Op 37.1% | EV/EBITDA 31.7x
+  TOELF (Tokyo Electron Limited): P/E Trailing 22.84x | Fwd N/A | Crec.Rev 32.8% | Mg.Op 28.7%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 32.70x | Fwd N/A | Crec.Rev 2.5% | Mg.Op 28.9% | EV/EBITDA 24.3x
+  ASML vs cohorte: P/E trailing 32.0x vs mediana peers 32.7x; crec. rev 2.6% vs mediana peers 2.5%; margen op 31.9% vs mediana peers 28.9%; EV/EBITDA 23.1x vs mediana peers 24.3x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  ASML en P/E Trailing: percentil p40 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 32.70x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $32.93B | Crec. Ingresos YoY: 2.6% | Crec. Ganancias YoY: N/A
+Margen Bruto: 51.3% | Margen Operativo: 31.9% | Margen Neto: 26.8% | Margen EBITDA: 35.8%
+EBITDA: $11.79B | FCF: $10.58B | FCF Operativo: N/A
+ROE: 41.0% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Product: 21.58B USD (YoY: -1% Y/Y)
+  NXE: 7.79B USD (YoY: -14% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     29.36B USD (YoY: +3% Y/Y)
+  Costo de ingresos:    14.31B USD
+  Utilidad bruta:       15.06B USD (margen: 51.3%)
+  Gastos operativos:    5.68B USD
+    I+D:                4.47B USD
+    Ventas y marketing: 1.21B USD
+  Utilidad operativa:   9.37B USD (margen: 31.9%)
+  Impuestos:            1.75B USD
+  Utilidad neta:        7.87B USD (margen: 26.8%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $1.41B (4.3% de rev.) | OCF $9.05B | FCF $7.64B | Recompras $4.95B | Dividendos $2.73B | SBC $73.49M
+  FY2023: CAPEX $2.43B (7.4% de rev.) | OCF $6.01B | FCF $3.59B | Recompras $1.10B | Dividendos $2.59B | SBC $148.95M
+  FY2024: CAPEX $2.16B (6.6% de rev.) | OCF $11.60B | FCF $9.44B | Recompras $519.45M | Dividendos $2.55B | SBC $179.31M
+
+  Capital devuelto al accionista (período): recompras $6.57B + dividendos $7.87B = $14.45B (70% del FCF acumulado del período).
+  Stock-based comp acumulado: $401.76M (~0.4% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $5.46B | Caja Total: $14.84B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 1.0% | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 17.3%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 30.31 | Rev. Est. N/A (crec. 11.8%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-08 | Wells Fargo | Mantiene: Overweight → Overweight
+  2025-06-26 | Jefferies | Downgrade: Buy → Hold
+  2025-06-03 | Barclays | Downgrade: Overweight → Equal-Weight
+  2025-04-17 | Wells Fargo | Mantiene: Overweight → Overweight
+  2025-04-17 | Susquehanna | Mantiene: Positive → Positive
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $10.58B / Market Cap $282.15B): 3.8%
+  PEG (P/E fwd 26.21x ÷ crec. EPS 11.8%): 2.22x  [estimación forward +1y]
+  Deuda neta (Deuda $5.46B − Caja $14.84B): $-9.38B
+  Deuda neta / EBITDA (EBITDA $11.79B): -0.80x
+  Target base (P/E fwd 26.21x × EPS FY+1 30.31): $794.43 (+9.0% vs precio actual $728.87)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 3.8%, PEG 2.22x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.7%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

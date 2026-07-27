@@ -409,3 +409,82 @@ CREATE TABLE IF NOT EXISTS fondo_documentos (
   updated_by  TEXT    NOT NULL,
   PRIMARY KEY (tipo)
 ) WITHOUT ROWID;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 2026-07-19: historial de veredictos para eval de calidad.
+-- Una fila append-only por generación FRESCA de /api/analyze (nunca cache_hit,
+-- nunca mock), con rating + targets + precio al momento + condiciones del
+-- framework (metrics_json). Es el insumo del backtest "¿cuántas veces acierta
+-- un BUY?": analyze_events guarda el rating pero se purga a los 90 días, y el
+-- cache de análisis es efímero. verdict_log queda EXENTA de purgeExpiredRows y
+-- jamás recibe UPDATE/DELETE. La escribe sólo lib/verdictLog.ts (best-effort).
+-- El backfill desde analyze_events vive en db/migrations/2026-07-19-verdict-log.sql
+-- (en base fresca no hay eventos que sembrar).
+CREATE TABLE IF NOT EXISTS verdict_log (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts               INTEGER NOT NULL,           -- Date.now() de la generación
+  ticker           TEXT    NOT NULL,           -- símbolo en mayúsculas
+  company_name     TEXT,
+  rating           TEXT    NOT NULL,           -- 'BUY' | 'HOLD' | 'AVOID'
+  conviction       TEXT,                       -- 'HIGH' | 'MEDIUM' | 'LOW'
+  price_at_verdict REAL,                       -- stockData.currentPrice del snapshot que vio el usuario
+  currency         TEXT,                       -- moneda de cotización (Yahoo)
+  price_target     REAL,                       -- verdict.priceTarget (target central 12m)
+  bull_target      REAL,
+  bear_target      REAL,
+  bull_probability REAL,                       -- % asignado al bull case
+  bear_probability REAL,
+  market_cap       REAL,                       -- para segmentar hit-rate por tamaño
+  consensus        TEXT,                       -- 'buy' | 'hold' | 'sell' (clasificado en código)
+  metrics_json     TEXT,                       -- JSON slim: métricas derivadas + condiciones del framework
+  coherence_flags  TEXT,                       -- CSV: verdict_repaired | verdict_incoherent_final | ...
+  model            TEXT,                       -- modelo LLM que generó el reporte
+  report_version   TEXT,                       -- CACHE_VERSION del shape del reporte (cohortes de eval)
+  source           TEXT    NOT NULL DEFAULT 'live'  -- 'live' | 'backfill_events'
+);
+
+CREATE INDEX IF NOT EXISTS idx_verdict_log_ts        ON verdict_log(ts);
+CREATE INDEX IF NOT EXISTS idx_verdict_log_ticker_ts ON verdict_log(ticker, ts);
+CREATE INDEX IF NOT EXISTS idx_verdict_log_rating_ts ON verdict_log(rating, ts);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 2026-07-25: popularidad de tickers para "Las más analizadas" de
+-- /analisis. Un contador por (symbol, día UTC), incrementado con UPSERT atómico
+-- desde recordTickerView (lo llama /api/analyze en cada generación fresca).
+-- getTopTickers agrega sobre la ventana de N días. Reemplaza el contador
+-- in-memory anterior (resto de la época Cloudflare Cache API): ahora el ranking
+-- SOBREVIVE reinicios y deploys. Las filas fuera de la ventana son inertes (el
+-- ranking sólo mira los últimos N días); se purgan best-effort por retención.
+CREATE TABLE IF NOT EXISTS ticker_views (
+  symbol TEXT    NOT NULL,           -- símbolo en mayúsculas
+  day    TEXT    NOT NULL,           -- 'YYYY-MM-DD' (UTC)
+  count  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (symbol, day)
+) WITHOUT ROWID;
+
+CREATE INDEX IF NOT EXISTS idx_ticker_views_day ON ticker_views(day);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 2026-07-26: el "porqué" de la tarjeta destacada de Tendencias. Una
+-- fila por (symbol, día UTC) con la oración que explica la atención sobre el
+-- ticker, generada por el modelo A PARTIR DE una nota de prensa Tier 1/2 (ver
+-- lib/trendReason.ts). Es cache, no archivo: se puede truncar sin perder nada.
+--
+-- reason NULL = "no había explicación respaldada por prensa" (resultado válido,
+-- se cachea corto para reintentar en el día). Las columnas src_* guardan la nota
+-- que respalda la frase: sin fuente no se publica el motivo. prompt_v entra en
+-- la PK para que al cambiar el prompt las frases viejas queden invalidadas.
+CREATE TABLE IF NOT EXISTS ticker_reason (
+  symbol        TEXT    NOT NULL,    -- símbolo en mayúsculas
+  day           TEXT    NOT NULL,    -- 'YYYY-MM-DD' en hora de Uruguay (rueda a
+                                     -- la medianoche LOCAL, como lib/cache.ts)
+  prompt_v      TEXT    NOT NULL,    -- PROMPT_VERSION de lib/trendReason.ts
+  reason        TEXT,                -- oración factual; NULL = sin explicación
+  category      TEXT,                -- Resultados · Guidance · Operación · …
+  src_title     TEXT,
+  src_publisher TEXT,
+  src_url       TEXT,
+  src_date      TEXT,                -- 'YYYY-MM-DD' de publicación
+  created_at    INTEGER NOT NULL,    -- epoch ms de la generación
+  PRIMARY KEY (symbol, day, prompt_v)
+) WITHOUT ROWID;

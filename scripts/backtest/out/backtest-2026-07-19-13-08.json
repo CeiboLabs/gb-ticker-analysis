@@ -1,0 +1,49 @@
+{
+  "model": "gpt-4o-2024-11-20",
+  "cutoffs": [
+    "2025-07-18"
+  ],
+  "rows": [
+    {
+      "ticker": "JPM",
+      "cutoff": "2025-07-18",
+      "rating": "HOLD",
+      "conviction": "MEDIUM",
+      "priceTarget": 280,
+      "priceAt": 285.8023681640625,
+      "impliedUpside": -0.02030202969043171,
+      "trend": "alcista",
+      "buyConfirmed": false,
+      "avoidTriggered": false,
+      "fcfYieldMet": "not_met",
+      "balanceMet": "na",
+      "granularity": "fy-annual",
+      "coherenceFlags": [],
+      "ret6": 0.08286297357912908,
+      "ret12": 0.19348208447212722,
+      "ex6": -0.02556461380911257,
+      "ex12": -0.004015965842393943
+    },
+    {
+      "ticker": "ASML",
+      "cutoff": "2025-07-18",
+      "rating": "HOLD",
+      "conviction": "MEDIUM",
+      "priceTarget": 750,
+      "priceAt": 728.8682861328125,
+      "impliedUpside": 0.02899250011179233,
+      "trend": "mixta",
+      "buyConfirmed": false,
+      "avoidTriggered": false,
+      "fcfYieldMet": "not_met",
+      "balanceMet": "met",
+      "granularity": "fy-annual",
+      "coherenceFlags": [],
+      "ret6": 0.8574321177298725,
+      "ret12": 1.3976622241679588,
+      "ex6": 0.7490045303416308,
+      "ex12": 1.2001641738534377
+    }
+  ],
+  "skips": []
+}

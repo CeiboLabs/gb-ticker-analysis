@@ -1,0 +1,181 @@
+Empresa a analizar: Nokia Oyj (NOK)
+Fecha: 2025-07-18
+Sector: Technology | Industria: Communication Equipment
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Nokia Oyj, together with its subsidiaries, provides mobile, fixed, and cloud network solutions in North and Latin America, Greater China, India, Asia Pacific, Europe, the Middle East, and Africa. It operates in four segments: Network Infrastructure, Mobile Networks, Cloud and Network Services, and Nokia Technologies. The company offers fixed network solutions, such as fiber and copper technologies, access infrastructure, in-home Wi-Fi solutions, and cloud and virtualization services; IP network solutions, which delivers IP edge routing and data center networking solutions for residential, m...
+
+---
+DATOS DE MERCADO
+Precio Actual: $4.70 (N/A hoy)
+Capitalización Bursátil: $26.52B
+Rango 52 semanas: $3.47 – $5.37
+Beta: 0.61
+Acciones en Circulación: $5.58B
+Short Interest (% float): 0.6%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 17.53x | P/E Forward: N/Ax | CAPE (Shiller P/E): 12.0x (3yr avg EPS)
+P/Ventas (TTM): 1.18x | P/Libro: 1.10x | EV/EBITDA: 6.01x
+EPS Trailing: 0.27
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (3 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 3 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $4.70 (260 ruedas de historia)
+  Rango 52 semanas: $3.47 – $5.37 | posición en el rango: 65% (-12.5% desde el máximo, +35.4% desde el mínimo)
+  Medias móviles: MM50: $5.13 (precio -8.4%) | MM200: $4.74 (precio -0.9%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -7.8% | 3M -5.6% | 6M +4.7% | 12M +26.3% | momentum 12-1 (excl. último mes) +37.0%
+  Máx. drawdown de la serie: -16.6% | Volatilidad realizada anualizada: 31.4%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  CSCO (Cisco Systems, Inc.): P/E Trailing 26.25x | Fwd N/A | Crec.Rev -5.6% | Mg.Op 24.1% | EV/EBITDA 17.9x
+  MSI (Motorola Solutions, Inc.): P/E Trailing 45.05x | Fwd N/A | Crec.Rev 8.4% | Mg.Op 24.9% | EV/EBITDA 28.7x
+  HPE (Hewlett Packard Enterprise Company): P/E Trailing 10.71x | Fwd N/A | Crec.Rev 3.4% | Mg.Op 8.3% | EV/EBITDA 6.7x
+  LITE (Lumentum Holdings Inc.): P/E Trailing N/A | Fwd N/A | Crec.Rev -23.1% | Mg.Op -26.6%
+  NOKBF (Nokia Oyj): P/E Trailing 17.72x | Fwd N/A | Crec.Rev -9.1% | Mg.Op 8.3% | EV/EBITDA 6.1x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 21.98x | Fwd N/A | Crec.Rev -5.6% | Mg.Op 8.3% | EV/EBITDA 12.3x
+  NOK vs cohorte: P/E trailing 17.5x vs mediana peers 22.0x; crec. rev -9.1% vs mediana peers -5.6%; margen op 8.3% vs mediana peers 8.3%; EV/EBITDA 6.0x vs mediana peers 12.3x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  NOK en P/E Trailing: percentil p25 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 21.98x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $22.39B | Crec. Ingresos YoY: -9.1% | Crec. Ganancias YoY: N/A
+Margen Bruto: 46.1% | Margen Operativo: 8.3% | Margen Neto: 6.6% | Margen EBITDA: 17.9%
+EBITDA: $4.00B | FCF: $2.35B | FCF Operativo: N/A
+ROE: 6.2% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Mobile Networks: 8.03B USD (YoY: -21% Y/Y)
+  Network Infrastructure1: 6.77B USD (YoY: -6% Y/Y)
+  Cloud and Network Services: 3.14B USD (YoY: -6% Y/Y)
+  Nokia Technologies: 2B USD (YoY: +78% Y/Y)
+  Group Common and Other: 0.03B USD (YoY: -77% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     19.97B USD (YoY: -9% Y/Y)
+  Costo de ingresos:    10.76B USD
+  Utilidad bruta:       9.21B USD (margen: 46.1%)
+  Gastos operativos:    7.13B USD
+    I+D:                4.69B USD
+    Ventas y marketing: 3B USD
+  Utilidad operativa:   2.08B USD (margen: 10.4%)
+  Ingreso no operativo: 0.1B USD
+  Impuestos:            0.39B USD
+  Utilidad neta:        1.33B USD (margen: 6.7%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $641.03M (2.9% de rev.) | OCF $1.57B | FCF $931.14M | Recompras $319.98M | Dividendos $376.51M | SBC $158.92M
+  FY2023: CAPEX $720.46M (3.2% de rev.) | OCF $1.46B | FCF $734.83M | Recompras $331.50M | Dividendos $686.21M | SBC $223.21M
+  FY2024: CAPEX $490.36M (2.2% de rev.) | OCF $2.59B | FCF $2.10B | Recompras $706.45M | Dividendos $751.12M | SBC $250.37M
+
+  Capital devuelto al accionista (período): recompras $1.36B + dividendos $1.81B = $3.17B (84% del FCF acumulado del período).
+  Stock-based comp acumulado: $632.51M (~0.9% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $5.90B | Caja Total: $8.41B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 3.0% | Payout Ratio: 53.0% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: N/A | Institucional: N/A
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+N/A
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-02-21 | JP Morgan | Mantiene: Overweight → Overweight
+  2025-01-06 | Craig-Hallum | Mantiene: Buy → Buy
+  2024-12-09 | JP Morgan | Upgrade: Neutral → Overweight
+  2024-10-21 | JP Morgan | Mantiene: Neutral → Neutral
+  2024-10-18 | Northland Capital Markets | Reitera: Outperform → Outperform
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $2.35B / Market Cap $26.52B): 8.9%
+  PEG: N/D  [falta P/E fwd o crecimiento]
+  Deuda neta (Deuda $5.90B − Caja $8.41B): $-2.51B
+  Deuda neta / EBITDA (EBITDA $4.00B): -0.63x
+  Target base: N/D — faltan estimaciones de EPS forward; derivá el target con otro método y explicitalo.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 8.9%]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): N/D (sin dato concluyente — no bloquea)
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.6%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

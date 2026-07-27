@@ -1,0 +1,179 @@
+Empresa a analizar: Royal Bank of Canada (RY)
+Fecha: 2025-07-18
+Sector: Financial Services | Industria: Banks - Diversified
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — BANCO: priorizá Net Interest Margin (NIM), eficiencia (efficiency ratio), provisiones para préstamos perdidos (provision for loan losses) y ratio CET1 si están disponibles. Los márgenes brutos/operativos típicos de manufactura no aplican; usá ROE/ROA y NIM como métricas de rentabilidad.
+INDUSTRY HINT — BANCO: la valuación se mide en P/Book más que P/E para bancos (P/B 1.0× es paridad con valor contable). ROE >12% suele justificar P/B premium. Mencioná price/tangible book si los datos permiten.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Royal Bank of Canada operates as a diversified financial service company worldwide. Its Personal Banking segment offers home equity financing, personal lending, chequing and savings accounts, private banking, auto financing, mutual funds, GICs, credit cards, and payment products and solutions. The company's Commercial Banking segments provides lending, deposit and transaction banking products and services. Its Wealth Management segment provides a suite of wealth, investment, trust, banking, credit, and other solutions to clients; asset management products to institutional and individual cli...
+
+---
+DATOS DE MERCADO
+Precio Actual: $130.79 (N/A hoy)
+Capitalización Bursátil: $184.56B
+Rango 52 semanas: $101.40 – $131.27
+Beta: 0.56
+Acciones en Circulación: $1.39B
+Short Interest (% float): 0.7%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 14.29x | P/E Forward: 11.53x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): N/Ax | P/Libro: 1.91x | EV/EBITDA: N/Ax
+EPS Trailing: 9.15
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (N/A analistas)
+Desglose: Compra Fuerte: 0 | Compra: 0 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $130.79 (260 ruedas de historia)
+  Rango 52 semanas: $101.40 – $131.27 | posición en el rango: 98% (-0.4% desde el máximo, +29.0% desde el mínimo)
+  Medias móviles: MM50: $126.10 (precio +3.7%) | MM200: $118.86 (precio +10.0%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +3.8% | 3M +15.9% | 6M +12.8% | 12M +24.4% | momentum 12-1 (excl. último mes) +19.9%
+  Máx. drawdown de la serie: -14.6% | Volatilidad realizada anualizada: 17.9%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  JPM (JPMorgan Chase & Co.): P/E Trailing 13.24x | Fwd N/A | Crec.Rev 9.3%
+  BAC (Bank of America Corporation): P/E Trailing 14.43x | Fwd N/A | Crec.Rev 3.0%
+  IDCBF (Industrial and Commercial Bank of China Limited): P/E Trailing 7.23x | Fwd N/A | Crec.Rev -2.5%
+  HSBC (HSBC Holdings plc): P/E Trailing 9.66x | Fwd N/A | Crec.Rev 4.4%
+  CICHY (China Construction Bank Corporation): P/E Trailing 5.73x | Fwd N/A | Crec.Rev -2.9%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 9.66x | Fwd N/A | Crec.Rev 3.0%
+  RY vs cohorte: P/E trailing 14.3x vs mediana peers 9.7x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  RY en P/E Trailing: percentil p80 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 9.66x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: N/A | Crec. Ingresos YoY: N/A | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: N/A | Margen EBITDA: N/A
+EBITDA: N/A | FCF: N/A | FCF Operativo: N/A
+ROE: N/A | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Net Interest Income: 20.1B USD
+  Other Net Revenue: 21.13B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     41.23B USD (YoY: +11% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+  Utilidad operativa:   14.28B USD (margen: 34.6%)
+  Impuestos:            2.6B USD
+  Utilidad neta:        11.68B USD (margen: 28.3%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance (originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y dividendos contra la utilidad neta y la solvencia regulatoria.
+
+  FY2022: CAPEX $1.83B | OCF $16.05B | FCF $14.22B | Recompras $8.25B | Dividendos $5.09B | SBC N/A
+  FY2023: CAPEX $1.97B | OCF $18.82B | FCF $16.85B | Recompras $2.94B | Dividendos $4.01B | SBC N/A
+  FY2024: CAPEX $1.64B | OCF $16.64B | FCF $15.00B | Recompras $5.53B | Dividendos $4.77B | SBC N/A
+
+  Capital devuelto al accionista (período): recompras $16.72B + dividendos $13.87B = $30.59B.
+
+---
+BALANCE
+Deuda Total: $365.89B | Caja Total: $83.52B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 3.2% | Payout Ratio: 45.4% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.0% | Institucional: 51.4%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 10.08 | Rev. Est. N/A (crec. 7.2%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2024-12-05 | BMO Capital | Mantiene: Outperform → Outperform
+  2024-08-29 | BMO Capital | Mantiene: Outperform → Outperform
+  2024-06-06 | Argus Research | Mantiene: Buy → Buy
+  2024-04-05 | BMO Capital | Upgrade: Market Perform → Outperform
+  2023-12-18 | B of A Securities | Upgrade: Neutral → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield: NO SIGNIFICATIVO para este perfil (bank) — el flujo de caja de una financiera está dominado por movimientos de balance (préstamos, depósitos, trading). NO lo uses como métrica de valuación ni como base de "capital devuelto vs FCF".
+  Valuación del perfil financiero: P/Libro 1.91x | ROE N/D | P/E trailing 14.29x
+  PEG (P/E fwd 11.53x ÷ crec. EPS 7.2%): 1.61x  [estimación forward +1y]
+  Deuda neta (Deuda $365.89B − Caja $83.52B): $282.37B
+  Deuda neta / EBITDA: no aplica a este perfil (bank) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 11.53x × EPS FY+1 10.08): $116.22 (-11.1% vs precio actual $130.79)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (P/B <1x, P/B <1.5x con ROE >10%, P/E <12x o PEG <1.5x): NO CUMPLE  [evaluada con: perfil financiero — P/B 1.91x, P/E trailing 14.3x, PEG 1.61x]
+    (b) Consenso analistas = buy / strong buy: N/D (sin dato concluyente — no bloquea)  [consenso: N/D]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (bank) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.7%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

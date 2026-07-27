@@ -21,6 +21,23 @@ const VW = 1440, VH = 780;
 const NX = 6, NY = 4;
 const cellW = VW / NX, cellH = VH / NY;
 
+// Fila del horizonte y su TRAMO RECTO: del vértice 3 al 5 comparten la y del 4
+// —el tramo entre ellos es perfectamente horizontal— y las dos puntas abren su
+// jitter al máximo hacia afuera, así el tramo cubre x ∈ [660, 1260] del lienzo.
+// Ahí se apoya el wordmark "BNG / SELECCIÓN GLOBAL": la línea dorada tiene que
+// cruzarlo RECTO, ni en diagonal ni con un quiebre en el medio.
+//
+// El rango no es a ojo, sale de la geometría del recorte:
+//  · en pantallas anchas no hay nada que pasear (el lienzo entra justo) y el
+//    centro de la marca cae SIEMPRE en x ≈ 1037 —0.72·W − W/2, dividido por la
+//    escala W/1440, da constante—, con medio ancho ≤ 127 → pide [910, 1164];
+//  · en tablet el hero queda bajo, el recorte deja poco margen y con lo poco
+//    que se puede pasear se llega apenas a ~683 → por eso el tramo arranca en el
+//    vértice 3 y no en el 4;
+//  · en angostas sobra medio edificio y se llega a cualquier lado.
+// El resto del horizonte conserva su quiebre de montaña.
+const HJ = NY / 2, RECTO = { desde: 3, hasta: 5, ancla: 4 };
+
 // Ruido determinista por hash entero. 0..1.
 function rand(a: number, b: number, salt: number): number {
   let h = (Math.imul(a + 1, 374761393) + Math.imul(b + 1, 668265263) + Math.imul(salt + 1, 374761397)) | 0;
@@ -29,11 +46,15 @@ function rand(a: number, b: number, salt: number): number {
   return (h >>> 0) / 4294967296;
 }
 // Vértice (i,j): los interiores se desplazan ±0.25 de celda; el borde queda
-// limpio (rectángulo exterior recto).
+// limpio (rectángulo exterior recto). Excepción: los vértices del tramo recto
+// (ver arriba), que copian la y del ancla, y sus dos puntas, que además abren
+// el jitter en x hacia afuera para estirar el tramo.
 function lat(i: number, j: number): [number, number] {
+  const recto = j === HJ && i >= RECTO.desde && i <= RECTO.hasta;
+  const punta = recto && (i === RECTO.desde ? -1 : i === RECTO.hasta ? 1 : 0);
   let x = i * cellW, y = j * cellH;
-  if (i > 0 && i < NX) x += (rand(i, j, 1) - 0.5) * cellW * 0.5;
-  if (j > 0 && j < NY) y += (rand(i, j, 2) - 0.5) * cellH * 0.5;
+  if (i > 0 && i < NX) x += punta ? punta * cellW * 0.25 : (rand(i, j, 1) - 0.5) * cellW * 0.5;
+  if (j > 0 && j < NY) y += (rand(recto ? RECTO.ancla : i, j, 2) - 0.5) * cellH * 0.5;
   return [x, y];
 }
 
@@ -61,9 +82,19 @@ for (let cj = 0; cj < NY; cj++) {
   }
 }
 
-// Horizonte: la fila central de la malla (j = NY/2), recorrida de borde a borde.
-const HJ = NY / 2;
-const horizonPts = Array.from({ length: NX + 1 }, (_, i) => lat(i, HJ).join(",")).join(" ");
+// Horizonte: la fila central de la malla (j = HJ), recorrida de borde a borde.
+/**
+ * Geometría PÚBLICA del horizonte (coordenadas del viewBox), para quien
+ * necesite anclar algo a la línea dorada. La usa `FondoHero`: la línea es marca
+ * —tiene que atravesar el wordmark "BNG / SELECCIÓN GLOBAL" siempre—, y como el
+ * horizonte es quebrado, dónde cae en pantalla depende del recorte del `slice`;
+ * el hero recalcula ese punto y encuadra el mosaico para hacerlo coincidir.
+ */
+export const FACHADA_VIEWBOX = { w: VW, h: VH };
+export const FACHADA_HORIZONTE: [number, number][] =
+  Array.from({ length: NX + 1 }, (_, i) => lat(i, HJ));
+
+const horizonPts = FACHADA_HORIZONTE.map((p) => p.join(",")).join(" ");
 
 /**
  * Mosaico estático (sin animación de entrada) posicionado en absoluto para
@@ -73,8 +104,14 @@ const horizonPts = Array.from({ length: NX + 1 }, (_, i) => lat(i, HJ).join(",")
  * 1–2px aunque el mosaico se reduzca ~4× a la miniatura del navbar, donde si no
  * los bordes de los paneles y el horizonte se volverían sub-pixel y se perderían.
  * El hero lo deja en false → los trazos escalan como siempre (apariencia intacta).
+ *
+ * `pan` pasea la VENTANA del viewBox por dentro del mosaico (en unidades del
+ * lienzo). Con `slice` el dibujo ya sobra fuera de la ventana, así que mientras
+ * el corrimiento no exceda esa sobra no destapa nada: sirve para elegir QUÉ
+ * tramo del edificio —y del horizonte— queda debajo de algo. Lo usa el hero
+ * para apoyar el wordmark en un tramo plano de la línea dorada.
  */
-export function Fachada({ className, crisp = false }: { className?: string; crisp?: boolean }) {
+export function Fachada({ className, crisp = false, pan }: { className?: string; crisp?: boolean; pan?: { x: number; y: number } }) {
   // Cada instancia del mosaico convive con el hero en la misma página (el navbar
   // es global): un id de pattern único evita que dos <pattern id> choquen.
   const uid = useId().replace(/:/g, "");
@@ -83,7 +120,13 @@ export function Fachada({ className, crisp = false }: { className?: string; cris
   return (
     <svg
       className={className}
-      viewBox={`0 0 ${VW} ${VH}`}
+      // El hero ajusta este viewBox con un script inline ANTES de hidratar (así
+      // el mosaico no salta al reencuadrarse), y la diferencia con el HTML del
+      // server es deliberada. Sólo tapa los atributos de este <svg>: las
+      // teselas de adentro se siguen chequeando —ahí sí un desajuste sería el
+      // bug de hidratación que documenta el encabezado.
+      viewBox={`${pan?.x ?? 0} ${pan?.y ?? 0} ${VW} ${VH}`}
+      suppressHydrationWarning
       preserveAspectRatio="xMidYMid slice"
       aria-hidden
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}

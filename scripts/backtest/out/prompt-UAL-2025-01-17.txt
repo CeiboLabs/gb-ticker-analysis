@@ -1,0 +1,182 @@
+Empresa a analizar: United Airlines Holdings, Inc. (UAL)
+Fecha: 2025-01-17
+Sector: Industrials | Industria: Airlines
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — AEROLÍNEA: priorizá load factor, RASM (Revenue per Available Seat Mile), CASM (Cost per ASM), fuel hedging, y capacity adds. Combustible suele ser 25-30% del costo; cualquier hedge o spike afecta margen directamente.
+INDUSTRY HINT — AEROLÍNEA: ciclo muy sensible a combustible y demanda business travel. EV/EBITDAR es relevante (R por leases). Margen operativo del 10%+ es bueno; >15% excepcional.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+United Airlines Holdings, Inc., through its subsidiaries, provides air transportation services in the United States, Canada, Atlantic, the Pacific, and Latin America. It transports people and cargo through its mainline and regional fleets. The company also offers ground handling, flight academy, frequent flyer award non-travel redemptions, and maintenance services for third parties. In addition, it provides freight and mail transportation services to commercial businesses, freight forwarders, logistics firms, and national postal services, as well as loyalty programs. The company distributes...
+
+---
+DATOS DE MERCADO
+Precio Actual: $107.38 (N/A hoy)
+Capitalización Bursátil: $34.85B
+Rango 52 semanas: $37.88 – $107.67
+Beta: 1.27
+Acciones en Circulación: $324.57M
+Short Interest (% float): 6.0%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 13.61x | P/E Forward: 7.34x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 0.65x | P/Libro: 3.74x | EV/EBITDA: 7.30x
+EPS Trailing: 7.89
+Precio Objetivo Medio Analistas: $92.78 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (17 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 17 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $107.38 (260 ruedas de historia)
+  Rango 52 semanas: $37.88 – $107.67 | posición en el rango: 100% (-0.3% desde el máximo, +183.5% desde el mínimo)
+  Medias móviles: MM50: $96.57 (precio +11.2%) | MM200: $62.92 (precio +70.7%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +12.5% | 3M +49.1% | 6M +131.5% | 12M +183.5% | momentum 12-1 (excl. último mes) +152.1%
+  Máx. drawdown de la serie: -31.2% | Volatilidad realizada anualizada: 42.3%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  DAL (Delta Air Lines, Inc.): P/E Trailing 9.00x | Fwd N/A | Crec.Rev 14.8% | Mg.Op 9.5% | EV/EBITDA 7.6x
+  RYAAY (Ryanair Holdings plc): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 24.8% | Mg.Op 15.3% | EV/EBITDA 6.0x
+  ICAGY (International Consolidated Airlines Group S.A.): P/E Trailing 7.16x | Fwd N/A | Crec.Rev 27.7% | Mg.Op 12.0% | EV/EBITDA 4.2x
+  LUV (Southwest Airlines Co.): P/E Trailing 33.74x | Fwd N/A | Crec.Rev 9.6% | Mg.Op 0.9% | EV/EBITDA 5.6x
+  SINGF (Singapore Airlines Limited): P/E Trailing 7.25x | Fwd N/A | Crec.Rev 7.0% | Mg.Op 14.3% | EV/EBITDA 3.7x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 9.00x | Fwd N/A | Crec.Rev 14.8% | Mg.Op 12.0% | EV/EBITDA 5.6x
+  UAL vs cohorte: P/E trailing 13.6x vs mediana peers 9.0x; crec. rev 19.5% vs mediana peers 14.8%; margen op 9.6% vs mediana peers 12.0%; EV/EBITDA 7.3x vs mediana peers 5.6x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  UAL en P/E Trailing: percentil p80 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 9.00x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $53.72B | Crec. Ingresos YoY: 19.5% | Crec. Ganancias YoY: N/A
+Margen Bruto: 28.3% | Margen Operativo: 9.6% | Margen Neto: 4.9% | Margen EBITDA: 14.6%
+EBITDA: $7.83B | FCF: $-260,000,000 | FCF Operativo: N/A
+ROE: 28.1% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Passenger: 13.56B USD (YoY: +2% Y/Y)
+  Passenger - Ancillary Fees: 1.1B USD (YoY: +0% Y/Y)
+  Other: 0.18B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     14.84B USD (YoY: +2% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    13.28B USD
+    Ventas y marketing: 0.57B USD
+    Otros:              2.95B USD
+  Utilidad operativa:   1.56B USD (margen: 10.5%)
+  Impuestos:            0.32B USD
+  Utilidad neta:        0.96B USD (margen: 6.5%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $4.82B (9.0% de rev.) | OCF $6.07B | FCF $1.25B | Recompras N/A | Dividendos N/A | SBC N/A
+  FY2023: CAPEX $7.17B (13.3% de rev.) | OCF $6.91B | FCF $-260,000,000 | Recompras N/A | Dividendos N/A | SBC N/A
+
+---
+BALANCE
+Deuda Total: $36.74B | Caja Total: $14.39B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: N/A | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.5% | Institucional: 78.7%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 12.15 | Rev. Est. N/A (crec. 19.0%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+business outlook (including certain financial and operational guidance) and is furnished with this press release to the U.S. Securities and Exchange Commission on a Current Report on Form 8-K. The Investor Update is also available at ir.united.com. Management will also discuss certain business outlook items, including providing certain full year 2024 financial targets, during the quarterly earnings conference call. The company's business outlook is subject to
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-09 | JP Morgan | Mantiene: Overweight → Overweight
+  2025-01-07 | Susquehanna | Mantiene: Positive → Positive
+  2025-01-07 | UBS | Mantiene: Buy → Buy
+  2024-12-30 | Raymond James | Mantiene: Outperform → Outperform
+  2024-12-11 | Morgan Stanley | Mantiene: Overweight → Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2024-11-22 | Jojo Linda P (EVP & Chief Customer Officer) | Sale at price 95.13 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $5.71M
+  2024-11-01 | Gebo Kate (EVP HR and Labor Relations) | Sale at price 80.44 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.41M
+  2024-11-01 | Gebo Kate (EVP HR and Labor Relations) | Sale at price 80.65 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.41M
+  2024-10-17 | Enqvist Torbjorn J (EVP & Chief Operations Officer) | Sale at price 72.00 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.04M
+
+  Patrón neto: vendedor neto discrecional
+  Total compras discrecionales: $0 | Ventas discrecionales: $9.57M | Mecánicas: $0
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $-260.00M / Market Cap $34.85B): -0.7%
+  PEG (P/E fwd 7.34x ÷ crec. EPS 19.0%): 0.39x  [estimación forward +1y]
+  Deuda neta (Deuda $36.74B − Caja $14.39B): $22.35B
+  Deuda neta / EBITDA (EBITDA $7.83B): 2.85x
+  Target base (P/E fwd 7.34x × EPS FY+1 12.15): $89.18 (-16.9% vs precio actual $107.38)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield -0.7%, PEG 0.39x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: vendedor neto discrecional; short: 6.0%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

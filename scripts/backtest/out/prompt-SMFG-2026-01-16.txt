@@ -1,0 +1,173 @@
+Empresa a analizar: Sumitomo Mitsui Financial Group, Inc. (SMFG)
+Fecha: 2026-01-16
+Sector: Financial Services | Industria: Banks - Diversified
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — BANCO: priorizá Net Interest Margin (NIM), eficiencia (efficiency ratio), provisiones para préstamos perdidos (provision for loan losses) y ratio CET1 si están disponibles. Los márgenes brutos/operativos típicos de manufactura no aplican; usá ROE/ROA y NIM como métricas de rentabilidad.
+INDUSTRY HINT — BANCO: la valuación se mide en P/Book más que P/E para bancos (P/B 1.0× es paridad con valor contable). ROE >12% suele justificar P/B premium. Mencioná price/tangible book si los datos permiten.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Sumitomo Mitsui Financial Group, Inc., together with its subsidiaries, provides banking, leasing, securities, consumer finance, and other services in Japan, the Americas, Europe, the Middle East, Asia, and Oceania. It operates through Wholesale Business Unit, Retail Business Unit, Global Business Unit, and Global Markets Business Unit segments. The Wholesale Business Unit segment offers bilateral loans, syndicated loans, commitment lines, structured finance, project finance, and nonrecourse loans; deposits and investment trusts; risk hedging services, including forward exchange contracts an...
+
+---
+DATOS DE MERCADO
+Precio Actual: $21.31 (N/A hoy)
+Capitalización Bursátil: $135.39B
+Rango 52 semanas: $12.23 – $21.36
+Beta: 1.03
+Acciones en Circulación: $6.35B
+Short Interest (% float): 0.0%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 15.67x | P/E Forward: 14.26x | CAPE (Shiller P/E): 16.4x (4yr avg EPS)
+P/Ventas (TTM): N/Ax | P/Libro: 1.41x | EV/EBITDA: N/Ax
+EPS Trailing: 1.36
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (N/A analistas)
+Desglose: Compra Fuerte: 0 | Compra: 0 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2026-01-16: $21.31 (260 ruedas de historia)
+  Rango 52 semanas: $12.23 – $21.36 | posición en el rango: 99% (-0.2% desde el máximo, +74.2% desde el mínimo)
+  Medias móviles: MM50: $18.63 (precio +14.4%) | MM200: $16.17 (precio +31.8%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +11.2% | 3M +35.0% | 6M +46.7% | 12M +44.6% | momentum 12-1 (excl. último mes) +30.1%
+  Máx. drawdown de la serie: -25.7% | Volatilidad realizada anualizada: 31.1%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+N/A — datos de peers no disponibles.
+Mediana peers — P/E Trailing: N/Ax | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: N/A | Crec. Ingresos YoY: N/A | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: N/A | Margen EBITDA: N/A
+EBITDA: N/A | FCF: N/A | FCF Operativo: N/A
+ROE: N/A | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+AVISO DE FRESCURA: La empresa ya reportó resultados para el trimestre que terminó 2025-09-30, pero el filing de SEC EDGAR con el desglose completo aún no está procesado. Las cifras del estado de resultados a continuación corresponden al trimestre anterior (2025-03-31). IMPORTANTE: en la sección "recentEarnings" referite al reporte de 2025-09-30 como el MÁS RECIENTE (usando el HISTORIAL DE RESULTADOS / EPS para esa fecha) y trata el desglose del Sankey como contexto del trimestre previo. NO escribas frases como "el próximo reporte será clave" si los resultados ya fueron publicados.
+
+Período: FY2025
+
+Segmentos de ingresos:
+  Net Interest Income: 16.82B USD
+  Noninterest Income: 8.81B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     25.63B USD (YoY: +23% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+    Ventas y marketing: 16.2B USD
+  Utilidad operativa:   4.38B USD (margen: 17.1%)
+  Impuestos:            0.92B USD
+  Utilidad neta:        3.46B USD (margen: 13.5%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance (originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y dividendos contra la utilidad neta y la solvencia regulatoria.
+
+  FY2023: CAPEX $2.25B | OCF $-44,272,839,350 | FCF $-46,519,298,140 | Recompras $1.04B | Dividendos $2.27B | SBC N/A
+  FY2024: CAPEX $2.59B | OCF $4.25B | FCF $1.66B | Recompras $1.40B | Dividendos $2.30B | SBC N/A
+  FY2025: CAPEX $2.45B | OCF $32.44B | FCF $29.98B | Recompras $1.68B | Dividendos $2.76B | SBC N/A
+
+  Capital devuelto al accionista (período): recompras $4.12B + dividendos $7.32B = $11.45B.
+
+---
+BALANCE
+Deuda Total: $200.55B | Caja Total: $458.82B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 1.2% | Payout Ratio: 18.4% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 1.6%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+  2025-06-30 | EPS Real: 97.46 | EPS Est: 88.86 | Sorpresa: +9.7%
+  2025-09-30 | EPS Real: 144.57 | EPS Est: 102.31 | Sorpresa: +41.3%
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 1.15 | Rev. Est. N/A (crec. 9.4%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2018-11-13 | Citigroup | Inicio cobertura: Neutral
+  2014-02-07 | Stifel | Downgrade: Buy → Hold
+  2012-12-06 | Morgan Stanley | Upgrade: Equal-Weight → Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield: NO SIGNIFICATIVO para este perfil (bank) — el flujo de caja de una financiera está dominado por movimientos de balance (préstamos, depósitos, trading). NO lo uses como métrica de valuación ni como base de "capital devuelto vs FCF".
+  Valuación del perfil financiero: P/Libro 1.41x | ROE N/D | P/E trailing 15.67x
+  PEG (P/E fwd 14.26x ÷ crec. EPS 9.4%): 1.52x  [estimación forward +1y]
+  Deuda neta (Deuda $200.55B − Caja $458.82B): $-258.27B
+  Deuda neta / EBITDA: no aplica a este perfil (bank) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 14.26x × EPS FY+1 1.15): $16.40 (-23.0% vs precio actual $21.31)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (P/B <1x, P/B <1.5x con ROE >10%, P/E <12x o PEG <1.5x): NO CUMPLE  [evaluada con: perfil financiero — P/B 1.41x, P/E trailing 15.7x, PEG 1.52x]
+    (b) Consenso analistas = buy / strong buy: N/D (sin dato concluyente — no bloquea)  [consenso: N/D]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (bank) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.0%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

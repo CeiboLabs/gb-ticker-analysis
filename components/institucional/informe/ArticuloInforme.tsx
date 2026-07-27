@@ -222,7 +222,7 @@ export function ArticuloInforme({
                 </Link>
                 <Link href="/bng-seleccion-global" className="inf-mas-item">
                   <span className="inf-mas-k">El fondo</span>
-                  <span className="inf-mas-d">BNG Selección Global — la casa, en un solo vehículo.</span>
+                  <span className="inf-mas-d">BNG Selección Global — nosotros, en un solo vehículo.</span>
                 </Link>
                 <Link href="/contacto" className="inf-mas-item">
                   <span className="inf-mas-k">Hablar con un asesor</span>

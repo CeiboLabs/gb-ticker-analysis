@@ -1,0 +1,183 @@
+Empresa a analizar: Alaska Air Group, Inc. (ALK)
+Fecha: 2025-01-17
+Sector: Industrials | Industria: Airlines
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — AEROLÍNEA: priorizá load factor, RASM (Revenue per Available Seat Mile), CASM (Cost per ASM), fuel hedging, y capacity adds. Combustible suele ser 25-30% del costo; cualquier hedge o spike afecta margen directamente.
+INDUSTRY HINT — AEROLÍNEA: ciclo muy sensible a combustible y demanda business travel. EV/EBITDAR es relevante (R por leases). Margen operativo del 10%+ es bueno; >15% excepcional.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Alaska Air Group, Inc., through its subsidiaries, operates airlines. It operates through three segments: Alaska Airlines, Hawaiian Airlines, and Regional. The company offers scheduled air transportation services on Boeing jet aircraft for passengers and cargo; and Horizon's and other third-party carriers scheduled air transportation services. It operates in the United States, Canada, Mexico, Costa Rica, Guatemala, Belize, the Bahamas, the South Pacific, Australia, New Zealand, and Asia. Alaska Air Group, Inc. was founded in 1932 and is based in Seattle, Washington.
+
+---
+DATOS DE MERCADO
+Precio Actual: $66.34 (N/A hoy)
+Capitalización Bursátil: $7.39B
+Rango 52 semanas: $32.92 – $68.18
+Beta: 0.79
+Acciones en Circulación: $111.43M
+Short Interest (% float): 5.9%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 36.25x | P/E Forward: N/Ax | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 0.71x | P/Libro: 1.80x | EV/EBITDA: 10.85x
+EPS Trailing: 1.83
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (14 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 12 | Neutral: 2 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $66.34 (260 ruedas de historia)
+  Rango 52 semanas: $32.92 – $68.18 | posición en el rango: 95% (-2.7% desde el máximo, +101.5% desde el mínimo)
+  Medias móviles: MM50: $59.20 (precio +12.1%) | MM200: $45.54 (precio +45.7%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +4.6% | 3M +43.0% | 6M +78.1% | 12M +97.4% | momentum 12-1 (excl. último mes) +88.6%
+  Máx. drawdown de la serie: -27.7% | Volatilidad realizada anualizada: 34.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  DAL (Delta Air Lines, Inc.): P/E Trailing 9.00x | Fwd N/A | Crec.Rev 14.8% | Mg.Op 9.5% | EV/EBITDA 7.6x
+  UAL (United Airlines Holdings, Inc.): P/E Trailing 13.61x | Fwd N/A | Crec.Rev 19.5% | Mg.Op 9.6% | EV/EBITDA 7.3x
+  RYAAY (Ryanair Holdings plc): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 24.8% | Mg.Op 15.3% | EV/EBITDA 6.0x
+  ICAGY (International Consolidated Airlines Group S.A.): P/E Trailing 7.16x | Fwd N/A | Crec.Rev 27.7% | Mg.Op 12.0% | EV/EBITDA 4.2x
+  LUV (Southwest Airlines Co.): P/E Trailing 33.74x | Fwd N/A | Crec.Rev 9.6% | Mg.Op 0.9% | EV/EBITDA 5.6x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 11.89x | Fwd N/A | Crec.Rev 19.5% | Mg.Op 9.6% | EV/EBITDA 6.0x
+  ALK vs cohorte: P/E trailing 36.3x vs mediana peers 11.9x; crec. rev 8.1% vs mediana peers 19.5%; margen op 8.0% vs mediana peers 9.6%; EV/EBITDA 10.9x vs mediana peers 6.0x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  ALK en P/E Trailing: percentil p100 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 11.89x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $10.43B | Crec. Ingresos YoY: 8.1% | Crec. Ganancias YoY: N/A
+Margen Bruto: 17.9% | Margen Operativo: 8.0% | Margen Neto: 2.3% | Margen EBITDA: 8.3%
+EBITDA: $868.00M | FCF: $-444,000,000 | FCF Operativo: N/A
+ROE: 5.7% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Air Group Adjusted: 3.07B USD (YoY: +8% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     3.07B USD (YoY: +8% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    2.73B USD
+    Ventas y marketing: 0.08B USD
+    Otros:              0.62B USD
+  Utilidad operativa:   0.34B USD (margen: 11.1%)
+  Impuestos:            0.09B USD
+  Utilidad neta:        0.24B USD (margen: 7.7%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $1.67B (16.0% de rev.) | OCF $1.42B | FCF $-253,000,000 | Recompras N/A | Dividendos N/A | SBC $42.00M
+  FY2023: CAPEX $1.49B (14.3% de rev.) | OCF $1.05B | FCF $-444,000,000 | Recompras $137.00M | Dividendos N/A | SBC $85.00M
+
+  Capital devuelto al accionista (período): recompras $137.00M + dividendos $0 = $137.00M.
+  Stock-based comp acumulado: $127.00M (~0.6% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $3.82B | Caja Total: $1.79B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: N/A | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: N/A | Institucional: N/A
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+N/A
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+2024 Guidance: For the fourth quarter, we expect the following results, inclusive of Hawaiian. Expectations for the fourth quarter are compared to pro forma historical results, as if the acquisition had occurred on January 1, 2023. Pro forma historical results were included with this Form 8-K. Full year 2024 EPS is expected finish above the midpoint of our previous guidance of $3.50 to $4.50 per share, inclusive of Hawaiian's results. Q4 Expectation Capacity (ASMs) % change versus 2023 Up 1.5% to 2.5% CASMex % change versus 2023 Up high single digits RASM % change versus 2023 Up mid single digits Economic fuel cost per gallon $2.55 to $2.65 Adjusted earnings per share (a) $0.20 to $0.40 (a) Earnings per share guidance assumes non-operating expense of approximately $50 million and a tax rate of approximately 28%. 3 Financial Results and Updates: • Reported net income for the third quarter of 2024 under Generally Accepted Accounting Principles ("GAAP") of $236 million, or $1.84 per share, compared to net income of $139 million, or $1.08 per share, for the third quarter of 2023. • Reported net income for the third quarter of 2024, excluding special items and mark-to-market fuel hedge…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-17 | B of A Securities | Mantiene: Buy → Buy
+  2025-01-14 | Goldman Sachs | Mantiene: Buy → Buy
+  2025-01-07 | UBS | Mantiene: Buy → Buy
+  2024-12-16 | Citigroup | Mantiene: Buy → Buy
+  2024-12-11 | JP Morgan | Mantiene: Overweight → Overweight
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2024-12-19 | SCHNEIDER ANDREA L (SVP PEOPLE) | Sale at price 63.89 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $51,112
+  2024-12-18 | SPRAGUE JOSEPH A (Insider) | Sale at price 64.38 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $149,685.59
+  2024-12-18 | HALVERSON EMILY (VP Finance, Controller & Treas) | Sale at price 64.41 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $85,602.62
+  2024-12-17 | LEVINE KYLE B (SVP LEGAL & GEN COUNSEL) | Sale at price 63.50 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $218,381.31
+  2024-12-16 | MINICUCCI BENITO (CEO AND PRESIDENT) | Gift [GRANT · compensación, no señal]
+
+  Patrón neto: vendedor neto discrecional
+  Total compras discrecionales: $0 | Ventas discrecionales: $504,781.52 | Mecánicas: $0
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $-444.00M / Market Cap $7.39B): -6.0%
+  PEG: N/D  [falta P/E fwd o crecimiento]
+  Deuda neta (Deuda $3.82B − Caja $1.79B): $2.03B
+  Deuda neta / EBITDA (EBITDA $868.00M): 2.34x
+  Target base: N/D — faltan estimaciones de EPS forward; derivá el target con otro método y explicitalo.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield -6.0%]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): N/D (sin dato concluyente — no bloquea)
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: vendedor neto discrecional; short: 5.9%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

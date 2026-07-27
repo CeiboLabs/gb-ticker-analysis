@@ -15,6 +15,14 @@ export interface ForwardEstimate {
   epsEstimate: number | null;
   revenueEstimate: number | null;
   growth: number | null;
+  // Momentum de revisiones (earningsTrend.epsRevisions/epsTrend de Yahoo):
+  // cuántos analistas revisaron su estimación de EPS al alza/baja en los
+  // últimos 30 días, y la estimación promedio tal como estaba hace 30/90 días
+  // (para medir la deriva del consenso, señal adelantada de resultados).
+  revisionsUp30d: number | null;
+  revisionsDown30d: number | null;
+  epsTrend30dAgo: number | null;
+  epsTrend90dAgo: number | null;
 }
 
 export interface AnalystAction {
@@ -33,11 +41,30 @@ export interface InsiderTransaction {
   value: number | null;
 }
 
+// Insumos anuales para los factores de calidad (Novy-Marx gross profitability,
+// Sloan accruals, Cooper-Gulen-Schill asset growth, net share issuance). Cifras
+// crudas en moneda local — los factores son RATIOS (FX-invariantes), así que no
+// se convierten. Se guardan los 2 últimos FY (ascendente) porque asset growth y
+// net issuance son YoY.
+export interface QualityAnnual {
+  year: string; // "YYYY"
+  totalAssets: number | null;
+  grossProfit: number | null;
+  netIncome: number | null;
+  operatingCashFlow: number | null;
+  sharesOutstanding: number | null;
+}
+
 export interface CashFlowYear {
   year: string; // "YYYY" (fiscal year end)
   capitalExpenditure: number | null;
   operatingCashFlow: number | null;
   freeCashFlow: number | null;
+  // Capital allocation (from Yahoo fundamentalsTimeSeries cash-flow statement).
+  // Yahoo signs financing outflows negative; stored raw, abs()'d at format time.
+  repurchases: number | null;    // common share buybacks (outflow, negative)
+  dividendsPaid: number | null;  // common dividends paid (outflow, negative)
+  stockBasedComp: number | null; // SBC add-back (positive) — dilution signal
 }
 
 // Latest quarterly income statement from Yahoo's fundamentalsTimeSeries
@@ -76,6 +103,12 @@ export interface PeerMultiple {
   name: string;
   trailingPE: number | null;
   forwardPE: number | null;
+  // Enriched (best-effort quoteSummary; null when enrichment timed out/failed).
+  // Lets valuationSnapshot judge a premium/discount growth-adjusted instead of
+  // on P/E alone (a 25x P/E growing 20% is cheaper than a 20x growing 5%).
+  revenueGrowth: number | null;   // YoY, fraction
+  operatingMargin: number | null; // fraction
+  evToEbitda: number | null;
 }
 
 export interface PeerComparison {
@@ -182,6 +215,9 @@ export interface StockData {
 
   // Annual cash flow history (last 5 fiscal years) for CAPEX trend analysis
   annualCashFlow: CashFlowYear[] | null;
+
+  // Insumos anuales para los factores de calidad (últimos 2 FY, ascendente).
+  qualityAnnual?: QualityAnnual[] | null;
 
   // Recent news headlines (from Yahoo Finance search)
   recentNews?: NewsItem[];

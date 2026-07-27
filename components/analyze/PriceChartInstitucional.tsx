@@ -4,18 +4,73 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { RevenueQuarter } from "@/types/StockData";
 import type { ChartRange, ChartRangePayload } from "@/lib/fetchChartRange";
 import { QuarterBarSeries } from "@/components/QuarterBarSeries";
-import { PinnedMarkersPrimitive } from "@/components/PinnedMarkersPrimitive";
+import { DragRangePrimitive } from "@/components/DragRangePrimitive";
+import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
+import {
+  attachDragRange,
+  chronological,
+  type DragRangeSelection,
+} from "@/components/dragRange";
 import { SessionShadingPrimitive, type SessionBounds } from "@/components/SessionShadingPrimitive";
-
-interface PinnedMarker {
-  time: string | number;
-  price: number;
-}
+import { PeriodSlider } from "@/components/institucional/PeriodSlider";
 
 interface Props {
   ticker: string;
   historicalPrices: { time: string; value: number }[] | null;
   quarterlyRevenue?: RevenueQuarter[] | null;
+  /** Moneda de cotización — rotula la unidad de los ejes. Viene del upstream
+   *  (puede no ser USD en listados no estadounidenses), no se asume. */
+  currency?: string;
+  /** Último precio del informe (snapshot congelado, no un fetch vivo). */
+  price?: number | null;
+  /** Variación del día del snapshot — vs cierre previo, que la serie intradía
+   *  no contiene: por eso en 1D no se deriva del gráfico. */
+  change1dPct?: number | null;
+  /** Momento al que corresponde el precio (ya formateado por el informe). */
+  asOf?: string | null;
+}
+
+// Glosa del período bajo el chip: qué ventana mide el porcentaje. Sin ambigüedad
+// de "en el año" (que se lee YTD) — son ventanas móviles hasta hoy.
+// Cubre el tipo completo de ChartRange aunque el slider exponga sólo cuatro.
+const RANGE_GLOSS: Record<ChartRange, string> = {
+  "1D": "hoy",
+  "5D": "últimos 5 días",
+  "1M": "último mes",
+  "3M": "últimos 3 meses",
+  "1Y": "último año",
+  "3Y": "últimos 3 años",
+};
+
+function fmtNumUY(n: number, dec = 2): string {
+  const [whole, frac] = n.toFixed(dec).split(".");
+  const withSep = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return frac ? `${withSep},${frac}` : withSep;
+}
+
+function fmtPctUY(n: number | null): string {
+  if (n == null) return "—";
+  return `${n >= 0 ? "+" : "−"}${fmtNumUY(Math.abs(n))} %`;
+}
+
+// Día calendario en horario de Nueva York: la rueda es de allá, no del reloj de
+// quien lee. Desde Montevideo (-03) el día coincide, pero no desde cualquier huso.
+function etDayKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+}
+
+// "viernes 24 de julio" — sin la coma que mete es-UY, para que encadene detrás
+// de "Rueda del".
+function fmtSessionDate(d: Date): string {
+  return new Intl.DateTimeFormat("es-UY", {
+    timeZone: "America/New_York",
+    weekday: "long", day: "numeric", month: "long",
+  })
+    .format(d)
+    .replace(",", "");
 }
 
 const RANGES: { id: ChartRange; label: string }[] = [
@@ -36,55 +91,111 @@ const PALETTE = {
   ruleSoft: "#ECEDF6",
   navy: "#03065E",
   navy300: "#6B70B8",
-  gold: "#EBD288",
-  goldSoft: "rgba(235, 210, 136, 0.35)",
+  // Revenue bars: light azure, tonal with the navy price line (same cool family)
+  // but far lighter, so the line reads clearly on top and the bars recede as a
+  // background data layer — never confused with the price. Also keeps the doc's
+  // rule that gold is accent-only, never a large filled surface.
+  revenueFill: "rgba(120, 168, 224, 0.32)",
+  revenueEdge: "#5B93C9",
   pos: "#1F6B45",
   neg: "#8E2A2A",
+  neu: "#5C5F7A",
 };
-
-// Marker colors picked to (a) contrast against the navy price line so the
-// pinned dot is visible on top of it, (b) sit clearly apart from the
-// gold-soft revenue bars in 3A, and (c) carry white axis labels with
-// >=4.5:1 contrast. FT-style teal + muted coral — the cool/warm accent
-// pair used by FT, Bloomberg and Datawrapper for non-semantic
-// comparison markers (red/green is reserved for the diff readout).
-const MARKER_COLORS = ["#0D7680", "#C24A3A"] as const;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LineSeriesApi = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PriceLineApi = any;
 
-function syncPinnedVisuals(
-  points: PinnedMarker[],
-  series: LineSeriesApi,
-  primitive: PinnedMarkersPrimitive,
-  dashedStyle: number,
-  existingPriceLines: PriceLineApi[],
-): PriceLineApi[] {
-  for (const pl of existingPriceLines) series.removePriceLine(pl);
+// ── Color de la serie según el signo del período ────────────────────────────
 
-  primitive.setMarkers(
-    points.map((p, i) => ({
-      time: p.time as unknown as import("lightweight-charts").Time,
-      price: p.price,
-      color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
-    })),
-  );
+/** rgba a partir del hex del sistema: el color vive UNA sola vez en PALETTE y de
+ *  ahí salen las versiones con alfa, en vez de repetirlo en dos notaciones que
+ *  después se desincronizan. */
+function rgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
-  return points.map((p, i) => {
-    const color = MARKER_COLORS[i] ?? MARKER_COLORS[0];
-    return series.createPriceLine({
-      price: p.price,
-      color,
-      lineWidth: 1,
-      lineStyle: dashedStyle,
-      axisLabelVisible: true,
-      axisLabelColor: color,
-      axisLabelTextColor: PALETTE.paper,
-      title: "",
-    });
-  });
+/** Aclara un color mezclándolo con papel. Da el tono del tramo extendido
+ *  (pre-market) a partir del color de la rueda, sin una segunda tabla de
+ *  colores que mantener. */
+function lighten(hex: string, t: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * t);
+  const out = (mix((n >> 16) & 255) << 16) | (mix((n >> 8) & 255) << 8) | mix(n & 255);
+  return `#${out.toString(16).padStart(6, "0")}`;
+}
+
+/** Toda la tinta de la serie de precio, derivada de UN color base.
+ *
+ *  El base es el del signo del período que se está mirando —el mismo número que
+ *  muestra el chip de arriba, no otro cálculo—: verde bosque si el tramo cierra
+ *  en positivo, oxblood si cierra en negativo. Sin dato todavía (cargando, o
+ *  serie de un solo punto) vuelve al navy: no se pinta un signo que no se sabe.
+ *
+ *  La sombra va acotada a pocos píxeles bajo la curva a propósito (ver
+ *  LineShadowPrimitive): un relleno hasta el eje —la otra convención de market
+ *  data— le pasaría por encima a las barras de revenue y dejaría cada barra de
+ *  dos tonos según la cruce o no la línea. El tramo extendido (pre-market) lleva
+ *  su versión aclarada, para que la cinta no corte en seco al abrir la rueda. */
+function seriesInk(dir: "up" | "down" | null) {
+  const base = dir === "up" ? PALETTE.pos : dir === "down" ? PALETTE.neg : PALETTE.navy;
+  // El navy tiene su propio token para el tramo extendido; los del signo se
+  // derivan con la misma distancia al papel.
+  const ext = dir === null ? PALETTE.navy300 : lighten(base, 0.45);
+  return {
+    line: base,
+    ext,
+    shadow: rgba(base, 0.42),
+    shadowExt: rgba(ext, 0.38),
+    // Banda y bordes del tramo medido: el mismo color, en wash.
+    band: rgba(base, 0.07),
+    edge: rgba(base, 0.32),
+  };
+}
+
+/** Ancla cada trimestre de revenue al punto de precio más cercano de la serie.
+ *
+ *  POR QUÉ: el revenue viene estampado a cierre de trimestre (31-mar, 30-jun…) y
+ *  la serie de 3A es SEMANAL, así que esas fechas casi nunca son un cierre de la
+ *  serie. lightweight-charts funde los tiempos de todas las series en una sola
+ *  escala de índices: cada fecha suelta de revenue creaba un índice donde la
+ *  línea de precio no tiene dato, y ahí la librería esconde el marcador del
+ *  crosshair. Como cada barra termina en su propia fecha, ese índice cae justo
+ *  en el hueco entre dos barras — pasabas el cursor por el hueco y el punto
+ *  desaparecía. Anclando, todo índice de la escala tiene precio.
+ *
+ *  El corrimiento es de días sobre una ventana de tres años: la barra sigue
+ *  ocupando su trimestre. Si la serie no tiene fechas diarias (caso intradía,
+ *  donde el revenue ni se dibuja) devuelve los trimestres tal cual. */
+export function anchorQuartersToPriceTimes(
+  quarters: RevenueQuarter[],
+  prices: { time: string | number }[],
+): RevenueQuarter[] {
+  const points = prices
+    .filter((p): p is { time: string } => typeof p.time === "string")
+    .map((p) => ({ time: p.time, ms: Date.parse(p.time) }))
+    .filter((p) => Number.isFinite(p.ms))
+    .sort((a, b) => a.ms - b.ms);
+  if (points.length === 0) return quarters;
+
+  const taken = new Set<string>();
+  const anchored: RevenueQuarter[] = [];
+  for (const q of quarters) {
+    const target = Date.parse(q.time);
+    if (!Number.isFinite(target)) continue;
+
+    let best = points[0];
+    for (const p of points) {
+      if (Math.abs(p.ms - target) < Math.abs(best.ms - target)) best = p;
+    }
+    // Dos trimestres cayendo en el mismo cierre exigiría un hueco de meses en la
+    // serie; si pasara, gana el primero: tiempos repetidos hacen que
+    // lightweight-charts tire al hacer setData.
+    if (taken.has(best.time)) continue;
+    taken.add(best.time);
+    anchored.push({ ...q, time: best.time });
+  }
+  return anchored;
 }
 
 function fmtRevenue(value: number): string {
@@ -118,20 +229,36 @@ function fmtTime(time: string | number): string {
   return `${day} ${month} '${year}`;
 }
 
-export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRevenue }: Props) {
+export function PriceChartInstitucional({
+  ticker,
+  historicalPrices,
+  quarterlyRevenue,
+  currency = "USD",
+  price = null,
+  change1dPct = null,
+  asOf = null,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<ChartRange>("3Y");
   const [cache, setCache] = useState<Map<ChartRange, ChartRangePayload>>(() => new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pinned, setPinned] = useState<PinnedMarker[]>([]);
-  const pinnedRef = useRef<PinnedMarker[]>([]);
-  useEffect(() => {
-    pinnedRef.current = pinned;
-  }, [pinned]);
-  const primitiveRef = useRef<PinnedMarkersPrimitive | null>(null);
+  // Tramo medido con el gesto de arrastre. `null` = nada seleccionado. El ref lo
+  // escribe el propio gesto (ver `onSelection`): el estado sólo alimenta la
+  // lectura numérica, y el ref repone el tramo si hay que recrear el gráfico.
+  const [selection, setSelection] = useState<DragRangeSelection | null>(null);
+  const selectionRef = useRef<DragRangeSelection | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const primitiveRef = useRef<DragRangePrimitive | null>(null);
   const lineSeriesRef = useRef<LineSeriesApi>(null);
-  const priceLinesRef = useRef<PriceLineApi[]>([]);
+
+  // Reset del tramo: limpia ref y estado a la vez. Se usa cuando cambia la serie
+  // por afuera del gesto —otro rango, otro ticker—, casos que además recrean el
+  // gráfico: si el ref quedara con el tramo viejo, el nuevo lo repondría.
+  const resetSelection = useCallback(() => {
+    selectionRef.current = null;
+    setSelection(null);
+  }, []);
 
   useEffect(() => {
     const initial = new Map<ChartRange, ChartRangePayload>();
@@ -146,10 +273,10 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
     /* eslint-disable react-hooks/set-state-in-effect */
     setCache(initial);
     setRange("3Y");
-    setPinned([]);
     setError(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [historicalPrices, ticker]);
+    resetSelection();
+  }, [historicalPrices, ticker, resetSelection]);
 
   useEffect(() => {
     if (cache.has(range)) return;
@@ -192,6 +319,19 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
   const hasIntradayTimes =
     !!prices && prices.length > 0 && typeof prices[0].time === "number";
 
+  // Qué rueda se está graficando en 1D. La serie se ancla en el último día CON
+  // barras, así que de noche y los fines de semana muestra la anterior: sin
+  // rótulo, un eje que va de 05:00 a 21:00 se lee como si fuera de hoy. Cuando
+  // sí es hoy no se dice nada — es el caso obvio y no merece ruido.
+  const sessionNote = useMemo(() => {
+    if (range !== "1D" || !payload || payload.prices.length === 0) return null;
+    const anchor = payload.regularSession?.start ?? payload.prices[0].time;
+    if (typeof anchor !== "number") return null;
+    const day = new Date(anchor * 1000);
+    if (etDayKey(day) === etDayKey(new Date())) return null;
+    return `Rueda del ${fmtSessionDate(day)}`;
+  }, [range, payload]);
+
   const effectiveRevenue = useMemo(() => {
     if (range !== "3Y" || !quarterlyRevenue || quarterlyRevenue.length === 0) {
       return null;
@@ -208,14 +348,40 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
       : quarterlyRevenue;
     if (inRange.length === 0) return null;
 
-    return [...inRange].sort((a, b) => a.time.localeCompare(b.time));
+    const ordered = [...inRange].sort((a, b) => a.time.localeCompare(b.time));
+    const anchored = anchorQuartersToPriceTimes(ordered, prices ?? []);
+    return anchored.length > 0 ? anchored : null;
   }, [quarterlyRevenue, range, prices]);
   const showRevenue = !!effectiveRevenue && effectiveRevenue.length > 0;
 
+  // Variación del período que se está mirando: sigue al slider, no al día.
+  // Se deriva de la MISMA serie que dibuja el gráfico (primer punto → último),
+  // así el chip nunca contradice a la curva —aunque el rango venga de un fetch
+  // posterior al snapshot—. La excepción es 1D: el cambio del día se mide contra
+  // el cierre previo, que la serie intradía no incluye, así que ahí manda el dato
+  // del informe.
+  //
+  // Vive acá arriba porque además de rotular el chip TIÑE la serie: el color de
+  // la curva y el número que la explica salen del mismo cálculo, y así no pueden
+  // contradecirse (curva verde con chip rojo).
+  const rangePct = useMemo(() => {
+    if (range === "1D") return change1dPct;
+    if (!prices || prices.length < 2) return null;
+    const first = prices[0].value;
+    const last = prices[prices.length - 1].value;
+    if (!first) return null;
+    return ((last - first) / first) * 100;
+  }, [range, prices, change1dPct]);
+
+  const ink = useMemo(
+    () => seriesInk(rangePct == null ? null : rangePct >= 0 ? "up" : "down"),
+    [rangePct],
+  );
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on range change
-    setPinned([]);
-  }, [range]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cambiar de rango
+    resetSelection();
+  }, [range, resetSelection]);
 
   useEffect(() => {
     if (!containerRef.current || !prices || prices.length === 0) return;
@@ -223,6 +389,7 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
     let destroyed = false;
     let chartInstance: { remove: () => void } | null = null;
     let observerInstance: ResizeObserver | null = null;
+    let detachPointer: (() => void) | null = null;
 
     import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle }) => {
       if (destroyed || !containerRef.current) return;
@@ -258,7 +425,11 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
           },
         },
         grid: {
-          vertLines: { color: PALETTE.ruleSoft },
+          // Sólo horizontales: son las que ayudan a leer un valor contra el eje.
+          // Las verticales no aportan —la fecha se lee abajo— y encajonan el
+          // gráfico en una cuadrícula, justo lo contrario a los datos sobre
+          // hairlines del lenguaje visual.
+          vertLines: { visible: false },
           horzLines: { color: PALETTE.ruleSoft },
         },
         crosshair: {
@@ -306,7 +477,7 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
 
       if (showRevenue && effectiveRevenue && effectiveRevenue.length > 0) {
         const revSeries = chart.addCustomSeries(new QuarterBarSeries(), {
-          color: PALETTE.goldSoft,
+          color: PALETTE.revenueFill,
           priceScaleId: "left",
           priceLineVisible: false,
           lastValueVisible: false,
@@ -353,21 +524,26 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
         }));
 
       const regularSeries = chart.addSeries(LineSeries, {
-        color: PALETTE.navy,
+        color: ink.line,
         lineWidth: 2,
         priceScaleId: "right",
         priceLineVisible: false,
-        lastValueVisible: true,
+        // El último precio ya está en la tira de arriba: repetirlo pegado al eje
+        // duplica el dato y le come lugar a las etiquetas de los puntos fijados.
+        lastValueVisible: false,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: PALETTE.paper,
-        crosshairMarkerBackgroundColor: PALETTE.navy,
+        // Punto pleno, sin el aro de papel alrededor. El primitive del tramo lee
+        // ESTAS mismas opciones, así que el punto del hover y el del extremo
+        // medido cambian juntos y no pueden separarse.
+        crosshairMarkerBorderWidth: 0,
+        crosshairMarkerBackgroundColor: ink.line,
       });
       regularSeries.setData(toLwPoints(regularData));
       lineSeriesRef.current = regularSeries;
 
       const extendedOpts = {
-        color: PALETTE.navy300,
+        color: ink.ext,
         lineWidth: 2 as const,
         lineStyle: LineStyle.Dashed,
         priceScaleId: "right",
@@ -375,11 +551,22 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
         lastValueVisible: false,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 3,
-        crosshairMarkerBorderColor: PALETTE.paper,
-        crosshairMarkerBackgroundColor: PALETTE.navy300,
+        crosshairMarkerBorderWidth: 0,
+        crosshairMarkerBackgroundColor: ink.ext,
       };
       const preSeries = preData.length > 0 ? chart.addSeries(LineSeries, extendedOpts) : null;
       if (preSeries) preSeries.setData(toLwPoints(preData));
+
+      // La línea deja caer su sombra. Cada tramo proyecta la suya —la del
+      // pre-market en su propio tono— para que la cinta se lea continua.
+      const shadow = new LineShadowPrimitive({ color: ink.shadow });
+      regularSeries.attachPrimitive(shadow);
+      shadow.setPoints(regularData);
+      if (preSeries) {
+        const preShadow = new LineShadowPrimitive({ color: ink.shadowExt });
+        preSeries.attachPrimitive(preShadow);
+        preShadow.setPoints(preData);
+      }
 
       if (isIntraday && reg && sorted.length > 0) {
         const shading = new SessionShadingPrimitive({
@@ -419,43 +606,33 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
         }
       }
 
-      const primitive = new PinnedMarkersPrimitive();
+      // La banda del tramo acompaña el color de la serie. El chip de la lectura
+      // NO: ese sigue al signo del tramo medido, que puede ir al revés que el
+      // período —un tramo en baja adentro de un año en alza— y ahí el color
+      // discrepante es justamente el dato.
+      const primitive = new DragRangePrimitive({
+        band: ink.band,
+        edge: ink.edge,
+        marker: ink.line,
+        markerHalo: PALETTE.paper,
+      });
       regularSeries.attachPrimitive(primitive);
       primitiveRef.current = primitive;
 
-      priceLinesRef.current = syncPinnedVisuals(
-        pinnedRef.current,
-        regularSeries,
+      detachPointer = attachDragRange({
+        chart,
+        container,
+        points: sorted,
         primitive,
-        LineStyle.Dashed,
-        priceLinesRef.current,
-      );
-
-      chart.subscribeClick((param) => {
-        if (!param.point) return;
-        const candidates = [regularSeries, preSeries].filter(Boolean) as LineSeriesApi[];
-        let data: { time?: string | number; value?: number } | undefined;
-        for (const s of candidates) {
-          const d = param.seriesData.get(s) as
-            | { time?: string | number; value?: number }
-            | undefined;
-          if (d && typeof d.value === "number" && d.time != null) {
-            data = d;
-            break;
-          }
-        }
-        if (!data || typeof data.value !== "number" || data.time == null) return;
-        const time = data.time;
-        const price = data.value;
-
-        setPinned((prev) => {
-          const existingIdx = prev.findIndex((p) => p.time === time);
-          if (existingIdx >= 0) {
-            return prev.filter((_, i) => i !== existingIdx);
-          }
-          const next = [...prev, { time, price }];
-          return next.length > 2 ? next.slice(next.length - 2) : next;
-        });
+        // También la de pre-market: en 1D pinta su propio punto sobre el mismo
+        // extremo, con su color y su radio.
+        markerSeries: [regularSeries, preSeries],
+        initial: selectionRef.current,
+        onSelection: (sel) => {
+          selectionRef.current = sel;
+          setSelection(sel);
+        },
+        onDragging: setDragging,
       });
 
       observerInstance = new ResizeObserver(() => {
@@ -468,35 +645,13 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
 
     return () => {
       destroyed = true;
+      detachPointer?.();
       observerInstance?.disconnect();
       chartInstance?.remove();
       primitiveRef.current = null;
       lineSeriesRef.current = null;
-      priceLinesRef.current = [];
     };
-  }, [prices, payload, showRevenue, isIntraday, hasIntradayTimes, effectiveRevenue, range]);
-
-  useEffect(() => {
-    const series = lineSeriesRef.current;
-    const primitive = primitiveRef.current;
-    if (!series || !primitive) return;
-
-    let cancelled = false;
-    import("lightweight-charts").then(({ LineStyle }) => {
-      if (cancelled) return;
-      priceLinesRef.current = syncPinnedVisuals(
-        pinned,
-        series,
-        primitive,
-        LineStyle.Dashed,
-        priceLinesRef.current,
-      );
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pinned]);
+  }, [prices, payload, showRevenue, isIntraday, hasIntradayTimes, effectiveRevenue, range, ink]);
 
   const onSelectRange = useCallback((next: ChartRange) => {
     setRange(next);
@@ -506,229 +661,259 @@ export function PriceChartInstitucional({ ticker, historicalPrices, quarterlyRev
 
   const noData = !loading && payload && payload.prices.length === 0;
 
-  const diff =
-    pinned.length === 2
-      ? {
-          abs: pinned[1].price - pinned[0].price,
-          pct: ((pinned[1].price - pinned[0].price) / pinned[0].price) * 100,
-        }
-      : null;
+  // Lectura del tramo medido, siempre del extremo más viejo al más nuevo.
+  const measure = (() => {
+    if (!selection) return null;
+    const [a, b] = chronological(selection.from, selection.to);
+    if (!a.price) return null;
+    return {
+      a,
+      b,
+      abs: b.price - a.price,
+      pct: ((b.price - a.price) / a.price) * 100,
+    };
+  })();
 
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          marginBottom: 10,
-        }}
-      >
-        <div style={{ display: "flex", border: `1px solid ${PALETTE.rule}` }}>
-          {RANGES.map((r) => {
-            const active = r.id === range;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onSelectRange(r.id)}
-                style={{
-                  background: active ? PALETTE.navy : "transparent",
-                  color: active ? PALETTE.paper : PALETTE.ink2,
-                  border: 0,
-                  padding: "6px 12px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.06em",
-                  cursor: "pointer",
-                }}
-              >
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
+    <>
+      {/* Cotización encima del gráfico —misma tira que el valor cuota en
+          /bng-seleccion-global—. El precio es el del informe (foto congelada);
+          el chip mide el período elegido en el slider. */}
+      {price != null && (
         <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 14,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: PALETTE.ink3,
-            letterSpacing: "0.04em",
+            display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap",
+            paddingBottom: 14, marginBottom: 16, borderBottom: `1px solid ${PALETTE.ruleSoft}`,
           }}
         >
-          {showRevenue && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span
-                style={{
-                  width: 10,
-                  height: 10,
-                  background: PALETTE.goldSoft,
-                  display: "inline-block",
-                  border: `1px solid ${PALETTE.gold}`,
-                }}
-              />
-              Revenue trimestral
+          {/* Precio y la fecha a la que corresponde, en columna: la fecha es del
+              precio, no de la tira entera. */}
+          <span style={{ display: "inline-flex", flexDirection: "column", gap: 7 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.01em", color: PALETTE.ink, fontVariantNumeric: "tabular-nums" }}>
+              {fmtNumUY(price)}
+              <span style={{ fontSize: 12, letterSpacing: "0.08em", color: PALETTE.ink3, marginLeft: "0.34em" }}>{currency}</span>
             </span>
-          )}
-          {loading && <span>Cargando…</span>}
+            {asOf && (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: PALETTE.ink3, fontVariantNumeric: "tabular-nums" }}>
+                {asOf}
+              </span>
+            )}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+            {/* Sin dato para el rango (cargando o serie corta) el chip va en
+                pizarra: no se inventa un signo que todavía no se sabe. */}
+            <span
+              style={{
+                fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, lineHeight: 1,
+                fontVariantNumeric: "tabular-nums", color: PALETTE.paper,
+                background: rangePct == null ? PALETTE.neu : rangePct >= 0 ? PALETTE.pos : PALETTE.neg,
+                padding: "5px 8px", borderRadius: 4,
+                transition: "background 200ms ease",
+              }}
+            >
+              {fmtPctUY(rangePct)}
+            </span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: PALETTE.ink3 }}>
+              {RANGE_GLOSS[range]}
+            </span>
+          </span>
         </div>
+      )}
+
+      {/* Barra de controles FUERA del bloque del gráfico — mismo patrón que el
+          valor cuota en /bng-seleccion-global: los controles viven arriba y el
+          marco con hairline contiene únicamente el gráfico. */}
+      <div className="az-figure-bar">
+        <span className="lbl">
+          <strong>{ticker}</strong> · Precio histórico
+          {sessionNote && <span style={{ color: PALETTE.ink3 }}> · {sessionNote}</span>}
+        </span>
+        <PeriodSlider
+          periods={RANGES}
+          value={range}
+          onChange={onSelectRange}
+          ariaLabel="Período del gráfico"
+        />
       </div>
 
-      <div style={{ position: "relative" }}>
-        <div ref={containerRef} style={{ height: 280 }} />
-        {error && (
-          <div
+      <div className="az-figure">
+        <div className="az-figure-hd">
+          <span
             style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: PALETTE.neg,
-              letterSpacing: "0.04em",
-            }}
-          >
-            {error}
-          </div>
-        )}
-        {noData && !error && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
+              gap: 14,
               fontFamily: "var(--font-mono)",
               fontSize: 11,
               color: PALETTE.ink3,
               letterSpacing: "0.04em",
             }}
           >
-            Sin datos para este rango.
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 10, borderTop: `1px solid ${PALETTE.ruleSoft}`, paddingTop: 10 }}>
-        {pinned.length === 0 ? (
-          <p
-            style={{
-              margin: 0,
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: PALETTE.ink4,
-              letterSpacing: "0.04em",
-            }}
-          >
-            Tocá el gráfico para marcar y comparar hasta 2 puntos.
-          </p>
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              {pinned.map((p, i) => (
-                <div
-                  key={`${p.time}-${i}`}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: MARKER_COLORS[i],
-                      display: "inline-block",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: PALETTE.ink2,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmtTime(p.time)}
-                  </span>
-                  {i < pinned.length - 1 && (
-                    <span style={{ color: PALETTE.ink4, fontSize: 11, marginLeft: 4 }}>→</span>
-                  )}
-                </div>
-              ))}
-              {diff && (
-                <div
+            {showRevenue && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "baseline",
-                    gap: 8,
-                    paddingLeft: 12,
-                    borderLeft: `1px solid ${PALETTE.ruleSoft}`,
+                    width: 10,
+                    height: 10,
+                    background: PALETTE.revenueFill,
+                    display: "inline-block",
+                    border: `1px solid ${PALETTE.revenueEdge}`,
                   }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      fontVariantNumeric: "tabular-nums",
-                      color: diff.abs >= 0 ? PALETTE.pos : PALETTE.neg,
-                    }}
-                  >
-                    {diff.pct >= 0 ? "+" : ""}
-                    {diff.pct.toFixed(1)}%
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      fontVariantNumeric: "tabular-nums",
-                      color: diff.abs >= 0 ? PALETTE.pos : PALETTE.neg,
-                      opacity: 0.7,
-                    }}
-                  >
-                    {diff.abs >= 0 ? "+" : ""}
-                    {fmtPrice(diff.abs)}
-                  </span>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setPinned([])}
+                />
+                Revenue trimestral
+              </span>
+            )}
+            {loading && <span>Cargando…</span>}
+          </span>
+          {/* Sólo el crédito de la fuente. La moneda ya va junto al precio en la
+              tira de arriba, y el informe es una foto congelada: rotularlo
+              "Live" contradecía el snapshot. */}
+          <span className="src">Yahoo Finance</span>
+        </div>
+
+        <div style={{ position: "relative" }}>
+          {/* cursor de mira + sin selección de texto: el arrastre es un gesto de
+              medición, no una selección del documento. */}
+          <div
+            ref={containerRef}
+            style={{
+              height: 280,
+              cursor: "crosshair",
+              userSelect: dragging ? "none" : undefined,
+              WebkitUserSelect: dragging ? "none" : undefined,
+            }}
+          />
+          {error && (
+            <div
               style={{
-                background: "transparent",
-                border: 0,
-                cursor: "pointer",
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
                 fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: PALETTE.ink3,
+                fontSize: 11,
+                color: PALETTE.neg,
+                letterSpacing: "0.04em",
               }}
             >
-              Limpiar
-            </button>
-          </div>
-        )}
+              {error}
+            </div>
+          )}
+          {noData && !error && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: PALETTE.ink3,
+                letterSpacing: "0.04em",
+              }}
+            >
+              Sin datos para este rango.
+            </div>
+          )}
+        </div>
+
+        {/* Lectura del tramo: sólo existe mientras se arrastra. minHeight fija la
+            altura para que la tira no salte al aparecer/desaparecer la medición. */}
+        <div
+          style={{
+            marginTop: 10,
+            borderTop: `1px solid ${PALETTE.ruleSoft}`,
+            paddingTop: 10,
+            minHeight: 34,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          {!measure ? (
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: PALETTE.ink4,
+                letterSpacing: "0.04em",
+              }}
+            >
+              Arrastrá sobre el gráfico para medir un tramo.
+            </p>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {/* Extremos del tramo: fecha y precio de cada punto real. */}
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: PALETTE.ink2,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {fmtTime(measure.a.time)} · {fmtPrice(measure.a.price)}
+              </span>
+              <span style={{ color: PALETTE.ink4, fontSize: 11 }}>→</span>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: PALETTE.ink2,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {fmtTime(measure.b.time)} · {fmtPrice(measure.b.price)}
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  gap: 8,
+                  paddingLeft: 12,
+                  borderLeft: `1px solid ${PALETTE.ruleSoft}`,
+                }}
+              >
+                {/* La variación va en chip de fondo pleno (verde bosque /
+                    oxblood del sistema) — misma señal que el valor cuota de
+                    /bng-seleccion-global. El absoluto queda al lado en tinta
+                    neutra: el color ya lo carga el chip, duplicarlo satura. */}
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    fontVariantNumeric: "tabular-nums",
+                    color: PALETTE.paper,
+                    background: measure.abs >= 0 ? PALETTE.pos : PALETTE.neg,
+                    padding: "5px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  {measure.pct >= 0 ? "+" : ""}
+                  {measure.pct.toFixed(1).replace(".", ",")}%
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    fontVariantNumeric: "tabular-nums",
+                    color: PALETTE.ink3,
+                  }}
+                >
+                  {measure.abs >= 0 ? "+" : ""}
+                  {fmtPrice(measure.abs)}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

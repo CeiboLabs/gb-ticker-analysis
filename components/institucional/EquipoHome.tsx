@@ -2,22 +2,11 @@ import Link from "next/link";
 import { Reveal } from "@/components/motion";
 import { Glass } from "@/components/institucional/LiquidGlass";
 
-/* ⚠️ TODO(cliente): /hero/equipo.jpg es STOCK — sirve de placeholder de
-   layout, pero NO puede salir a producción acá: esta sección presenta la
-   foto como "la casa" y las caras deben ser las reales (ver
-   feedback_claims_verificables). Brief de la foto definitiva:
-   - El equipo real alrededor de la mesa de operaciones en el WTC, en
-     conversación de trabajo (no posando en fila mirando a cámara).
-   - Horizontal, ancha (mín. ~2400px), aire alrededor de la escena: el
-     recorte es panorámico (~16:7) y el texto va centrado encima.
-   - Luz natural de la oficina; el tratamiento duotono navy lo aplica el
-     CSS, no hace falta editar la foto. */
-
 /**
- * S7 — La casa. El momento humano del home: UNA foto coral del equipo en
- * la mesa, tratada en duotono navy, con la declaración real de /equipo
- * encima. Rima visual con TrayectoriaScene (panel letterboxed + serif
- * blanca + CTA glass): aquella abre con la promesa abstracta, esta la
+ * S7 — La casa. El momento humano del home: UNA foto coral del equipo real
+ * en la sala del WTC, tratada en duotono navy, con la declaración de
+ * /equipo encima. Rima visual con TrayectoriaScene (panel letterboxed +
+ * serif blanca + CTA glass): aquella abre con la promesa abstracta, esta la
  * resuelve con las personas concretas.
  */
 export function EquipoHome() {
@@ -27,15 +16,15 @@ export function EquipoHome() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className="casa-photo"
-          src="/hero/equipo.jpg"
-          alt="El equipo de la casa en una reunión de trabajo"
+          src="/hero/equipo-reunion.jpg"
+          alt="El equipo de Gastón Bengochea en una reunión de trabajo en el WTC de Montevideo"
           loading="lazy"
         />
         <div className="casa-tint" aria-hidden />
         <div className="casa-scrim" aria-hidden />
 
         <div className="casa-copy">
-          <div className="eyebrow-sm casa-eyebrow">La casa</div>
+          <div className="eyebrow-sm casa-eyebrow">Nosotros</div>
           <p className="casa-lede">
             Cada portafolio se discute <em>entre todos</em>.
           </p>

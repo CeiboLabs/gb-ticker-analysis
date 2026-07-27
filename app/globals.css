@@ -344,7 +344,10 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Print ── */
 @media print {
-  header, nav, footer { display: none; }
+  /* Chrome del sitio institucional. Se excluye el masthead del reporte, que
+     también es un <header> pero ES contenido: sin él el PDF exportado sale
+     decapitado, sin ticker, precio ni veredicto. */
+  header:not(#masthead), nav, footer { display: none; }
 }
 
 .ticker-input::placeholder { text-transform: none; }
@@ -429,6 +432,23 @@ a { color: inherit; text-decoration: none; }
   color: var(--gold-deep);
 }
 
+/* ── Prosa en dos columnas ─────────────────────────────────────
+   Secciones de una sola columna del workstation (Conclusión, Key
+   debate, Resumen del negocio, Lectura del último trimestre): el
+   texto quedaba a ~70ch y dejaba media pantalla vacía a la derecha,
+   lo que estiraba la sección de más. Al fluir en dos columnas llena
+   el ancho disponible y baja ~a la mitad la altura. column-width
+   mantiene una medida legible y colapsa solo a una columna cuando
+   no entran dos (pantallas angostas / móvil). */
+.prose-cols {
+  columns: 25rem 2;
+  column-gap: 48px;
+  column-rule: 1px solid var(--rule);
+  widows: 2;
+  orphans: 2;
+}
+.prose-cols > :first-child { margin-top: 0; }
+
 .hairline-row {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -496,6 +516,76 @@ a { color: inherit; text-decoration: none; }
 }
 .kpi-tight.tone-pos .v { color: var(--pos); }
 .kpi-tight.tone-neg .v { color: var(--neg); }
+
+/* Toggletip de la métrica. Abre por CLICK y no por hover: el ⓘ no etiqueta
+   nada —es el control en sí—, y lo que muestra son una o dos oraciones para
+   leer, no microcontenido. Con hover, además, barrer la grilla de 16 tiles
+   dispararía paneles sin querer y quedaríamos debiendo el 1.4.13 (hoverable +
+   dismissible + persistente). Es lo que hacen Morningstar e iShares. */
+.kpi-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-3);
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+/* El cuadrito dibujado sigue midiendo 16, pero el área de toque se estira a
+   24×24 (WCAG 2.5.8) — que es lo que importa en el tile denso y en mobile.
+   Ojo con el -5: el inset de un absolute resuelve contra el PADDING box del
+   contenedor, no contra el border box. Acá el padding box mide 14 (16 menos
+   1px de borde por lado), así que -4px daba 22×22 y se quedaba corto. */
+.kpi-info::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+}
+.kpi-info:hover,
+.kpi-info:focus-visible {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.kpi-info[data-open="true"],
+.kpi-info[data-open="true"]:hover,
+.kpi-info[data-open="true"]:focus-visible {
+  background: var(--navy);
+  border-color: var(--rule-strong);
+  color: var(--ivory);
+}
+/* Contenedor de la live region: vive SIEMPRE en el DOM (vacío no ocupa nada).
+   Si se creara junto con el texto, el lector de pantalla no lo anunciaría —
+   tiene que estar observándolo de antes. */
+.kpi-info-live {
+  position: absolute;
+  top: 30px;
+  right: 8px;
+  left: 8px;
+  z-index: 30;
+}
+.kpi-info-bubble {
+  background: var(--navy);
+  color: var(--ivory);
+  font-family: var(--site-font);
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid var(--navy-700);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(14, 17, 48, 0.18);
+}
 
 @media (max-width: 980px) {
   .kpi-grid { grid-template-columns: repeat(3, 1fr); }
@@ -610,7 +700,7 @@ a { color: inherit; text-decoration: none; }
 
 /* Print */
 @media print {
-  .analyze-sidebar, .ticker-tape, nav { display: none !important; }
+  .analyze-sidebar, nav { display: none !important; }
   .analyze-panel { break-inside: avoid; }
   .analyze-main { border-left: 0 !important; }
 }
@@ -958,6 +1048,33 @@ a { color: inherit; text-decoration: none; }
 .ui-btn-on-navy-ghost { background: transparent; color: #FFFFFF; border-color: rgba(255,255,255,0.38); }
 .ui-btn-on-navy-ghost:hover { background: rgba(255,255,255,0.10); border-color: #FFFFFF; }
 
+/* ── Selector de período (píldora + thumb deslizante) ── [pslider]
+   Control compartido por el gráfico de valor cuota del fondo
+   (/bng-seleccion-global) y el precio histórico de /analisis (ver
+   components/institucional/PeriodSlider.tsx). Depende de --surface-muted /
+   --site-border / --navy / --site-ink-3, presentes bajo .site y .analyze-root. */
+.pslider {
+  position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding: 3px; background: var(--surface-muted, #f3f4f8);
+  border: 1px solid var(--site-border); border-radius: 999px;
+}
+.pslider-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 3px;
+  width: calc((100% - 6px) / var(--pslider-count, 5));
+  background: var(--navy); border-radius: 999px;
+  box-shadow: 0 6px 16px -6px rgba(15,34,73,0.6);
+  transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
+}
+.pslider-btn {
+  position: relative; z-index: 1; text-align: center; white-space: nowrap;
+  border: 0; background: none; cursor: pointer;
+  font-family: var(--site-font); font-size: 13px; font-weight: 600; color: var(--site-ink-3);
+  padding: 6px 14px; border-radius: 999px; transition: color 220ms ease;
+}
+.pslider-btn[data-active="1"] { color: #fff; }
+.pslider-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.pslider-btn:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
+
 /* ── Inputs ── */
 
 .ui-input {
@@ -1216,6 +1333,16 @@ a.ui-list-row:hover { padding-left: 14px; }
   object-fit: cover;
   filter: saturate(0.82) contrast(1.02);
 }
+/* Velo de legibilidad para la navbar: los CTA (píldora blanca + oro translúcido)
+   flotan sobre esta mitad y desaparecen si la foto tiene una zona clara arriba.
+   Opt-in por página vía --hero-scrim; mismo recurso que .hero-media .scrim. */
+.hero-split .hero-figure::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--hero-scrim, none);
+}
 @media (max-width: 860px) {
   .hero-split {
     grid-template-columns: 1fr;
@@ -1225,7 +1352,10 @@ a.ui-list-row:hover { padding-left: 14px; }
     padding: calc(var(--nav-h) + 32px) clamp(20px, 6vw, 32px) 40px;
   }
   .hero-split .hero-copy > * { max-width: none; }
-  .hero-split .hero-figure { min-height: 280px; }
+  /* Con alto fijo el recorte cambia en cada ancho de teléfono. Las páginas cuya
+     foto tiene contenido que no se puede perder (cartelería, caras) fijan
+     --hero-ar-sm y el encuadre queda invariante al ancho. */
+  .hero-split .hero-figure { min-height: 280px; aspect-ratio: var(--hero-ar-sm, auto); }
 }
 
 /* Hero / media full-bleed con placeholder sobrio */
@@ -1496,4 +1626,471 @@ a.ui-list-row:hover { padding-left: 14px; }
   .adm-nav a { border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; padding: 8px 12px; }
   .adm-nav a[aria-current="page"] { border-left: 0; border-bottom-color: var(--gold); }
   .adm-main { padding: 24px 20px 48px; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   /analyze · workstation rediseñada al lenguaje .site (v3 · 2026)
+
+   La herramienta adopta la CÁSCARA institucional (.site): hero navy con
+   foco dorado, bandas claras alternadas con mucho aire, secciones que
+   abren con split-label (eyebrow callado izquierda · titular Arial
+   liviano derecha), íconos de línea oro — para que /analyze se sienta
+   hermana de /analisis y /bng-seleccion-global.
+
+   PERO conserva el ALMA editorial de research: los datos sobre hairlines
+   (nunca cards con sombra) y verde/rojo sólo en el signo de un dato. El
+   bloque verde saturado del veredicto MUERE: el rating se expresa con
+   restricción sobre navy.
+
+   TIPOGRAFÍA (2026-07-25, por pedido): el informe va ENTERO en Arial. Las
+   tres familias editoriales —Newsreader serif del argumento, IBM Plex Mono
+   de los datos, IBM Plex Sans heredado del root— se apagan acá; el resto
+   del sitio editorial (/informes, /historia) las conserva intactas.
+
+   Truco de tokens: las vars --site-* viven normalmente sólo bajo .site.
+   Acá las declaramos sobre .analyze-root para habilitar TODO el toolkit
+   .site.
+   ────────────────────────────────────────────────────────────── */
+
+.analyze-root {
+  --site-font:     Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  --surface:       #FFFFFF;
+  --surface-muted: #F4F5FB;
+  --site-ink:      #16193A;
+  --site-ink-2:    #4A4E6B;
+  --site-ink-3:    #797D99;
+  --site-border:   #E7E8F2;
+  --site-border-2: #D7D9E8;
+  --r-card: 14px; --r-btn: 6px; --r-input: 8px; --r-pill: 999px;
+  /* El análisis va en Arial, TODO. Se anulan las tres familias editoriales
+     SÓLO dentro del análisis, para que cualquier uso —inline, clases .az-*,
+     .serif/.panel-h2/.display-*, o atributos font-family de los SVG— caiga en
+     Arial sin tocar esas fuentes en el resto del sitio. */
+  --font-mono: var(--site-font);
+  --font-sans: var(--site-font);
+  --font-serif: var(--site-font);
+  /* Anular las vars no alcanza: font-family se HEREDA ya resuelta, así que
+     todo lo que no declara familia propia (.eyebrow-sm, .t-*, los <p> de
+     markdown) seguía bajando IBM Plex Sans desde el body editorial. La
+     familia se fija acá y baja por herencia a todo el informe. */
+  font-family: var(--site-font);
+  background: var(--ivory);
+  color: var(--ink);
+}
+
+/* La itálica de acento del titular del masthead se apaga con la familia: en
+   Arial es una oblicua sintética. El oro sigue marcando esa palabra, sólo que
+   sin inclinación — la misma convención que .az-title em ya usaba acá.
+   (La capitular dorada del argumento no se neutraliza por CSS: se le sacó la
+   clase .drop-cap al markup, que era el único lugar del sitio que la usaba.) */
+.analyze-root .panel-h2 em { font-style: normal; }
+
+/* ── Masthead editorial (header del reporte, sin sidebar) — el usuario prefirió
+   el header anterior: masthead en hairlines + bloque de veredicto verde + tesis +
+   quick ref, con el snapshot y las acciones plegados en una barra superior. Vive
+   sobre marfil (banda clara), la barra de nav queda en modo claro. ── */
+.analyze-masthead {
+  padding-top: calc(var(--nav-h) + clamp(22px, 3vw, 40px));
+  padding-bottom: clamp(32px, 3.5vw, 48px);
+}
+
+/* ── Buscador de tickers del reporte ──
+   Vive en DOS contenedores: el masthead (reporte cargado) y el LoadingShell
+   (mientras se genera). Los dos usan .site-wrap.analyze-masthead, así que con
+   estas reglas compartidas el control queda en el mismo pixel en ambos y no
+   salta al montarse el reporte. Por eso el selector NO cuelga de #masthead.
+   La hairline corre al ancho del contenido; el control se queda en una medida
+   cómoda de lectura. */
+.am-search {
+  padding-bottom: 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
+.am-search > form { max-width: 460px; }
+
+/* TickerSearch pinta ui-input / ui-btn-primary, que son controles .site:
+   radius 8px, borde 1.5px, navy sólido peso 700 y halo de foco de 3px. Sobre
+   la lámina editorial del reporte pesaban más que la propia ficha de la acción
+   —el botón navy terminaba siendo el objeto más contrastado de la pantalla, por
+   encima del precio—. Acá se re-visten con el vocabulario de .am-btn: hairline
+   de 1px, radius 3px, 12.5px y cero sombra, para que el buscador y «Exportar
+   PDF» se lean como el mismo instrumento. Se pisa por CSS en lugar de agregar
+   una variante al componente para no alterar su uso en la landing ni el pie. */
+.am-search .ui-input {
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 9px 12px;
+}
+.am-search .ui-input::placeholder {
+  color: var(--ink-4);
+}
+.am-search .ui-input:focus {
+  border-color: var(--ink);
+  box-shadow: none;
+}
+
+.am-search .ui-btn {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--ink-2);
+  background: none;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 9px 16px;
+  box-shadow: none;
+}
+.am-search .ui-btn:hover {
+  background: none;
+  border-color: var(--ink);
+  color: var(--ink);
+  box-shadow: none;
+  transform: none;
+}
+
+/* Altura pareja con .am-btn (35px). Se fija en lugar de dejarla salir del
+   padding porque cada control la calculaba distinto: el input heredaba
+   line-height normal (20.15px) y quedaba en 40px, cinco más que los botones
+   de al lado. */
+.am-search .ui-input,
+.am-search .ui-btn {
+  height: 35px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  /* 35px es cómodo con mouse pero corto para el dedo: en táctil se sube al
+     mínimo razonable de toque. */
+  .am-search .ui-input,
+  .am-search .ui-btn {
+    height: 42px;
+  }
+}
+
+/* ── Dropdown de resultados (variante "masthead" de TickerSearch) ──
+   Vive porteado a document.body, fuera de .am-search, así que se estila por su
+   clase propia. La variante .site traía rounded-xl + shadow-lg sobre blanco
+   puro: al desplegarse encima del reporte se leía como un componente de otro
+   sistema. Acá: papel tibio, borde de tinta —el mismo que toma el input al
+   enfocarse, con lo cual campo y lista se leen como una sola pieza—, radius 3px
+   igual que el resto de los controles del masthead, y filas separadas por
+   hairline en vez de por relleno. La sombra es la única del sistema editorial:
+   bajísima y teñida de azul, para despegar la capa flotante sin bulto.
+   Va fuera de @layer, así le gana a las utilidades de Tailwind del markup. */
+.ts-drop {
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  box-shadow: 0 12px 32px rgba(3, 6, 94, 0.06);
+  overflow: hidden;
+}
+
+/* Filas: la de resultados es un <button>; la de recientes, un <div> que lo
+   envuelve junto al botón de quitar. */
+.ts-drop > button,
+.ts-drop > div.group {
+  border-top: 1px solid var(--rule);
+}
+.ts-drop > button:first-child,
+.ts-drop > div.group:first-child {
+  border-top: 0;
+}
+.ts-drop > button {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.ts-drop > div.group > button:first-child {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.ts-drop > button:hover,
+.ts-drop > div.group:hover,
+.ts-drop .ts-drop-on {
+  background: var(--ivory);
+}
+
+.ts-drop .ts-drop-sym {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  min-width: 46px;
+}
+.ts-drop .ts-drop-meta { color: var(--ink-2); }
+.ts-drop span.ml-auto.ts-drop-meta {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* Encabezado "Búsquedas recientes", vacío sin resultados y botón de quitar:
+   el markup los trae con un navy hardcodeado (#03065E) del diseño anterior. */
+.ts-drop > div:not(.group) {
+  padding: 9px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  border-bottom: 1px solid var(--rule);
+}
+.ts-drop > div.text-center {
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  color: var(--ink-3);
+  border-bottom: 0;
+}
+.ts-drop > div.group > button:last-child {
+  padding: 0 10px;
+  color: var(--ink-4);
+}
+.ts-drop > div.group > button:last-child:hover { color: var(--ink); }
+
+/* ── Sección: banda + wrap + ritmo aireado ── */
+.az-sec { position: relative; }
+.az-sec > .site-wrap { padding-top: clamp(52px, 5.5vw, 84px); padding-bottom: clamp(52px, 5.5vw, 84px); }
+.az-sec--tight > .site-wrap { padding-top: clamp(40px, 4vw, 60px); padding-bottom: clamp(40px, 4vw, 60px); }
+
+/* ── Cabecera de sección (split-label) ── */
+.az-head { margin-bottom: clamp(28px, 3vw, 46px); }
+.az-head-label { display: flex; flex-direction: column; gap: 12px; }
+.az-head-label .feat-icon { margin-bottom: 2px; }
+.az-meta {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-4); font-variant-numeric: tabular-nums; line-height: 1.6;
+}
+.az-title {
+  font-family: var(--site-font);
+  font-size: clamp(25px, 2.7vw, 34px);
+  font-weight: 400; line-height: 1.14; letter-spacing: -0.02em;
+  color: var(--ink); margin: 0; max-width: 15em;
+}
+.az-title em { font-style: normal; color: var(--gold-deep); }
+/* Titular de los momentos grandes del reporte (tesis, veredicto, conclusión).
+   Se llamaba "-serif" porque iba en Newsreader; hoy es Arial como el resto y lo
+   único que lo distingue de .az-title es la escala. */
+.az-title-serif {
+  font-family: var(--site-font);
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-weight: 400; line-height: 1.08; letter-spacing: -0.02em;
+  color: var(--ink); margin: 0; max-width: 15em;
+}
+.az-title-serif em { font-style: normal; color: var(--gold-deep); }
+.az-dek {
+  margin: 18px 0 0; max-width: 40em;
+  font-family: var(--site-font); font-weight: 400;
+  font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--ink-2);
+}
+
+/* ── Figura: contenedor claro para charts/sankey (hairline, sin sombra) ── */
+.az-figure {
+  background: var(--paper);
+  border: 1px solid var(--site-border);
+  border-radius: 10px;
+  padding: clamp(14px, 2vw, 22px);
+}
+.az-figure-hd {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+/* Barra de controles del gráfico: vive FUERA del marco .az-figure — mismo
+   patrón que .perf-bar en /bng-seleccion-global (controles arriba y afuera,
+   el marco con hairline contiene sólo el gráfico). */
+.az-figure-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.az-figure-hd .lbl, .az-figure-bar .lbl { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.02em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.az-figure-hd .lbl strong, .az-figure-bar .lbl strong { font-weight: 600; color: var(--ink); }
+.az-figure-hd .src { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); }
+
+/* Prosa del argumento (dentro de bandas claras). Arial a 17px: misma medida de
+   cuerpo que el resto del sitio institucional (.t-body). */
+.az-prose { font-family: var(--site-font); font-size: 17px; line-height: 1.62; color: var(--ink-2); }
+.az-prose--tight { font-size: 16px; line-height: 1.58; }
+.az-prose > :first-child { margin-top: 0; }
+.az-prose p { margin: 0 0 0.9em; }
+.az-prose p:last-child { margin-bottom: 0; }
+
+/* Sub-bloque: eyebrow-sm + prosa (Ventajas, Riesgos, etc.) */
+.az-block-lbl {
+  font-family: var(--site-font); font-size: 14px; font-weight: 600;
+  letter-spacing: 0; color: var(--ink-3); margin-bottom: 12px;
+}
+
+/* ── Escenarios: 3 columnas hairline (no cards pesadas) ── */
+.az-scen-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--site-border); border-left: 1px solid var(--site-border); }
+.az-scen { padding: 24px clamp(18px, 2vw, 28px); border-right: 1px solid var(--site-border); border-bottom: 1px solid var(--site-border); border-top: 2px solid var(--rule); background: var(--surface); }
+.az-scen.bull { border-top-color: var(--pos); }
+.az-scen.base { border-top-color: var(--gold-deep); }
+.az-scen.bear { border-top-color: var(--neg); }
+.az-scen-lbl { display: inline-flex; align-items: center; gap: 8px; font-family: var(--site-font); font-size: 13px; font-weight: 600; }
+.az-scen.bull .az-scen-lbl { color: var(--pos); } .az-scen.base .az-scen-lbl { color: var(--gold-deep); } .az-scen.bear .az-scen-lbl { color: var(--neg); }
+.az-scen-val { font-family: var(--font-mono), monospace; font-size: 30px; font-weight: 500; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; margin-top: 12px; }
+.az-scen.bull .az-scen-val { color: var(--pos); } .az-scen.base .az-scen-val { color: var(--ink); } .az-scen.bear .az-scen-val { color: var(--neg); }
+.az-scen-prob { font-family: var(--font-mono), monospace; font-size: 11.5px; margin-top: 3px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.az-scen-body { font-family: var(--site-font); font-size: 14.5px; line-height: 1.55; color: var(--ink-2); margin-top: 14px; }
+.az-scen-body p { margin: 0; }
+
+/* ──────────────────────────────────────────────────────────────
+   Wall Street — UNA lámina, no cuatro tarjetas
+
+   Antes: donut en caja + rango en caja + prosa suelta + tabla en caja,
+   cada una con su borde y su radio. Ahora un solo instrumento continuo:
+   registros apilados que comparten un gutter de etiqueta a la izquierda,
+   separados por hairlines, abiertos por la regla fuerte de tinta (regla de
+   dos pesos del masthead). Cero cajas: los datos viven entre líneas.
+   ────────────────────────────────────────────────────────────── */
+.az-ws { border-top: 1px solid var(--ink); }
+.az-ws-reg {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+  padding: clamp(26px, 3vw, 36px) 0;
+  border-bottom: 1px solid var(--site-border);
+}
+.az-ws-lbl .l {
+  font-family: var(--site-font); font-size: 14px; font-weight: 600;
+  color: var(--ink-3); line-height: 1.3;
+}
+.az-ws-lbl .s {
+  font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-4);
+  margin-top: 7px; letter-spacing: 0.01em; font-variant-numeric: tabular-nums;
+}
+
+/* Distribución de recomendaciones: el ancho de cada celda ES su participación,
+   y el filete de 2px que la corona ES el segmento de la barra apilada. Forma y
+   dato en un solo objeto — sin donut ni leyenda aparte. */
+.az-ws-dist { display: grid; }
+.az-ws-seg { position: relative; min-width: 0; padding: 16px clamp(12px, 1.6vw, 20px) 0; }
+.az-ws-seg:first-child { padding-left: 0; }
+.az-ws-seg + .az-ws-seg { border-left: 1px solid var(--site-border); }
+.az-ws-seg::before {
+  content: ""; position: absolute; top: 0; left: 0;
+  height: 2px; width: 100%; background: var(--seg);
+}
+.az-ws-seg .k { font-family: var(--site-font); font-size: 13px; font-weight: 600; color: var(--seg); white-space: nowrap; }
+.az-ws-seg .n {
+  font-family: var(--font-mono), monospace; font-size: clamp(26px, 2.8vw, 34px);
+  font-weight: 400; letter-spacing: -0.02em; line-height: 1; color: var(--ink);
+  margin-top: 10px; font-variant-numeric: tabular-nums;
+}
+.az-ws-seg .p { font-family: var(--font-mono), monospace; font-size: 11.5px; color: var(--ink-3); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+/* Eje de precio objetivo: el rango de la calle es contexto (bracket hairline);
+   lo único con color es el tramo firmado entre el precio de hoy y el consenso. */
+.az-ws-axis { position: relative; }
+.az-ws-flags { position: relative; height: 19px; }
+.az-ws-flags.head { height: 24px; }
+.az-ws-flags.tight { height: 17px; }
+.az-ws-flag {
+  position: absolute; top: 0; white-space: nowrap;
+  font-family: var(--font-mono), monospace; font-size: 12px;
+  font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+}
+.az-ws-flag.now { color: var(--ink-2); }
+/* El objetivo de consenso es el dato del registro, no una nota al pie: es lo
+   único de este renglón que se lee a tamaño de cifra. */
+.az-ws-flag.avg { color: var(--ink); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+.az-ws-flag.avg .t { color: var(--ink-3); font-weight: 400; margin-right: 8px; letter-spacing: 0.01em; }
+.az-ws-flag.end { color: var(--ink-4); font-size: 11px; }
+.az-ws-flag .dl { font-weight: 500; margin-left: 10px; }
+.az-ws-rail { position: relative; height: 26px; margin: 3px 0 5px; }
+.az-ws-rail .base { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--site-border); }
+.az-ws-rail .range { position: absolute; top: 50%; height: 1px; background: var(--rule-strong); }
+.az-ws-rail .cap { position: absolute; top: 50%; width: 1px; height: 11px; margin-top: -5px; background: var(--rule-strong); }
+.az-ws-rail .gap { position: absolute; top: 50%; height: 3px; margin-top: -1px; }
+.az-ws-rail .now { position: absolute; top: 1px; bottom: 1px; width: 1.5px; background: var(--ink); }
+.az-ws-rail .avg {
+  position: absolute; top: 50%; width: 11px; height: 11px;
+  margin: -5px 0 0 -5.5px; border: 1.5px solid var(--ink); border-radius: 50%;
+  background: var(--paper); box-sizing: border-box;
+}
+
+/* Tape de revisiones: filas sobre hairlines, sin marco ni pills recuadradas */
+/* Columnas fijas a propósito: con la última en `auto` el ancho cambiaba con el
+   texto de cada fila y la columna del movimiento bailaba de renglón en renglón.
+   Fijas, el tape alinea como una tabla de cotizaciones. */
+.az-ws-row {
+  display: grid; grid-template-columns: 104px minmax(0, 1fr) 88px minmax(0, 264px);
+  gap: 16px; align-items: baseline;
+  padding: 12px 0; border-bottom: 1px solid var(--site-border);
+}
+.az-ws-row:first-child { padding-top: 0; }
+.az-ws-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.az-ws-row .d { font-family: var(--font-mono), monospace; font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.az-ws-row .f { font-family: var(--site-font); font-size: 15px; color: var(--ink); }
+.az-ws-row .v { font-family: var(--site-font); font-size: 12.5px; font-weight: 600; }
+.az-ws-row .v.up { color: var(--pos); }
+.az-ws-row .v.down { color: var(--neg); }
+.az-ws-row .v.flat, .az-ws-row .v.init { color: var(--ink-3); }
+.az-ws-row .g { font-family: var(--font-mono), monospace; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.az-ws-row .g .ar { color: var(--rule-strong); margin: 0 7px; }
+.az-ws-row .g .to { font-weight: 500; }
+.az-ws-row .g .to.buy { color: var(--pos); }
+.az-ws-row .g .to.hold { color: var(--neu); }
+.az-ws-row .g .to.sell { color: var(--neg); }
+
+@media (max-width: 980px) {
+  .az-ws-reg { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .az-ws-lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+  .az-ws-lbl .s { margin-top: 0; }
+}
+@media (max-width: 620px) {
+  /* La proporción no se pierde al apilar: pasa del ancho de la celda al ancho
+     del filete de cada fila. */
+  .az-ws-dist { grid-template-columns: 1fr !important; }
+  .az-ws-seg { padding: 15px 0 13px; border-top: 1px solid var(--site-border); }
+  .az-ws-seg + .az-ws-seg { border-left: 0; }
+  .az-ws-seg::before { top: -1px; width: var(--share, 100%); }
+  .az-ws-seg .n { font-size: 25px; margin-top: 8px; }
+  .az-ws-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; }
+  .az-ws-row .d { grid-column: 1 / -1; }
+  .az-ws-row .f { grid-column: 1; }
+  .az-ws-row .v { grid-column: 2; text-align: right; }
+  .az-ws-row .g { grid-column: 1 / -1; }
+}
+
+/* ── Disclaimer ── */
+.az-disclaimer { display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: start; max-width: 940px; }
+.az-disclaimer .ic { color: var(--gold-deep); flex: none; }
+.az-disclaimer .ic svg { width: 34px; height: 34px; }
+
+/* ── Estados vacíos / carga / error ── */
+.az-state { padding-top: calc(var(--nav-h) + clamp(56px, 8vw, 120px)); padding-bottom: clamp(56px, 8vw, 120px); }
+
+/* ── Responsivo ── */
+@media (max-width: 900px) {
+  .az-scen-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Print: la foto congelada del reporte ──
+   El hero navy y los datos con color deben imprimirse tal cual (si no, el
+   navegador descarta los fondos y el texto blanco del hero queda invisible
+   sobre papel blanco). Forzamos color exacto y ocultamos el chrome interactivo. */
+@media print {
+  .tesis-verdict, .band-navy, .kpi-tight, .ctbl, .az-scen {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Fuera del papel todo el chrome interactivo del masthead: buscador, botones
+     (Exportar PDF / Regenerar) y el badge de mercado — este último porque es un
+     estado del reloj, y en papel quedaría congelado afirmando "abierto" para
+     siempre. Va !important porque el <style> del masthead declara esas tres
+     clases con especificidad de ID (#masthead .am-search, etc.). */
+  .am-search,
+  .am-right,
+  .am-actions { display: none !important; }
+  .analyze-masthead { padding-top: 20px; }
+  .az-sec { break-inside: avoid; }
+  .az-sec > .site-wrap { padding-top: 28px; padding-bottom: 28px; }
 }

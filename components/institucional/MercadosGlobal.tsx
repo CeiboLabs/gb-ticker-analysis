@@ -101,6 +101,20 @@ const dotVar = {
  * reveal único al entrar en viewport — los arcos irradian desde Montevideo
  * hacia centros financieros de todos los continentes y quedan encendidos.
  */
+/** Las dos plazas de la mesa. */
+const ACCESOS = [
+  {
+    href: "/servicios#local",
+    titulo: "Mercado local",
+    desc: "Bonos globales uruguayos, Notas en UI, fideicomisos, LRM y obligaciones negociables.",
+  },
+  {
+    href: "/servicios#internacional",
+    titulo: "Mercado internacional",
+    desc: "Renta fija soberana y corporativa, acciones, fondos y derivados globales.",
+  },
+];
+
 export function MercadosGlobal() {
   const reduce = useReducedMotion();
 
@@ -232,24 +246,15 @@ export function MercadosGlobal() {
         {/* Los dos accesos de la mesa: el mapa cuenta lo global, estas filas
             aterrizan la oferta concreta de cada plaza (una sola mesa). */}
         <div className="mglobal-accesos ui-list">
-          <Link href="/servicios#local" className="ui-list-row">
-            <span>
-              <span className="row-title">Mercado local</span>
-              <span className="row-desc" style={{ display: "block" }}>
-                Bonos globales uruguayos, Notas en UI, fideicomisos, LRM y obligaciones negociables.
+          {ACCESOS.map((a) => (
+            <Link key={a.href} href={a.href} className="ui-list-row">
+              <span>
+                <span className="row-title">{a.titulo}</span>
+                <span className="row-desc" style={{ display: "block" }}>{a.desc}</span>
               </span>
-            </span>
-            <span className="link-arrow" style={{ pointerEvents: "none" }}><ArrowRight /></span>
-          </Link>
-          <Link href="/servicios#internacional" className="ui-list-row">
-            <span>
-              <span className="row-title">Mercado internacional</span>
-              <span className="row-desc" style={{ display: "block" }}>
-                Renta fija soberana y corporativa, acciones, fondos y derivados globales.
-              </span>
-            </span>
-            <span className="link-arrow" style={{ pointerEvents: "none" }}><ArrowRight /></span>
-          </Link>
+              <span className="link-arrow" style={{ pointerEvents: "none" }}><ArrowRight /></span>
+            </Link>
+          ))}
         </div>
       </div>
 

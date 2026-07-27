@@ -1,0 +1,175 @@
+Empresa a analizar: NIO Inc. (NIO)
+Fecha: 2025-07-18
+Sector: Consumer Cyclical | Industria: Auto Manufacturers
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+NIO Inc. designs, develops, manufactures, and sells smart electric vehicles in China, Europe, and internationally. It offers five and six-seater electric SUVs, as well as smart electric sedans. The company also offers power solutions, including Power Home, a home charging solution; Power Swap, a battery-swapping service; Power Charger and Destination Charger; Power Mobile, a mobile charging service through charging vans; Power Map, an application that provides access to a network of public chargers and their real-time information; and One Click for power valet service. In addition, it provi...
+
+---
+DATOS DE MERCADO
+Precio Actual: $4.39 (N/A hoy)
+Capitalización Bursátil: $11.00B
+Rango 52 semanas: $3.14 – $7.21
+Beta: 0.90
+Acciones en Circulación: $2.51B
+Short Interest (% float): 7.6%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: N/Ax | P/E Forward: N/Ax | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 1.20x | P/Libro: N/Ax | EV/EBITDA: N/Ax
+EPS Trailing: N/A
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (12 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 3 | Neutral: 8 | Venta: 1 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $4.39 (260 ruedas de historia)
+  Rango 52 semanas: $3.14 – $7.21 | posición en el rango: 31% (-39.1% desde el máximo, +39.8% desde el mínimo)
+  Medias móviles: MM50: $3.74 (precio +17.3%) | MM200: $4.39 (precio +0.1%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M +27.6% | 3M +24.7% | 6M +7.1% | 12M -10.4% | momentum 12-1 (excl. último mes) -29.8%
+  Máx. drawdown de la serie: -56.4% | Volatilidad realizada anualizada: 66.1%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  TSLA (Tesla, Inc.): P/E Trailing 173.64x | Fwd N/A | Crec.Rev 0.9% | Mg.Op 7.9% | EV/EBITDA 82.6x
+  TOYOF (Toyota Motor Corporation): P/E Trailing 6.23x | Fwd N/A | Crec.Rev 6.5% | Mg.Op 10.0% | EV/EBITDA 6.0x
+  BYDDF (BYD Company Limited): P/E Trailing 26.24x | Fwd N/A | Crec.Rev 29.0% | Mg.Op 7.0% | EV/EBITDA 8.1x
+  GM (General Motors Company): P/E Trailing 8.28x | Fwd N/A | Crec.Rev 9.1% | Mg.Op 6.8% | EV/EBITDA 7.0x
+  RACE (Ferrari N.V.): P/E Trailing 50.69x | Fwd N/A | Crec.Rev 11.8% | Mg.Op 28.2% | EV/EBITDA 29.9x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 26.24x | Fwd N/A | Crec.Rev 9.1% | Mg.Op 7.9% | EV/EBITDA 8.1x
+  NIO vs cohorte: crec. rev 18.2% vs mediana peers 9.1%; margen op -33.3% vs mediana peers 7.9%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+Mediana peers — P/E Trailing: 26.24x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $9.16B | Crec. Ingresos YoY: 18.2% | Crec. Ganancias YoY: N/A
+Margen Bruto: 9.9% | Margen Operativo: -33.3% | Margen Neto: -34.5% | Margen EBITDA: -21.2%
+EBITDA: $-1,940,097,873.6 | FCF: $-2,367,250,346.52 | FCF Operativo: N/A
+ROE: N/A | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Product: 7.98B USD (YoY: +18% Y/Y)
+  Product And Service Other: 1.03B USD (YoY: +18% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     9.01B USD (YoY: +18% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    3.89B USD
+    I+D:                1.79B USD
+    Ventas y marketing: 2.16B USD
+  Utilidad operativa:   0B USD (margen: 0%)
+  Impuestos:            0B USD
+  Utilidad neta:        0B USD (margen: 0%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $1.01B (11.0% de rev.) | OCF $-560,377,859.6 | FCF $-1,571,093,046.9 | Recompras N/A | Dividendos N/A | SBC $332.79M
+  FY2023: CAPEX $2.02B (22.0% de rev.) | OCF $-194,452,599.5 | FCF $-2,212,916,117.75 | Recompras N/A | Dividendos N/A | SBC $333.44M
+  FY2024: CAPEX $1.25B (13.7% de rev.) | OCF $-1,075,336,016 | FCF $-2,327,830,157 | Recompras N/A | Dividendos N/A | SBC $264.21M
+
+  Stock-based comp acumulado: $930.44M (~3.4% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $4.23B | Caja Total: $2.75B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: N/A | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.0% | Institucional: 11.7%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. -0.62 | Rev. Est. N/A (crec. 42.8%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-06-17 | Goldman Sachs | Upgrade: Sell → Neutral
+  2025-06-04 | Barclays | Mantiene: Underweight → Underweight
+  2025-06-03 | Mizuho | Mantiene: Neutral → Neutral
+  2025-05-16 | Mizuho | Mantiene: Neutral → Neutral
+  2025-04-24 | Goldman Sachs | Mantiene: Sell → Sell
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $-2.37B / Market Cap $11.00B): -21.5%
+  PEG: N/D  [falta P/E fwd o crecimiento]
+  Deuda neta (Deuda $4.23B − Caja $2.75B): $1.48B
+  Deuda neta / EBITDA (EBITDA $-1.94B): N/D
+  Target base: N/D — faltan estimaciones de EPS forward; derivá el target con otro método y explicitalo.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield -21.5%]
+    (b) Consenso analistas = buy / strong buy: NO CUMPLE  [consenso: hold]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): N/D (sin dato concluyente — no bloquea)
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): N/D (sin dato concluyente — no bloquea)
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 7.6%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

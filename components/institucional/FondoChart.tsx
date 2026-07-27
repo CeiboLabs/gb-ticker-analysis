@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FundNavPoint } from "@/lib/fondo";
 import { fmtNav, fmtFechaCorta } from "@/lib/useFondo";
-import { PinnedMarkersPrimitive } from "@/components/PinnedMarkersPrimitive";
+import { DragRangePrimitive } from "@/components/DragRangePrimitive";
+import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
+import {
+  attachDragRange,
+  chronological,
+  type DragRangeSelection,
+} from "@/components/dragRange";
 
 // Curva de valor cuota del fondo, renderizada con el MISMO motor que el gráfico
-// de los análisis de tickers (lightweight-charts v5) y la misma estética
-// institucional: línea navy, crosshair con etiquetas UY, último valor en el eje
-// y comparación de hasta 2 puntos al tocar. A diferencia del de tickers no tiene
-// intradía ni barras de ingresos —un fondo sólo tiene cierres diarios de NAV—,
-// y la serie llega ya recortada por período desde FondoPerformance (no fetchea).
+// de los análisis de tickers (lightweight-charts v5), la misma estética
+// institucional y EL MISMO gesto de medición: apretar, arrastrar y soltar marca
+// un tramo y da su variación (components/dragRange). A diferencia del de tickers
+// no tiene intradía ni barras de ingresos —un fondo sólo tiene cierres diarios de
+// NAV—, y la serie llega ya recortada por período desde FondoPerformance (no
+// fetchea).
 
 // Paleta institucional — espejo de los tokens de app/globals.css :root.
 const PALETTE = {
@@ -24,61 +31,21 @@ const PALETTE = {
   navy: "#0f2249",     // --navy
   ink2: "#4A4E6B",     // --site-ink-2
   paper: "#FBFBFE",    // --paper (texto de etiquetas sobre navy)
-  pos: "#15803d",
-  neg: "#b91c1c",
   bench: "#9FA2C0",    // benchmark: línea secundaria, tono apagado (--site-ink-3/4)
+  // Sombra proyectada de la curva del fondo (ver LineShadowPrimitive). Va SÓLO
+  // en la serie protagonista: el benchmark es una referencia reescalada y
+  // sombrearlo también pondría a las dos a pelear por el mismo primer plano.
+  shadow: "rgba(15, 34, 73, 0.42)",
 };
-
-// Mismos acentos teal/coral que el gráfico de tickers para los puntos fijados:
-// contrastan con la línea navy y no se confunden con el verde/rojo del diff.
-const MARKER_COLORS = ["#0D7680", "#C24A3A"] as const;
-
-interface PinnedMarker {
-  time: string;
-  nav: number;
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LineSeriesApi = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PriceLineApi = any;
-
-function syncPinnedVisuals(
-  points: PinnedMarker[],
-  series: LineSeriesApi,
-  primitive: PinnedMarkersPrimitive,
-  dashedStyle: number,
-  existingPriceLines: PriceLineApi[],
-): PriceLineApi[] {
-  for (const pl of existingPriceLines) series.removePriceLine(pl);
-
-  primitive.setMarkers(
-    points.map((p, i) => ({
-      time: p.time as unknown as import("lightweight-charts").Time,
-      price: p.nav,
-      color: MARKER_COLORS[i] ?? MARKER_COLORS[0],
-    })),
-  );
-
-  return points.map((p, i) => {
-    const color = MARKER_COLORS[i] ?? MARKER_COLORS[0];
-    return series.createPriceLine({
-      price: p.nav,
-      color,
-      lineWidth: 1,
-      lineStyle: dashedStyle,
-      axisLabelVisible: true,
-      axisLabelColor: color,
-      axisLabelTextColor: PALETTE.paper,
-      title: "",
-    });
-  });
-}
 
 export function FondoChart({
   series,
   benchmark = [],
   formatValue = fmtNav,
+  unitLabel,
   seriesLabel = "Fondo",
   benchLabel = "Benchmark",
 }: {
@@ -87,26 +54,34 @@ export function FondoChart({
   benchmark?: FundNavPoint[];
   /** Formato de los valores en eje, crosshair y puntos fijados (default: valor cuota). */
   formatValue?: (n: number) => string;
+  /** Unidad del eje (p. ej. "USD" o "Índice · base 100"). Se rotula una vez arriba
+   *  del gráfico, no en cada marca del eje. */
+  unitLabel?: string;
   seriesLabel?: string;
   benchLabel?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [pinned, setPinned] = useState<PinnedMarker[]>([]);
-  const pinnedRef = useRef<PinnedMarker[]>([]);
-  useEffect(() => {
-    pinnedRef.current = pinned;
-  }, [pinned]);
-  const primitiveRef = useRef<PinnedMarkersPrimitive | null>(null);
+  // Tramo medido con el gesto de arrastre. El ref lo escribe el propio gesto; el
+  // estado sólo alimenta la lectura numérica de abajo.
+  const [selection, setSelection] = useState<DragRangeSelection | null>(null);
+  const selectionRef = useRef<DragRangeSelection | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const primitiveRef = useRef<DragRangePrimitive | null>(null);
   const lineSeriesRef = useRef<LineSeriesApi>(null);
-  const priceLinesRef = useRef<PriceLineApi[]>([]);
 
-  // Al cambiar la ventana (cambio de período en FondoPerformance) reseteamos los
-  // puntos fijados: la serie es otra y los marcadores ya no tienen sentido.
+  const resetSelection = useCallback(() => {
+    selectionRef.current = null;
+    setSelection(null);
+  }, []);
+
+  // Al cambiar la ventana (cambio de período en FondoPerformance) se borra el
+  // tramo: la serie es otra y la medición ya no corresponde. Ese cambio además
+  // recrea el gráfico, así que hay que limpiar el ref o el nuevo lo repondría.
   const sig = series.length > 0 ? `${series[0].dia}|${series[series.length - 1].dia}|${series.length}` : "";
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cambiar de rango
-    setPinned([]);
-  }, [sig]);
+    resetSelection();
+  }, [sig, resetSelection]);
 
   useEffect(() => {
     if (!containerRef.current || series.length === 0) return;
@@ -114,6 +89,7 @@ export function FondoChart({
     let destroyed = false;
     let chartInstance: { remove: () => void } | null = null;
     let observerInstance: ResizeObserver | null = null;
+    let detachPointer: (() => void) | null = null;
 
     import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle }) => {
       if (destroyed || !containerRef.current) return;
@@ -134,7 +110,10 @@ export function FondoChart({
             typeof time === "string" ? fmtFechaCorta(time) : String(time),
         },
         grid: {
-          vertLines: { color: PALETTE.ruleSoft },
+          // Sólo horizontales, igual que en el informe de equity: son las que
+          // ayudan a leer un valor contra el eje. Las verticales no aportan —la
+          // fecha se lee abajo— y encajonan el gráfico en una cuadrícula.
+          vertLines: { visible: false },
           horzLines: { color: PALETTE.ruleSoft },
         },
         crosshair: {
@@ -196,18 +175,23 @@ export function FondoChart({
       const benchPoints = toPoints(benchRows, benchScale);
 
       // Benchmark primero (queda por debajo); la línea del fondo se dibuja encima.
+      // Se guarda fuera del if: el gesto necesita apagarle el punto mientras
+      // haya tramo, igual que a la del fondo.
+      let benchSeries: LineSeriesApi = null;
       if (benchPoints.length > 0) {
-        const benchSeries = chart.addSeries(LineSeries, {
+        benchSeries = chart.addSeries(LineSeries, {
           color: PALETTE.bench,
           lineWidth: 2,
           lineStyle: LineStyle.Dashed,
           priceScaleId: "right",
           priceLineVisible: false,
-          lastValueVisible: true,
+          // Sin etiqueta de último valor: si la del fondo no va (vive arriba, en
+          // la tira), la del benchmark sola quedaría flotando sin par.
+          lastValueVisible: false,
           priceFormat: { type: "custom", formatter: (p: number) => formatValue(p), minMove: 0.01 },
           crosshairMarkerVisible: true,
           crosshairMarkerRadius: 3,
-          crosshairMarkerBorderColor: PALETTE.paper,
+          crosshairMarkerBorderWidth: 0,
           crosshairMarkerBackgroundColor: PALETTE.bench,
         });
         benchSeries.setData(benchPoints);
@@ -218,45 +202,50 @@ export function FondoChart({
         lineWidth: 2,
         priceScaleId: "right",
         priceLineVisible: false,
-        lastValueVisible: true,
+        // El valor cuota ya está en la tira de arriba — no se repite en el eje.
+        lastValueVisible: false,
         priceFormat: { type: "custom", formatter: (p: number) => formatValue(p), minMove: 0.01 },
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: PALETTE.paper,
+        // Punto pleno, sin aro. El primitive del tramo lee ESTAS opciones, así
+        // que el punto del hover y el del extremo medido cambian juntos.
+        crosshairMarkerBorderWidth: 0,
         crosshairMarkerBackgroundColor: PALETTE.navy,
       });
       lineSeries.setData(points);
       lineSeriesRef.current = lineSeries;
 
+      // La curva deja caer su sombra (zOrder bottom: la línea sigue nítida y el
+      // benchmark, que se dibuja aparte, conserva su tono).
+      const shadow = new LineShadowPrimitive({ color: PALETTE.shadow });
+      lineSeries.attachPrimitive(shadow);
+      shadow.setPoints(points.map((p) => ({ time: p.time as unknown as string, value: p.value })));
+
       chart.timeScale().fitContent();
 
-      const primitive = new PinnedMarkersPrimitive();
+      const primitive = new DragRangePrimitive({
+        band: "rgba(15, 34, 73, 0.07)",
+        edge: "rgba(15, 34, 73, 0.32)",
+        marker: PALETTE.navy,
+        markerHalo: PALETTE.bg,
+      });
       lineSeries.attachPrimitive(primitive);
       primitiveRef.current = primitive;
 
-      priceLinesRef.current = syncPinnedVisuals(
-        pinnedRef.current,
-        lineSeries,
+      // La medición corre sobre la serie del FONDO: el benchmark es una
+      // referencia reescalada, no el dato que se mide.
+      detachPointer = attachDragRange({
+        chart,
+        container,
+        points: fundRows.map((p) => ({ time: p.dia, value: p.nav })),
         primitive,
-        LineStyle.Dashed,
-        priceLinesRef.current,
-      );
-
-      chart.subscribeClick((param) => {
-        if (!param.point) return;
-        const d = param.seriesData.get(lineSeries) as
-          | { time?: string | number; value?: number }
-          | undefined;
-        if (!d || typeof d.value !== "number" || d.time == null) return;
-        const time = String(d.time);
-        const nav = d.value;
-
-        setPinned((prev) => {
-          const existingIdx = prev.findIndex((p) => p.time === time);
-          if (existingIdx >= 0) return prev.filter((_, i) => i !== existingIdx);
-          const next = [...prev, { time, nav }];
-          return next.length > 2 ? next.slice(next.length - 2) : next;
-        });
+        markerSeries: [lineSeries, benchSeries],
+        initial: selectionRef.current,
+        onSelection: (sel) => {
+          selectionRef.current = sel;
+          setSelection(sel);
+        },
+        onDragging: setDragging,
       });
 
       observerInstance = new ResizeObserver(() => {
@@ -269,76 +258,78 @@ export function FondoChart({
 
     return () => {
       destroyed = true;
+      detachPointer?.();
       observerInstance?.disconnect();
       chartInstance?.remove();
       primitiveRef.current = null;
       lineSeriesRef.current = null;
-      priceLinesRef.current = [];
     };
   }, [series, benchmark, formatValue]);
 
-  // Repintar los marcadores fijados sin recrear el gráfico.
-  useEffect(() => {
-    const s = lineSeriesRef.current;
-    const primitive = primitiveRef.current;
-    if (!s || !primitive) return;
-
-    let cancelled = false;
-    import("lightweight-charts").then(({ LineStyle }) => {
-      if (cancelled) return;
-      priceLinesRef.current = syncPinnedVisuals(pinned, s, primitive, LineStyle.Dashed, priceLinesRef.current);
-    });
-    return () => { cancelled = true; };
-  }, [pinned]);
-
   if (series.length === 0) return null;
 
-  const diff =
-    pinned.length === 2
-      ? { abs: pinned[1].nav - pinned[0].nav, pct: ((pinned[1].nav - pinned[0].nav) / pinned[0].nav) * 100 }
-      : null;
+  // Lectura del tramo, siempre del extremo más viejo al más nuevo.
+  const measure = (() => {
+    if (!selection) return null;
+    const [a, b] = chronological(selection.from, selection.to);
+    if (!a.price) return null;
+    return { a, b, abs: b.price - a.price, pct: ((b.price - a.price) / a.price) * 100 };
+  })();
 
   return (
     <div className="fondo-chart">
-      {benchmark.length > 0 && (
+      {(benchmark.length > 0 || unitLabel) && (
         <div className="fondo-chart-legend">
-          <span className="fondo-chart-leg">
-            <span className="fondo-chart-leg-line" data-kind="fund" />
-            {seriesLabel}
-          </span>
-          <span className="fondo-chart-leg">
-            <span className="fondo-chart-leg-line" data-kind="bench" />
-            {benchLabel}
-          </span>
+          {benchmark.length > 0 && (
+            <>
+              <span className="fondo-chart-leg">
+                <span className="fondo-chart-leg-line" data-kind="fund" />
+                {seriesLabel}
+              </span>
+              <span className="fondo-chart-leg">
+                <span className="fondo-chart-leg-line" data-kind="bench" />
+                {benchLabel}
+              </span>
+            </>
+          )}
+          {/* Unidad del eje, alineada a la derecha —donde vive la escala—. */}
+          {unitLabel && <span className="fondo-chart-unit">{unitLabel}</span>}
         </div>
       )}
 
-      <div ref={containerRef} style={{ height: 300 }} />
+      {/* Cursor de mira y sin selección de texto: el arrastre es un gesto de
+          medición, no una selección del documento. */}
+      <div
+        ref={containerRef}
+        style={{
+          height: 300,
+          cursor: "crosshair",
+          userSelect: dragging ? "none" : undefined,
+          WebkitUserSelect: dragging ? "none" : undefined,
+        }}
+      />
 
+      {/* La medición sólo existe mientras se arrastra; la altura queda fija para
+          que la tira no salte al aparecer y desaparecer. */}
       <div className="fondo-chart-read">
-        {pinned.length === 0 ? (
-          <p className="fondo-chart-hint">Tocá el gráfico para marcar y comparar hasta 2 puntos.</p>
+        {!measure ? (
+          <p className="fondo-chart-hint">Arrastrá sobre el gráfico para medir un tramo.</p>
         ) : (
-          <div className="fondo-chart-pins">
-            <div className="fondo-chart-pins-list">
-              {pinned.map((p, i) => (
-                <span key={`${p.time}-${i}`} className="fondo-chart-pin">
-                  <span className="fondo-chart-pin-dot" style={{ background: MARKER_COLORS[i] }} />
-                  <span className="fondo-chart-pin-date">{fmtFechaCorta(p.time)}</span>
-                  <span className="fondo-chart-pin-nav">{formatValue(p.nav)}</span>
-                  {i < pinned.length - 1 && <span className="fondo-chart-pin-arrow">→</span>}
-                </span>
-              ))}
-              {diff && (
-                <span className="fondo-chart-diff" data-dir={diff.abs >= 0 ? "up" : "down"}>
-                  <strong>{diff.pct >= 0 ? "+" : ""}{diff.pct.toFixed(2)}%</strong>
-                  <em>{diff.abs >= 0 ? "+" : ""}{formatValue(diff.abs)}</em>
-                </span>
-              )}
-            </div>
-            <button type="button" className="fondo-chart-clear" onClick={() => setPinned([])}>
-              Limpiar
-            </button>
+          <div className="fondo-chart-pins-list">
+            <span className="fondo-chart-pin">
+              <span className="fondo-chart-pin-date">{fmtFechaCorta(String(measure.a.time))}</span>
+              <span className="fondo-chart-pin-nav">{formatValue(measure.a.price)}</span>
+            </span>
+            <span className="fondo-chart-pin-arrow">→</span>
+            <span className="fondo-chart-pin">
+              <span className="fondo-chart-pin-date">{fmtFechaCorta(String(measure.b.time))}</span>
+              <span className="fondo-chart-pin-nav">{formatValue(measure.b.price)}</span>
+            </span>
+            <span className="fondo-chart-diff" data-dir={measure.abs >= 0 ? "up" : "down"}>
+              {/* Coma decimal, como el resto de los números de la página. */}
+              <strong>{measure.pct >= 0 ? "+" : ""}{measure.pct.toFixed(2).replace(".", ",")}%</strong>
+              <em>{measure.abs >= 0 ? "+" : ""}{formatValue(measure.abs)}</em>
+            </span>
           </div>
         )}
       </div>
@@ -359,26 +350,26 @@ export function FondoChart({
         .fondo-chart-leg-line[data-kind="bench"] {
           border-top: 2px dashed #9FA2C0;
         }
+        .fondo-chart-unit {
+          margin-left: auto; font-family: var(--font-mono), monospace; font-size: 11px;
+          letter-spacing: 0.08em; color: var(--site-ink-3);
+        }
         .fondo-chart-read {
           margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--site-border);
-          min-height: 20px;
+          min-height: 26px; display: flex; align-items: center;
         }
         .fondo-chart-hint {
           margin: 0; font-family: var(--font-mono), monospace; font-size: 11px;
           letter-spacing: 0.04em; color: var(--site-ink-3);
         }
-        .fondo-chart-pins {
-          display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-        }
-        .fondo-chart-pins-list { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .fondo-chart-pins-list { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .fondo-chart-pin {
           display: inline-flex; align-items: center; gap: 7px;
           font-family: var(--font-mono), monospace; font-size: 11px;
           color: var(--site-ink-2); font-variant-numeric: tabular-nums;
         }
-        .fondo-chart-pin-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .fondo-chart-pin-nav { color: var(--site-ink); font-weight: 500; }
-        .fondo-chart-pin-arrow { color: var(--site-ink-3); margin-left: 2px; }
+        .fondo-chart-pin-arrow { color: var(--site-ink-3); font-size: 11px; }
         .fondo-chart-diff {
           display: inline-flex; align-items: baseline; gap: 8px;
           padding-left: 14px; border-left: 1px solid var(--site-border);
@@ -386,14 +377,8 @@ export function FondoChart({
         }
         .fondo-chart-diff strong { font-size: 13px; }
         .fondo-chart-diff em { font-size: 10px; font-style: normal; opacity: 0.75; }
-        .fondo-chart-diff[data-dir="up"] strong, .fondo-chart-diff[data-dir="up"] em { color: #15803d; }
-        .fondo-chart-diff[data-dir="down"] strong, .fondo-chart-diff[data-dir="down"] em { color: #b91c1c; }
-        .fondo-chart-clear {
-          background: none; border: 0; cursor: pointer;
-          font-family: var(--font-mono), monospace; font-size: 10px;
-          letter-spacing: 0.15em; text-transform: uppercase; color: var(--site-ink-3);
-        }
-        .fondo-chart-clear:hover { color: var(--navy); }
+        .fondo-chart-diff[data-dir="up"] strong, .fondo-chart-diff[data-dir="up"] em { color: var(--pos); }
+        .fondo-chart-diff[data-dir="down"] strong, .fondo-chart-diff[data-dir="down"] em { color: var(--neg); }
       `}</style>
     </div>
   );

@@ -1,14 +1,18 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { Columns, Globe, Scales, Lock, Waveform, Compass, Handshake, Users, Rocket } from "@/components/institucional/icons";
+import { pageMetadata } from "@/lib/seo";
+import { estaOculta } from "@/lib/paginasOcultas";
 
-export const metadata: Metadata = {
-  title: "Nosotros · Bengochea & Cía.",
+export const metadata: Metadata = pageMetadata({
+  title: "Nosotros",
   description:
     "Sociedad de Bolsa uruguaya desde 1967. Misión, visión y valores de Gastón Bengochea CB.",
-};
+  path: "/nosotros",
+});
 
 const VALORES: { icon: ReactNode; text: string }[] = [
   { icon: <Handshake />, text: "El cliente inversor siempre primero." },
@@ -37,13 +41,17 @@ const CIFRAS: [string, string][] = [
 ];
 
 export default function NosotrosPage() {
+  // 404 con el not-found de la casa mientras la sección siga listada en
+  // lib/paginasOcultas.ts. Publicada = la guarda queda inerte.
+  if (estaOculta("/nosotros")) notFound();
+
   return (
     <main className="site">
       {/* Hero split — contenido + imagen */}
       <div className="hero-split">
         <Reveal className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
-            La casa · Nosotros
+            Nosotros
           </div>
           <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             La excelencia hace la diferencia.
@@ -134,7 +142,7 @@ export default function NosotrosPage() {
           <div className="split">
             <Reveal>
               <div className="eyebrow-sm">Valores</div>
-              <h2 className="t-h2" style={{ marginTop: 16 }}>Seis principios que ordenan la casa.</h2>
+              <h2 className="t-h2" style={{ marginTop: 16 }}>Seis principios que ordenan nuestro trabajo.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "30em" }}>
                 Lo que sostiene la convivencia interna y la relación con cada cliente.
               </p>

@@ -118,20 +118,19 @@ function buildSingleSessionPayload(
   quotes: Array<{ date: Date; close: number | null }>,
   result: ChartResult,
 ): ChartRangePayload {
-  const meta = result?.meta ?? {};
-  const tradingPeriod = meta.currentTradingPeriod ?? null;
-  const regular = tradingPeriod?.regular as { start: Date; end: Date } | undefined;
+  const withClose = quotes.filter((q) => q.close != null);
 
-  const sessionDateKey = regular
-    ? etDateKey(regular.start)
-    : (() => {
-        const last = [...quotes].reverse().find((q) => q.close != null);
-        return last ? etDateKey(last.date) : etDateKey(new Date());
-      })();
+  // Anclar en el último día que TIENE barras, no en el que Yahoo llama
+  // "actual". meta.currentTradingPeriod es la rueda vigente por reloj de pared:
+  // apenas cierra el after-hours (20:00 ET) ya apunta a la sesión siguiente, y
+  // todo el fin de semana apunta al lunes. Anclar ahí filtraba contra un día sin
+  // una sola barra y el rango 1D salía vacío ("Sin datos para este rango")
+  // todas las noches y sábados/domingos, aunque Yahoo mandara la rueda anterior
+  // completa.
+  const last = withClose[withClose.length - 1];
+  const sessionDateKey = last ? etDateKey(last.date) : etDateKey(new Date());
 
-  const sessionQuotes = quotes.filter(
-    (q) => q.close != null && etDateKey(q.date) === sessionDateKey,
-  );
+  const sessionQuotes = withClose.filter((q) => etDateKey(q.date) === sessionDateKey);
 
   const prices: ChartPoint[] = dedupeAndSort(
     sessionQuotes.map((q) => ({
@@ -140,20 +139,53 @@ function buildSingleSessionPayload(
     })),
   );
 
-  const regularSession =
-    regular && etDateKey(regular.start) === sessionDateKey
-      ? {
-          start: Math.floor(regular.start.getTime() / 1000),
-          end: Math.floor(regular.end.getTime() / 1000),
-        }
-      : null;
-
   return {
     range: "1D",
     hasPrePost: true,
-    regularSession,
+    regularSession: findRegularSession(result, sessionDateKey),
     prices,
   };
+}
+
+// Límites de la rueda regular del día que efectivamente se grafica; el chart
+// los usa para partir la línea en pre / regular / after. Cuando el día anclado
+// no es el de currentTradingPeriod (noche, fin de semana, feriado) hay que
+// sacarlos de meta.tradingPeriods, que trae una fila por día del rango — así el
+// sombreado sigue siendo correcto en medias ruedas, que no cierran a las 16:00.
+function findRegularSession(
+  result: ChartResult,
+  sessionDateKey: string,
+): { start: number; end: number } | null {
+  const meta = result?.meta ?? {};
+  const candidates: Array<{ start: unknown; end: unknown }> = [];
+
+  if (meta.currentTradingPeriod?.regular) candidates.push(meta.currentTradingPeriod.regular);
+  // tradingPeriods.regular llega como array de arrays (una fila por jornada).
+  for (const row of (meta.tradingPeriods?.regular ?? []) as unknown[]) {
+    for (const period of Array.isArray(row) ? row : [row]) {
+      if (period) candidates.push(period as { start: unknown; end: unknown });
+    }
+  }
+
+  for (const period of candidates) {
+    const start = toDate(period.start);
+    const end = toDate(period.end);
+    if (!start || !end || etDateKey(start) !== sessionDateKey) continue;
+    return { start: Math.floor(start.getTime() / 1000), end: Math.floor(end.getTime() / 1000) };
+  }
+  return null;
+}
+
+// yahoo-finance2 hidrata estos campos a Date, pero con validateResult:false un
+// cambio de forma upstream puede dejar el epoch crudo. Aceptar ambos.
+function toDate(value: unknown): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "number") return new Date(value * 1000);
+  if (typeof value === "string") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 function etDateKey(d: Date): string {

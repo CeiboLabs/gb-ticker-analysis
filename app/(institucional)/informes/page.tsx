@@ -9,12 +9,14 @@ import { INFORMES, AUTORES } from "@/lib/informes";
 import { tieneArticulo } from "@/lib/informeContenido";
 import { getMetricsDb } from "@/lib/metrics";
 import { readInformesLive } from "@/lib/informesStore";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Informes · Bengochea & Cía.",
+export const metadata: Metadata = pageMetadata({
+  title: "Informes",
   description:
     "Informes mensuales y semanales de mercado de Gastón Bengochea CB. Recomendaciones, lectura macro y oportunidades de inversión.",
-};
+  path: "/informes",
+});
 
 // La lista vive en la base (la administra el panel de empleados): la página se
 // renderiza por request en el server — publicar u ocultar un informe pega acá
@@ -167,7 +169,7 @@ export default async function InformesPage() {
             <div>
               <h2 className="t-h2">Quién firma cada informe.</h2>
               <p className="t-lead" style={{ marginTop: 16, maxWidth: "38em" }}>
-                Dos lecturas, dos plumas de la casa. El mensual ordena la visión macro y de cartera;
+                Dos lecturas, dos plumas nuestras. El mensual ordena la visión macro y de cartera;
                 el semanal sigue cada cierre de mercado.
               </p>
             </div>
@@ -210,7 +212,7 @@ export default async function InformesPage() {
               </h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "38em" }}>
                 Los informes son una lectura general. Para tu cartera, hace falta una conversación.
-                Agendá una reunión con un asesor de la casa.
+                Agendá una reunión con un asesor nuestro.
               </p>
               <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
                 <Link href="/contacto" className="ui-btn ui-btn-on-navy">

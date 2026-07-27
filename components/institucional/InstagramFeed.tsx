@@ -57,7 +57,7 @@ export function InstagramFeed({
         <Reveal className="split-label">
           <div className="eyebrow-sm">Novedades</div>
           <div>
-            <h2 className="t-h2">La casa, al día.</h2>
+            <h2 className="t-h2">Nuestro día a día.</h2>
             <p className="t-lead" style={{ marginTop: 20, maxWidth: "32em" }}>
               Lo último que compartimos en{" "}
               <a href={PROFILE_URL} target="_blank" rel="noopener noreferrer" className="ig-handle">

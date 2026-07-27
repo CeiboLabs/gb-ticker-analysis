@@ -1,0 +1,177 @@
+Empresa a analizar: Suncor Energy Inc. (SU)
+Fecha: 2025-07-18
+Sector: Energy | Industria: Oil & Gas Integrated
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — PETRÓLEO/GAS: priorizá Free Cash Flow yield, breakeven price (WTI/Brent), reserve replacement ratio, operating netback. Capex elevado es normal en upstream; lo crítico es FCF a precios actuales del crudo.
+INDUSTRY HINT — PETRÓLEO/GAS: cyclical play. Múltiplos comprimidos en cima del ciclo (P/E 6-10×) pueden ser trampas de valor; múltiplos expandidos en fondo del ciclo (P/E 20×+) son señal de inflexión. EV/DACF y P/NAV son relevantes.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Suncor Energy Inc. operates as an integrated energy company in Canada, the United States, and internationally. The company operates through Oil Sands; Exploration and Production; and Refining and Marketing segments. The Oil Sands segment produces bitumen; and markets, supplies, and transports and manages crude oil, power, and byproducts. The Exploration and Production segment is involved in the offshore operations on the east coast of Canada, and onshore assets in Libya and Syria; and marketing and risk management of crude oil. The Refining and Marketing segment refines and supplies crude o...
+
+---
+DATOS DE MERCADO
+Precio Actual: $38.30 (N/A hoy)
+Capitalización Bursátil: $45.87B
+Rango 52 semanas: $30.74 – $40.46
+Beta: 0.73
+Acciones en Circulación: $1.18B
+Short Interest (% float): 0.8%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 11.13x | P/E Forward: 13.83x | CAPE (Shiller P/E): 8.9x (3yr avg EPS)
+P/Ventas (TTM): 1.15x | P/Libro: 1.40x | EV/EBITDA: 4.73x
+EPS Trailing: 3.44
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (5 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 3 | Neutral: 2 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $38.30 (260 ruedas de historia)
+  Rango 52 semanas: $30.74 – $40.46 | posición en el rango: 78% (-5.3% desde el máximo, +24.6% desde el mínimo)
+  Medias móviles: MM50: $36.83 (precio +4.0%) | MM200: $36.50 (precio +4.9%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M -5.3% | 3M +16.2% | 6M -1.0% | 12M +5.6% | momentum 12-1 (excl. último mes) +11.6%
+  Máx. drawdown de la serie: -22.4% | Volatilidad realizada anualizada: 30.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  XOM (ExxonMobil Holdings Corporation): P/E Trailing 13.32x | Fwd N/A | Crec.Rev 1.4% | Mg.Op 11.7% | EV/EBITDA 6.4x
+  CVX (Chevron Corporation): P/E Trailing 14.82x | Fwd N/A | Crec.Rev -1.8% | Mg.Op 9.8% | EV/EBITDA 7.1x
+  PCCYF (PetroChina Company Limited): P/E Trailing 9.56x | Fwd N/A | Crec.Rev -2.5% | Mg.Op 9.0% | EV/EBITDA 3.3x
+  SHEL (Shell plc): P/E Trailing 13.38x | Fwd N/A | Crec.Rev -10.2% | Mg.Op 10.5% | EV/EBITDA 4.1x
+  TTE (TotalEnergies SE): P/E Trailing 8.84x | Fwd N/A | Crec.Rev -10.7% | Mg.Op 12.3% | EV/EBITDA 4.0x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 13.32x | Fwd N/A | Crec.Rev -2.5% | Mg.Op 10.5% | EV/EBITDA 4.1x
+  SU vs cohorte: P/E trailing 11.1x vs mediana peers 13.3x; crec. rev 5.1% vs mediana peers -2.5%; margen op 16.5% vs mediana peers 10.5%; EV/EBITDA 4.7x vs mediana peers 4.1x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  SU en P/E Trailing: percentil p40 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 13.32x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $40.00B | Crec. Ingresos YoY: 5.1% | Crec. Ganancias YoY: N/A
+Margen Bruto: 40.8% | Margen Operativo: 16.5% | Margen Neto: 11.0% | Margen EBITDA: 28.9%
+EBITDA: $11.54B | FCF: $6.91B | FCF Operativo: N/A
+ROE: 13.4% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  North America: 37.68B USD (YoY: +6% Y/Y)
+  Other: 0.47B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     38.14B USD (YoY: +5% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+  Utilidad operativa:   5.69B USD (margen: 14.9%)
+  Impuestos:            1.51B USD
+  Utilidad neta:        4.18B USD (margen: 11%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $3.78B (9.5% de rev.) | OCF $11.58B | FCF $7.80B | Recompras $3.79B | Dividendos $1.92B | SBC $242.27M
+  FY2023: CAPEX $4.48B (11.2% de rev.) | OCF $9.32B | FCF $4.84B | Recompras $1.69B | Dividendos $2.07B | SBC $81.51M
+  FY2024: CAPEX $4.51B (11.3% de rev.) | OCF $11.09B | FCF $6.59B | Recompras $2.02B | Dividendos $1.95B | SBC $39.62M
+
+  Capital devuelto al accionista (período): recompras $7.50B + dividendos $5.94B = $13.44B (70% del FCF acumulado del período).
+  Stock-based comp acumulado: $363.39M (~0.3% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $10.78B | Caja Total: $2.02B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 4.2% | Payout Ratio: 47.0% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.1% | Institucional: 69.9%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 2.96 | Rev. Est. N/A (crec. 3.9%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-07 | RBC Capital | Reitera: Outperform → Outperform
+  2024-12-20 | RBC Capital | Reitera: Outperform → Outperform
+  2024-07-12 | Scotiabank | Mantiene: Sector Perform → Sector Perform
+  2024-05-28 | Goldman Sachs | Mantiene: Buy → Buy
+  2024-05-23 | Goldman Sachs | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $6.91B / Market Cap $45.87B): 15.1%
+  PEG (P/E fwd 13.83x ÷ crec. EPS 3.9%): 3.54x  [estimación forward +1y]
+  Deuda neta (Deuda $10.78B − Caja $2.02B): $8.76B
+  Deuda neta / EBITDA (EBITDA $11.54B): 0.76x
+  Target base (P/E fwd 13.83x × EPS FY+1 2.96): $40.94 (+6.9% vs precio actual $38.30)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 15.1%, PEG 3.54x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.8%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

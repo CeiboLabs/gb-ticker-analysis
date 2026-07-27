@@ -1,5 +1,5 @@
 import type { SegmentSankeyData, IndustryProfile } from "@/types/Report";
-import { fetchEdgarAll, type EdgarIncomeStatement, type EdgarSegmentResult } from "@/lib/fetchEdgarSegments";
+import { fetchEdgarAll, type EdgarIncomeStatement, type EdgarSegmentResult, type EdgarFilingSelection } from "@/lib/fetchEdgarSegments";
 import { fetchUsdRate } from "@/lib/fxRates";
 
 // Convert every monetary line on an EdgarIncomeStatement from its native
@@ -16,7 +16,8 @@ async function convertISToUsd(
 ): Promise<{ is: EdgarIncomeStatement; segmentResult: EdgarSegmentResult | null } | null> {
   const code = (is.currency ?? "USD").toUpperCase();
   if (code === "USD") return { is, segmentResult };
-  const rate = await fetchUsdRate(code);
+  // FX del cierre del período del filing (per-period), no el de hoy.
+  const rate = await fetchUsdRate(code, is.endDate);
   if (!rate || rate <= 0) return null;
   const m = (v: number): number => v * rate;
   const converted: EdgarIncomeStatement = {
@@ -258,8 +259,11 @@ function autoScale(values: number[]): { unit: string; divisor: number } {
   return { unit: "K", divisor: 1e3 };
 }
 
+// filingOverride: backtest point-in-time — mismo pipeline sobre un filing
+// histórico (ver EdgarFilingSelection). Producción lo omite.
 export async function fetchSegmentData(
-  ticker: string
+  ticker: string,
+  filingOverride?: EdgarFilingSelection | null,
 ): Promise<SegmentSankeyData | null> {
   // SEC EDGAR only covers US-listed companies — skip for non-US market tickers
   // (e.g., GGAL.BA, YPF.BA for BYMA; BRK.A/.B are single-letter and still attempted)
@@ -267,7 +271,7 @@ export async function fetchSegmentData(
   if (ticker.includes(".") && suffix.length >= 2) return null;
 
   try {
-    const data = await fetchEdgarAll(ticker);
+    const data = await fetchEdgarAll(ticker, filingOverride);
     if (!data) return null;
 
     // FX-convert to USD when the issuer reports in a non-USD currency

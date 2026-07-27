@@ -1,0 +1,183 @@
+Empresa a analizar: Microsoft Corporation (MSFT)
+Fecha: 2025-01-17
+Sector: Technology | Industria: Software - Infrastructure
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Microsoft Corporation develops and supports software, services, devices, and solutions worldwide. The Productivity and Business Processes segment offers Microsoft 365 commercial, enterprise mobility + security, windows commercial, power BI, exchange, sharepoint, Microsoft teams, security and compliance, and copilot; Microsoft 365 commercial products, such as Windows commercial on-premises and office licensed services; Microsoft 365 consumer products and cloud services, including Microsoft 365 consumer subscriptions, office licensed on-premises, and other consumer services; LinkedIn; dynamic...
+
+---
+DATOS DE MERCADO
+Precio Actual: $424.00 (N/A hoy)
+Capitalización Bursátil: $3.19T
+Rango 52 semanas: $360.74 – $460.33
+Beta: 1.19
+Acciones en Circulación: $7.43B
+Short Interest (% float): 0.8%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 35.93x | P/E Forward: 28.21x | CAPE (Shiller P/E): 40.9x (3yr avg EPS)
+P/Ventas (TTM): 13.00x | P/Libro: 11.87x | EV/EBITDA: 23.90x
+EPS Trailing: 11.80
+Precio Objetivo Medio Analistas: $510.36 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (35 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 33 | Neutral: 2 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $424.00 (260 ruedas de historia)
+  Rango 52 semanas: $360.74 – $460.33 | posición en el rango: 64% (-7.9% desde el máximo, +17.5% desde el mínimo)
+  Medias móviles: MM50: $423.49 (precio +0.1%) | MM200: $419.01 (precio +1.2%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M -5.0% | 3M +3.3% | 6M -2.2% | 12M +11.0% | momentum 12-1 (excl. último mes) +16.8%
+  Máx. drawdown de la serie: -15.5% | Volatilidad realizada anualizada: 20.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  ORCL (Oracle Corporation): P/E Trailing 42.67x | Fwd N/A | Crec.Rev 6.0% | Mg.Op 30.3% | EV/EBITDA 25.5x
+  PLTR (Palantir Technologies Inc.): P/E Trailing 796.29x | Fwd N/A | Crec.Rev 16.7% | Mg.Op 5.4% | EV/EBITDA 1099.7x
+  PANW (Palo Alto Networks, Inc.): P/E Trailing 48.66x | Fwd N/A | Crec.Rev 16.5% | Mg.Op 8.5% | EV/EBITDA 112.1x
+  CRWD (CrowdStrike Holdings, Inc.): P/E Trailing 964.86x | Fwd N/A | Crec.Rev 36.3% | Mg.Op -0.6% | EV/EBITDA 318.8x
+  FTNT (Fortinet, Inc.): P/E Trailing 64.54x | Fwd N/A | Crec.Rev 20.1% | Mg.Op 23.4% | EV/EBITDA 46.0x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 64.54x | Fwd N/A | Crec.Rev 16.7% | Mg.Op 8.5% | EV/EBITDA 112.1x
+  MSFT vs cohorte: P/E trailing 35.9x vs mediana peers 64.5x; crec. rev 15.7% vs mediana peers 16.7%; margen op 44.6% vs mediana peers 8.5%; EV/EBITDA 23.9x vs mediana peers 112.1x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  MSFT en P/E Trailing: percentil p0 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 64.54x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $245.12B | Crec. Ingresos YoY: 15.7% | Crec. Ganancias YoY: N/A
+Margen Bruto: 69.8% | Margen Operativo: 44.6% | Margen Neto: 36.0% | Margen EBITDA: 54.3%
+EBITDA: $133.01B | FCF: $74.07B | FCF Operativo: N/A
+ROE: 32.8% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Productivity And Business Processes: 28.32B USD (YoY: +12% Y/Y)
+  Intelligent Cloud: 24.09B USD (YoY: +20% Y/Y)
+  More Personal Computing: 13.18B USD (YoY: +17% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     65.58B USD (YoY: +16% Y/Y)
+  Costo de ingresos:    20.1B USD
+  Utilidad bruta:       45.49B USD (margen: 69.4%)
+  Gastos operativos:    14.93B USD
+    I+D:                7.54B USD
+    Ventas y marketing: 5.72B USD
+    G&A:                1.67B USD
+  Utilidad operativa:   30.55B USD (margen: 46.6%)
+  Impuestos:            5.6B USD
+  Utilidad neta:        24.67B USD (margen: 37.6%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $23.89B (9.7% de rev.) | OCF $89.03B | FCF $65.15B | Recompras $32.70B | Dividendos $18.14B | SBC $7.50B
+  FY2023: CAPEX $28.11B (11.5% de rev.) | OCF $87.58B | FCF $59.48B | Recompras $22.25B | Dividendos $19.80B | SBC $9.61B
+  FY2024: CAPEX $44.48B (18.1% de rev.) | OCF $118.55B | FCF $74.07B | Recompras $17.25B | Dividendos $21.77B | SBC $10.73B
+
+  Capital devuelto al accionista (período): recompras $72.19B + dividendos $59.71B = $131.90B (66% del FCF acumulado del período).
+  Stock-based comp acumulado: $27.85B (~3.8% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $67.13B | Caja Total: $75.53B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 0.7% | Payout Ratio: 26.1% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 1.5% | Institucional: 72.6%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 15.11 | Rev. Est. N/A (crec. 15.5%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+Business Outlook Microsoft will provide forward-looking guidance in connection with this quarterly earnings announcement on its earnings conference call and webcast. Quarterly Highlights, Product Releases, and Enhancements Every quarter Microsoft delivers hundreds of products, either as new releases, services, or enhancements to current products and services. These releases are a result of significant research and development investments, made over multiple years, designed to help customers be more productive and secure and to deliver differentiated value across the cloud and the edge. Here are the major product releases and other highlights for the quarter, organized by product categories, to help illustrate how we are accelerating innovation across our businesses while expanding our market opportunities. Environmental, Social, and Governance (ESG) To learn more about Microsoft’s corporate governance and our environmental and social practices, please visit our investor relations Board and ESG website and reporting at Microsoft.com/transparency . Webcast Details Satya Nadella, chairman and chief executive officer, Amy Hood, executive vice president and chief financial officer,…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-17 | Evercore ISI Group | Reitera: Outperform → Outperform
+  2025-01-16 | Cantor Fitzgerald | Inicio cobertura: Overweight
+  2025-01-06 | Bernstein | Mantiene: Outperform → Outperform
+  2025-01-06 | Piper Sandler | Mantiene: Overweight → Overweight
+  2024-12-23 | Loop Capital | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2024-12-16 | Jolla Alice L. (Chief Accounting Officer) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $276,145.39
+
+  Patrón neto: predominantemente mecánico (RSU/opciones), no señal
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $276,145.39
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $74.07B / Market Cap $3.19T): 2.3%
+  PEG (P/E fwd 28.21x ÷ crec. EPS 15.5%): 1.82x  [estimación forward +1y]
+  Deuda neta (Deuda $67.13B − Caja $75.53B): $-8.40B
+  Deuda neta / EBITDA (EBITDA $133.01B): -0.06x
+  Target base (P/E fwd 28.21x × EPS FY+1 15.11): $426.25 (+0.5% vs precio actual $424.00)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 2.3%, PEG 1.82x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: predominantemente mecánico (RSU/opciones), no señal; short: 0.8%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

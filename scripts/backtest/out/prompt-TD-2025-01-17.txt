@@ -1,0 +1,183 @@
+Empresa a analizar: The Toronto-Dominion Bank (TD)
+Fecha: 2025-01-17
+Sector: Financial Services | Industria: Banks - Diversified
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — BANCO: priorizá Net Interest Margin (NIM), eficiencia (efficiency ratio), provisiones para préstamos perdidos (provision for loan losses) y ratio CET1 si están disponibles. Los márgenes brutos/operativos típicos de manufactura no aplican; usá ROE/ROA y NIM como métricas de rentabilidad.
+INDUSTRY HINT — BANCO: la valuación se mide en P/Book más que P/E para bancos (P/B 1.0× es paridad con valor contable). ROE >12% suele justificar P/B premium. Mencioná price/tangible book si los datos permiten.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+The Toronto-Dominion Bank, together with its subsidiaries, provides various financial products and services in Canada, the United States, and internationally. It operates through four segments: Canadian Personal and Commercial Banking; U.S. Retail; Wealth Management and Insurance; and Wholesale Banking. The company offers personal deposits, such as chequing, savings, and investment products; financing, investment, cash management, international trade, and banking services to businesses; and financing options to customers at point of sale for automotive and recreational vehicle purchases. It...
+
+---
+DATOS DE MERCADO
+Precio Actual: $55.37 (N/A hoy)
+Capitalización Bursátil: $95.01B
+Rango 52 semanas: $48.98 – $60.61
+Beta: 0.51
+Acciones en Circulación: $1.65B
+Short Interest (% float): 1.4%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 15.51x | P/E Forward: 8.84x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 2.44x | P/Libro: 1.19x | EV/EBITDA: N/Ax
+EPS Trailing: N/A
+Precio Objetivo Medio Analistas: $60.08 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (5 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 2 | Neutral: 3 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $55.37 (260 ruedas de historia)
+  Rango 52 semanas: $48.98 – $60.61 | posición en el rango: 55% (-8.6% desde el máximo, +13.1% desde el mínimo)
+  Medias móviles: MM50: $52.00 (precio +6.5%) | MM200: $53.59 (precio +3.3%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M +9.8% | 3M +3.4% | 6M +1.5% | 12M +2.4% | momentum 12-1 (excl. último mes) -6.7%
+  Máx. drawdown de la serie: -19.2% | Volatilidad realizada anualizada: 19.2%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  JPM (JPMorgan Chase & Co.): P/E Trailing 15.50x | Fwd N/A | Crec.Rev 21.3%
+  BAC (Bank of America Corporation): P/E Trailing 14.61x | Fwd N/A | Crec.Rev 8.2%
+  IDCBF (Industrial and Commercial Bank of China Limited): P/E Trailing 6.29x | Fwd N/A | Crec.Rev -3.8%
+  HSBC (HSBC Holdings plc): P/E Trailing 8.14x | Fwd N/A | Crec.Rev 20.1%
+  RY (Royal Bank of Canada): P/E Trailing 14.90x | Fwd N/A | Crec.Rev 11.4%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 14.61x | Fwd N/A | Crec.Rev 11.4%
+  TD vs cohorte: P/E trailing 15.5x vs mediana peers 14.6x; crec. rev 9.2% vs mediana peers 11.4%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  TD en P/E Trailing: percentil p100 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 14.61x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $38.97B | Crec. Ingresos YoY: 9.2% | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: 15.7% | Margen EBITDA: N/A
+EBITDA: N/A | FCF: $36.55B | FCF Operativo: N/A
+ROE: 7.7% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Net Interest Income: 21.91B USD
+  Other Net Revenue: 19.24B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     41.15B USD (YoY: +13% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+  Utilidad operativa:   8.29B USD (margen: 20.2%)
+  Impuestos:            1.93B USD
+  Utilidad neta:        6.36B USD (margen: 15.5%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance (originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y dividendos contra la utilidad neta y la solvencia regulatoria.
+
+  FY2022: CAPEX $1.06B (2.7% de rev.) | OCF $28.49B | FCF $27.43B | Recompras $10.46B | Dividendos $4.88B | SBC N/A
+  FY2023: CAPEX $1.33B (3.4% de rev.) | OCF $-47,134,330,580 | FCF $-48,465,311,340 | Recompras $9.55B | Dividendos $4.20B | SBC N/A
+  FY2024: CAPEX $1.57B (4.0% de rev.) | OCF $39.50B | FCF $37.94B | Recompras $12.32B | Dividendos $5.15B | SBC N/A
+
+  Capital devuelto al accionista (período): recompras $32.33B + dividendos $14.23B = $46.56B.
+
+---
+BALANCE
+Deuda Total: $319.15B | Caja Total: $123.34B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 5.4% | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.2% | Institucional: 56.4%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 6.11 | Rev. Est. N/A (crec. 3.6%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2024-12-18 | BMO Capital | Upgrade: Market Perform → Outperform
+  2024-12-06 | RBC Capital | Mantiene: Sector Perform → Sector Perform
+  2024-05-24 | BMO Capital | Mantiene: Market Perform → Market Perform
+  2023-12-18 | B of A Securities | Downgrade: Buy → Neutral
+  2023-08-25 | Credit Suisse | Mantiene: Outperform → Outperform
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2024-09-05 | Toronto Dominion Investments, Inc. (10% Owner) | Other (non-open market) [MECÁNICA · RSU/opciones, no señal]
+  2023-12-07 | Toronto Dominion Investments, Inc. (10% Owner) | Other (non-open market) [MECÁNICA · RSU/opciones, no señal]
+
+  Patrón neto: mixto / neutral
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $0
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield: NO SIGNIFICATIVO para este perfil (bank) — el flujo de caja de una financiera está dominado por movimientos de balance (préstamos, depósitos, trading). NO lo uses como métrica de valuación ni como base de "capital devuelto vs FCF".
+  Valuación del perfil financiero: P/Libro 1.19x | ROE 7.7% | P/E trailing 15.51x
+  PEG (P/E fwd 8.84x ÷ crec. EPS 3.6%): 2.43x  [estimación forward +1y]
+  Deuda neta (Deuda $319.15B − Caja $123.34B): $195.82B
+  Deuda neta / EBITDA: no aplica a este perfil (bank) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 8.84x × EPS FY+1 6.11): $54.01 (-2.4% vs precio actual $55.37)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (P/B <1x, P/B <1.5x con ROE >10%, P/E <12x o PEG <1.5x): NO CUMPLE  [evaluada con: perfil financiero — P/B 1.19x con ROE 7.7%, P/E trailing 15.5x, PEG 2.43x]
+    (b) Consenso analistas = buy / strong buy: NO CUMPLE  [consenso: hold]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (bank) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 1.4%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

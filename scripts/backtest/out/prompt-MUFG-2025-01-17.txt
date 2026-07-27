@@ -1,0 +1,178 @@
+Empresa a analizar: Mitsubishi UFJ Financial Group, Inc. (MUFG)
+Fecha: 2025-01-17
+Sector: Financial Services | Industria: Banks - Diversified
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — BANCO: priorizá Net Interest Margin (NIM), eficiencia (efficiency ratio), provisiones para préstamos perdidos (provision for loan losses) y ratio CET1 si están disponibles. Los márgenes brutos/operativos típicos de manufactura no aplican; usá ROE/ROA y NIM como métricas de rentabilidad.
+INDUSTRY HINT — BANCO: la valuación se mide en P/Book más que P/E para bancos (P/B 1.0× es paridad con valor contable). ROE >12% suele justificar P/B premium. Mencioná price/tangible book si los datos permiten.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Mitsubishi UFJ Financial Group, Inc., together with its subsidiaries, provides various financial products and services in Japan, the United States, Europe, the Middle East, Asia, Oceania, and internationally. It operates through seven segments: Retail and Digital Business; Corporate and Wealth Management Business; Corporate Banking Business; Global Commercial Banking Business; Asset Management Business; Global CIB Business; and Market Business. The company offers retail, commercial, digital, corporate, and investment banking; wealth management; loans; settlement services; merger and acquisi...
+
+---
+DATOS DE MERCADO
+Precio Actual: $11.82 (N/A hoy)
+Capitalización Bursátil: $135.89B
+Rango 52 semanas: $8.30 – $12.00
+Beta: 0.93
+Acciones en Circulación: $11.28B
+Short Interest (% float): 0.1%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 14.18x | P/E Forward: 11.08x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 3.59x | P/Libro: 1.08x | EV/EBITDA: N/Ax
+EPS Trailing: N/A
+Precio Objetivo Medio Analistas: $11.08 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (N/A analistas)
+Desglose: Compra Fuerte: 0 | Compra: 0 | Neutral: 0 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $11.82 (260 ruedas de historia)
+  Rango 52 semanas: $8.30 – $12.00 | posición en el rango: 95% (-1.6% desde el máximo, +42.4% desde el mínimo)
+  Medias móviles: MM50: $11.56 (precio +2.2%) | MM200: $10.42 (precio +13.4%)
+  Estructura de tendencia: alcista (precio > MM50 > MM200)
+  Retornos (ajustados): 1M +0.6% | 3M +12.3% | 6M +7.9% | 12M +42.4% | momentum 12-1 (excl. último mes) +41.6%
+  Máx. drawdown de la serie: -20.2% | Volatilidad realizada anualizada: 29.0%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  JPM (JPMorgan Chase & Co.): P/E Trailing 15.50x | Fwd N/A | Crec.Rev 21.3%
+  BAC (Bank of America Corporation): P/E Trailing 14.61x | Fwd N/A | Crec.Rev 8.2%
+  IDCBF (Industrial and Commercial Bank of China Limited): P/E Trailing 6.29x | Fwd N/A | Crec.Rev -3.8%
+  HSBC (HSBC Holdings plc): P/E Trailing 8.14x | Fwd N/A | Crec.Rev 20.1%
+  RY (Royal Bank of Canada): P/E Trailing 14.90x | Fwd N/A | Crec.Rev 11.4%
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 14.61x | Fwd N/A | Crec.Rev 11.4%
+  MUFG vs cohorte: P/E trailing 14.2x vs mediana peers 14.6x; crec. rev -2.9% vs mediana peers 11.4%.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  MUFG en P/E Trailing: percentil p40 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 14.61x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $37.81B | Crec. Ingresos YoY: -2.9% | Crec. Ganancias YoY: N/A
+Margen Bruto: N/A | Margen Operativo: N/A | Margen Neto: 25.4% | Margen EBITDA: N/A
+EBITDA: N/A | FCF: $-66,278,298,810 | FCF Operativo: N/A
+ROE: 7.6% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: FY2024
+
+Segmentos de ingresos:
+  Net Interest Income: 17.15B USD
+  Noninterest Income: 18.95B USD
+  Other Net Revenue: 29.83B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     65.93B USD (YoY: +64% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    19.36B USD
+    Otros:              18.16B USD
+  Utilidad operativa:   12.18B USD (margen: 18.5%)
+  Ingreso no operativo: 0.26B USD
+  Impuestos:            3.32B USD
+  Utilidad neta:        8.78B USD (margen: 13.3%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance (originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y dividendos contra la utilidad neta y la solvencia regulatoria.
+
+  FY2023: CAPEX $3.02B (8.0% de rev.) | OCF $100.87B | FCF $97.86B | Recompras $3.38B | Dividendos $2.86B | SBC N/A
+  FY2024: CAPEX $3.06B (8.1% de rev.) | OCF $-65,074,524,600 | FCF $-68,133,678,870 | Recompras $2.65B | Dividendos $2.91B | SBC N/A
+
+  Capital devuelto al accionista (período): recompras $6.03B + dividendos $5.76B = $11.79B.
+
+---
+BALANCE
+Deuda Total: $165.55B | Caja Total: $706.50B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 2.5% | Payout Ratio: N/A | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.0% | Institucional: 7.0%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 0.91 | Rev. Est. N/A (crec. 8.8%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2022-01-27 | B of A Securities | Upgrade: Neutral → Buy
+  2021-01-13 | Jefferies | Upgrade: Hold → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield: NO SIGNIFICATIVO para este perfil (bank) — el flujo de caja de una financiera está dominado por movimientos de balance (préstamos, depósitos, trading). NO lo uses como métrica de valuación ni como base de "capital devuelto vs FCF".
+  Valuación del perfil financiero: P/Libro 1.08x | ROE 7.6% | P/E trailing 14.18x
+  PEG (P/E fwd 11.08x ÷ crec. EPS 8.8%): 1.27x  [estimación forward +1y]
+  Deuda neta (Deuda $165.55B − Caja $706.50B): $-540.95B
+  Deuda neta / EBITDA: no aplica a este perfil (bank) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 11.08x × EPS FY+1 0.91): $10.08 (-14.7% vs precio actual $11.82)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (P/B <1x, P/B <1.5x con ROE >10%, P/E <12x o PEG <1.5x): CUMPLE  [evaluada con: perfil financiero — P/B 1.08x con ROE 7.6%, P/E trailing 14.2x, PEG 1.27x]
+    (b) Consenso analistas = buy / strong buy: N/D (sin dato concluyente — no bloquea)  [consenso: N/D]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (bank) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.1%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

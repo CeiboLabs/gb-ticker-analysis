@@ -9,23 +9,23 @@ import { useState } from "react";
 const ITEMS: { q: string; a: string }[] = [
   {
     q: "¿Qué es BNG Selección Global?",
-    a: "Es una estrategia balanceada que invierte en una selección de fondos de terceros para construir una cartera con exposición a renta variable y renta fija a nivel global. Está domiciliada en Uruguay.",
+    a: "Es una estrategia de crecimiento balanceado que invierte en diferentes clases de activos para construir una cartera con exposición a renta variable y renta fija a nivel global. Está domiciliada en Uruguay.",
   },
   {
     q: "¿Para qué perfil de inversor está pensado?",
     a: "Para quien busca una cartera diversificada y global en un solo vehículo, con un horizonte de mediano a largo plazo, sin tener que seleccionar y rebalancear instrumentos por su cuenta. En una conversación con un asesor se evalúa si encaja con tus objetivos.",
   },
   {
-    q: "¿Cómo se accede al fondo?",
-    a: "A través de Gastón Bengochea, sociedad de bolsa regulada por el Banco Central del Uruguay. El primer paso es contactar a un asesor de la casa, que te explica el producto y acompaña la suscripción.",
+    q: "¿Cómo se accede a BNG Selección Global?",
+    a: "A través de Gastón Bengochea, sociedad de bolsa regulada por el Banco Central del Uruguay. El primer paso es contactar a un asesor nuestro, que te explica el producto y acompaña la suscripción.",
   },
   {
-    q: "¿Cómo sigo la evolución del fondo?",
+    q: "¿Cómo sigo la evolución de BNG Selección Global?",
     a: "Esta misma página publica el valor cuota y los activos bajo manejo con actualización diaria, además de un gráfico con la evolución de la performance y los rendimientos por período. Tu asesor complementa con reportes periódicos.",
   },
   {
-    q: "¿Qué significa que sea un fondo balanceado y de fondos?",
-    a: "Balanceado: combina renta variable y renta fija en una misma cartera. De fondos: en lugar de comprar activos individuales, invierte en fondos gestionados por managers seleccionados, lo que suma diversificación y gestión profesional en cada clase de activo.",
+    q: "¿Qué significa que sea una estrategia balanceada?",
+    a: "Balanceado: combina renta variable y renta fija en una misma cartera.",
   },
   {
     q: "¿Dónde puedo obtener más información?",

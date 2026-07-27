@@ -1,21 +1,29 @@
-// Per-datacenter ticker popularity tracking using the Cloudflare Cache API.
-// Same pattern as lib/cache.ts: Cache API in prod, in-memory fallback in dev.
-// Race conditions on concurrent writes will lose a small fraction of counts —
-// acceptable for a "most popular" ranking.
+// Popularidad de tickers para "Las más analizadas" de /analisis.
+//
+// Persistida en SQLite (binding METRICS_DB, vía getMetricsDb) — una fila por
+// (symbol, día UTC) con UPSERT atómico. Reemplaza el contador in-memory anterior
+// (resto de la época Cloudflare Cache API, que se borraba en cada reinicio del
+// proceso): ahora el ranking SOBREVIVE reinicios y deploys, y el incremento
+// atómico elimina la pérdida de conteos por escrituras concurrentes.
+//
+// La tabla vive en db/schema.sql; ensureTable() la crea lazy (IF NOT EXISTS) para
+// que funcione también contra una base ya inicializada sin migración manual.
+//
+// Sin binding (contexto edge o server sin inicializar): degradación limpia —
+// recordTickerView es no-op y getTopTickers devuelve [] (⇒ /api/popular cae al
+// fallback curado). Best-effort: los callers ya envuelven la llamada en .catch().
 
-interface StatsBlob {
-  // key format: "TICKER:YYYY-MM-DD", value: view count for that day
-  counts: Record<string, number>;
-  updatedAt: number;
-}
+import { getMetricsDb, type D1Database } from "@/lib/metrics";
 
-const CACHE_NAME = "ticker-stats";
-const STATS_URL = "https://ticker-stats.internal/popular-counters";
 const RETENTION_DAYS = 30;
 
-const g = globalThis as Record<string, unknown>;
-if (!g.__tickerStats) g.__tickerStats = { counts: {}, updatedAt: 0 } as StatsBlob;
-const memStats = g.__tickerStats as StatsBlob;
+const CREATE_TABLE = `CREATE TABLE IF NOT EXISTS ticker_views (
+  symbol TEXT NOT NULL,
+  day    TEXT NOT NULL,
+  count  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (symbol, day)
+) WITHOUT ROWID`;
+const CREATE_INDEX = `CREATE INDEX IF NOT EXISTS idx_ticker_views_day ON ticker_views(day)`;
 
 function todayUtc(): string {
   return new Date().toISOString().split("T")[0];
@@ -25,72 +33,69 @@ function dateNDaysAgo(n: number): string {
   return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 }
 
-function pruneOldEntries(blob: StatsBlob): void {
-  const cutoff = dateNDaysAgo(RETENTION_DAYS);
-  for (const key of Object.keys(blob.counts)) {
-    const date = key.split(":")[1];
-    if (!date || date < cutoff) delete blob.counts[key];
+// Crea tabla + índice una sola vez por proceso (memoizado). Redundante con
+// db/schema.sql en base fresca; imprescindible en una base ya inicializada que
+// aún no tiene la tabla. Si falla, se resetea para reintentar en la próxima.
+let ensured: Promise<void> | null = null;
+function ensureTable(db: D1Database): Promise<void> {
+  if (!ensured) {
+    ensured = (async () => {
+      await db.prepare(CREATE_TABLE).run();
+      await db.prepare(CREATE_INDEX).run();
+    })().catch((err) => {
+      ensured = null;
+      throw err;
+    });
   }
+  return ensured;
 }
 
-async function readBlob(): Promise<StatsBlob> {
-  if (typeof caches !== "undefined") {
-    try {
-      const store = await caches.open(CACHE_NAME);
-      const res = await store.match(new Request(STATS_URL));
-      if (res) {
-        const data = (await res.json()) as StatsBlob;
-        if (data && typeof data === "object" && data.counts) return data;
-      }
-    } catch { /* fall through */ }
-  }
-  return { counts: { ...memStats.counts }, updatedAt: memStats.updatedAt };
-}
-
-async function writeBlob(blob: StatsBlob): Promise<void> {
-  if (typeof caches !== "undefined") {
-    try {
-      const store = await caches.open(CACHE_NAME);
-      await store.put(
-        new Request(STATS_URL),
-        new Response(JSON.stringify(blob), {
-          headers: {
-            "Content-Type": "application/json",
-            // Long max-age — we treat this entry as "permanent" storage
-            "Cache-Control": "public, max-age=31536000",
-          },
-        }),
-      );
-    } catch { /* fall through */ }
-  }
-  memStats.counts = blob.counts;
-  memStats.updatedAt = blob.updatedAt;
+// Purga best-effort de filas fuera de retención, una vez por proceso. Son inertes
+// para el ranking (filtra por ventana), así que esto es sólo higiene de la tabla.
+let pruned = false;
+function pruneOnce(db: D1Database): void {
+  if (pruned) return;
+  pruned = true;
+  void db
+    .prepare("DELETE FROM ticker_views WHERE day < ?")
+    .bind(dateNDaysAgo(RETENTION_DAYS))
+    .run()
+    .catch(() => {
+      pruned = false;
+    });
 }
 
 export async function recordTickerView(ticker: string): Promise<void> {
-  const sym = ticker.toUpperCase();
-  const key = `${sym}:${todayUtc()}`;
-  const blob = await readBlob();
-  blob.counts[key] = (blob.counts[key] ?? 0) + 1;
-  blob.updatedAt = Date.now();
-  pruneOldEntries(blob);
-  await writeBlob(blob);
+  const db = getMetricsDb();
+  if (!db) return;
+  await ensureTable(db);
+  await db
+    .prepare(
+      `INSERT INTO ticker_views (symbol, day, count) VALUES (?, ?, 1)
+       ON CONFLICT(symbol, day) DO UPDATE SET count = count + 1`,
+    )
+    .bind(ticker.toUpperCase(), todayUtc())
+    .run();
+  pruneOnce(db);
 }
 
 export async function getTopTickers(
   limit: number,
   lookbackDays = 7,
 ): Promise<{ symbol: string; count: number }[]> {
-  const blob = await readBlob();
-  const cutoff = dateNDaysAgo(lookbackDays);
-  const aggregated: Record<string, number> = {};
-  for (const [key, count] of Object.entries(blob.counts)) {
-    const [sym, date] = key.split(":");
-    if (!sym || !date || date < cutoff) continue;
-    aggregated[sym] = (aggregated[sym] ?? 0) + count;
-  }
-  return Object.entries(aggregated)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([symbol, count]) => ({ symbol, count }));
+  const db = getMetricsDb();
+  if (!db) return [];
+  await ensureTable(db);
+  const { results } = await db
+    .prepare(
+      `SELECT symbol, SUM(count) AS count
+         FROM ticker_views
+        WHERE day >= ?
+        GROUP BY symbol
+        ORDER BY count DESC, symbol ASC
+        LIMIT ?`,
+    )
+    .bind(dateNDaysAgo(lookbackDays), Math.max(1, Math.floor(limit)))
+    .all<{ symbol: string; count: number }>();
+  return results.map((r) => ({ symbol: r.symbol, count: Number(r.count) }));
 }

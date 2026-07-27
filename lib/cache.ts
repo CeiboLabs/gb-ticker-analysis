@@ -20,9 +20,26 @@ const CACHE_NAME = "ticker-analysis";
 // v31 (2026-05-18): verdict.rationale ahora pide 3-4 párrafos (~600 palabras)
 // para alimentar la sección Tesis de inversión; viejos rationales cortos quedan obsoletos.
 // v32 (2026-05-18): ajuste a 2-3 párrafos (~400 palabras) — la versión previa quedaba demasiado extensa.
-const CACHE_VERSION = "v32";
+// v33 (2026-07-19): push de calidad — contexto técnico determinístico, mediana de
+// peers, epsRevisions, target base a múltiplo constante, interés separado de
+// Taxes en el Sankey 8-K y FX por período. Invalida reportes generados el mismo
+// día con el prompt anterior.
+// v34 (2026-07-19): mejoras post-backtest — gate de valuación SECTORIAL
+// (financieras: P/B+ROE/P/E/PEG, nunca FCF; fallbacks P/E / EV-EBITDA sin
+// FCF/PEG), perfil inferido de Yahoo sin EDGAR, buyConfirmed sin bloqueo por
+// balance en perfiles exentos, disciplina de conviction (HIGH exige respaldo
+// mecánico; AVOID desplomado ≥35% cap MEDIUM), aviso FCF en prompts de
+// financieras y FIX del screener de peers (em-dash: bancos/aseguradoras/REITs
+// nunca habían tenido peers). Separa cohortes pre/post en verdict_log.
+// v35 (2026-07-19): reglas anti-miss del estudio de precisión — PEG financiero
+// exige ROE ≥8% (trampa MET), base de valuación fuerte/especulativa (FCF real
+// vs sólo-PEG: 88% vs 40% de acierto a 12m) con cap de conviction, gate de
+// balance mudo en series <1 año (LTM post-reestructuración), y prompts:
+// cobertura ausente ≠ señal negativa (ADRs baratos +40.7% dejados), AVOID por
+// valuación pura = conviction LOW, revisiones a la baja invalidan PEG-BUY.
+const CACHE_VERSION = "v35";
 
-export { SHORT_TTL };
+export { SHORT_TTL, CACHE_VERSION };
 
 function cacheKey(ticker: string): string {
   // Uruguay date (America/Montevideo, UTC-3, no DST) — cache rolls over at local midnight

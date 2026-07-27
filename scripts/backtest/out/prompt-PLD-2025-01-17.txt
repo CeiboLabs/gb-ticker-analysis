@@ -1,0 +1,176 @@
+Empresa a analizar: Prologis, Inc. (PLD)
+Fecha: 2025-01-17
+Sector: Real Estate | Industria: REIT - Industrial
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — REIT: usá FFO (Funds from Operations) y AFFO (Adjusted FFO) como métricas de cash generation, NOI (Net Operating Income) en lugar de operating income tradicional. Cap rate, LTV (Loan-to-Value) y dividend coverage son críticos.
+INDUSTRY HINT — REIT: P/FFO es el múltiplo estándar (no P/E). Dividend yield es central — REITs deben distribuir >=90% de income. Comparar dividend coverage AFFO vs distribución actual.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Prologis, Inc. is a self-administered and self-managed REIT and is the sole general partner of Prologis, L.P. through which it holds substantially all of its assets. We operate Prologis, Inc. and Prologis, L.P. as one enterprise and, therefore, our discussion and analysis refer to Prologis, Inc. and its consolidated subsidiaries, including Prologis, L.P. We invest in real estate through wholly owned subsidiaries and other entities through which we co-invest with partners and investors (co-investment ventures). We have a significant ownership interest in the co-investment ventures, which are...
+
+---
+DATOS DE MERCADO
+Precio Actual: $104.11 (N/A hoy)
+Capitalización Bursátil: $104.45B
+Rango 52 semanas: $94.53 – $124.40
+Beta: 0.76
+Acciones en Circulación: $954.10M
+Short Interest (% float): 1.3%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 31.65x | P/E Forward: 39.77x | CAPE (Shiller P/E): N/A
+P/Ventas (TTM): 13.02x | P/Libro: 1.96x | EV/EBITDA: 20.33x
+EPS Trailing: 3.29
+Precio Objetivo Medio Analistas: $134.32 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (19 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 13 | Neutral: 5 | Venta: 1 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $104.11 (260 ruedas de historia)
+  Rango 52 semanas: $94.53 – $124.40 | posición en el rango: 32% (-16.3% desde el máximo, +10.1% desde el mínimo)
+  Medias móviles: MM50: $104.87 (precio -0.7%) | MM200: $108.75 (precio -4.3%)
+  Estructura de tendencia: bajista (precio < MM50 < MM200)
+  Retornos (ajustados): 1M +0.6% | 3M -13.0% | 6M -9.3% | 12M -10.9% | momentum 12-1 (excl. último mes) -11.4%
+  Máx. drawdown de la serie: -24.0% | Volatilidad realizada anualizada: 24.5%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  PSA (Public Storage): P/E Trailing 25.19x | Fwd N/A | Crec.Rev 8.0% | Mg.Op 51.3% | EV/EBITDA 18.2x
+  PLDGP (Prologis, Inc.): P/E Trailing 14.98x | Fwd N/A | Crec.Rev 34.3% | Mg.Op 38.4% | EV/EBITDA 11.4x
+  EXR (Extra Space Storage Inc.): P/E Trailing 41.38x | Fwd N/A | Crec.Rev 33.1% | Mg.Op 48.3% | EV/EBITDA 24.4x
+  SEGXF (SEGRO Plc): P/E Trailing N/A | Fwd N/A | Crec.Rev 12.0% | Mg.Op 70.1%
+  EGP (EastGroup Properties, Inc.): P/E Trailing 43.28x | Fwd N/A | Crec.Rev 17.2% | Mg.Op 40.0% | EV/EBITDA 24.6x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 33.29x | Fwd N/A | Crec.Rev 17.2% | Mg.Op 48.3% | EV/EBITDA 21.3x
+  PLD vs cohorte: P/E trailing 31.6x vs mediana peers 33.3x; crec. rev 34.3% vs mediana peers 17.2%; margen op 38.4% vs mediana peers 48.3%; EV/EBITDA 20.3x vs mediana peers 21.3x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  PLD en P/E Trailing: percentil p50 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 33.29x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $8.02B | Crec. Ingresos YoY: 34.3% | Crec. Ganancias YoY: N/A
+Margen Bruto: 74.9% | Margen Operativo: 38.4% | Margen Neto: 38.1% | Margen EBITDA: 81.9%
+EBITDA: $6.57B | FCF: $5.37B | FCF Operativo: N/A
+ROE: 5.8% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Other Property Income: 2.04B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     2.04B USD (YoY: +6% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    0B USD
+    G&A:                0.1B USD
+  Utilidad operativa:   1.25B USD (margen: 61.4%)
+  Impuestos:            0B USD
+  Utilidad neta:        1.01B USD (margen: 49.4%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX N/A | OCF $4.13B | FCF $4.13B | Recompras N/A | Dividendos $2.49B | SBC $175.36M
+  FY2023: CAPEX N/A | OCF $5.37B | FCF $5.37B | Recompras N/A | Dividendos $3.23B | SBC $267.65M
+
+  Capital devuelto al accionista (período): recompras $0 + dividendos $5.72B = $5.72B (60% del FCF acumulado del período).
+  Stock-based comp acumulado: $443.00M (~2.8% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $29.60B | Caja Total: $530.39M
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 3.7% | Payout Ratio: 116.7% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.4% | Institucional: 94.2%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 2.88 | Rev. Est. N/A (crec. -12.0%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+we expect to create through our development and leasing activities. We calculate Estimated Value Creation by estimating the Stabilized NOI that the property will generate and applying a stabilized capitalization rate applicable to that property. Estimated Value Creation is calculated as the amount by which the value exceeds our TEI, including closing costs and taxes, if any, and does not include any fees or promotes we may earn. Estimated Weighted Average Margin is calculated on development properties as Estimated Value Creation, less estimated closing costs and taxes, if any, on properties expected to be sold or contributed, divided by TEI. Three Months Ended Sep. 30, Jun. 30, dollars in thousands 2024 2024 Debt as a % of gross real estate assets: Consolidated debt $ 32,289,832 $ 29,904,620 Unamortized deferred financing costs and discount, net 594,594 574,065 Consolidated debt (at par) 32,884,426 30,478,685 Noncontrolling interests share of consolidated debt (at par) (17,286) (17,398) Prologis Share of unconsolidated debt (at par) 4,210,978 3,864,005 Total Prologis Share of debt (at par) 37,078,118 34,325,292 Prologis Share of outstanding foreign currency derivatives 43,350…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-08 | Mizuho | Mantiene: Neutral → Neutral
+  2025-01-06 | Baird | Upgrade: Neutral → Outperform
+  2024-12-11 | Raymond James | Downgrade: Strong Buy → Outperform
+  2024-12-06 | BMO Capital | Downgrade: Market Perform → Underperform
+  2024-12-05 | Truist Securities | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+N/A — sin transacciones reportadas.
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $5.37B / Market Cap $104.45B): 5.1%
+  PEG: N/D  [crecimiento nulo/negativo — PEG no aplicable]
+  Deuda neta (Deuda $29.60B − Caja $530.39M): $29.07B
+  Deuda neta / EBITDA: no aplica a este perfil (reit) — evaluá apalancamiento con métricas del sector
+  Target base (P/E fwd 39.77x × EPS FY+1 2.88): $114.54 (+10.0% vs precio actual $104.11)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 5.1%]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): NO APLICA al perfil (reit) — no bloquea la confirmación; evaluá solvencia con métricas del sector
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): N/D (sin dato concluyente — no bloquea)
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 1.3%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

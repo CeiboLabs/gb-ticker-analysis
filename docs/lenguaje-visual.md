@@ -19,7 +19,7 @@ ellos *es* parte del diseño. Elegí uno por página según el registro:
 
 | | **Institucional `.site`** (v3/v4) | **Editorial v2** |
 |---|---|---|
-| Para | marketing, marca, páginas del navbar, landings | producto/research: el reporte de `/analyze`, los informes PDF |
+| Para | marketing, marca, páginas del navbar, landings, **y el reporte de equity** | los informes PDF y el material impreso |
 | Se activa con | `<main className="site">` | default del root (sin `.site`) |
 | Fuente base | **Arial** (`--site-font`), 17px / 1.6 | IBM Plex Sans, 16px / 1.55 |
 | Display | Arial **peso 400** gigante, tracking negativo | Newsreader serif peso 300 |
@@ -29,10 +29,15 @@ ellos *es* parte del diseño. Elegí uno por página según el registro:
 | Tinta | `--site-ink #16193A` (más clara) | `--ink #0E1130` (azul-negro) |
 | Sensación | folleto institucional sobrio | terminal Bloomberg / equity research impreso |
 
-Páginas: `/`, `/bng-seleccion-global`, `/informes` y la landing `/analisis` son **`.site`**.
-La workstation `/analyze` y el reporte (`ReportView`/`ReportHeader`/`.fin-table`) son
-**editorial v2**. `ReportPreviewMini` es editorial v2 *incrustado* en una página `.site`,
-como cita visual del producto.
+Páginas: `/`, `/bng-seleccion-global`, `/informes` y `/analisis` —landing **y** reporte—
+son **`.site`**.
+
+> **2026-07-25 — el reporte de equity pasó a Arial.** `/analisis?ticker=` conserva la
+> composición editorial (hairlines, split-label, datos tabulares, cero cards) pero **toda
+> su tipografía es Arial**: `.analyze-root` fija `font-family: var(--site-font)` y anula
+> las tres familias del root (`--font-serif`, `--font-sans`, `--font-mono`). No quedan ahí
+> ni Newsreader, ni IBM Plex, ni drop-cap, ni itálicas de acento. Si tocás el reporte,
+> **no reintroduzcas serif ni mono**: el pedido fue explícito.
 
 **Regla:** dentro de `.site`, el serif Newsreader es **opt-in** vía `.t-serif-display`
 (gana al reset Arial sin tocarlo) y se raciona a 2–4 grandes momentos por página.
@@ -98,7 +103,11 @@ Datos financieros     pos #1F6B45 (verde bosque)  neg #8E2A2A (oxblood)  neu #5C
     widgets (labels de barras, encabezados de tabla, roles). Los dos registros nunca se mezclan.
   - Existe `.kicker` (12px/700/`0.14em` uppercase con barrita `20×2px`) para CTAs/hero.
 
-### Editorial v2 (`/analyze`, informes) — triángulo serif / sans / mono
+### Editorial v2 (informes impresos) — triángulo serif / sans / mono
+
+Registro de research impreso. **Ya no gobierna ninguna página web**: el reporte de equity
+—su último usuario— pasó a Arial en 2026-07-25 (ver §0). Queda documentado porque el
+material impreso lo sigue usando y porque las clases viven en `globals.css`.
 
 Roles **dogmáticos**:
 - **Newsreader serif** = el argumento y los titulares. Prosa 16–17px/1.6, `.panel-h2` 26px,
@@ -114,8 +123,9 @@ Roles **dogmáticos**:
 El énfasis es **cromático**, y su forma depende del sistema:
 - En **`.site`**: oro **SIN itálica** (`font-style: normal; color: gold-soft/deep`) — pedido
   explícito del cliente, *nada de cursivas decorativas* (`EquipoHome.tsx:111`).
-- En **editorial v2**: oro **con itálica** serif peso 300 (`.panel-h2 em`, `.serif-i` del
-  veredicto). Aquí la cursiva sí se permite porque es el registro "research impreso".
+- En **editorial v2** (sólo impreso): oro **con itálica** serif peso 300. Ahí la cursiva se
+  permite porque es el registro "research impreso" — pero en pantalla, incluido el reporte
+  de equity, el acento va **sin inclinación**.
 
 Números: **`tabular-nums` en toda cifra que pueda cambiar**, en ambos sistemas, para que las
 columnas aliñen. Cifras grandes siempre peso 400 — el tamaño enfatiza, nunca el grosor.
@@ -256,8 +266,10 @@ La marca vive de mostrar datos financieros con elegancia editorial, no de dashbo
   testimonio falso. La credibilidad se toma prestada de la casa, no de un track record inexistente.
 - **Disclaimers presentes pero callados** (12px ink-3, hairline top). Todo camino termina en
   una conversación humana: "La mejor respuesta sigue siendo una conversación."
-- En el producto editorial conviven dos registros sin chocar: **los números y la cáscara hablan
-  en mono (terminal); el argumento habla en serif (editorial).**
+- En el material impreso conviven dos registros sin chocar: **los números y la cáscara hablan
+  en mono (terminal); el argumento habla en serif (editorial).** En pantalla ese contraste ya
+  no se usa: el reporte de equity dice las dos cosas en Arial, y separa dato de argumento con
+  tamaño, color y hairlines.
 
 ---
 

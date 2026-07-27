@@ -29,6 +29,22 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
 - [ ] Deploy del Email Worker.
 - [ ] Secrets del worker + Email Routing + reenvío del cliente.
 - [ ] Histórico real cargado (depende del administrador).
+      ⚠️ **En el home server (gestapp) hay serie SIMULADA cargada** desde
+      2026-07-22, para que el equipo vea los gráficos en la preview: 666 cierres
+      (2024-01-02 → 2026-07-21) en `fund_nav` + `fund_benchmark`, generados con
+      las mismas fórmulas del placeholder de `lib/fondo.ts` (start 1000, beta
+      1.18 para el 60/40). Cada fila lleva `source='backfill'` y una `nota` que
+      la marca como simulada (la `nota` no se expone al frontend), y hay una fila
+      en `fund_audit`. Se cargó además un **snapshot de tenencias simulado**:
+      `as_of='2026-05-31'` (tiene que ser ≤ hoy − `HOLDINGS_LAG_DAYS`=30 para
+      ser divulgable), 18 líneas RV/RF/Otros = 51,5/34,0/14,5% sumando 10000 bps,
+      con `note` marcándolo como simulado. **Borrar antes de cargar lo real:**
+      `DELETE FROM fund_nav; DELETE FROM fund_benchmark;`
+      `DELETE FROM fund_holdings_item; DELETE FROM fund_holdings_snapshot;`
+      (sin filas, la página vuelve sola al estado honesto de pre-lanzamiento).
+      ⚠️ El bloque **Exposición geográfica** NO sale de las tenencias: los pesos
+      por región están hardcodeados en `components/institucional/FondoGeografia.tsx`
+      (`REGIONES`), y son datos inventados que siguen ahí desde antes.
 - [ ] Parser del mail (Etapa 3, depende de un mail de muestra).
 - [ ] Benchmark (Etapa 4, a confirmar con Adrián).
 

@@ -39,16 +39,16 @@ export function FondoCasa() {
         <div className="casa-pm">
           <span className="casa-pm-avatar">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/equipo/adrian-moreira.jpeg" alt="Adrián Moreira" loading="lazy" />
+            <img src="/equipo/adrian-moreira.jpg" alt="Adrián Moreira" loading="lazy" />
           </span>
           <span className="casa-pm-text">
-            <span className="casa-pm-name">Adrián Moreira</span>
+            <span className="casa-pm-name">Adrián Moreira, CFA</span>
             <span className="casa-pm-role">Portfolio Manager</span>
           </span>
         </div>
 
         <div className="casa-cta-row">
-          <Link href="/nosotros" className="link-arrow">Conocé la casa <ArrowRight /></Link>
+          <Link href="/nosotros" className="link-arrow">Conocenos <ArrowRight /></Link>
           <Link href="/equipo" className="link-arrow">Conocé al equipo <ArrowRight /></Link>
         </div>
       </div>

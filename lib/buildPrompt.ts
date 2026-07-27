@@ -1,7 +1,12 @@
 import { ANALYSIS_SYSTEM_PROMPT, ANALYSIS_DATA_TEMPLATE } from "@/prompts/analysis";
-import type { StockData, InsiderTransaction } from "@/types/StockData";
+import type { StockData, CashFlowYear } from "@/types/StockData";
 import type { SegmentSankeyData, IndustryProfile } from "@/types/Report";
 import { classifyPublisher, tierLabel, tierDescriptor } from "@/lib/publisherTiers";
+import { classifyInsiderTransaction, summarizeInsiderPattern } from "@/lib/insiders";
+import { computeDerivedMetrics, fmtDerivedMetrics, type DerivedMetrics } from "@/lib/derivedMetrics";
+import { fmtTechnicalContext, type TechnicalContext } from "@/lib/technicalContext";
+import { fmtScenarioRange, type ScenarioRange } from "@/lib/scenarioRange";
+import { fmtQualityMetrics, type QualityMetrics } from "@/lib/qualityMetrics";
 
 // Cap free-text fields coming from external feeds (Yahoo/SEC) before they land
 // in the user prompt. Counts are already bounded (7 news, 5 insiders, etc.) but
@@ -53,36 +58,12 @@ function fmtEarningsHistory(d: StockData): string {
   return rows.join("\n");
 }
 
-function fmtForwardEstimates(d: StockData): string {
-  if (!d.forwardEstimates.length) return "N/A";
-  const periodLabel: Record<string, string> = {
-    "0q": "Trimestre actual",
-    "+1q": "Próximo trimestre",
-    "0y": "Año fiscal actual",
-    "+1y": "Próximo año fiscal",
-  };
-  const rows = d.forwardEstimates.map((e) => {
-    const label = periodLabel[e.period] ?? e.period;
-    const growth = e.growth != null ? `(crec. ${(e.growth * 100).toFixed(1)}%)` : "";
-    return `  ${label}: EPS Est. ${fmt(e.epsEstimate)} | Rev. Est. ${fmtLargeNum(e.revenueEstimate)} ${growth}`;
-  });
-  return rows.join("\n");
-}
-
 function fmtAnalystActions(d: StockData): string {
   if (!d.analystActions.length) return "N/A";
   return d.analystActions.map((a) => {
     const actionLabel = { up: "Upgrade", down: "Downgrade", init: "Inicio cobertura", main: "Mantiene", reit: "Reitera" }[a.action] ?? a.action;
     const change = a.fromGrade && a.fromGrade !== "—" ? `${a.fromGrade} → ${a.toGrade}` : a.toGrade;
     return `  ${a.date} | ${clip(a.firm, 80)} | ${actionLabel}: ${clip(change, 60)}`;
-  }).join("\n");
-}
-
-function fmtInsiderTransactions(d: StockData): string {
-  if (!d.insiderTransactions.length) return "N/A";
-  return d.insiderTransactions.map((t) => {
-    const val = t.value != null ? ` | Valor: ${fmtLargeNum(t.value)}` : "";
-    return `  ${t.date} | ${clip(t.name, 80)} (${clip(t.relation, 60)}) | ${clip(t.transactionText, 80)}${val}`;
   }).join("\n");
 }
 
@@ -100,22 +81,6 @@ function fmtQuarterlyRevenueTrend(d: StockData): string {
     const qNum = Math.ceil((dt.getMonth() + 1) / 3);
     return `  Q${qNum} ${dt.getFullYear()}: ${fmtLargeNum(q.value)} (YoY: ${yoy})`;
   }).join("\n");
-}
-
-function fmtPeerComparison(d: StockData): string {
-  const pc = d.peerComparison;
-  if (!pc || pc.peers.length === 0) return "N/A — datos de peers no disponibles.";
-
-  const lines: string[] = [];
-  for (const p of pc.peers) {
-    const tpe = p.trailingPE != null ? `${p.trailingPE.toFixed(2)}x` : "N/A";
-    const fpe = p.forwardPE != null ? `${p.forwardPE.toFixed(2)}x` : "N/A";
-    lines.push(`  ${clip(p.symbol, 12)} (${clip(p.name, 80)}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
-  }
-  const avgT = pc.avgTrailingPE != null ? `${pc.avgTrailingPE.toFixed(2)}x` : "N/A";
-  const avgF = pc.avgForwardPE != null ? `${pc.avgForwardPE.toFixed(2)}x` : "N/A";
-  lines.push(`  --- Promedio peers: P/E Trailing ${avgT} | P/E Forward ${avgF}`);
-  return lines.join("\n");
 }
 
 function fmtRecentNews(d: StockData): string {
@@ -136,17 +101,57 @@ function fmtRecentNews(d: StockData): string {
   }).join("\n");
 }
 
-function fmtAnnualCashFlow(d: StockData): string {
+// isFinancial: en bancos/aseguradoras/gestores el OCF/FCF está dominado por
+// movimientos de balance (préstamos, depósitos, trading) — presentar "capital
+// devuelto = X% del FCF" invitaba red flags espurios (JPM FY2024: FCF −$42B y
+// "recompras+dividendos = 116% del FCF"). Para ese perfil se antepone el aviso
+// y se omite la comparación contra FCF; las cifras crudas se siguen mostrando.
+function fmtAnnualCashFlow(d: StockData, isFinancial: boolean): string {
   const cf = d.annualCashFlow;
   if (!cf || cf.length === 0) return "N/A — historial de cash flow no disponible.";
-  return cf.map((y) => {
+  const rows = cf.map((y) => {
     const capex = y.capitalExpenditure != null ? fmtLargeNum(Math.abs(y.capitalExpenditure)) : "N/A";
     const capexPctRev = y.capitalExpenditure != null && d.totalRevenue
       ? `${((Math.abs(y.capitalExpenditure) / d.totalRevenue) * 100).toFixed(1)}%`
       : null;
     const capexLabel = capexPctRev ? `${capex} (${capexPctRev} de rev.)` : capex;
-    return `  FY${y.year}: CAPEX ${capexLabel} | OCF ${fmtLargeNum(y.operatingCashFlow)} | FCF ${fmtLargeNum(y.freeCashFlow)}`;
-  }).join("\n");
+    // Buybacks/dividends/SBC come straight from the filing's cash-flow statement
+    // (Yahoo). Real figures — the model no longer has to infer buybacks from the
+    // change in share count.
+    const buyback = y.repurchases != null ? fmtLargeNum(Math.abs(y.repurchases)) : "N/A";
+    const div = y.dividendsPaid != null ? fmtLargeNum(Math.abs(y.dividendsPaid)) : "N/A";
+    const sbc = y.stockBasedComp != null ? fmtLargeNum(Math.abs(y.stockBasedComp)) : "N/A";
+    return `  FY${y.year}: CAPEX ${capexLabel} | OCF ${fmtLargeNum(y.operatingCashFlow)} | FCF ${fmtLargeNum(y.freeCashFlow)} | Recompras ${buyback} | Dividendos ${div} | SBC ${sbc}`;
+  });
+
+  // Summary: capital returned to shareholders vs FCF generated across the
+  // window, and stock-based comp as a dilution gauge.
+  const sumAbs = (fn: (y: CashFlowYear) => number | null) =>
+    cf.reduce((acc, y) => { const v = fn(y); return v != null ? acc + Math.abs(v) : acc; }, 0);
+  const totalBuyback = sumAbs((y) => y.repurchases);
+  const totalDiv = sumAbs((y) => y.dividendsPaid);
+  const totalSbc = sumAbs((y) => y.stockBasedComp);
+  const totalFcf = cf.reduce((acc, y) => (y.freeCashFlow != null ? acc + y.freeCashFlow : acc), 0);
+  const extra: string[] = [];
+  if (totalBuyback > 0 || totalDiv > 0) {
+    const returned = totalBuyback + totalDiv;
+    const pctFcf = !isFinancial && totalFcf > 0 ? ` (${((returned / totalFcf) * 100).toFixed(0)}% del FCF acumulado del período)` : "";
+    extra.push(`  Capital devuelto al accionista (período): recompras ${fmtLargeNum(totalBuyback)} + dividendos ${fmtLargeNum(totalDiv)} = ${fmtLargeNum(returned)}${pctFcf}.`);
+  }
+  if (totalSbc > 0) {
+    const sbcPctRev = d.totalRevenue ? ` (~${((totalSbc / cf.length / d.totalRevenue) * 100).toFixed(1)}% de rev./año)` : "";
+    extra.push(`  Stock-based comp acumulado: ${fmtLargeNum(totalSbc)}${sbcPctRev} — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).`);
+  }
+  const aviso = isFinancial
+    ? [
+        "AVISO (perfil financiero): el OCF/FCF de una financiera está dominado por movimientos de balance " +
+          "(originación de préstamos, depósitos, carteras de trading) y NO mide la generación de caja del negocio. " +
+          "No lo uses como métrica de valuación ni juzgues el capital devuelto contra el FCF — evaluá recompras y " +
+          "dividendos contra la utilidad neta y la solvencia regulatoria.",
+        "",
+      ]
+    : [];
+  return [...aviso, ...rows, ...(extra.length ? ["", ...extra] : [])].join("\n");
 }
 
 function fmtSegmentData(
@@ -238,7 +243,7 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
     const desc = d.description ?? "No description available.";
     return desc.length > 600 ? desc.slice(0, 597) + "..." : desc;
   },
-  TODAY_DATE:    () => new Date().toISOString().split("T")[0],
+  // TODAY_DATE se resuelve antes del loop genérico (acepta asOfDate del backtest).
 
   // Price
   CURRENT_PRICE:    (d) => fmtCurrency(d.currentPrice),
@@ -277,7 +282,8 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   OPERATING_CASHFLOW:  (d) => fmtLargeNum(d.operatingCashflow),
   SHORT_PERCENT_FLOAT: (d) => fmtPct(d.shortPercentOfFloat),
   SHARES_OUTSTANDING:  (d) => fmtLargeNum(d.sharesOutstanding),
-  ANNUAL_CASHFLOW_HISTORY: fmtAnnualCashFlow,
+  // ANNUAL_CASHFLOW_HISTORY se resuelve fuera del loop genérico: necesita el
+  // perfil (isFinancial) de las métricas derivadas, no sólo StockData.
 
   // Ownership
   INSIDER_OWNERSHIP:       (d) => fmtPct(d.heldPercentInsiders),
@@ -335,10 +341,12 @@ const PLACEHOLDER_MAP: Record<string, Formatter> = {
   ANALYST_SELL:        (d) => d.analystSell.toString(),
   ANALYST_STRONG_SELL: (d) => d.analystStrongSell.toString(),
 
-  // Peer comparison with percentile ranking (single-call enrichment)
+  // Peer comparison with percentile ranking (single-call enrichment).
+  // Agregados por MEDIANA, no media: un solo outlier de la cohorte (AMD
+  // EV/EBITDA 107x) corre el promedio y fabrica primas/descuentos espurios.
   PEER_PE_COMPARISON:    fmtPeerComparisonRich,
-  PEER_AVG_TRAILING_PE:  (d) => fmt(d.peerComparison?.avgTrailingPE),
-  PEER_AVG_FORWARD_PE:   (d) => fmt(d.peerComparison?.avgForwardPE),
+  PEER_MED_TRAILING_PE:  (d) => fmt(median((d.peerComparison?.peers ?? []).map((p) => p.trailingPE))),
+  PEER_MED_FORWARD_PE:   (d) => fmt(median((d.peerComparison?.peers ?? []).map((p) => p.forwardPE))),
 };
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -348,20 +356,46 @@ export interface PromptPayload {
   userPrompt: string;
 }
 
-export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | null): PromptPayload {
+export function buildPrompt(
+  data: StockData,
+  segmentData?: SegmentSankeyData | null,
+  derived?: DerivedMetrics,
+  guidance?: string | null,
+  technical?: TechnicalContext | null,
+  // Rango bull–bear a 12m calculado en código desde la vol realizada (cono).
+  // Cuando existe, el prompt lo declara autoritativo y el LLM copia sus
+  // límites en bull/bearCase.priceTarget; sin él (serie corta) el modelo
+  // estima el rango como antes.
+  scenarioRange?: ScenarioRange | null,
+  // Factores de calidad (Novy-Marx GP/A, Sloan accruals, asset growth, net
+  // issuance) — contexto descriptivo para la lectura de trampa de valor.
+  qualityMetrics?: QualityMetrics | null,
+  // Fecha que el prompt declara como "hoy" ("YYYY-MM-DD"). Default: hoy real.
+  // La usa el backtest point-in-time para congelar el reloj al corte — si el
+  // prompt dijera la fecha real, el modelo sabría que analiza el pasado.
+  asOfDate?: string | null,
+): PromptPayload {
   // Only the data template gets interpolated. The system prompt is a fixed string,
   // which lets OpenAI cache it across requests (~90% off on cached input tokens).
 
+  // Derived valuation layer (computed in code, authoritative). The route passes
+  // the already-computed metrics so the coherence check downstream sees exactly
+  // what the model was handed; recompute here if a caller omits them.
+  const metrics = derived ?? computeDerivedMetrics(data, segmentData);
+
   // Industry-aware hints (Sprint 3.1) — both market and financial framework
   // reminders combined so the single-call model picks the right metrics for
-  // bank / REIT / airline / etc.
-  const indFin = industryHint(segmentData, "financial").trim();
-  const indMkt = industryHint(segmentData, "market").trim();
+  // bank / REIT / airline / etc. El perfil sale de las métricas derivadas
+  // (EDGAR cuando existe, industria Yahoo como fallback): el hint ya no
+  // desaparece cuando los segmentos SEC fallan.
+  const indFin = industryHint(metrics.industryProfile, "financial").trim();
+  const indMkt = industryHint(metrics.industryProfile, "market").trim();
   const industryBlock = [indFin, indMkt].filter(Boolean).join("\n");
 
   const sankeyQ = fmtSankeyQuality(segmentData);
 
   const userPrompt = ANALYSIS_DATA_TEMPLATE
+    .replace("{{TODAY_DATE}}", () => asOfDate ?? new Date().toISOString().split("T")[0])
     .replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
       const fn = PLACEHOLDER_MAP[key];
       return fn ? fn(data) : match;
@@ -369,6 +403,24 @@ export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | n
     // Replacer como función: con replacement string, JS interpreta patrones $
     // ($', $&...) y cualquier valor que los contenga (un nombre de segmento SEC,
     // texto de hint) corrompería el template. La función los inserta literales.
+    .replace("{{ANNUAL_CASHFLOW_HISTORY}}", () => fmtAnnualCashFlow(data, metrics.isFinancial))
+    .replace("{{DERIVED_METRICS}}", () => fmtDerivedMetrics(data, metrics))
+    .replace("{{TECHNICAL_CONTEXT}}", () =>
+      technical
+        ? fmtTechnicalContext(technical)
+        : "(serie de precios de 1 año no disponible — no hay contexto técnico; omití toda lectura de momentum, no la inventes)")
+    .replace("{{SCENARIO_RANGE}}", () =>
+      scenarioRange
+        ? fmtScenarioRange(scenarioRange)
+        : "(sin volatilidad realizada disponible — no hay rango mecánico; estimá bull/bear con tu criterio, más anchos que angostos)")
+    .replace("{{QUALITY_METRICS}}", () =>
+      qualityMetrics
+        ? fmtQualityMetrics(qualityMetrics)
+        : "(factores de calidad no disponibles — sin 2 años de fundamentals; no inventes lectura de calidad)")
+    .replace("{{GUIDANCE}}", () =>
+      guidance && guidance.trim()
+        ? guidance.trim()
+        : "(sin guidance explícita en el último comunicado de resultados; usar las estimaciones forward del consenso)")
     .replace("{{SEGMENT_DATA}}", () => fmtSegmentData(segmentData, data.earningsHistory.at(-1)?.quarter ?? null))
     .replace("{{INDUSTRY_HINT}}", () => industryBlock || "(framework estándar — sin hint específico de industria)")
     .replace("{{SANKEY_QUALITY}}", () => sankeyQ || "(segmentos cubren ≥95% del revenue — sin caveat de cobertura)");
@@ -380,55 +432,11 @@ export function buildPrompt(data: StockData, segmentData?: SegmentSankeyData | n
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Insider classification (Sprint 2). Yahoo's transactionText is ambiguous —
-   the same word "Sale" can mean a discretionary open-market sell OR a
-   programmatic exercise+sell under a 10b5-1 plan. We classify locally before
-   handing to the model so the prompt sees structured signal, not noise.
+   Insider classification (Sprint 2). classifyInsiderTransaction /
+   summarizeInsiderPattern live in lib/insiders.ts so lib/derivedMetrics.ts can
+   reuse them without an import cycle. This module still owns the *formatting*
+   of the classified block for the prompt.
    ────────────────────────────────────────────────────────────────────────── */
-
-export type InsiderClass = "discretionary_buy" | "discretionary_sell" | "mechanical" | "grant" | "other";
-
-export function classifyInsiderTransaction(t: InsiderTransaction): InsiderClass {
-  const txt = (t.transactionText ?? "").toLowerCase();
-  if (/purchase|acquisition.*open|acquired in the open|acquisition at price/.test(txt)) {
-    return "discretionary_buy";
-  }
-  if (/award|grant|stock award|deferred|inheritance|gift/.test(txt)) {
-    return "grant";
-  }
-  // Programmatic / non-open-market: option exercises, vesting, 10b5-1 sales
-  if (/non[- ]open[- ]market|10b5-1|vesting|exercise|conversion|exempt|stock option/.test(txt)) {
-    return "mechanical";
-  }
-  if (/sale|disposed|disposition/.test(txt)) {
-    return "discretionary_sell";
-  }
-  return "other";
-}
-
-export function summarizeInsiderPattern(txs: InsiderTransaction[]): {
-  pattern: string;
-  buyValue: number;
-  sellValue: number;
-  mechanicalValue: number;
-} {
-  let buyValue = 0;
-  let sellValue = 0;
-  let mechanicalValue = 0;
-  for (const t of txs) {
-    const v = Math.abs(t.value ?? 0);
-    const c = classifyInsiderTransaction(t);
-    if (c === "discretionary_buy") buyValue += v;
-    else if (c === "discretionary_sell") sellValue += v;
-    else if (c === "mechanical") mechanicalValue += v;
-  }
-  let pattern: string;
-  if (buyValue > 0 && buyValue > sellValue * 2) pattern = "comprador neto discrecional";
-  else if (sellValue > 0 && sellValue > buyValue * 3 && sellValue > mechanicalValue) pattern = "vendedor neto discrecional";
-  else if (mechanicalValue > 0 && mechanicalValue > buyValue && mechanicalValue > sellValue) pattern = "predominantemente mecánico (RSU/opciones), no señal";
-  else pattern = "mixto / neutral";
-  return { pattern, buyValue, sellValue, mechanicalValue };
-}
 
 function fmtInsiderTransactionsClassified(d: StockData): string {
   if (!d.insiderTransactions.length) return "N/A — sin transacciones reportadas.";
@@ -465,21 +473,58 @@ function percentile(values: number[], target: number): number {
   return Math.round((below / valid.length) * 100);
 }
 
+// Mediana de la cohorte. Los agregados de peers se muestran como mediana (no
+// media) para que un outlier no distorsione la referencia; el valor por peer
+// se sigue listando completo, así que nada de información se pierde.
+function median(values: Array<number | null | undefined>): number | null {
+  const v = values.filter((x): x is number => x != null && Number.isFinite(x)).sort((a, b) => a - b);
+  if (v.length === 0) return null;
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
 function fmtPeerComparisonRich(d: StockData): string {
   const pc = d.peerComparison;
   if (!pc || pc.peers.length === 0) return "N/A — datos de peers no disponibles.";
 
   const lines: string[] = [];
   for (const p of pc.peers) {
-    const tpe = p.trailingPE != null ? `${p.trailingPE.toFixed(2)}x` : "N/A";
-    const fpe = p.forwardPE != null ? `${p.forwardPE.toFixed(2)}x` : "N/A";
-    lines.push(`  ${clip(p.symbol, 12)} (${clip(p.name, 80)}): P/E Trailing ${tpe} | P/E Forward ${fpe}`);
+    const parts = [
+      `P/E Trailing ${p.trailingPE != null ? `${p.trailingPE.toFixed(2)}x` : "N/A"}`,
+      `Fwd ${p.forwardPE != null ? `${p.forwardPE.toFixed(2)}x` : "N/A"}`,
+    ];
+    if (p.revenueGrowth != null) parts.push(`Crec.Rev ${(p.revenueGrowth * 100).toFixed(1)}%`);
+    if (p.operatingMargin != null) parts.push(`Mg.Op ${(p.operatingMargin * 100).toFixed(1)}%`);
+    if (p.evToEbitda != null) parts.push(`EV/EBITDA ${p.evToEbitda.toFixed(1)}x`);
+    lines.push(`  ${clip(p.symbol, 12)} (${clip(p.name, 60)}): ${parts.join(" | ")}`);
   }
-  const avgT = pc.avgTrailingPE != null ? `${pc.avgTrailingPE.toFixed(2)}x` : "N/A";
-  const avgF = pc.avgForwardPE != null ? `${pc.avgForwardPE.toFixed(2)}x` : "N/A";
-  lines.push(`  --- Promedio peers: P/E Trailing ${avgT} | P/E Forward ${avgF}`);
 
-  // Percentile ranking of the current ticker vs peer cohort.
+  const medT = median(pc.peers.map((p) => p.trailingPE));
+  const medF = median(pc.peers.map((p) => p.forwardPE));
+  const medG = median(pc.peers.map((p) => p.revenueGrowth));
+  const medM = median(pc.peers.map((p) => p.operatingMargin));
+  const medE = median(pc.peers.map((p) => p.evToEbitda));
+  const medParts = [
+    `P/E Trailing ${medT != null ? `${medT.toFixed(2)}x` : "N/A"}`,
+    `Fwd ${medF != null ? `${medF.toFixed(2)}x` : "N/A"}`,
+  ];
+  if (medG != null) medParts.push(`Crec.Rev ${(medG * 100).toFixed(1)}%`);
+  if (medM != null) medParts.push(`Mg.Op ${(medM * 100).toFixed(1)}%`);
+  if (medE != null) medParts.push(`EV/EBITDA ${medE.toFixed(1)}x`);
+  lines.push(`  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): ${medParts.join(" | ")}`);
+
+  // Company vs peer cohort — the growth/margin-adjusted read the model must use.
+  const cmp: string[] = [];
+  if (d.trailingPE != null && medT != null) cmp.push(`P/E trailing ${d.trailingPE.toFixed(1)}x vs mediana peers ${medT.toFixed(1)}x`);
+  if (d.revenueGrowth != null && medG != null) cmp.push(`crec. rev ${(d.revenueGrowth * 100).toFixed(1)}% vs mediana peers ${(medG * 100).toFixed(1)}%`);
+  if (d.operatingMargins != null && medM != null) cmp.push(`margen op ${(d.operatingMargins * 100).toFixed(1)}% vs mediana peers ${(medM * 100).toFixed(1)}%`);
+  if (d.enterpriseToEbitda != null && medE != null) cmp.push(`EV/EBITDA ${d.enterpriseToEbitda.toFixed(1)}x vs mediana peers ${medE.toFixed(1)}x`);
+  if (cmp.length) {
+    lines.push(`  ${d.ticker} vs cohorte: ${cmp.join("; ")}.`);
+    lines.push(`  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.`);
+  }
+
+  // Percentile ranking of the current ticker vs peer cohort (P/E).
   if (d.trailingPE != null) {
     const peerValues = pc.peers.map((p) => p.trailingPE).filter((v): v is number => v != null);
     if (peerValues.length >= 2) {
@@ -513,7 +558,19 @@ function fmtForwardEstimatesRich(d: StockData): string {
   const lines = d.forwardEstimates.map((e) => {
     const label = periodLabel[e.period] ?? e.period;
     const growth = e.growth != null ? `(crec. ${(e.growth * 100).toFixed(1)}%)` : "";
-    return `  ${label}: EPS Est. ${fmt(e.epsEstimate)} | Rev. Est. ${fmtLargeNum(e.revenueEstimate)} ${growth}`;
+    const parts = [`  ${label}: EPS Est. ${fmt(e.epsEstimate)} | Rev. Est. ${fmtLargeNum(e.revenueEstimate)} ${growth}`];
+    // Revision momentum: analyst count revising up/down (30d) + consensus
+    // estimate drift vs 90 days ago. Leading signal for beats/misses.
+    if (e.revisionsUp30d != null || e.revisionsDown30d != null) {
+      parts.push(`revisiones 30d: ${e.revisionsUp30d ?? 0}↑/${e.revisionsDown30d ?? 0}↓`);
+    }
+    if (e.epsEstimate != null && e.epsTrend90dAgo != null && e.epsTrend90dAgo !== 0) {
+      const drift = (e.epsEstimate / e.epsTrend90dAgo - 1) * 100;
+      if (Math.abs(drift) >= 0.05) {
+        parts.push(`est. hace 90d: ${fmt(e.epsTrend90dAgo)} (deriva ${drift >= 0 ? "+" : ""}${drift.toFixed(1)}%)`);
+      }
+    }
+    return parts.join(" | ");
   });
 
   // Sequence: is growth accelerating across periods?
@@ -524,6 +581,20 @@ function fmtForwardEstimatesRich(d: StockData): string {
     const trend = growths[growths.length - 1].growth - growths[0].growth;
     const direction = trend > 0.01 ? "acelerando" : trend < -0.01 ? "desacelerando" : "estable";
     lines.push(`  → Crecimiento esperado ${direction} a lo largo del horizonte forward.`);
+  }
+
+  // Net revision direction across the two fiscal-year periods — the leading
+  // signal the model should read (rising consensus tends to precede beats).
+  const fy = d.forwardEstimates.filter((e) => e.period === "0y" || e.period === "+1y");
+  const up = fy.reduce((a, e) => a + (e.revisionsUp30d ?? 0), 0);
+  const down = fy.reduce((a, e) => a + (e.revisionsDown30d ?? 0), 0);
+  if (up + down > 0) {
+    const dir = up > down * 1.5 ? "AL ALZA" : down > up * 1.5 ? "A LA BAJA" : "mixto";
+    lines.push(
+      `  → Momentum de revisiones (últimos 30d, FY actual + FY+1): ${up}↑ / ${down}↓ — consenso ${dir}. ` +
+        `Es señal adelantada: un consenso subiendo suele preceder resultados por encima de expectativas (y viceversa); ` +
+        `integralo en recentEarnings/catalysts y al juzgar si el crecimiento proyectado es creíble.`,
+    );
   }
   return lines.join("\n");
 }
@@ -601,264 +672,8 @@ const INDUSTRY_HINTS: Record<IndustryProfile, { financial: string; market: strin
   },
 };
 
-function industryHint(segmentData: SegmentSankeyData | null | undefined, kind: "financial" | "market"): string {
-  const profile = segmentData?.industryProfile;
+function industryHint(profile: IndustryProfile | null, kind: "financial" | "market"): string {
   if (!profile) return "";
   const hint = INDUSTRY_HINTS[profile]?.[kind];
   return hint ? `\n${hint}\n` : "";
-}
-
-function header(d: StockData): string {
-  return `Empresa: ${d.companyName} (${d.ticker})
-Sector: ${d.sector ?? "N/A"} | Industria: ${d.industry ?? "N/A"}
-Fecha: ${new Date().toISOString().split("T")[0]}
-`;
-}
-
-export function buildBusinessUserPrompt(
-  d: StockData,
-  segmentData: SegmentSankeyData | null | undefined,
-  mdnaSummary?: string | null,
-): string {
-  const desc = d.description ?? "No description available.";
-  const descTrunc = desc.length > 1200 ? desc.slice(0, 1197) + "..." : desc;
-  const segmentBlock = fmtSegmentData(segmentData, d.earningsHistory.at(-1)?.quarter ?? null);
-  const sankeyQuality = fmtSankeyQuality(segmentData);
-  const peersBrief = d.peerComparison?.peers.length
-    ? d.peerComparison.peers.map((p) => `${p.symbol} (${p.name})`).join(", ")
-    : "N/A";
-
-  const mdnaBlock = mdnaSummary
-    ? `\n---\nMD&A DEL ÚLTIMO FILING (resumen del management — fuente narrativa primaria)\n${mdnaSummary}\n`
-    : "";
-
-  return `${header(d)}
----
-DESCRIPCIÓN DE LA EMPRESA
-${descTrunc}
-${mdnaBlock}
----
-DATOS DE SEGMENTOS Y ESTADO DE RESULTADOS (SEC EDGAR — fuente primaria)
-${segmentBlock}
-${sankeyQuality ? `\n${sankeyQuality}` : ""}
-
----
-TENDENCIA DE INGRESOS TRIMESTRALES
-${fmtQuarterlyRevenueTrend(d)}
-
----
-CRECIMIENTO Y RENTABILIDAD (TTM)
-Revenue: ${fmtLargeNum(d.totalRevenue)} | Crec. YoY: ${fmtPct(d.revenueGrowth)} | Margen bruto: ${fmtPct(d.grossMargins)} | Margen operativo: ${fmtPct(d.operatingMargins)}
-
----
-COMPANY UNIVERSE — peers identificados por Yahoo
-${peersBrief}
-
----
-Generá las cuatro secciones (businessModel, revenueStreams, competitiveAdvantages, industryContext) siguiendo el esquema JSON definido en las instrucciones del sistema. Si hay MD&A disponible, incorporá esa narrativa del management — es fuente primaria.`;
-}
-
-export function buildFinancialsUserPrompt(d: StockData, segmentData: SegmentSankeyData | null | undefined): string {
-  const segmentBlock = fmtSegmentData(segmentData, d.earningsHistory.at(-1)?.quarter ?? null);
-  const hint = industryHint(segmentData, "financial");
-  return `${header(d)}${hint}
----
-ESTADO DE RESULTADOS (SEC EDGAR — fuente primaria)
-${segmentBlock}
-
----
-FINANCIEROS TTM (Yahoo Finance)
-Revenue: ${fmtLargeNum(d.totalRevenue)} | Crec. YoY: ${fmtPct(d.revenueGrowth)} | Earnings growth YoY: ${fmtPct(d.earningsGrowth)}
-Márgenes: bruto ${fmtPct(d.grossMargins)} | operativo ${fmtPct(d.operatingMargins)} | neto ${fmtPct(d.profitMargins)} | EBITDA ${fmtPct(d.ebitdaMargins)}
-EBITDA: ${fmtLargeNum(d.ebitda)} | FCF: ${fmtLargeNum(d.freeCashflow)} | FCF Operativo: ${fmtLargeNum(d.operatingCashflow)}
-ROE: ${fmtPct(d.returnOnEquity)} | ROA: ${fmtPct(d.returnOnAssets)}
-
----
-BALANCE
-Deuda total: ${fmtLargeNum(d.totalDebt)} | Caja total: ${fmtLargeNum(d.totalCash)}
-Deuda/Patrimonio: ${fmt(d.debtToEquity)} | Ratio corriente: ${fmt(d.currentRatio)} | Quick ratio: ${fmt(d.quickRatio)}
-
----
-DIVIDENDO Y CAPITAL
-Dividend yield: ${fmtPct(d.dividendYield)} | Payout ratio: ${fmtPct(d.payoutRatio)} | Ex-dividend: ${d.exDividendDate ?? "N/A"}
-Market cap: ${fmtLargeNum(d.marketCap)} | Acciones en circulación: ${fmtLargeNum(d.sharesOutstanding)}
-
----
-HISTORIAL ANUAL DE CASH FLOW (últimos 5 años fiscales)
-${fmtAnnualCashFlow(d)}
-
----
-TENDENCIA DE INGRESOS TRIMESTRALES
-${fmtQuarterlyRevenueTrend(d)}
-
----
-Generá las cuatro secciones (profitabilityAnalysis, balanceSheetHealth, freeCashFlow, capitalExpenditure) siguiendo el esquema JSON definido en las instrucciones del sistema. NO inventes cifras. Si annualCashFlow está vacío, decilo explícitamente en capitalExpenditure.`;
-}
-
-export function buildMarketUserPrompt(d: StockData, segmentData?: SegmentSankeyData | null): string {
-  const insidersBlock = fmtInsiderTransactionsClassified(d);
-  const hint = industryHint(segmentData, "market");
-  return `${header(d)}${hint}
----
-PRECIO Y MARKET CAP
-Precio actual: ${fmtCurrency(d.currentPrice)} (${fmtPct(d.priceChangePercent)} hoy)
-Rango 52 semanas: ${fmtCurrency(d.fiftyTwoWeekLow)} – ${fmtCurrency(d.fiftyTwoWeekHigh)}
-Market cap: ${fmtLargeNum(d.marketCap)} | Beta: ${fmt(d.beta)} | Short interest (% float): ${fmtPct(d.shortPercentOfFloat)}
-
----
-MÚLTIPLOS DE VALORACIÓN
-P/E Trailing: ${fmt(d.trailingPE)}x | P/E Forward: ${fmt(d.forwardPE)}x | CAPE: ${d.capeRatio != null ? `${d.capeRatio.toFixed(1)}x (${d.capeYears ?? "?"}yr avg EPS)` : "N/A"}
-P/S: ${fmt(d.priceToSales)}x | P/B: ${fmt(d.priceToBook)}x | EV/EBITDA: ${fmt(d.enterpriseToEbitda)}x
-EPS TTM: ${fmt(d.trailingEps)}
-
----
-CONSENSO Y TARGETS DE ANALISTAS
-Recomendación: ${d.recommendationKey?.toUpperCase() ?? "N/A"} | Target medio: ${fmtCurrency(d.targetMeanPrice)} (rango ${fmtCurrency(d.targetLowPrice)} – ${fmtCurrency(d.targetHighPrice)})
-Desglose: Strong Buy ${d.analystStrongBuy} | Buy ${d.analystBuy} | Hold ${d.analystHold} | Sell ${d.analystSell} | Strong Sell ${d.analystStrongSell}
-
----
-P/E vs PEERS (con percentile ranking)
-${fmtPeerComparisonRich(d)}
-
----
-HISTORIAL DE RESULTADOS (últimos 4 trimestres — más reciente primero)
-${fmtEarningsHistory(d)}
-
----
-ESTIMACIONES FORWARD (con tendencia)
-${fmtForwardEstimatesRich(d)}
-
----
-PRÓXIMOS RESULTADOS
-${PLACEHOLDER_MAP.NEXT_EARNINGS_DATE(d)}
-
----
-ACCIONES RECIENTES DE ANALISTAS (últimas 5)
-${fmtAnalystActions(d)}
-
----
-OWNERSHIP
-Insiders: ${fmtPct(d.heldPercentInsiders)} | Institucional: ${fmtPct(d.institutionalOwnership)}
-
----
-TRANSACCIONES DE INSIDERS — clasificadas (mecánicas vs discrecionales)
-${insidersBlock}
-
----
-NOTICIAS RECIENTES (últimas 7)
-${fmtRecentNews(d)}
-
----
-Generá las tres secciones (valuationSnapshot, recentEarnings, managementQuality) siguiendo el esquema JSON definido en las instrucciones del sistema. Para managementQuality, basate en la clasificación de transacciones (mecánicas no son señal; discrecionales sí).`;
-}
-
-export function buildForwardUserPrompt(d: StockData, mdnaSummary?: string | null): string {
-  const mdnaBlock = mdnaSummary
-    ? `\n---\nMD&A DEL ÚLTIMO FILING (riesgos reconocidos y guidance del management)\n${mdnaSummary}\n`
-    : "";
-  return `${header(d)}${mdnaBlock}
----
-NOTICIAS RECIENTES (últimas 7 — categorizá cada una como catalizador/+/riesgo/-/neutral al analizar)
-${fmtRecentNews(d)}
-
----
-ACCIONES RECIENTES DE ANALISTAS
-${fmtAnalystActions(d)}
-
----
-PRÓXIMOS RESULTADOS
-${PLACEHOLDER_MAP.NEXT_EARNINGS_DATE(d)}
-
----
-SHORT INTEREST Y BALANCE (señales de riesgo)
-Short interest (% float): ${fmtPct(d.shortPercentOfFloat)}
-Deuda total: ${fmtLargeNum(d.totalDebt)} | Caja: ${fmtLargeNum(d.totalCash)} | Deuda/EBITDA aprox: ${d.ebitda && d.ebitda > 0 && d.totalDebt != null ? `${(d.totalDebt / d.ebitda).toFixed(1)}x` : "N/A"}
-
----
-ESTIMACIONES FORWARD (para anclar catalizadores de earnings)
-${fmtForwardEstimatesRich(d)}
-
----
-CONTEXTO SECTORIAL
-Sector: ${d.sector ?? "N/A"} | Industria: ${d.industry ?? "N/A"}
-Crec. Revenue YoY: ${fmtPct(d.revenueGrowth)} | Crec. Earnings YoY: ${fmtPct(d.earningsGrowth)}
-
----
-Generá las dos secciones (riskFactors, catalysts) siguiendo el esquema JSON definido en las instrucciones del sistema. Sé específico a ESTA empresa — no riesgos boilerplate.`;
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
-   Synthesis user prompt: snapshot cuantitativo + outputs de A-D como contexto.
-   ────────────────────────────────────────────────────────────────────────── */
-
-export interface SpecialistContext {
-  businessModel: string;
-  competitiveAdvantages: string;
-  valuationSnapshot: string;
-  recentEarnings: string;
-  managementQuality: string;
-  riskFactors: string;
-  catalysts: string;
-}
-
-export function buildSynthesisUserPrompt(d: StockData, ctx: SpecialistContext): string {
-  // Compute key derived metrics so the model doesn't have to (and can't err on basic math).
-  const fcfYield = d.freeCashflow != null && d.marketCap && d.marketCap > 0
-    ? (d.freeCashflow / d.marketCap) * 100
-    : null;
-  const epsGrowthFwd = d.forwardEstimates.find((e) => e.period === "+1y")?.growth ?? null;
-  const peg = d.forwardPE != null && epsGrowthFwd != null && epsGrowthFwd > 0
-    ? d.forwardPE / (epsGrowthFwd * 100)
-    : null;
-  const netDebt = d.totalDebt != null && d.totalCash != null ? d.totalDebt - d.totalCash : null;
-  const netDebtEbitda = netDebt != null && d.ebitda != null && d.ebitda > 0 ? netDebt / d.ebitda : null;
-  const totalAnalysts = d.analystStrongBuy + d.analystBuy + d.analystHold + d.analystSell + d.analystStrongSell;
-  const buyCount = d.analystStrongBuy + d.analystBuy;
-  const sellCount = d.analystSell + d.analystStrongSell;
-  const insiderSum = summarizeInsiderPattern(d.insiderTransactions);
-
-  return `${header(d)}
----
-SNAPSHOT CUANTITATIVO (cifras pre-calculadas — usá éstas, no recalculés)
-
-Precio: ${fmtCurrency(d.currentPrice)} | Market cap: ${fmtLargeNum(d.marketCap)}
-Forward P/E: ${fmt(d.forwardPE)}x | Trailing P/E: ${fmt(d.trailingPE)}x
-FCF TTM: ${fmtLargeNum(d.freeCashflow)} | FCF yield: ${fcfYield != null ? `${fcfYield.toFixed(2)}%` : "N/A"}
-EPS growth FY+1: ${epsGrowthFwd != null ? `${(epsGrowthFwd * 100).toFixed(1)}%` : "N/A"} | PEG (fwd P/E ÷ growth FY+1): ${peg != null ? `${peg.toFixed(2)}` : "N/A"}
-Deuda total: ${fmtLargeNum(d.totalDebt)} | Caja: ${fmtLargeNum(d.totalCash)} | Deuda neta: ${netDebt != null ? fmtLargeNum(netDebt) : "N/A"}
-Deuda neta / EBITDA: ${netDebtEbitda != null ? `${netDebtEbitda.toFixed(2)}x` : "N/A"} | EBITDA: ${fmtLargeNum(d.ebitda)}
-Consenso analistas: ${buyCount} buy / ${d.analystHold} hold / ${sellCount} sell (${totalAnalysts} total) — target medio ${fmtCurrency(d.targetMeanPrice)} (rango ${fmtCurrency(d.targetLowPrice)} – ${fmtCurrency(d.targetHighPrice)})
-Insider pattern: ${insiderSum.pattern} | Short interest: ${fmtPct(d.shortPercentOfFloat)}
-
----
-CONTEXTO DE ESPECIALISTAS (resúmenes de los análisis previos — usalos para fundamentar el veredicto)
-
-[NEGOCIO · businessModel]
-${truncate(ctx.businessModel, 800)}
-
-[NEGOCIO · competitiveAdvantages]
-${truncate(ctx.competitiveAdvantages, 600)}
-
-[MERCADO · valuationSnapshot]
-${truncate(ctx.valuationSnapshot, 1000)}
-
-[MERCADO · recentEarnings]
-${truncate(ctx.recentEarnings, 700)}
-
-[MERCADO · managementQuality]
-${truncate(ctx.managementQuality, 600)}
-
-[FORWARD · riskFactors]
-${truncate(ctx.riskFactors, 700)}
-
-[FORWARD · catalysts]
-${truncate(ctx.catalysts, 700)}
-
----
-Aplicá el framework de decisión y emití scratchpad + verdict + bullCase + bearCase. El scratchpad es OBLIGATORIO y debe evaluar cada cláusula del framework con la cifra concreta del snapshot. El verdict.rating debe ser CONSISTENTE con scratchpad.verdictReasoning.`;
-}
-
-function truncate(s: string, max: number): string {
-  if (!s) return "(no disponible)";
-  return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }

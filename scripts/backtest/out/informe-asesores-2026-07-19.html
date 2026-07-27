@@ -1,0 +1,411 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cuánto hay que creerle al analizador</title>
+<style>
+@font-face { font-family: "Newsreader"; src: url("file:///Users/emirodriguez/Developer/ticker/assets/fonts/Newsreader-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Plex Mono"; src: url("file:///Users/emirodriguez/Developer/ticker/assets/fonts/IBMPlexMono-Medium.ttf"); font-weight: 500; }
+@page { size: A4; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; }
+:root {
+  --navy: #0f2249; --navy-300: #6B70B8; --gold: #EBD288; --gold-deep: #A07C28;
+  --ink: #16193A; --ink-2: #4A4E6B; --ink-3: #797D99; --border: #E7E8F2;
+  --pos: #1F6B45; --neg: #8E2A2A; --neu: #5C5F7A;
+  --pos-soft: #E0EFE6; --neg-soft: #F5E2E2; --neu-soft: #E9EAF0;
+  --mono: "Plex Mono", "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --serif: "Newsreader", Georgia, serif;
+}
+body { font-family: Arial, Helvetica, sans-serif; color: var(--ink); background: #fff; font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 700px; margin: 0 auto; padding: 0 48px; }
+
+/* ── Masthead (ArticuloInforme.inf-mast) ── */
+.mast { padding-top: 72px; padding-bottom: 40px; }
+.kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-deep); display: flex; align-items: center; gap: 10px; }
+.kicker::before { content: ""; width: 20px; height: 2px; background: var(--gold-deep); }
+.mast-title { font-family: var(--serif); font-weight: 500; font-size: 44px; line-height: 1.06; letter-spacing: -0.02em; margin-top: 22px; max-width: 14em; }
+.mast-dek { font-size: 19.5px; line-height: 1.5; color: var(--ink-2); max-width: 32em; margin-top: 22px; }
+.mast-byline { display: flex; flex-direction: column; gap: 3px; margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--border); }
+.mast-autor { font-size: 14.5px; font-weight: 700; }
+.mast-meta { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.04em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ── "El estudio en tres líneas" (inf-glance) ── */
+.glance-cap { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-deep); margin-bottom: 14px; }
+.glance { border-top: 1px solid var(--ink); }
+.glance-item { display: grid; grid-template-columns: 118px 1fr; gap: 24px; padding: 14px 0; border-top: 1px solid var(--border); align-items: baseline; break-inside: avoid; }
+.glance-item:first-of-type { border-top: 0; }
+.glance-tag { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.glance-txt { font-size: 15.5px; line-height: 1.55; color: var(--ink-2); }
+
+/* ── Secciones ── */
+.sec { border-top: 1px solid var(--border); padding-top: 34px; margin-top: 56px; break-inside: auto; }
+.sec-kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-deep); }
+.sec-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sec-title { font-size: 26px; font-weight: 400; line-height: 1.16; letter-spacing: -0.018em; margin-top: 10px; max-width: 17em; margin-bottom: 22px; }
+.prosa { font-size: 16px; line-height: 1.72; color: var(--ink-2); max-width: 40em; margin-bottom: 20px; }
+.prosa strong, .prosa b { color: var(--ink); font-weight: 700; }
+.prosa-lead { font-size: 17.5px; color: var(--ink); }
+.lista { list-style: none; margin: 0 0 22px; max-width: 42em; }
+.lista li { position: relative; padding-left: 24px; margin-bottom: 11px; font-size: 15.5px; line-height: 1.6; color: var(--ink-2); }
+.lista li::before { content: ""; position: absolute; left: 0; top: 0.8em; width: 8px; height: 1.5px; background: #9FA2C0; }
+.lista b { color: var(--ink); }
+.cita { margin: 34px 0; padding-left: 24px; border-left: 2px solid #9FA2C0; max-width: 36em; break-inside: avoid; }
+.cita p { font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1.45; color: var(--ink); }
+
+/* ── Bloques de datos ── */
+.data { margin: 34px 0; break-inside: avoid; }
+.data--flow { break-inside: auto; }
+.datacap { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px; }
+.datanota { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--ink-3); margin-top: 14px; line-height: 1.6; }
+
+/* Tabla ficha (fin-table: 1.5px navy top, hairlines, sin verticales) */
+.ft { width: 100%; border-collapse: collapse; border-top: 1.5px solid var(--navy); }
+.ft th { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); text-align: right; padding: 10px 0 8px 10px; border-bottom: 1px solid var(--border); }
+.ft th:first-child { text-align: left; padding-left: 0; }
+.ft td { padding: 8px 0 8px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.ft-lbl { color: var(--ink); padding-left: 0 !important; }
+.ft-num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; color: var(--ink-2); }
+.ft-num.pos { color: var(--pos); } .ft-num.neg { color: var(--neg); }
+.ft-conf { text-align: right; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.ft-conf[data-c="Alta"] { color: var(--navy); }
+.ft-conf[data-c="Media"] { color: var(--ink-3); }
+.ft-conf[data-c="Baja"], .ft-conf[data-c="En observación"] { color: #9FA2C0; }
+tr { break-inside: avoid; }
+
+/* KPI hairline row (índices) */
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ink); border-left: 1px solid var(--border); }
+.kpi { padding: 16px 18px 14px 18px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.kpi-k { font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+.kpi-v { font-family: var(--mono); font-size: 26px; font-weight: 400; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.kpi-v.pos { color: var(--pos); } .kpi-v.neg { color: var(--neg); }
+.kpi-d { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; line-height: 1.45; }
+
+/* Scorecard heatmap (inf-ret) */
+.sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 44px; border-top: 1.5px solid var(--navy); padding-top: 22px; }
+.sc-grupo { min-width: 0; break-inside: avoid; }
+.sc-nombre { font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 9px; margin-bottom: 7px; border-bottom: 1px solid var(--border); }
+.sc-head, .sc-row { display: grid; grid-template-columns: 52px repeat(3, 1fr) 34px; gap: 5px; align-items: center; }
+.sc-row { margin-bottom: 4px; }
+.sc-head { margin-bottom: 6px; }
+.sc-h { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); text-align: center; }
+.sc-tk { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+.sc-cell { font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; text-align: center; padding: 3px 2px; border-radius: 2px; white-space: nowrap; }
+.sc-cell b { font-weight: 500; opacity: 0.65; margin-right: 3px; }
+.sc-cell[data-dir="pos"] { background: var(--pos-soft); color: var(--pos); }
+.sc-cell[data-dir="neg"] { background: var(--neg-soft); color: var(--neg); }
+.sc-cell[data-dir="neu"] { background: var(--neu-soft); color: var(--neu); }
+.sc-cell[data-dir="off"] { color: #9FA2C0; }
+.sc-score { font-family: var(--mono); font-size: 10.5px; text-align: right; color: var(--ink-3); }
+.sc-score[data-tone="full"] { color: var(--pos); font-weight: 700; }
+.sc-score[data-tone="zero"] { color: var(--neg); font-weight: 700; }
+
+/* Heatmap simple por industria */
+.inf-ret-rows { display: flex; flex-direction: column; gap: 3px; border-top: 1.5px solid var(--navy); padding-top: 18px; max-width: 460px; }
+.inf-ret-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; height: 26px; }
+.inf-ret-tk { font-family: var(--mono); font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.inf-ret-val { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; padding: 3px 8px; border-radius: 2px; min-width: 64px; }
+.inf-ret-val[data-dir="pos"] { background: var(--pos-soft); color: var(--pos); }
+.inf-ret-val[data-dir="neg"] { background: var(--neg-soft); color: var(--neg); }
+.inf-ret-val[data-dir="neu"] { background: var(--neu-soft); color: var(--neu); }
+
+/* Guía de uso: protocolo en filas etiquetadas */
+.guia { border-top: 1px solid var(--ink); }
+.guia-item { display: grid; grid-template-columns: 150px 1fr; gap: 22px; padding: 15px 0; border-top: 1px solid var(--border); break-inside: avoid; }
+.guia-item:first-of-type { border-top: 0; }
+.guia-k { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.guia-t { font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+.guia-t b { color: var(--ink); }
+
+/* Pie */
+.footer { margin-top: 64px; border-top: 1px solid var(--ink); padding-top: 24px; padding-bottom: 72px; }
+.disclosure p { font-size: 12.5px; line-height: 1.55; color: var(--ink-3); margin-bottom: 8px; max-width: 54em; }
+.copy { font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; color: var(--ink-3); margin-top: 10px; }
+.pagebreak { break-before: page; }
+</style></head><body>
+
+<header class="mast"><div class="wrap">
+  <div class="kicker">Research interno · Mesa de análisis</div>
+  <h1 class="mast-title">Cuánto hay que creerle al analizador.</h1>
+  <p class="mast-dek">Se puso al sistema de <span style="font-family:var(--mono);font-size:0.88em;">/analyze</span> a opinar
+  en tres fechas del pasado —sin poder ver el futuro y con la misma información que tiene un informe vivo— y se midió cada
+  una de sus 122 opiniones contra lo que efectivamente hizo el mercado. Esto es lo que la mesa puede tomarse en
+  serio, con cuánta confianza, y lo que todavía no.</p>
+  <div class="mast-byline">
+    <span class="mast-autor">Equipo de Research · Bengochea &amp; Cía.</span>
+    <span class="mast-meta">2026-07-19 · 122 veredictos · 41 empresas · cortes ene-2025 · jul-2025 · ene-2026 · 9 min de lectura</span>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <section class="data" style="margin-top:0;">
+    <div class="glance-cap">El estudio en tres líneas</div>
+    <div class="glance">
+      <div class="glance-item"><span class="glance-tag">La señal</span><span class="glance-txt">Cuando el sistema dice <b>AVOID con la acción todavía en tendencia alcista</b>, acierta el 64% de las veces a 6 meses (11 casos, mediana −5.0%) y no falló ninguno de los 3 que ya cumplieron su ventana de 12 (mediana −33.0%). Es la opinión que más vale la pena escuchar.</span></div>
+      <div class="glance-item"><span class="glance-tag">La medida</span><span class="glance-txt">El BUY le ganó al S&amp;P 500 en el 69% de los casos a 12 meses (n=26, mediana +12.9%); una canasta que compra los BUY y evita los AVOID rindió +10.6% de spread promedio a 6 meses por corte.</span></div>
+      <div class="glance-item"><span class="glance-tag">El límite</span><span class="glance-txt">El precio objetivo puntual y la amplitud del rango bull–bear todavía no están calibrados: se usan como escenarios, no como pronóstico. Y todo esto viene de 122 casos en 18 meses — una base sólida para empezar, no un track record definitivo.</span></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-kicker"><span class="sec-num">01</span> · El método</div>
+    <h2 class="sec-title">Un examen que no se puede trampear.</h2>
+    <p class="prosa prosa-lead">La única forma honesta de medir un sistema de análisis es hacerlo opinar sobre el pasado
+    sin dejarlo ver el futuro. Para cada una de las 41 empresas del set —aerolíneas, bancos, seguros, REITs,
+    energía, tecnología, ADRs internacionales— se reconstruyó el mundo tal como se veía en tres fechas: enero y julio de
+    2025, y enero de 2026.</p>
+    <p class="prosa">La reconstrucción es completa: estados financieros según lo <b>efectivamente publicado</b> a esa fecha
+    (con la fecha real de cada release en la SEC como frontera), el consenso de analistas vigente, las estimaciones forward
+    de la época, el short interest publicado, las transacciones de insiders presentadas, la guidance del último comunicado
+    y los comparables con sus múltiplos de entonces. Lo que un analista no podía saber ese día, el sistema tampoco lo vio.</p>
+    <p class="prosa">Cada veredicto se comparó contra el retorno total de la acción en los 6 y 12 meses siguientes,
+    <b>en exceso del S&amp;P 500</b>: le pedimos al sistema no que adivine si el mercado sube, sino que distinga qué empresas
+    lo harán mejor o peor que el promedio. El corte de enero de 2026 sólo tiene 6 meses de historia — su ventana de 12 se
+    completa en enero de 2027.</p>
+  </section>
+
+  <section class="sec">
+    <div class="sec-kicker"><span class="sec-num">02</span> · Precisión por señal</div>
+    <h2 class="sec-title">No todas las opiniones del sistema pesan igual.</h2>
+    <p class="prosa prosa-lead">La tabla que sigue es el corazón del informe: para cada tipo de señal, cuántas veces
+    acertó, cuánto rindió la mediana, y cuál fue el peor caso. La regla de acierto es exigente y está declarada al pie.</p>
+    <figure class="data">
+      <figcaption class="datacap">Acierto y retorno por señal · exceso vs S&amp;P 500</figcaption>
+      <table class="ft">
+        <thead><tr><th>Señal</th><th>n</th><th>Acierto 6m</th><th>Acierto 12m</th><th>Exceso med. 6m</th><th>Exceso med. 12m</th><th>Peor caso 6m</th><th>Confianza</th></tr></thead>
+        <tbody>
+  <tr>
+    <td class="ft-lbl">AVOID con tendencia alcista</td>
+    <td class="ft-num">11</td>
+    <td class="ft-num">64%</td>
+    <td class="ft-num">100%</td>
+    <td class="ft-num neg">−5.0%</td>
+    <td class="ft-num neg">−33.0%</td>
+    <td class="ft-num">+21.0%</td>
+    <td class="ft-conf" data-c="Alta">Alta</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">AVOID con gate mecánico</td>
+    <td class="ft-num">12</td>
+    <td class="ft-num">67%</td>
+    <td class="ft-num">71%</td>
+    <td class="ft-num neg">−7.8%</td>
+    <td class="ft-num neg">−5.8%</td>
+    <td class="ft-num">+51.1%</td>
+    <td class="ft-conf" data-c="Alta">Alta</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">AVOID (todos)</td>
+    <td class="ft-num">18</td>
+    <td class="ft-num">61%</td>
+    <td class="ft-num">63%</td>
+    <td class="ft-num neg">−4.7%</td>
+    <td class="ft-num neg">−2.9%</td>
+    <td class="ft-num">+51.1%</td>
+    <td class="ft-conf" data-c="Media">Media</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">BUY confirmado por el framework</td>
+    <td class="ft-num">35</td>
+    <td class="ft-num">57%</td>
+    <td class="ft-num">68%</td>
+    <td class="ft-num pos">+6.5%</td>
+    <td class="ft-num pos">+12.6%</td>
+    <td class="ft-num">−22.6%</td>
+    <td class="ft-conf" data-c="Media">Media</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">BUY con convicción HIGH</td>
+    <td class="ft-num">18</td>
+    <td class="ft-num">56%</td>
+    <td class="ft-num">62%</td>
+    <td class="ft-num pos">+5.7%</td>
+    <td class="ft-num pos">+10.4%</td>
+    <td class="ft-num">−22.6%</td>
+    <td class="ft-conf" data-c="Media">Media</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">BUY (todos)</td>
+    <td class="ft-num">37</td>
+    <td class="ft-num">57%</td>
+    <td class="ft-num">69%</td>
+    <td class="ft-num pos">+6.5%</td>
+    <td class="ft-num pos">+12.9%</td>
+    <td class="ft-num">−31.3%</td>
+    <td class="ft-conf" data-c="Media">Media</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">HOLD (todos)</td>
+    <td class="ft-num">67</td>
+    <td class="ft-num">55%</td>
+    <td class="ft-num">43%</td>
+    <td class="ft-num pos">+4.4%</td>
+    <td class="ft-num pos">+1.9%</td>
+    <td class="ft-num">+74.9%</td>
+    <td class="ft-conf" data-c="Media">Media</td>
+  </tr></tbody>
+      </table>
+      <p class="datanota">Acierto: BUY = le ganó al índice; AVOID = rindió peor que el índice (evitarlo protegió); HOLD = se movió con el
+mercado (±15 pts). "Peor caso" = el resultado más adverso al sentido de la señal. Confianza por regla mecánica: Alta ≥70% de acierto
+con n≥6 · Media ≥55% · Baja &lt;55% · En observación si n&lt;6. El 12m cubre sólo los cortes de 2025 — en las señales AVOID la
+muestra de 12m es chica (tendencia alcista: n=3) y se lee junto con el 6m, no en lugar de él.</p>
+    </figure>
+    <p class="prosa">Tres lecturas. Primero: <b>el AVOID contra tendencia alcista es la señal élite del sistema</b> —
+    detectar deterioro fundamental cuando el precio todavía no lo refleja es exactamente lo que un análisis debería aportar:
+    64% de acierto a 6 meses sobre 11 casos, y los 3 que ya cumplieron 12 meses
+    acertaron todos, con −33.0% de mediana. Segundo: <b>el BUY es una señal de paciencia</b> —
+    su acierto a 6 meses (57%) es mediocre, pero a 12 sube a 69% con +12.9% de
+    mediana: el sistema compra barato antes de que el mercado lo convalide. Tercero: <b>el HOLD es un veredicto real</b>, no
+    una tibieza — significa "este nombre se va a mover con el mercado", y eso ocurrió el 55% de las veces a 6 meses.</p>
+  </section>
+
+  <section class="sec pagebreak">
+    <div class="sec-kicker"><span class="sec-num">03</span> · El scorecard</div>
+    <h2 class="sec-title">Empresa por empresa: dónde leyó bien y dónde no.</h2>
+    <p class="prosa prosa-lead">Cada celda es un veredicto en una fecha: la letra es la recomendación (B·H·A), el número es
+    el exceso de retorno contra el S&amp;P 500 a 6 meses, y el color dice si la <b>lectura</b> fue correcta — verde cuando la
+    recomendación quedó del lado correcto del mercado, rojo cuando no.</p>
+    <figure class="data data--flow">
+      <figcaption class="datacap">Scorecard · exceso 6m vs S&amp;P 500 por corte · ene-2025 · jul-2025 · ene-2026</figcaption>
+      <div class="sc-grid"><div class="sc-grupo"><div class="sc-nombre">Aerolíneas</div><div class="sc-row"><span class="sc-tk">AAL</span><span class="sc-cell" data-dir="pos"><b>A</b>−37%</span><span class="sc-cell" data-dir="neg"><b>A</b>+12%</span><span class="sc-cell" data-dir="pos"><b>A</b>−11%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">DAL</span><span class="sc-cell" data-dir="neg"><b>B</b>−20%</span><span class="sc-cell" data-dir="pos"><b>B</b>+15%</span><span class="sc-cell" data-dir="pos"><b>B</b>+12%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">UAL</span><span class="sc-cell" data-dir="neg"><b>B</b>−20%</span><span class="sc-cell" data-dir="pos"><b>B</b>+12%</span><span class="sc-cell" data-dir="neg"><b>B</b>−6%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">LUV</span><span class="sc-cell" data-dir="neu"><b>H</b>+9%</span><span class="sc-cell" data-dir="neu"><b>H</b>+8%</span><span class="sc-cell" data-dir="neu"><b>H</b>+4%</span><span class="sc-score" data-tone="full">3/3</span></div><div class="sc-row"><span class="sc-tk">ULCC</span><span class="sc-cell" data-dir="pos"><b>A</b>−58%</span><span class="sc-cell" data-dir="neg"><b>A</b>+17%</span><span class="sc-cell" data-dir="neg"><b>A</b>+10%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">ALK</span><span class="sc-cell" data-dir="neg"><b>H</b>−26%</span><span class="sc-cell" data-dir="pos"><b>A</b>−17%</span><span class="sc-cell" data-dir="pos"><b>A</b>−17%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">LTM</span><span class="sc-cell" data-dir="neg"><b>A</b>+51%</span><span class="sc-cell" data-dir="neg"><b>H</b>+32%</span><span class="sc-cell" data-dir="pos"><b>A</b>−19%</span><span class="sc-score" data-tone="mid">1/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Bancos EE.UU.</div><div class="sc-row"><span class="sc-tk">JPM</span><span class="sc-cell" data-dir="neu"><b>H</b>+8%</span><span class="sc-cell" data-dir="neu"><b>H</b>−3%</span><span class="sc-cell" data-dir="neu"><b>H</b>+2%</span><span class="sc-score" data-tone="full">3/3</span></div><div class="sc-row"><span class="sc-tk">BAC</span><span class="sc-cell" data-dir="neu"><b>H</b>−3%</span><span class="sc-cell" data-dir="pos"><b>B</b>+2%</span><span class="sc-cell" data-dir="pos"><b>B</b>+9%</span><span class="sc-score" data-tone="full">3/3</span></div><div class="sc-row"><span class="sc-tk">WFC</span><span class="sc-cell" data-dir="neu"><b>H</b>+0%</span><span class="sc-cell" data-dir="neg"><b>B</b>−0%</span><span class="sc-cell" data-dir="neg"><b>B</b>−8%</span><span class="sc-score" data-tone="mid">1/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Bancos internacionales</div><div class="sc-row"><span class="sc-tk">TD</span><span class="sc-cell" data-dir="neg"><b>H</b>+25%</span><span class="sc-cell" data-dir="neg"><b>H</b>+17%</span><span class="sc-cell" data-dir="neg"><b>H</b>+26%</span><span class="sc-score" data-tone="zero">0/3</span></div><div class="sc-row"><span class="sc-tk">RY</span><span class="sc-cell" data-dir="pos"><b>B</b>+6%</span><span class="sc-cell" data-dir="neg"><b>H</b>+18%</span><span class="sc-cell" data-dir="neg"><b>H</b>+20%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">BNS</span><span class="sc-cell" data-dir="neu"><b>H</b>+6%</span><span class="sc-cell" data-dir="neg"><b>H</b>+22%</span><span class="sc-cell" data-dir="neu"><b>H</b>+15%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">MUFG</span><span class="sc-cell" data-dir="neu"><b>H</b>+7%</span><span class="sc-cell" data-dir="neg"><b>H</b>+31%</span><span class="sc-cell" data-dir="neu"><b>H</b>+5%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">SMFG</span><span class="sc-cell" data-dir="neu"><b>H</b>−5%</span><span class="sc-cell" data-dir="neg"><b>H</b>+36%</span><span class="sc-cell" data-dir="neg"><b>A</b>+9%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">HDB</span><span class="sc-cell" data-dir="neg"><b>H</b>+23%</span><span class="sc-cell" data-dir="neg"><b>H</b>−23%</span><span class="sc-cell" data-dir="neg"><b>H</b>−27%</span><span class="sc-score" data-tone="zero">0/3</span></div><div class="sc-row"><span class="sc-tk">ITUB</span><span class="sc-cell" data-dir="pos"><b>B</b>+32%</span><span class="sc-cell" data-dir="neg"><b>H</b>+18%</span><span class="sc-cell" data-dir="neu"><b>H</b>+5%</span><span class="sc-score" data-tone="mid">2/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Seguros y gestión</div><div class="sc-row"><span class="sc-tk">PGR</span><span class="sc-cell" data-dir="neu"><b>H</b>−4%</span><span class="sc-cell" data-dir="neg"><b>H</b>−23%</span><span class="sc-cell" data-dir="neu"><b>H</b>−5%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">MET</span><span class="sc-cell" data-dir="neg"><b>B</b>−16%</span><span class="sc-cell" data-dir="neu"><b>H</b>−10%</span><span class="sc-cell" data-dir="pos"><b>B</b>+16%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">BLK</span><span class="sc-cell" data-dir="neu"><b>H</b>+5%</span><span class="sc-cell" data-dir="neu"><b>H</b>−4%</span><span class="sc-cell" data-dir="neu"><b>H</b>−15%</span><span class="sc-score" data-tone="full">3/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">REITs</div><div class="sc-row"><span class="sc-tk">AMT</span><span class="sc-cell" data-dir="pos"><b>B</b>+14%</span><span class="sc-cell" data-dir="neg"><b>H</b>−28%</span><span class="sc-cell" data-dir="neg"><b>B</b>−14%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">PLD</span><span class="sc-cell" data-dir="neg"><b>B</b>−6%</span><span class="sc-cell" data-dir="pos"><b>B</b>+16%</span><span class="sc-cell" data-dir="neg"><b>A</b>+6%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">O</span><span class="sc-cell" data-dir="neu"><b>H</b>+1%</span><span class="sc-cell" data-dir="neu"><b>H</b>+1%</span><span class="sc-cell" data-dir="neu"><b>H</b>+2%</span><span class="sc-score" data-tone="full">3/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Energía y materiales</div><div class="sc-row"><span class="sc-tk">CVX</span><span class="sc-cell" data-dir="off">—</span><span class="sc-cell" data-dir="pos"><b>B</b>+2%</span><span class="sc-cell" data-dir="pos"><b>B</b>+7%</span><span class="sc-score" data-tone="full">2/2</span></div><div class="sc-row"><span class="sc-tk">XOM</span><span class="sc-cell" data-dir="neg"><b>B</b>−8%</span><span class="sc-cell" data-dir="pos"><b>B</b>+12%</span><span class="sc-cell" data-dir="neu"><b>H</b>+7%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">SU</span><span class="sc-cell" data-dir="neg"><b>B</b>−4%</span><span class="sc-cell" data-dir="pos"><b>B</b>+17%</span><span class="sc-cell" data-dir="neg"><b>H</b>+19%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">PBR</span><span class="sc-cell" data-dir="neg"><b>B</b>−14%</span><span class="sc-cell" data-dir="neg"><b>B</b>−3%</span><span class="sc-cell" data-dir="pos"><b>B</b>+35%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">CCJ</span><span class="sc-cell" data-dir="neg"><b>H</b>+47%</span><span class="sc-cell" data-dir="neg"><b>H</b>+37%</span><span class="sc-cell" data-dir="pos"><b>A</b>−35%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">NTR</span><span class="sc-cell" data-dir="pos"><b>B</b>+13%</span><span class="sc-cell" data-dir="pos"><b>A</b>−0%</span><span class="sc-cell" data-dir="pos"><b>A</b>−5%</span><span class="sc-score" data-tone="full">3/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Tecnología y semis</div><div class="sc-row"><span class="sc-tk">AAPL</span><span class="sc-cell" data-dir="neu"><b>H</b>−14%</span><span class="sc-cell" data-dir="neu"><b>H</b>+10%</span><span class="sc-cell" data-dir="neg"><b>H</b>+23%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">MSFT</span><span class="sc-cell" data-dir="neu"><b>H</b>+14%</span><span class="sc-cell" data-dir="neg"><b>H</b>−20%</span><span class="sc-cell" data-dir="neg"><b>H</b>−22%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">ASML</span><span class="sc-cell" data-dir="neg"><b>B</b>−8%</span><span class="sc-cell" data-dir="neg"><b>H</b>+75%</span><span class="sc-cell" data-dir="neg"><b>A</b>+21%</span><span class="sc-score" data-tone="zero">0/3</span></div><div class="sc-row"><span class="sc-tk">NOK</span><span class="sc-cell" data-dir="neu"><b>H</b>+1%</span><span class="sc-cell" data-dir="pos"><b>B</b>+29%</span><span class="sc-cell" data-dir="pos"><b>B</b>+46%</span><span class="sc-score" data-tone="full">3/3</span></div><div class="sc-row"><span class="sc-tk">TSM</span><span class="sc-cell" data-dir="neu"><b>H</b>+9%</span><span class="sc-cell" data-dir="pos"><b>B</b>+32%</span><span class="sc-cell" data-dir="pos"><b>B</b>+9%</span><span class="sc-score" data-tone="full">3/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Pagos, consumo y autos</div><div class="sc-row"><span class="sc-tk">V</span><span class="sc-cell" data-dir="neu"><b>H</b>+4%</span><span class="sc-cell" data-dir="neg"><b>H</b>−16%</span><span class="sc-cell" data-dir="neu"><b>H</b>+2%</span><span class="sc-score" data-tone="mid">2/3</span></div><div class="sc-row"><span class="sc-tk">MA</span><span class="sc-cell" data-dir="neu"><b>H</b>−0%</span><span class="sc-cell" data-dir="neu"><b>H</b>−13%</span><span class="sc-cell" data-dir="neu"><b>H</b>−7%</span><span class="sc-score" data-tone="full">3/3</span></div><div class="sc-row"><span class="sc-tk">BABA</span><span class="sc-cell" data-dir="pos"><b>B</b>+38%</span><span class="sc-cell" data-dir="neg"><b>H</b>+27%</span><span class="sc-cell" data-dir="neg"><b>H</b>−38%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">TM</span><span class="sc-cell" data-dir="neu"><b>H</b>−11%</span><span class="sc-cell" data-dir="neg"><b>H</b>+26%</span><span class="sc-cell" data-dir="neg"><b>B</b>−31%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">NIO</span><span class="sc-cell" data-dir="neu"><b>H</b>−5%</span><span class="sc-cell" data-dir="neu"><b>H</b>−4%</span><span class="sc-cell" data-dir="pos"><b>A</b>−4%</span><span class="sc-score" data-tone="full">3/3</span></div></div><div class="sc-grupo"><div class="sc-nombre">Salud</div><div class="sc-row"><span class="sc-tk">MRNA</span><span class="sc-cell" data-dir="pos"><b>A</b>−14%</span><span class="sc-cell" data-dir="neg"><b>H</b>+23%</span><span class="sc-cell" data-dir="neg"><b>H</b>+40%</span><span class="sc-score" data-tone="mid">1/3</span></div><div class="sc-row"><span class="sc-tk">NVO</span><span class="sc-cell" data-dir="neg"><b>B</b>−23%</span><span class="sc-cell" data-dir="neg"><b>B</b>−13%</span><span class="sc-cell" data-dir="neg"><b>H</b>−24%</span><span class="sc-score" data-tone="zero">0/3</span></div></div></div>
+      <p class="datanota">En HOLD, gris = se movió con el mercado (acierto) y rojo = se desvió &gt;15 pts en cualquier dirección — un HOLD rojo
+no implica pérdida, implica que la lectura neutral no vio venir un movimiento grande. "—" = sin veredicto (CVX ene-2025, falla puntual
+de generación). La columna final cuenta aciertos sobre veredictos emitidos.</p>
+    </figure>
+    <p class="prosa">La distinción que importa al leer los rojos es <b>de qué tipo es el error</b>. En banca internacional
+    (38% de acierto) casi todos los rojos son <b>errores de omisión</b>: HOLDs que se quedaron mirando mientras TD, RY o
+    SMFG volaban +20 o +30 puntos sobre el mercado — no se perdió plata, se perdió el rally. En salud (17%) los rojos son
+    <b>errores de comisión</b>, los caros: BUYs sobre NVO con earnings deprimidos que costaron −13 a −24 puntos. Los
+    territorios fuertes son la banca de EE.UU. y los seguros (78%) — donde el HOLD leyó bien que los nombres se moverían
+    con el mercado — y pagos y consumo (67%). Aerolíneas es el territorio del AVOID: ahí viven los −37 y −58 evitados.</p>
+    <figure class="data">
+      <figcaption class="datacap">Acierto por industria · 6 meses</figcaption>
+      <div class="inf-ret-rows">
+  <div class="inf-ret-row"><span class="inf-ret-tk">Bancos EE.UU. · n=9</span>
+  <span class="inf-ret-val" data-dir="pos">78%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Seguros y gestión · n=9</span>
+  <span class="inf-ret-val" data-dir="pos">78%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Pagos, consumo y autos · n=15</span>
+  <span class="inf-ret-val" data-dir="pos">67%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Tecnología y semis · n=15</span>
+  <span class="inf-ret-val" data-dir="pos">60%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Energía y materiales · n=17</span>
+  <span class="inf-ret-val" data-dir="neu">59%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Aerolíneas · n=21</span>
+  <span class="inf-ret-val" data-dir="neu">57%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">REITs · n=9</span>
+  <span class="inf-ret-val" data-dir="neu">56%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Bancos internacionales · n=21</span>
+  <span class="inf-ret-val" data-dir="neg">38%</span></div>
+  <div class="inf-ret-row"><span class="inf-ret-tk">Salud · n=6</span>
+  <span class="inf-ret-val" data-dir="neg">17%</span></div></div>
+      <p class="datanota">Verde ≥60% · gris 45–59% · rojo &lt;45%. n = veredictos con desenlace medible.</p>
+    </figure>
+  </section>
+
+  <section class="sec pagebreak">
+    <div class="sec-kicker"><span class="sec-num">04</span> · Los índices de calidad</div>
+    <h2 class="sec-title">Los números que resumen si esto funciona.</h2>
+    <figure class="data">
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-k">Correlación implícito → realizado</div><div class="kpi-v">0.13</div><div class="kpi-d">Spearman entre el upside implícito del target y el retorno real a 6m, sólo BUY/AVOID (a 12m: 0.11). Positiva pero modesta: el orden de las opiniones informa en el margen — la fuerza del sistema está en la clasificación BUY/HOLD/AVOID, no en la magnitud del target. Con HOLD incluido: 0.00.</div></div>
+        <div class="kpi"><div class="kpi-k">Payoff del BUY</div><div class="kpi-v pos">1.5×</div><div class="kpi-d">Cuando el BUY acierta gana +18.0% promedio; cuando falla pierde −12.0%. Ratio ganancia/pérdida a 6 meses.</div></div>
+        <div class="kpi"><div class="kpi-k">Payoff del AVOID</div><div class="kpi-v pos">1.1×</div><div class="kpi-d">Caída evitada promedio cuando acierta (+19.6%) contra rally perdido cuando falla (−18.1%).</div></div>
+      </div>
+    </figure>
+    <figure class="data">
+      <figcaption class="datacap">Cartera simulada equal-weight · exceso promedio de la canasta vs S&amp;P 500</figcaption>
+      <table class="ft">
+        <thead><tr><th>Corte</th><th>n BUY / AVOID</th><th>Canasta BUY 6m</th><th>Canasta AVOID 6m</th><th>Spread L/S 6m</th><th>Spread L/S 12m</th></tr></thead>
+        <tbody>
+  <tr>
+    <td class="ft-lbl">ene-2025</td>
+    <td class="ft-num">14 / 4</td>
+    <td class="ft-num neg">−0.9%</td>
+    <td class="ft-num neg">−14.4%</td>
+    <td class="ft-num pos">+13.5%</td>
+    <td class="ft-num pos">+5.0%</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">jul-2025</td>
+    <td class="ft-num">12 / 4</td>
+    <td class="ft-num pos">+10.2%</td>
+    <td class="ft-num pos">+3.0%</td>
+    <td class="ft-num pos">+7.1%</td>
+    <td class="ft-num pos">+25.6%</td>
+  </tr>
+  <tr>
+    <td class="ft-lbl">ene-2026</td>
+    <td class="ft-num">11 / 10</td>
+    <td class="ft-num pos">+6.9%</td>
+    <td class="ft-num neg">−4.4%</td>
+    <td class="ft-num pos">+11.3%</td>
+    <td class="ft-num ">—</td>
+  </tr></tbody>
+      </table>
+      <p class="datanota">Lectura: comprar todos los BUY del corte en partes iguales y medir contra SPY; el spread suma lo que rindió estar
+en los BUY y no estar en los AVOID. Promedio simple de acciones, sin costos de transacción — es una medida de señal, no un producto.</p>
+    </figure>
+    <p class="prosa">El cuarto número es la <b>consistencia</b>: sobre 81 pares de veredictos consecutivos del
+    mismo nombre, el sistema mantuvo su lectura en el 68% de los casos. Los cambios que hizo
+    estuvieron mayormente justificados por datos nuevos — el A/B contra la corrida original mostró que sus upgrades a BUY
+    rindieron +11.5% de mediana y que los nombres que bajó de BUY cayeron −26.6%.</p>
+  </section>
+
+  <section class="sec">
+    <div class="sec-kicker"><span class="sec-num">05</span> · Dónde se equivoca</div>
+    <h2 class="sec-title">Los tres errores que ya tienen nombre.</h2>
+    <ul class="lista">
+      <li><b>Trampas de valor con earnings deprimidos.</b> NVO (BUY, −35.7 a 12m) y MET (BUY, −26.1): cuando la ganancia
+      corriente está pisada por cargos o ciclo, el PEG y el P/E se ven baratos y no lo están. Es el error más caro del lado BUY —
+      la mesa debe cruzar todo BUY farmacéutico o asegurador con la pregunta "¿la ganancia base es real?".</li>
+      <li><b>Deuda de reestructuración leída como deterioro.</b> LTM en enero 2025 (AVOID, +107 en contra): un balance
+      post-chapter-11 dispara el gate de leverage aunque la empresa salga saneada. El mismo trigger sobre el mismo nombre
+      acertó un año después — el gate funciona sobre deterioro en curso, no sobre cicatrices.</li>
+      <li><b>Ir contra un rally estructural por valuación.</b> ASML en enero 2026 (AVOID, +21 en contra): cara no es lo mismo
+      que vendible. El AVOID por valuación pura, sin deterioro de balance ni de negocio, es la variante floja de la señal.</li>
+    </ul>
+    <blockquote class="cita"><p>El sistema gana cuando lee deterioro que el precio no refleja; pierde cuando confunde
+    barato con bueno y caro con malo.</p></blockquote>
+  </section>
+
+  <section class="sec pagebreak">
+    <div class="sec-kicker"><span class="sec-num">06</span> · Guía de uso</div>
+    <h2 class="sec-title">Protocolo para la mesa.</h2>
+    <div class="guia">
+      <div class="guia-item"><span class="guia-k">Peso máximo</span><span class="guia-t"><b>AVOID con tendencia todavía alcista, o con gate mecánico de balance.</b> Es la alerta temprana validada: úsenla para revisar exposición y para no iniciar posiciones. Excepción: nombre recién salido de reestructuración.</span></div>
+      <div class="guia-item"><span class="guia-k">Peso alto</span><span class="guia-t"><b>BUY confirmado por el framework</b> (valuación + consenso + balance en verde), con horizonte de 12 meses. No esperar validación inmediata: el patrón típico arranca plano los primeros 6 meses.</span></div>
+      <div class="guia-item"><span class="guia-k">Peso medio</span><span class="guia-t"><b>BUY sin confirmación completa y AVOID por valuación pura.</b> Insumo de análisis, no disparador. Cruzar con la pregunta de la ganancia base (trampas de valor) y con el contexto del rally (ASML).</span></div>
+      <div class="guia-item"><span class="guia-k">Neutral real</span><span class="guia-t"><b>HOLD significa "se moverá con el mercado"</b> — y eso pasó 55% de las veces. No es una recomendación tibia de compra ni un eufemismo de venta.</span></div>
+      <div class="guia-item"><span class="guia-k">No usar</span><span class="guia-t"><b>El precio objetivo puntual como pronóstico</b> (pierde contra la regla trivial "siempre sube") <b>ni el rango bull–bear como intervalo de confianza</b> (contiene el desenlace real sólo ~4 de cada 10 veces: son escenarios centrales, no bandas). El sistema tampoco hace timing.</span></div>
+      <div class="guia-item"><span class="guia-k">Vigencia</span><span class="guia-t">Cada veredicto vale <b>hasta los próximos resultados</b> de la empresa (uno o dos trimestres). La ventaja informativa decae: re-generar el análisis después de cada earnings antes de apoyarse en él.</span></div>
+      <div class="guia-item"><span class="guia-k">Marco</span><span class="guia-t">El análisis es <b>research general, no asesoramiento personalizado</b>: la conversación con el cliente, el sizing y la adecuación al perfil siguen siendo del asesor. El sistema informa el criterio; no lo reemplaza.</span></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-kicker"><span class="sec-num">07</span> · Los límites</div>
+    <h2 class="sec-title">Lo que este estudio todavía no puede afirmar.</h2>
+    <ul class="lista">
+      <li><b>122 veredictos en 18 meses y dos regímenes de mercado.</b> Es la mejor evidencia disponible y alcanza
+      para calibrar confianza relativa entre señales; no alcanza para prometer tasas de acierto estables.</li>
+      <li><b>Las estimaciones forward históricas tienen antigüedad</b> (mediana 26–63 días según el corte, por la fuente de
+      archivo). El consenso fino al día sólo existe en datos institucionales pagos.</li>
+      <li><b>Un solo modelo y una sola configuración.</b> Los resultados validan el pipeline completo (datos + reglas +
+      modelo), no al modelo en abstracto.</li>
+      <li><b>El registro en vivo es el examen definitivo:</b> desde julio de 2026 cada análisis de producción queda guardado
+      con datos completos. En un año, esta misma medición se hará sin reconstrucción — sobre veredictos emitidos en tiempo real.</li>
+    </ul>
+  </section>
+
+  <footer class="footer">
+    <div class="disclosure">
+      <p>Informe de uso interno de la mesa de asesores de Bengochea &amp; Cía. — no es material para clientes. Elaborado
+      sobre 122 veredictos point-in-time generados por el analizador de la casa (modelo gpt-4o-2024-11-20, cortes
+      2025-01-17, 2025-07-18, 2026-01-16, benchmark SPY retorno total). No constituye asesoramiento de inversión ni una recomendación de
+      compra o venta de valores. Los valores analizados no están inscriptos en el Registro de Valores del BCU.</p>
+      <p>Fuentes de la reconstrucción histórica: SEC EDGAR (estados, guidance, insiders, fechas de publicación), FINRA
+      (short interest), Yahoo Finance (precios ajustados, fundamentals, ratings), Finnhub (consenso), Internet Archive
+      (estimaciones forward de época). Archivos: backtest-2026-07-19-20-15.json · verdict_log.</p>
+      <p class="copy">© 2026 Bengochea &amp; Cía. Sociedad de Bolsa · Generado el 2026-07-19</p>
+    </div>
+  </footer>
+</div>
+
+</body></html>

@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { ArrowRight } from "@/components/institucional/icons";
 import { SECTORES, SECTOR_SLUGS, SECTOR_TOTAL } from "./data";
+import { pageMetadata } from "@/lib/seo";
+import { estaOculta } from "@/lib/paginasOcultas";
 
 type Params = { params: Promise<{ sector: string }> };
 
@@ -15,10 +17,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { sector } = await params;
   const s = SECTORES[sector];
   if (!s) return {};
-  return {
-    title: `${s.label} · Oportunidades · Bengochea & Cía.`,
+  return pageMetadata({
+    title: `${s.label} · Oportunidades`,
     description: s.standfirst,
-  };
+    path: `/oportunidades/${sector}`,
+  });
 }
 
 const total = String(SECTOR_TOTAL).padStart(2, "0");
@@ -41,6 +44,11 @@ function SectionHead({ num, kicker, title, dek }: { num: string; kicker: string;
 
 export default async function SectorPage({ params }: Params) {
   const { sector } = await params;
+  // 404 con el not-found de la casa mientras la sección siga listada en
+  // lib/paginasOcultas.ts. Publicada = la guarda queda inerte. Una sola línea
+  // tapa los cuatro sectores.
+  if (estaOculta("/oportunidades")) notFound();
+
   const s = SECTORES[sector];
   if (!s) notFound();
 

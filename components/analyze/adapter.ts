@@ -1,5 +1,5 @@
 import type { StockData, CashFlowYear } from "@/types/StockData";
-import type { StructuredReport } from "@/types/Report";
+import type { StructuredReport, SegmentSankeyData } from "@/types/Report";
 import type { SankeyData } from "@/components/analyze/charts";
 import { classifyPublisher, type PublisherTier } from "@/lib/publisherTiers";
 
@@ -22,13 +22,19 @@ export interface WorkstationData {
   marketCap: string;
   week52Low: number | null;
   week52High: number | null;
+  trailingPE: number | null;
 
   // Verdict (only present once the report finishes streaming)
   verdict: "BUY" | "HOLD" | "AVOID" | null;
   conviction: "Alta" | "Media" | "Baja" | null;
   target: number | null;
   targetUpside: number | null;
-  sizing: string;
+  // Rango bear–bull parseado de los escenarios. El backtest 2026-07-19 mostró
+  // que el target puntual acierta dirección MENOS que el baseline trivial (65%
+  // vs 79%, MAE 35.7% a 12m): se presenta como ancla dentro del rango de
+  // escenarios, nunca como pronóstico puntual solo.
+  scenarioLow: number | null;
+  scenarioHigh: number | null;
 
   // Scenario probabilities & derived metrics (Tier 1)
   bullProbability: number | null;     // 0-100
@@ -108,7 +114,6 @@ export interface WorkstationData {
   industryContextMd: string;
   managementQualityMd: string;
   consensusNarrativeMd: string;  // valuationSnapshot
-  conclusionMd: string;
   risksMd: string;
   catalystsMd: string;
 
@@ -123,6 +128,27 @@ export interface WorkstationData {
   asOf: string | null;
   filingRef: string | null;
   lastUpdated: string;
+  // Fecha sola (sin hora) del snapshot. Placeholder honesto para el teaser del
+  // peaje: la fecha es la de hoy (el informe se genera hoy), pero la hora recién
+  // se fija cuando la corrida termina.
+  lastUpdatedDate: string;
+  // Data provenance for the income statement (Sankey). Lets the UI be honest
+  // about where the numbers came from instead of silently rendering a
+  // fallback / stale-mix / missing chart as if it were primary SEC data.
+  provenance: IncomeStatementProvenance;
+}
+
+export interface IncomeStatementProvenance {
+  // primary  — SEC EDGAR filing, current period, segments intact
+  // rescaled — segment mix is from a prior period, rescaled to the reported revenue
+  // fallback — income statement approximated from Yahoo (no SEC breakdown available)
+  // unavailable — report finished but no income statement could be built
+  // pending  — still streaming; not yet known
+  status: "primary" | "rescaled" | "fallback" | "unavailable" | "pending";
+  // One-line source label for the sidebar "Fuentes" list (null while pending).
+  sourceLine: string | null;
+  // Discreet inline caveat shown on the income-statement panel; null when clean.
+  note: string | null;
 }
 
 const SEG_COLORS = ["#03065E", "#2C3194", "#6B70B8", "#9C7F2E", "#C9A84C", "#5C5F7A"];
@@ -162,6 +188,12 @@ function fmtMoney(n: number | null | undefined, prefix = "USD ", dec = 2): strin
   return `${prefix}${fmtNum(n, dec)}`;
 }
 
+// Fecha del snapshot sin hora — compartida entre el informe real (buildWorkstation)
+// y el esqueleto de carga (makeSkeletonWorkstation) para que no puedan divergir.
+function fmtStampDate(stamp: Date): string {
+  return `${stamp.toLocaleDateString("es-UY", { day: "2-digit", month: "short" })} ${stamp.getFullYear()}`;
+}
+
 function deriveYtdPct(prices: { time: string; value: number }[] | null, currentPrice: number | null): number | null {
   if (!prices || prices.length === 0 || currentPrice == null) return null;
   const yearStart = new Date().getUTCFullYear();
@@ -175,9 +207,52 @@ function deriveYtdPct(prices: { time: string; value: number }[] | null, currentP
 
 /* ────────── adapt ────────── */
 
+export function buildProvenance(
+  seg: SegmentSankeyData | null,
+  reportDone: boolean,
+  filingRef: string | null,
+): IncomeStatementProvenance {
+  if (!seg) {
+    return reportDone
+      ? {
+          status: "unavailable",
+          sourceLine: "Estado de resultados · no disponible",
+          note:
+            "Estado de resultados no disponible para este informe — no se pudo obtener el desglose de SEC EDGAR. " +
+            "El resto del análisis no se ve afectado.",
+        }
+      : { status: "pending", sourceLine: null, note: null };
+  }
+  if (seg.source === "Yahoo") {
+    return {
+      status: "fallback",
+      sourceLine: "Estado de resultados · Yahoo Finance (aproximado)",
+      note:
+        "Estado de resultados aproximado desde Yahoo Finance — el desglose de SEC EDGAR no estaba disponible " +
+        "al generar este informe.",
+    };
+  }
+  const secRef = filingRef ? `SEC EDGAR ${filingRef}` : "SEC EDGAR";
+  if (seg.segmentPeriod && seg.segmentPeriod !== seg.period) {
+    return {
+      status: "rescaled",
+      sourceLine: `Estado de resultados · ${secRef} (mix de segmentos del período previo)`,
+      note:
+        `El desglose por segmento corresponde al período previo (${seg.segmentPeriod}), reescalado al ingreso ` +
+        "del último trimestre reportado; los totales del estado de resultados sí son del período actual.",
+    };
+  }
+  return { status: "primary", sourceLine: `Estado de resultados · ${secRef}`, note: null };
+}
+
 export function buildWorkstation(
   stockData: StockData,
   report: StructuredReport | null,
+  // Momento real de generación del reporte (createdAt del cache cuando la
+  // respuesta vino cacheada; Date.now() en generaciones frescas). El informe
+  // es una foto congelada: el timestamp debe decir cuándo se tomó la foto,
+  // no cuándo se volvió a mirar.
+  createdAtMs?: number | null,
 ): WorkstationData {
   const pfx = stockData.currency === "USD" ? "USD " : (stockData.currency ?? "") + " ";
   const price = stockData.currentPrice ?? null;
@@ -417,6 +492,8 @@ export function buildWorkstation(
   let expectedValue: number | null = null;
   let expectedValueUpside: number | null = null;
   let riskReward: string | null = null;
+  let scenarioLow: number | null = null;
+  let scenarioHigh: number | null = null;
 
   const bullCase = report?.bullCase;
   const bearCase = report?.bearCase;
@@ -433,10 +510,19 @@ export function buildWorkstation(
       baseProb = Math.max(0, 100 - bp - xp);
     }
 
-    // Risk/reward: ratio (bull − price) : (price − bear). Asymmetry sense.
+    // Risk/reward: upside vs downside PONDERADO por probabilidad. El rango
+    // bull/bear ahora es un cono de volatilidad mecánico y simétrico en log
+    // (mismo ancho para todos a igual vol), así que el ratio crudo
+    // (bull−precio):(precio−bear) sería una constante ~1.8:1 sin información
+    // direccional — y mostraría "a favor" hasta en un AVOID. La dirección de la
+    // tesis vive en las PROBABILIDADES (bull prob > bear prob ⇒ BUY, y viceversa),
+    // así que el riesgo/beneficio se pondera por ellas: recupera el sentido y
+    // queda coherente con el rating. Sin probabilidades, cae al ratio crudo.
     if (Number.isFinite(bullTgt) && Number.isFinite(bearTgt) && price != null && price > 0) {
-      const upside = bullTgt - price;
-      const downside = price - bearTgt;
+      const wBull = bullProb != null && bearProb != null ? bullProb : 1;
+      const wBear = bullProb != null && bearProb != null ? bearProb : 1;
+      const upside = (bullTgt - price) * wBull;
+      const downside = (price - bearTgt) * wBear;
       if (upside > 0 && downside > 0) {
         const ratio = upside / downside;
         riskReward = `${ratio.toFixed(1)} : 1`;
@@ -456,9 +542,14 @@ export function buildWorkstation(
       expectedValue = ev;
       if (price != null && price > 0) expectedValueUpside = ((ev - price) / price) * 100;
     }
-  }
 
-  const sizing = report?.verdict?.sizing ?? "";
+    // Rango de escenarios para el hero: el target puntual se muestra como
+    // ancla DENTRO de este rango, no como pronóstico aislado.
+    if (Number.isFinite(bullTgt) && Number.isFinite(bearTgt) && bearTgt > 0 && bullTgt >= bearTgt) {
+      scenarioLow = bearTgt;
+      scenarioHigh = bullTgt;
+    }
+  }
 
   /* Markdown blocks (empty when report not yet ready) */
   const thesisMd = report?.verdict?.rationale ?? "";
@@ -485,8 +576,6 @@ export function buildWorkstation(
   }));
   const managementQualityMd = report?.managementQuality ?? "";
   const consensusNarrativeMd = report?.valuationSnapshot ?? "";
-  const conclusionMd =
-    report ? [report.verdict?.rationale, report.valuationSnapshot].filter(Boolean).join("\n\n") : "";
   const risksMd = report?.riskFactors ?? "";
   const catalystsMd = report?.catalysts ?? "";
   const bullCaseObj = report?.bullCase ?? null;
@@ -500,8 +589,16 @@ export function buildWorkstation(
     segSource?.source && segSource?.period
       ? `${segSource.source} · ${segSource.period}`
       : segSource?.source ?? null;
-  const now = new Date();
-  const lastUpdated = `${now.toLocaleDateString("es-UY", { day: "2-digit", month: "short" })} ${now.getFullYear()} · ${now.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit", hour12: false })} UY`;
+  const provenance = buildProvenance(segSource ?? null, !!report, filingRef);
+  // Timestamp del snapshot: el createdAt real del cache cuando existe (informe
+  // = foto congelada — "Generado" dice cuándo se tomó la foto, no cuándo se
+  // volvió a mirar), la hora actual sólo como fallback (streaming en curso).
+  const stamp = new Date(createdAtMs ?? Date.now());
+  // Fecha sola y timestamp completo por separado: el teaser del peaje muestra
+  // sólo la fecha (el informe se genera hoy), y la hora se agrega recién con la
+  // corrida real.
+  const lastUpdatedDate = fmtStampDate(stamp);
+  const lastUpdated = `${lastUpdatedDate} · ${stamp.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit", hour12: false })} UY`;
 
   return {
     ticker: stockData.ticker,
@@ -517,11 +614,13 @@ export function buildWorkstation(
     marketCap: stockData.marketCap != null ? `${pfx}${fmtLarge(stockData.marketCap)}` : "—",
     week52Low: stockData.fiftyTwoWeekLow,
     week52High: stockData.fiftyTwoWeekHigh,
+    trailingPE: stockData.trailingPE ?? null,
     verdict,
     conviction,
     target,
     targetUpside,
-    sizing,
+    scenarioLow,
+    scenarioHigh,
     bullProbability: bullProb,
     baseProbability: baseProb,
     bearProbability: bearProb,
@@ -552,7 +651,6 @@ export function buildWorkstation(
     industryContextMd,
     managementQualityMd,
     consensusNarrativeMd,
-    conclusionMd,
     risksMd,
     catalystsMd,
     bullCase: bullCaseObj,
@@ -561,6 +659,78 @@ export function buildWorkstation(
     asOf,
     filingRef,
     lastUpdated,
+    lastUpdatedDate,
+    provenance,
+  };
+}
+
+// Esqueleto de WorkstationData para el estado de carga (ticker puesto, todavía
+// sin datos del upstream). Estructura completa con todo en null/vacío, así el
+// masthead y el ReportBody pintan la estructura base y cada dato cae en su lugar
+// cuando llega el fetch. tsc obliga a mantener todos los campos: si la interfaz
+// crece, este esqueleto no compila hasta cubrir el campo nuevo.
+export function makeSkeletonWorkstation(ticker: string): WorkstationData {
+  return {
+    ticker: ticker.toUpperCase(),
+    name: "",
+    exchange: "—",
+    currency: "USD",
+    sector: "—",
+    industry: "—",
+    price: null,
+    change1d: null,
+    change1dPct: null,
+    changeYtdPct: null,
+    marketCap: "—",
+    week52Low: null,
+    week52High: null,
+    trailingPE: null,
+    verdict: null,
+    conviction: null,
+    target: null,
+    targetUpside: null,
+    scenarioLow: null,
+    scenarioHigh: null,
+    bullProbability: null,
+    baseProbability: null,
+    bearProbability: null,
+    expectedValue: null,
+    expectedValueUpside: null,
+    riskReward: null,
+    keyDebateMd: "",
+    capitalAllocationMd: "",
+    recentNews: [],
+    kpis: [],
+    spark: [],
+    pricePath: [],
+    quarters: [],
+    sankey: null,
+    segments: [],
+    consensus: { buy: 0, hold: 0, sell: 0, targetLow: null, targetAvg: null, targetHigh: null },
+    analystActions: [],
+    peers: [],
+    thesisMd: "",
+    businessSummaryMd: "",
+    competitiveAdvantagesMd: "",
+    revenueStreamsMd: "",
+    driversMd: "",
+    incomeNarrativeMd: "",
+    balanceSheetMd: "",
+    freeCashFlowMd: "",
+    capitalExpenditureMd: "",
+    industryContextMd: "",
+    managementQualityMd: "",
+    consensusNarrativeMd: "",
+    risksMd: "",
+    catalystsMd: "",
+    bullCase: null,
+    bearCase: null,
+    annualCashFlow: [],
+    asOf: null,
+    filingRef: null,
+    lastUpdated: "",
+    lastUpdatedDate: fmtStampDate(new Date()),
+    provenance: { status: "pending", sourceLine: null, note: null },
   };
 }
 

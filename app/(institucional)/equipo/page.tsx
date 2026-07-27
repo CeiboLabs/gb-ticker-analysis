@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Reveal, Stagger, StaggerItem, Counter } from "@/components/motion";
+import { pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { personListLd } from "@/lib/jsonld";
 
-export const metadata: Metadata = {
-  title: "Equipo · Bengochea & Cía.",
+export const metadata: Metadata = pageMetadata({
+  title: "Equipo",
   description:
     "Directorio, administración, asesoramiento, mesa de operaciones y compliance de Gastón Bengochea CB.",
-};
+  path: "/equipo",
+});
 
 type Person = { name: string; role: string; photo: string };
 type Area = { id: string; title: string; lede: string; people: Person[] };
@@ -15,13 +19,12 @@ const AREAS: Area[] = [
   {
     id: "directorio",
     title: "Directorio",
-    lede: "Cinco socios definen la estrategia y la operativa diaria de la casa.",
+    lede: "Los socios que definen nuestra estrategia y operativa diaria.",
     people: [
-      { name: "Gastón Bengochea", role: "Presidente", photo: "/equipo/gaston-bengochea.jpg" },
-      { name: "Alejandro Lavista", role: "Socio · Director", photo: "/equipo/alejandro-lavista.png" },
-      { name: "Diego Rodriguez", role: "Socio · Director", photo: "/equipo/diego-rodriguez.png" },
-      { name: "Eduardo Piqueras", role: "Socio · Director", photo: "/equipo/eduardo-piqueras.png" },
-      { name: "Oscar Gilberti", role: "Socio · Director", photo: "/equipo/oscar-gilberti.png" },
+      { name: "Alejandro Lavista", role: "Socio · Director", photo: "/equipo/alejandro-lavista.jpg" },
+      { name: "Diego Rodriguez", role: "Socio · Director", photo: "/equipo/diego-rodriguez.jpg" },
+      { name: "Eduardo Piqueras", role: "Socio · Director", photo: "/equipo/eduardo-piqueras.jpg" },
+      { name: "Oscar Gilberti", role: "Socio · Director", photo: "/equipo/oscar-gilberti.jpg" },
     ],
   },
   {
@@ -29,14 +32,14 @@ const AREAS: Area[] = [
     title: "Asesores",
     lede: "El equipo que escucha al cliente y construye la cartera. Cada inversor tiene un asesor principal.",
     people: [
-      { name: "Andrea Stolowicz", role: "Asesor Financiero", photo: "/equipo/andrea-stolowicz.png" },
-      { name: "Gabriel Angiolini", role: "Asesor Financiero", photo: "/equipo/gabriel-angiolini.png" },
-      { name: "Graciana Noya", role: "Asesor Financiero", photo: "/equipo/graciana-noya.png" },
+      { name: "Andrea Stolowicz", role: "Asesor Financiero", photo: "/equipo/andrea-stolowicz.jpg" },
+      { name: "Gabriel Angiolini", role: "Asesor Financiero", photo: "/equipo/gabriel-angiolini.jpg" },
+      { name: "Graciana Noya", role: "Asesor Financiero", photo: "/equipo/graciana-noya.jpg" },
       { name: "Hernán Castro", role: "Asesor Financiero", photo: "/equipo/hernan-castro.png" },
-      { name: "Lucia Arias", role: "Asesor Financiero", photo: "/equipo/lucia-arias.png" },
-      { name: "Francisco Echegoyen", role: "Asesor Financiero", photo: "/equipo/francisco-echegoyen.png" },
-      { name: "Facundo Gonzalez", role: "Asesor Financiero", photo: "/equipo/facundo-gonzalez.png" },
-      { name: "Daniela Nardo", role: "Asistente", photo: "/equipo/daniela-nardo.png" },
+      { name: "Lucia Arias", role: "Asesor Financiero", photo: "/equipo/lucia-arias.jpg" },
+      { name: "Francisco Echegoyen", role: "Asesor Financiero", photo: "/equipo/francisco-echegoyen.jpg" },
+      { name: "Facundo Gonzalez", role: "Asesor Financiero", photo: "/equipo/facundo-gonzalez.jpg" },
+      { name: "Daniela Nardo", role: "Asistente", photo: "/equipo/daniela-nardo.jpg" },
     ],
   },
   {
@@ -44,8 +47,8 @@ const AREAS: Area[] = [
     title: "Mesa de Operaciones",
     lede: "Los traders que ejecutan en las plazas locales e internacionales.",
     people: [
-      { name: "Isabel Freiria", role: "Trader", photo: "/equipo/isabel-freiria.png" },
-      { name: "Adrián Moreira", role: "Trader", photo: "/equipo/adrian-moreira.jpeg" },
+      { name: "Isabel Freiria", role: "Trader", photo: "/equipo/isabel-freiria.jpg" },
+      { name: "Adrián Moreira", role: "Trader", photo: "/equipo/adrian-moreira.jpg" },
     ],
   },
   {
@@ -53,10 +56,12 @@ const AREAS: Area[] = [
     title: "Administración",
     lede: "Back office, facturación y contabilidad: la infraestructura que sostiene la operativa.",
     people: [
-      { name: "Gimena Paladino", role: "Administración y Facturación", photo: "/equipo/gimena-paladino.png" },
-      { name: "Florencia Cotignola", role: "Contadora Pública", photo: "/equipo/florencia-cotignola.png" },
-      { name: "Camila Machado", role: "Auxiliar Contable", photo: "/equipo/camila-machado.png" },
-      { name: "Lorena Piegas", role: "Backoffice", photo: "/equipo/lorena-piegas.png" },
+      { name: "Gimena Paladino", role: "Administración y Facturación", photo: "/equipo/gimena-paladino.jpg" },
+      { name: "Florencia Cotignola", role: "Contadora Pública", photo: "/equipo/florencia-cotignola.jpg" },
+      { name: "Camila Machado", role: "Auxiliar Contable", photo: "/equipo/camila-machado.jpg" },
+      { name: "Lorena Piegas", role: "Backoffice", photo: "/equipo/lorena-piegas.jpg" },
+      { name: "Ramiro Viana", role: "Administración", photo: "/equipo/ramiro-viana.jpg" },
+      { name: "María Inés Penino", role: "Recepción y Administración", photo: "/equipo/ines-penino.jpg" },
     ],
   },
   {
@@ -65,7 +70,7 @@ const AREAS: Area[] = [
     lede: "Cumplimiento normativo, prevención y reporte regulatorio ante BCU.",
     people: [
       { name: "Matías Ranieri", role: "Oficial de Cumplimiento", photo: "/equipo/matias-ranieri.jpg" },
-      { name: "Federica Pascuali", role: "Asistente", photo: "/equipo/federica-pascuali.png" },
+      { name: "Federica Pascuali", role: "Asistente", photo: "/equipo/federica-pascuali.jpg" },
     ],
   },
 ];
@@ -81,11 +86,18 @@ export default function EquipoPage() {
 
   return (
     <main className="site">
+      <JsonLd
+        data={personListLd(
+          AREAS.flatMap((a) =>
+            a.people.map((p) => ({ name: p.name, jobTitle: p.role, image: p.photo })),
+          ),
+        )}
+      />
       {/* Hero split — contenido + imagen */}
       <div className="hero-split">
         <Reveal as="div" className="hero-copy">
           <div className="kicker" style={{ color: "var(--gold-soft)" }}>
-            La casa · Equipo
+            Nosotros · Equipo
           </div>
           <h1 className="t-display" style={{ marginTop: 20, color: "#fff" }}>
             La mesa, en su composición.
@@ -94,17 +106,16 @@ export default function EquipoPage() {
             Cinco áreas, un único oficio. Cada cliente sabe con quién habla, sabe quién ejecuta y sabe
             quién firma. Estos son los nombres detrás de cada portafolio.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 32 }}>
-            {AREAS.map((a) => (
-              <a key={a.id} href={`#${a.id}`} className="ui-btn ui-btn-on-navy-ghost">
-                {a.title}
-              </a>
-            ))}
-          </div>
+          {/* El hero cierra en el lead: enuncia, no navega. Las cinco áreas
+              están inmediatamente abajo y se llegan scrolleando; sus ids siguen
+              vivos para deep-links. */}
         </Reveal>
         <div className="hero-figure">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero/equipo.jpg" alt="Profesionales de la casa en una reunión de trabajo" />
+          <img
+            src="/hero/equipo-mesa.jpg"
+            alt="Nuestro equipo en una reunión de trabajo frente a una presentación en pantalla"
+          />
         </div>
       </div>
 
@@ -168,7 +179,7 @@ export default function EquipoPage() {
       <section className="band-navy site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Trabajá con la casa</div>
+            <div className="eyebrow-sm">Trabajá con nosotros</div>
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>
                 Cada portafolio se discute entre todos.

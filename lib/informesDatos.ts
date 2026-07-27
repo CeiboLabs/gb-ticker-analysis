@@ -10,7 +10,8 @@
 
 import { serieDiaria, serieDiariaTD, retornoSemanal } from "./marketData";
 import { serieBCU, BCU_COD } from "./bcu";
-import type { Bloque, GrupoDatos, LineaSerie } from "./informeContenido/tipos";
+import { subastasLRMSemana } from "./bcuLRM";
+import type { Bloque, Dato, GrupoDatos, LineaSerie } from "./informeContenido/tipos";
 
 const diasAtras = (hasta: string, n: number) =>
   new Date(new Date(`${hasta}T00:00:00Z`).getTime() - n * 86_400_000).toISOString().slice(0, 10);
@@ -33,7 +34,9 @@ export const CATALOGO_GLOBAL: Grupo[] = [
     items: [
       { etiqueta: "Dow Jones", symbol: "^DJI" },
       { etiqueta: "S&P 500", symbol: "^GSPC" },
-      { etiqueta: "Nasdaq 100", symbol: "^NDX" },
+      // El cliente rotula "Nasdaq 100" pero su número coincide con el COMPOSITE
+      // (^IXIC), no con el NDX — validado vs 05-22 (0,45 vs 0,50) y 05-29 (2,39 vs 2,58).
+      { etiqueta: "Nasdaq 100", symbol: "^IXIC" },
     ],
   },
   {
@@ -45,7 +48,9 @@ export const CATALOGO_GLOBAL: Grupo[] = [
       { etiqueta: "DAX", symbol: "^GDAXI" },
       { etiqueta: "IBEX", symbol: "^IBEX" },
       { etiqueta: "MIB", symbol: "FTSEMIB.MI" },
-      { etiqueta: "SMI", symbol: "^SSMI" },
+      // ^SSMI difiere del valor del cliente por hora de corte del mercado suizo
+      // (no es problema de símbolo: el desvío es inconsistente semana a semana).
+      { etiqueta: "SMI", symbol: "^SSMI", revisar: true },
     ],
   },
   {
@@ -53,7 +58,9 @@ export const CATALOGO_GLOBAL: Grupo[] = [
     items: [
       { etiqueta: "Nikkei", symbol: "^N225" },
       { etiqueta: "Hang Seng", symbol: "^HSI" },
-      { etiqueta: "Shenzhen", symbol: "399001.SZ" },
+      // 399001.SZ = Componente de Shenzhen; el cliente usa otro índice de Shenzhen
+      // (los alternativos —Composite 399106, etc.— no están en Yahoo). Revisar.
+      { etiqueta: "Shenzhen", symbol: "399001.SZ", revisar: true },
       { etiqueta: "ASX 200", symbol: "^AXJO" },
     ],
   },
@@ -70,11 +77,16 @@ export const CATALOGO_GLOBAL: Grupo[] = [
   },
 ];
 
-/** Trae los retornos de un catálogo para la semana que cierra en `hasta` (viernes). */
+/**
+ * Trae los retornos de un catálogo para la semana que cierra en `hasta` (viernes).
+ * Los instrumentos sin dato (ej. índices que no están en las fuentes gratuitas) NO
+ * se descartan en silencio: van a `faltantes` y se muestran como "s/d" para que el
+ * analista los complete y no se publique una tabla a la que le faltan filas.
+ */
 async function retornosDeCatalogo(catalogo: Grupo[], hasta: string): Promise<GrupoDatos[]> {
   return Promise.all(
     catalogo.map(async (g) => {
-      const datos = await Promise.all(
+      const resultados = await Promise.all(
         g.items.map(async (it) => {
           const serie =
             it.fuente === "bcu"
@@ -83,20 +95,32 @@ async function retornosDeCatalogo(catalogo: Grupo[], hasta: string): Promise<Gru
                 ? await serieDiariaTD(it.symbol, hasta).catch(() => [] as never[])
                 : await serieDiaria(it.symbol).catch(() => [] as never[]);
           const r = retornoSemanal(serie, hasta);
-          if (r == null) return null;
-          const valor = it.invertir ? -r : r;
-          return { etiqueta: it.etiqueta, valor: Number(valor.toFixed(2)) };
+          const valor = r == null ? null : Number((it.invertir ? -r : r).toFixed(2));
+          return { etiqueta: it.etiqueta, valor };
         }),
       );
-      return { nombre: g.nombre, datos: datos.filter((d): d is { etiqueta: string; valor: number } => d != null) };
+      const datos: Dato[] = resultados.filter((d): d is Dato => d.valor != null);
+      const faltantes = resultados.filter((d) => d.valor == null).map((d) => d.etiqueta);
+      return faltantes.length ? { nombre: g.nombre, datos, faltantes } : { nombre: g.nombre, datos };
     }),
   );
+}
+
+/** Nota al pie de un cuadro de retornos: agrega la aclaración de "s/d" si faltan. */
+function notaRetornos(grupos: GrupoDatos[], base: string): string {
+  const hayFaltantes = grupos.some((g) => g.faltantes?.length);
+  return hayFaltantes ? `${base} «s/d» = sin fuente automática; completar a mano.` : base;
 }
 
 /** Bloque `retornos` global listo para insertar en el artículo. */
 export async function retornosGlobal(hasta: string): Promise<Extract<Bloque, { tipo: "retornos" }>> {
   const grupos = await retornosDeCatalogo(CATALOGO_GLOBAL, hasta);
-  return { tipo: "retornos", titulo: "Retornos de la semana · global", grupos, nota: "Variación semanal, en %." };
+  return {
+    tipo: "retornos",
+    titulo: "Retornos de la semana · global",
+    grupos,
+    nota: notaRetornos(grupos, "Variación semanal, en %."),
+  };
 }
 
 // Cuadro "Retornos de la semana · región" — Monedas + Índices de Latinoamérica.
@@ -138,7 +162,7 @@ export async function retornosRegional(hasta: string): Promise<Extract<Bloque, {
     tipo: "retornos",
     titulo: "Retornos de la semana · región",
     grupos,
-    nota: "Variación semanal, en moneda local salvo pares de divisas.",
+    nota: notaRetornos(grupos, "Variación semanal, en moneda local salvo pares de divisas."),
   };
 }
 
@@ -149,11 +173,66 @@ function rebase100(puntos: LineaSerie["puntos"]): LineaSerie["puntos"] {
   return puntos.map((p) => ({ t: p.t, v: Number(((p.v / base) * 100).toFixed(2)) }));
 }
 
+/** Valor de la serie en `dia` o el día hábil inmediato anterior (hasta 8 días atrás). */
+function valorEnOAntes(puntos: LineaSerie["puntos"], dia: string): number | null {
+  const map = new Map(puntos.map((p) => [p.t, p.v]));
+  const base = new Date(`${dia}T00:00:00Z`).getTime();
+  for (let k = 0; k < 8; k++) {
+    const v = map.get(new Date(base - k * 86_400_000).toISOString().slice(0, 10));
+    if (v != null) return v;
+  }
+  return null;
+}
+
+/** Retorno % entre el cierre en/antes de `desde` y el cierre en/antes de `hasta`. */
+function retornoEntre(puntos: LineaSerie["puntos"], desde: string, hasta: string): number | null {
+  const ini = valorEnOAntes(puntos, desde);
+  const fin = valorEnOAntes(puntos, hasta);
+  if (ini == null || fin == null || ini === 0) return null;
+  return Number(((fin / ini - 1) * 100).toFixed(2));
+}
+
+/**
+ * La mini-tabla dólar/UI de la P1: el retorno de cada uno en tres ventanas, todo
+ * de la MISMA serie del BCU que ya bajaron los gráficos (cero fetch extra):
+ * — «Período»: sobre todo el tramo de los gráficos de arriba (mismo período ⇒ el
+ *   número cuadra con la línea). El PDF viejo usaba una base fija más antigua, así
+ *   que este valor puede diferir del histórico; se ata al gráfico a propósito.
+ * — «En el año»: contra el cierre del 31-dic del año anterior (YTD).
+ * — «1 año»: contra el cierre de 365 días atrás (validado EXACTO vs el 05-22).
+ */
+export function miniTablaDolarUI(
+  usd: LineaSerie["puntos"],
+  ui: LineaSerie["puntos"],
+  hasta: string,
+): Extract<Bloque, { tipo: "tabla" }> {
+  const finAnioAnterior = `${Number(hasta.slice(0, 4)) - 1}-12-31`;
+  const hace1Anio = diasAtras(hasta, 365);
+  const periodo = (p: LineaSerie["puntos"]) => {
+    const a = p[0]?.v;
+    const b = p[p.length - 1]?.v;
+    return a && b ? Number(((b / a - 1) * 100).toFixed(2)) : null;
+  };
+  const celda = (n: number | null): string | number => (n == null ? "s/d" : n);
+  return {
+    tipo: "tabla",
+    titulo: "Dólar y Unidad Indexada · retorno",
+    columnas: [{ titulo: "Ventana" }, { titulo: "USD", delta: true }, { titulo: "UI", delta: true }],
+    filas: [
+      ["Período", celda(periodo(usd)), celda(periodo(ui))],
+      ["En el año", celda(retornoEntre(usd, finAnioAnterior, hasta)), celda(retornoEntre(ui, finAnioAnterior, hasta))],
+      ["1 año", celda(retornoEntre(usd, hace1Anio, hasta)), celda(retornoEntre(ui, hace1Anio, hasta))],
+    ],
+    nota: "Variación del dólar y de la UI por ventana. «Período» = tramo de los gráficos. Fuente: BCU — revisar antes de publicar.",
+  };
+}
+
 /**
  * Los dos gráficos de línea de la página 1 —la evolución del dólar y "UI vs USD
- * (base = 100)"— desde el BCU (lo que antes "esperaba el Excel"). Ambas series se
- * traen una sola vez, ~2 años hasta `hasta`. El dólar del BCU da EXACTO el cierre
- * que publica el informe.
+ * (base = 100)"— más la mini-tabla de retornos dólar/UI, todo desde el BCU (lo que
+ * antes "esperaba el Excel"). Ambas series se traen una sola vez, ~2 años hasta
+ * `hasta`, y alimentan tanto las líneas como la tabla. El dólar del BCU da EXACTO
+ * el cierre que publica el informe.
  */
 export async function bloquesUruguayos(hasta: string): Promise<Bloque[]> {
   const desde = diasAtras(hasta, 730);
@@ -182,19 +261,44 @@ export async function bloquesUruguayos(hasta: string): Promise<Bloque[]> {
       ],
       nota: NOTA,
     },
+    miniTablaDolarUI(usd, ui, hasta),
   ];
 }
 
 /**
- * Todos los bloques que se autocompletan para la semana que cierra en `hasta`: los
- * dos gráficos de línea de la página 1 (BCU), el cuadro regional y el global. El
- * analista los ubica en su sección y escribe la prosa alrededor.
+ * Tabla "Tasas de corte · LRM": las subastas de Letras de Regulación Monetaria de
+ * la semana, del Excel de operaciones del BCU (ver lib/bcuLRM). Devuelve null si
+ * el BCU no responde o no hubo subastas → el bloque no se inserta y el analista lo
+ * carga a mano; nunca rompe el resto de los datos (por eso el try/catch).
+ */
+export async function bloqueLRM(hasta: string): Promise<Extract<Bloque, { tipo: "tabla" }> | null> {
+  try {
+    const subastas = await subastasLRMSemana(hasta);
+    if (subastas.length === 0) return null;
+    return {
+      tipo: "tabla",
+      titulo: "Tasas de corte · LRM",
+      columnas: [{ titulo: "Plazo (días)" }, { titulo: "Tasa", sufijo: " %" }],
+      filas: subastas.map((s) => [s.plazo, s.tasa]),
+      nota: "Letras de Regulación Monetaria en pesos · tasa de corte por subasta de la semana. Fuente: BCU — revisar antes de publicar.",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Todos los bloques que se autocompletan para la semana que cierra en `hasta`: la
+ * tabla de tasas de corte de LRM, los dos gráficos de línea + la mini-tabla dólar/
+ * UI de la página 1 (BCU), y los cuadros de retornos regional y global. El analista
+ * los ubica en su sección y escribe la prosa alrededor.
  */
 export async function datosDelSemanal(hasta: string): Promise<Bloque[]> {
-  const [uruguayos, regional, global] = await Promise.all([
+  const [lrm, uruguayos, regional, global] = await Promise.all([
+    bloqueLRM(hasta),
     bloquesUruguayos(hasta),
     retornosRegional(hasta),
     retornosGlobal(hasta),
   ]);
-  return [...uruguayos, regional, global];
+  return [...(lrm ? [lrm] : []), ...uruguayos, regional, global];
 }

@@ -1,0 +1,189 @@
+Empresa a analizar: BlackRock, Inc. (BLK)
+Fecha: 2025-01-17
+Sector: Financial Services | Industria: Asset Management
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+(framework estándar — sin hint específico de industria)
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+BlackRock, Inc. is a publicly owned investment manager. The firm primarily provides its services to institutional, intermediary, and individual investors including corporate, public, union, and industry pension plans, insurance companies, third-party mutual funds, endowments, public institutions, governments, foundations, charities, sovereign wealth funds, corporations, official institutions, and banks. It also provides global risk management and advisory services. The firm manages separate client-focused equity, fixed income, and balanced portfolios. It also launches and manages open-end a...
+
+---
+DATOS DE MERCADO
+Precio Actual: $973.83 (N/A hoy)
+Capitalización Bursátil: $163.41B
+Rango 52 semanas: $711.65 – $1,032.27
+Beta: 0.90
+Acciones en Circulación: $162.60M
+Short Interest (% float): 0.8%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 23.18x | P/E Forward: 19.96x | CAPE (Shiller P/E): 26.0x (3yr avg EPS)
+P/Ventas (TTM): 8.01x | P/Libro: 3.44x | EV/EBITDA: 17.42x
+EPS Trailing: 42.01
+Precio Objetivo Medio Analistas: $1,158.25 (Bajo: N/A | Alto: N/A)
+Consenso: N/A (13 analistas)
+Desglose: Compra Fuerte: 0 | Compra: 11 | Neutral: 2 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-01-17: $973.83 (260 ruedas de historia)
+  Rango 52 semanas: $711.65 – $1032.27 | posición en el rango: 82% (-5.7% desde el máximo, +36.8% desde el mínimo)
+  Medias móviles: MM50: $994.06 (precio -2.0%) | MM200: $858.93 (precio +13.4%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M -5.6% | 3M -0.6% | 6M +22.5% | 12M +30.7% | momentum 12-1 (excl. último mes) +38.4%
+  Máx. drawdown de la serie: -11.3% | Volatilidad realizada anualizada: 19.0%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  BX (Blackstone Inc.): P/E Trailing 158.13x | Fwd N/A | Crec.Rev -1.8%
+  IVSBF (Investor AB (publ)): P/E Trailing 7.48x | Fwd N/A
+  BN (Brookfield Corporation): P/E Trailing 76.67x | Fwd N/A | Crec.Rev 3.4% | Mg.Op 15.1% | EV/EBITDA 9.9x
+  KKR (KKR & Co. Inc.): P/E Trailing 38.16x | Fwd N/A | Crec.Rev 157.4% | Mg.Op 14.9% | EV/EBITDA 9.2x
+  BAM (Brookfield Asset Management Ltd.): P/E Trailing 48.25x | Fwd N/A | Mg.Op 70.4% | EV/EBITDA 33.4x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 48.25x | Fwd N/A | Crec.Rev 3.4% | Mg.Op 15.1% | EV/EBITDA 9.9x
+  BLK vs cohorte: P/E trailing 23.2x vs mediana peers 48.3x; crec. rev 14.3% vs mediana peers 3.4%; margen op 36.9% vs mediana peers 15.1%; EV/EBITDA 17.4x vs mediana peers 9.9x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  BLK en P/E Trailing: percentil p20 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 48.25x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $20.41B | Crec. Ingresos YoY: 14.3% | Crec. Ganancias YoY: N/A
+Margen Bruto: 49.4% | Margen Operativo: 36.9% | Margen Neto: 31.2% | Margen EBITDA: 45.9%
+EBITDA: $9.36B | FCF: $4.70B | FCF Operativo: N/A
+ROE: 13.4% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q3 FY2024
+
+Segmentos de ingresos:
+  Revenue By Investment Style: 4.03B USD (YoY: +9% Y/Y)
+  Technology Service: 0.4B USD (YoY: -1% Y/Y)
+  Investment Performance: 0.39B USD (YoY: +454% Y/Y)
+  Distribution And Shareholder Service: 0.32B USD (YoY: +1% Y/Y)
+  Other: 0.05B USD
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     5.2B USD (YoY: +15% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    3.19B USD
+    G&A:                0.56B USD
+    Otros:              2.63B USD
+  Utilidad operativa:   2.01B USD (margen: 38.6%)
+  Ingreso no operativo: 0.26B USD
+  Impuestos:            0.57B USD
+  Utilidad neta:        1.63B USD (margen: 31.4%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $533.00M (2.6% de rev.) | OCF $4.96B | FCF $4.42B | Recompras $2.33B | Dividendos $2.99B | SBC $708.00M
+  FY2023: CAPEX $344.00M (1.7% de rev.) | OCF $4.17B | FCF $3.82B | Recompras $1.88B | Dividendos $3.04B | SBC $630.00M
+  FY2024: CAPEX $255.00M (1.2% de rev.) | OCF $4.96B | FCF $4.70B | Recompras $1.93B | Dividendos $3.10B | SBC $753.00M
+
+  Capital devuelto al accionista (período): recompras $6.15B + dividendos $9.13B = $15.27B (118% del FCF acumulado del período).
+  Stock-based comp acumulado: $2.09B (~3.4% de rev./año) — señal de dilución; contrastalo contra el monto de recompras (¿las recompras sólo compensan la dilución de la SBC o reducen el float de verdad?).
+
+---
+BALANCE
+Deuda Total: $14.22B | Caja Total: $14.51B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 2.1% | Payout Ratio: 48.6% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 7.2% | Institucional: 75.3%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 47.89 | Rev. Est. N/A (crec. 11.1%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+we expect to drive outsized growth in the years ahead. “BlackRock’s world-class talent is central to our significant growth and sustained performance. We have a longstanding, deliberate strategy of systematically elevating our strongest leaders around the world. We’re excited to again have a number of them taking on expanded roles this year. BlackRock’s leadership team alongside top talent from GIP, HPS and Preqin position us to serve our clients with excellence and seize the opportunities ahead of us. “In the 25 years since our IPO, BlackRock has delivered a 21% compounded annual total return for our shareholders, compared to 8% in the S&P 500. BlackRock enters 2025 with more growth and upside potential than ever. This is just the beginning.” FINANCIAL RESULTS NET FLOW HIGHLIGHTS (1) (in millions, Q4 Q4 Full Year Q4 Full Year except per share data) 2024 2023 2024 2023 (in billions) 2024 2024 AUM $ 11,551,251 $ 10,008,995 $ 11,551,251 $ 10,008,995 Long-term net flows: $ 201 $ 489 % change 15 % 15 % Average AUM $ 11,555,434 $ 9,384,929 $ 10,804,007 $ 9,220,700 By region: % change 23 % 17 % Americas $ 116 $ 317 Total net flows $ 281,416 $ 95,647 $ 641,351 $ 288,695 EMEA 74 149 APAC…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-01-16 | Argus Research | Mantiene: Buy → Buy
+  2025-01-16 | Morgan Stanley | Mantiene: Overweight → Overweight
+  2025-01-16 | Keefe, Bruyette & Woods | Mantiene: Outperform → Outperform
+  2025-01-16 | Wells Fargo | Mantiene: Overweight → Overweight
+  2025-01-16 | JP Morgan | Mantiene: Neutral → Neutral
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-01-16 | Small Martin (CFO & Senior Managing Director) | Stock award/grant [GRANT · compensación, no señal]
+  2025-01-16 | Meade Christopher J. (General Counsel and CLO) | Stock award/grant [GRANT · compensación, no señal]
+  2025-01-16 | Lord Rachel (Senior Managing Director) | Stock award/grant [GRANT · compensación, no señal]
+  2025-01-16 | Kushel J. Richard (Senior Managing Director) | Stock award/grant [GRANT · compensación, no señal]
+  2025-01-16 | KAPITO ROBERT (President) | Stock award/grant [GRANT · compensación, no señal]
+
+  Patrón neto: mixto / neutral
+  Total compras discrecionales: $0 | Ventas discrecionales: $0 | Mecánicas: $0
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $4.70B / Market Cap $163.41B): 2.9%
+  PEG (P/E fwd 19.96x ÷ crec. EPS 11.1%): 1.80x  [estimación forward +1y]
+  Deuda neta (Deuda $14.22B − Caja $14.51B): $-291.00M
+  Deuda neta / EBITDA (EBITDA $9.36B): -0.03x
+  Target base (P/E fwd 19.96x × EPS FY+1 47.89): $955.88 (-1.8% vs precio actual $973.83)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): NO CUMPLE  [evaluada con: FCF yield 2.9%, PEG 1.80x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: NO
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: mixto / neutral; short: 0.8%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

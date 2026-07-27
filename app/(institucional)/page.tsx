@@ -9,7 +9,16 @@ import { Reveal } from "@/components/motion";
 import { SplitText, ParallaxLayer } from "@/components/scroll";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { ArrowRight, Columns, Globe, Scales, Lock, Waveform, Compass } from "@/components/institucional/icons";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { organizationLd, websiteLd } from "@/lib/jsonld";
+
+export const metadata: Metadata = {
+  // Hereda title.default (marca primero), description y OG del root layout; sólo
+  // declara su canonical propio (el root no setea canonical global). Ver docs/SEO-plan.md.
+  alternates: { canonical: "/" },
+};
 
 const PILARES: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Columns />, title: "Presencia y experiencia", body: "Gestionamos el patrimonio de miles de uruguayos y extranjeros por seis décadas. Miembros de la Bolsa de Valores de Montevideo desde 1967." },
@@ -30,6 +39,8 @@ const PROCESO: [string, string, string][] = [
 export default function HomePage() {
   return (
     <main className="site">
+      <JsonLd data={organizationLd()} />
+      <JsonLd data={websiteLd()} />
       <HeroInstitucional />
 
       {/* Nuestra casa — escena pinned: palabras serif sobre panel navy que

@@ -1,0 +1,186 @@
+Empresa a analizar: Delta Air Lines, Inc. (DAL)
+Fecha: 2025-07-18
+Sector: Industrials | Industria: Airlines
+
+---
+INDUSTRY HINT — framework analítico recomendado para este perfil
+INDUSTRY HINT — AEROLÍNEA: priorizá load factor, RASM (Revenue per Available Seat Mile), CASM (Cost per ASM), fuel hedging, y capacity adds. Combustible suele ser 25-30% del costo; cualquier hedge o spike afecta margen directamente.
+INDUSTRY HINT — AEROLÍNEA: ciclo muy sensible a combustible y demanda business travel. EV/EBITDAR es relevante (R por leases). Margen operativo del 10%+ es bueno; >15% excepcional.
+
+---
+DESCRIPCIÓN DE LA EMPRESA
+Delta Air Lines, Inc. provides scheduled air transportation for passengers and cargo in the United States and internationally. The company operates through two segments, Airline and Refinery. Its domestic network centered on core hubs in Atlanta, Detroit, Minneapolis-St. Paul, and Salt Lake City, as well as coastal hub positions in Boston, Los Angeles, New York-LaGuardia, New York-JFK, and Seattle; and international network centered on hubs and market presence in Amsterdam, Bogota, Lima, Mexico City, London-Heathrow, Paris-Charles de Gaulle, Santiago (Chile), Sao Paulo, Seoul-Incheon, and T...
+
+---
+DATOS DE MERCADO
+Precio Actual: $55.49 (N/A hoy)
+Capitalización Bursátil: $37.02B
+Rango 52 semanas: $35.26 – $67.71
+Beta: 1.68
+Acciones en Circulación: $657.62M
+Short Interest (% float): 3.4%
+
+---
+MÚLTIPLOS DE VALORACIÓN
+P/E Trailing: 10.41x | P/E Forward: 7.49x | CAPE (Shiller P/E): 11.4x (3yr avg EPS)
+P/Ventas (TTM): 0.60x | P/Libro: 2.12x | EV/EBITDA: 6.94x
+EPS Trailing: 5.33
+Precio Objetivo Medio Analistas: N/A (Bajo: N/A | Alto: N/A)
+Consenso: N/A (14 analistas)
+Desglose: Compra Fuerte: 1 | Compra: 12 | Neutral: 1 | Venta: 0 | Venta Fuerte: 0
+
+---
+CONTEXTO TÉCNICO (precio y momentum — serie diaria ajustada, calculado en código)
+Serie diaria AJUSTADA por dividendos/splits, calculada en código — cifras AUTORITATIVAS: citalas tal cual, no las recalcules.
+Es CONTEXTO DESCRIPTIVO de precio/momentum, NO una condición del framework de rating.
+
+  Cierre al 2025-07-18: $55.49 (260 ruedas de historia)
+  Rango 52 semanas: $35.26 – $67.71 | posición en el rango: 62% (-18.1% desde el máximo, +57.3% desde el mínimo)
+  Medias móviles: MM50: $49.57 (precio +11.9%) | MM200: $53.66 (precio +3.4%)
+  Estructura de tendencia: mixta (señales cruzadas entre precio, MM50 y MM200)
+  Retornos (ajustados): 1M +19.0% | 3M +39.1% | 6M -13.6% | 12M +23.8% | momentum 12-1 (excl. último mes) +4.0%
+  Máx. drawdown de la serie: -47.9% | Volatilidad realizada anualizada: 49.1%
+
+---
+P/E vs PEERS (empresas comparables seleccionadas por Yahoo Finance)
+  UAL (United Airlines Holdings, Inc.): P/E Trailing 9.76x | Fwd N/A | Crec.Rev 6.2% | Mg.Op 9.1% | EV/EBITDA 5.8x
+  RYAAY (Ryanair Holdings plc): P/E Trailing 15.53x | Fwd N/A | Crec.Rev 3.8% | Mg.Op 11.2% | EV/EBITDA 7.7x
+  ICAGY (International Consolidated Airlines Group S.A.): P/E Trailing 7.69x | Fwd N/A | Crec.Rev 9.0% | Mg.Op 13.4% | EV/EBITDA 3.9x
+  LUV (Southwest Airlines Co.): P/E Trailing 38.38x | Fwd N/A | Crec.Rev 5.3% | Mg.Op 1.2% | EV/EBITDA 7.1x
+  SINGF (Singapore Airlines Limited): P/E Trailing 8.16x | Fwd N/A | Crec.Rev 2.8% | Mg.Op 8.8% | EV/EBITDA 4.7x
+  --- Mediana peers (robusta a outliers; cada peer arriba se muestra igual): P/E Trailing 9.76x | Fwd N/A | Crec.Rev 5.3% | Mg.Op 9.1% | EV/EBITDA 5.8x
+  DAL vs cohorte: P/E trailing 10.4x vs mediana peers 9.8x; crec. rev 6.2% vs mediana peers 5.3%; margen op 9.7% vs mediana peers 9.1%; EV/EBITDA 6.9x vs mediana peers 5.8x.
+  → Juzgá prima/descuento AJUSTADO por crecimiento y margen: un P/E más alto puede estar justificado si crece más rápido o tiene mejor margen que los peers, y viceversa.
+  DAL en P/E Trailing: percentil p60 entre peers (p0 = más barato, p100 = más caro).
+Mediana peers — P/E Trailing: 9.76x | P/E Forward: N/Ax
+
+---
+FINANCIEROS (TTM)
+Ingresos: $61.64B | Crec. Ingresos YoY: 6.2% | Crec. Ganancias YoY: N/A
+Margen Bruto: 24.6% | Margen Operativo: 9.7% | Margen Neto: 5.6% | Margen EBITDA: 12.8%
+EBITDA: $7.92B | FCF: $2.88B | FCF Operativo: N/A
+ROE: 19.8% | ROA: N/A
+
+---
+TENDENCIA DE INGRESOS TRIMESTRALES (Últimos 8-10 trimestres)
+N/A
+
+---
+DATOS FINANCIEROS SEC EDGAR (10-Q / 10-K — fuente primaria, más precisa que TTM de Yahoo)
+Período: Q2 FY2025
+
+Segmentos de ingresos:
+  Airline: 14.99B USD (YoY: +1% Y/Y)
+  Refinery: 1.66B USD (YoY: -16% Y/Y)
+
+Estado de resultados (SEC EDGAR):
+  Ingresos totales:     16.65B USD (YoY: -0% Y/Y)
+  Costo de ingresos:    0B USD
+  Utilidad bruta:       0B USD
+  Gastos operativos:    14.55B USD
+    Ventas y marketing: 0.67B USD
+    Otros:              4.8B USD
+  Utilidad operativa:   2.1B USD (margen: 12.6%)
+  Ingreso no operativo: 0.47B USD
+  Impuestos:            0.44B USD
+  Utilidad neta:        2.13B USD (margen: 12.8%)
+
+CALIDAD DEL DESGLOSE DE SEGMENTOS
+(segmentos cubren ≥95% del revenue — sin caveat de cobertura)
+
+---
+HISTORIAL ANUAL DE CASH FLOW (Últimos 5 años fiscales — CAPEX, OCF, FCF)
+  FY2022: CAPEX $6.37B (10.3% de rev.) | OCF $6.36B | FCF $-3,000,000 | Recompras N/A | Dividendos N/A | SBC N/A
+  FY2023: CAPEX $5.32B (8.6% de rev.) | OCF $6.46B | FCF $1.14B | Recompras N/A | Dividendos $128.00M | SBC N/A
+  FY2024: CAPEX $5.14B (8.3% de rev.) | OCF $8.03B | FCF $2.88B | Recompras N/A | Dividendos $321.00M | SBC N/A
+
+  Capital devuelto al accionista (período): recompras $0 + dividendos $449.00M = $449.00M (11% del FCF acumulado del período).
+
+---
+BALANCE
+Deuda Total: $21.28B | Caja Total: $3.33B
+Deuda/Patrimonio: N/A | Ratio Corriente: N/A | Quick Ratio: N/A
+
+---
+DIVIDENDO
+Yield: 1.1% | Payout Ratio: 11.3% | Ex-Dividendo: N/A
+
+---
+OWNERSHIP
+Insiders: 0.4% | Institucional: 82.2%
+
+---
+HISTORIAL DE RESULTADOS (Últimos 4 trimestres — más reciente primero)
+N/A
+
+---
+ESTIMACIONES FORWARD
+  Próximo año fiscal: EPS Est. 6.64 | Rev. Est. N/A (crec. 23.7%)
+
+---
+PRÓXIMOS RESULTADOS
+N/A
+
+---
+GUIDANCE DE LA DIRECCIÓN (extraída del último comunicado de resultados — SEC EDGAR Ex-99.1)
+guidance with an expectation for earnings per share of $5.25 to $6.25 and free cash flow of $3 to $4 billion, consistent with our long-term free cash flow targets.&rdquo; June Quarter 2025 GAAP Financial Results &bull; Operating revenue of $16.6 billion &bull; Operating income of $2.1 billion with an operating margin of 12.6 percent &bull; Pre-tax income of $2.6 billion with a pre-tax margin of 15.5 percent &bull; Earnings per share of $3.27 &bull; Operating cash flow of $1.9 billion &bull; Payments on debt and finance lease obligations of $2.9 billion &bull; Total debt and finance lease obligations of $15.1 billion at quarter end June Quarter 2025 Non-GAAP Financial Results &bull; Operating revenue of $15.5 billion &bull; Operating income of $2.0 billion with an operating margin of 13.2 percent &bull; Pre-tax income of $1.8 billion with a pre-tax margin of 11.6 percent &bull; Earnings per share of $2.10 &bull; Operating cash flow of $1.8 billion 1 Financial Guidance 1 FY 2025 Earnings Per Share $5.25 - $6.25 Free Cash Flow ($B) $3 - $4 Gross Leverage 2 Less than 2.5x 3Q25 Total Revenue YoY 0% - 4% Operating Margin 9% - 11% Earnings Per Share $1.25 - $1.75 1 Non-GAAP measures;…
+
+---
+ACCIONES RECIENTES DE ANALISTAS (Últimas 5)
+  2025-07-11 | UBS | Mantiene: Buy → Buy
+  2025-07-11 | Goldman Sachs | Mantiene: Buy → Buy
+  2025-07-11 | Barclays | Mantiene: Overweight → Overweight
+  2025-07-11 | Morgan Stanley | Mantiene: Overweight → Overweight
+  2025-07-07 | UBS | Mantiene: Buy → Buy
+
+---
+TRANSACCIONES RECIENTES DE INSIDERS (Últimas 5)
+  2025-07-15 | Carter Peter W (EVP - External Affairs) | Sale at price 57.19 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.00M
+  2025-07-15 | Sear Steven M (EVP - Global Sales & Distrib) | Sale at price 55.96 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.01M
+  2025-07-11 | BELLEMARE ALAIN (EVP & Pres. - International) | Sale at price 54.95 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.39M
+  2025-07-11 | BELLEMARE ALAIN (EVP & Pres. - International) | Sale at price 56.32 per share [VENTA DISCRECIONAL · señal de cautela] | Valor: $1.14M
+  2025-06-18 | Rial Sergio (Director) | Non-open market disposition (tax withholding) [MECÁNICA · RSU/opciones, no señal] | Valor: $57,642.72
+
+  Patrón neto: vendedor neto discrecional
+  Total compras discrecionales: $0 | Ventas discrecionales: $4.53M | Mecánicas: $57,642.72
+
+---
+NOTICIAS RECIENTES (Últimas 7)
+N/A — no hay noticias recientes disponibles.
+
+---
+MÉTRICAS DERIVADAS Y FRAMEWORK DE RATING (calculadas en código — AUTORITATIVAS)
+Estas cifras y evaluaciones están calculadas en código sobre los mismos datos de abajo.
+Son AUTORITATIVAS: usalas tal cual, NO las recalcules ni las contradigas.
+
+Valuación:
+  FCF yield (FCF $2.88B / Market Cap $37.02B): 7.8%
+  PEG (P/E fwd 7.49x ÷ crec. EPS 23.7%): 0.32x  [estimación forward +1y]
+  Deuda neta (Deuda $21.28B − Caja $3.33B): $17.95B
+  Deuda neta / EBITDA (EBITDA $7.92B): 2.27x
+  Target base (P/E fwd 7.49x × EPS FY+1 6.64): $49.73 (-10.4% vs precio actual $55.49)
+    → Anclá tu priceTarget en este valor y ajustá ±10-15% según tu lectura; no lo recalcules mal.
+
+Framework de rating — condiciones YA EVALUADAS en código:
+  BUY requiere las TRES:
+    (a) Valuación atractiva (FCF yield >4% O PEG <1.5x; sin ambos: P/E <15x o EV/EBITDA <8x): CUMPLE  [evaluada con: FCF yield 7.8%, PEG 0.32x]
+    (b) Consenso analistas = buy / strong buy: CUMPLE  [consenso: buy]
+    (c) Balance sin riesgo crítico (deuda neta ≤3x EBITDA): CUMPLE
+    → BUY plenamente confirmado por el framework: SÍ
+  AVOID se dispara con CUALQUIERA:
+    (a) Valuación excesiva (P/E fwd >40x sin crec. EPS proyectado >30%): NO CUMPLE
+    (b) Balance deteriorado (deuda neta >3x EBITDA, no-financieras): NO CUMPLE
+    (c) Insiders vendedores netos discrecionales + short >10% float: NO CUMPLE  [patrón: vendedor neto discrecional; short: 3.4%]
+    → AVOID disparado: NO
+
+  REGLA: si AVOID está disparado → rating AVOID. Si no, y BUY está confirmado → rating BUY.
+  Si ninguno se cumple de forma limpia (condiciones N/D o señales mixtas) → usá tu juicio entre HOLD y el lado que sostengan los datos, pero tu rating NO puede contradecir una condición marcada CUMPLE/NO CUMPLE.
+  DISCIPLINA DE N/D: una condición N/D significa 'sin dato concluyente' — NO bloquea el rating ni te empuja a HOLD.
+    Decidí con la evidencia que SÍ está disponible; si tu HOLD refleja sobre todo falta de datos (y no una tesis equilibrada), decilo en keyDebate y usá conviction LOW.
+  DISCIPLINA DE CONVICTION (también se aplica en código después de tu respuesta):
+    conviction HIGH exige respaldo mecánico del framework — BUY·HIGH sólo si 'BUY plenamente confirmado: SÍ'; AVOID·HIGH sólo si 'AVOID disparado: SÍ'. Sin ese respaldo, el máximo es MEDIUM.
+  TESIS CONSUMADA: si tu rating es AVOID y el CONTEXTO TÉCNICO muestra el precio ≥35% debajo del máximo de 52 semanas, gran parte del daño ya está en el precio.
+    Conviction máxima MEDIUM en ese caso, y mencioná explícitamente el riesgo de rebote en bearCase/riskFactors.
+
+---
+Genera el reporte institucional completo ahora siguiendo exactamente el esquema JSON definido en las instrucciones.

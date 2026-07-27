@@ -3,11 +3,14 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { ShieldCheck, Scale, Rocket, LineChart, Layers, Calendar, BarChart } from "@/components/institucional/icons";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Calculadora · Bengochea & Cía.",
-  description: "Simulá el crecimiento de una inversión con interés compuesto. Configurá monto inicial, aporte mensual, tasa y horizonte.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Calculadora",
+  description:
+    "Simulá el crecimiento de una inversión con interés compuesto. Configurá monto inicial, aporte mensual, tasa y horizonte.",
+  path: "/calculadora",
+});
 
 const PERFILES: { icon: ReactNode; title: string; rango: string; body: string; perfil: string }[] = [
   {

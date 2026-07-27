@@ -91,7 +91,7 @@ export interface Edgar8KIncomeStatement {
   sourceUrl?: string;
 }
 
-interface FilingMatch {
+export interface FilingMatch {
   form: string;
   accession: string;
   filingDate: string;
@@ -3011,6 +3011,152 @@ function deriveQ4FromAnnualAndYtd(
     segments:                      q4Segments,
     currency:                      annual.currency,
   };
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Management guidance / outlook extraction.
+
+   The same earnings press release (Exhibit 99.1) whose income-statement table
+   we already parse usually carries a forward "Outlook" / "Guidance" section —
+   the company's OWN projection for next quarter / full year. That's the most
+   direct forward-looking signal there is (more direct than analyst consensus),
+   and until now it was thrown away. fetchEdgarGuidance pulls it as plaintext so
+   the model can weigh company guidance vs consensus.
+
+   Decoupled from fetchEdgar8KIncomeStatement on purpose: guidance is valuable
+   even when the income statement doesn't reconcile (preliminary-earnings 8-Ks —
+   e.g. IBM's item-2.02 letter), which is exactly when that function returns
+   null. We only ever look at the MOST RECENT earnings candidate, whose Ex-99.1
+   the income-statement path already fetched this request — so secFetch's
+   URL-keyed cache makes this add no uncached SEC requests in the common case.
+   ────────────────────────────────────────────────────────────────────────── */
+
+export interface EdgarGuidance {
+  text: string;
+  sourceUrl: string;
+  form: "8-K" | "6-K";
+  endDate: string | null;
+}
+
+// STRONG anchors: specific phrases that unambiguously introduce forward
+// guidance. WEAK anchors ("guidance"/"outlook" alone) also match section
+// labels that head backward-looking results, so a weak-anchor window only
+// qualifies if it ALSO contains a same-unit numeric range (the signature of a
+// guidance range like "$0.80 - $0.85" or "3% to 5%").
+const GUIDANCE_STRONG_RE =
+  /\b(?:financial outlook|business outlook|(?:fiscal(?:\s+year)?|full[-\s]year)\s+20\d{2}\s+(?:guidance|outlook)|guidance for (?:fiscal|the|full)\b|(?:fiscal\s+)?20\d{2}\s+guidance|(?:reaffirm|raise|rais|lower|updat|introduc|narrow)\w*\s+(?:its\s+|our\s+)?(?:full[-\s]year\s+|fiscal\s+)?(?:20\d{2}\s+)?(?:guidance|outlook)|we (?:now |currently |continue to )?(?:expect|anticipate|project)\b|for (?:fiscal|the full)\s+(?:year|20\d{2})\s*,?\s*(?:we|the company)\b)/gi;
+const GUIDANCE_WEAK_RE = /\b(?:guidance|outlook|perspectivas|proyecciones|gu[ií]a\s+(?:para|de))\b/gi;
+
+// Legal boilerplate that often sits right after guidance — trim it, never keep it.
+const SAFE_HARBOR_RE =
+  /(forward[-\s]looking statements|private securities litigation|risks and uncertainties|actual results (?:may|could|might) differ|undertakes no obligation|safe harbor|non[-\s]gaap financial measures|reconciliation of)/i;
+
+// Same-unit numeric range: "$0.80 - $0.85" or "3% to 5%". Deliberately requires
+// BOTH sides to share a unit so results idioms like "grew 18% to $0.91" (mixed
+// % → $) don't read as a guidance range.
+const RANGE_RE =
+  /(?:\$\s?\d[\d.,]*\s*(?:-|–|to)\s*\$?\s?\d[\d.,]*|\d[\d.,]*\s?%\s*(?:-|–|to)\s*\d[\d.,]*\s?%)/g;
+// Backward-looking results language — penalized so a "Guidance"-labelled block
+// that's really the quarter's actuals loses to a genuine forward section.
+const RESULTS_RE =
+  /\b(?:grew|reported|were|was|increased|decreased|declined|rose|fell|versus (?:the )?prior|compared to|in the (?:first|second|third|fourth) quarter)\b/gi;
+
+/**
+ * Best-effort extraction of the forward guidance/outlook prose from a release's
+ * Ex-99.1 HTML. Returns null when nothing clears the bar — deliberately
+ * conservative: a missing guidance block is far better than feeding the model
+ * safe-harbor legalese or backward-looking results mislabeled as guidance.
+ */
+export function extractGuidanceText(html: string): string | null {
+  // Same HTML→plaintext idiom used elsewhere in this file (see :2491).
+  const text = decodeEntities(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  if (text.length < 120) return null;
+
+  const anchors: Array<{ index: number; strong: boolean; label: string }> = [];
+  for (const re of [GUIDANCE_STRONG_RE, GUIDANCE_WEAK_RE]) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      anchors.push({ index: m.index, strong: re === GUIDANCE_STRONG_RE, label: m[0] });
+    }
+  }
+  anchors.sort((a, b) => a.index - b.index);
+
+  let best: { score: number; text: string } | null = null;
+  const seen = new Set<number>();
+  for (const a of anchors) {
+    if (seen.has(a.index)) continue;
+    seen.add(a.index);
+
+    let window = text.slice(a.index, a.index + 1500);
+    // Cut at the first safe-harbor / non-GAAP marker past a small offset —
+    // guidance normally precedes the legal disclaimer.
+    const sh = window.slice(30).search(SAFE_HARBOR_RE);
+    if (sh >= 0) window = window.slice(0, sh + 30);
+    // The anchor itself must not open a safe-harbor sentence.
+    if (SAFE_HARBOR_RE.test(window.slice(0, 90))) continue;
+
+    const ranges = (window.match(RANGE_RE) ?? []).length;
+    // A weak anchor (bare "guidance"/"outlook") only qualifies with a real range.
+    if (!a.strong && ranges === 0) continue;
+
+    const fwd = (window.match(/\b(?:expect|anticipat|project|guidance|outlook|forecast|reaffirm|raise|lower|target|fiscal|full[-\s]year)\w*/gi) ?? []).length;
+    const resultsy = (window.match(RESULTS_RE) ?? []).length;
+    const headingBonus = a.strong ? 3 : 0;
+    const score = ranges * 4 + fwd + headingBonus - Math.min(resultsy, 6);
+    if (!best || score > best.score) best = { score, text: window.trim() };
+  }
+
+  if (!best || best.score < 5) return null;
+
+  let out = best.text;
+  if (out.length > 1200) out = out.slice(0, 1200).replace(/\s+\S*$/, "") + "…";
+  return out;
+}
+
+// Extracción de guidance sobre una lista explícita de filings — compartida
+// entre el path de producción (candidates[0] del descubridor estándar) y el
+// backtest point-in-time (que arma su propia lista con filing date ≤ corte y
+// paginación de submissions en scripts/backtest/asofEdgar.ts).
+export async function fetchGuidanceFromFilings(
+  cik: string,
+  filings: FilingMatch[],
+): Promise<EdgarGuidance | null> {
+  for (const filing of filings) {
+    const urls = await resolveCandidateUrls(cik, filing);
+    for (const url of urls) {
+      const r = await secFetch(url, 7 * 86400);
+      if (!r.ok) continue;
+      const guidance = extractGuidanceText(await r.text());
+      if (guidance) {
+        return {
+          text: guidance,
+          sourceUrl: url,
+          form: filing.form === "6-K" ? "6-K" : "8-K",
+          endDate: filing.reportDate ?? null,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export async function fetchEdgarGuidance(ticker: string): Promise<EdgarGuidance | null> {
+  const suffix = ticker.split(".").pop() ?? "";
+  if (ticker.includes(".") && suffix.length >= 2) return null;
+
+  try {
+    const cik = await resolveCIK(ticker);
+    if (!cik) return null;
+
+    const { candidates } = await findEarnings8KCandidates(cik);
+    // Only the single most-recent earnings release. Its Ex-99.1 is already in
+    // secFetch's cache from the income-statement path, so this is (almost
+    // always) network-free; older filings are intentionally not fetched.
+    return await fetchGuidanceFromFilings(cik, candidates.slice(0, 1));
+  } catch {
+    return null;
+  }
 }
 
 // Debug-only: returns each intermediate step so we can see where the parse

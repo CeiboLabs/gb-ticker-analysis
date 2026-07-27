@@ -45,12 +45,23 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.7"],
   // better-sqlite3 es un addon NATIVO (bindings del home server, ver
   // lib/homeBindings.ts): no se bundlea — se resuelve desde node_modules en
-  // runtime, como corresponde a un .node.
-  serverExternalPackages: ["better-sqlite3"],
+  // runtime, como corresponde a un .node. `xlsx` (SheetJS) hace requires
+  // condicionales de builtins de node al parsear el Excel de LRM del BCU
+  // (lib/bcuLRM.ts): externalizarlo evita que el bundler los siga.
+  serverExternalPackages: ["better-sqlite3", "xlsx"],
   turbopack: {
     resolveAlias: {
       "@deno/shim-deno": "./lib/deno-shim-edge/index.js",
     },
+  },
+  async redirects() {
+    return [
+      // /analyze (nombre viejo en inglés) → /analisis. El query (?ticker=) se
+      // arrastra solo. 307 y no 308: la ruta del reporte es noindex y de bajo
+      // tráfico — no clavamos un redirect permanente en el browser por si el
+      // esquema de URL sigue evolucionando.
+      { source: "/analyze", destination: "/analisis", permanent: false },
+    ];
   },
   async headers() {
     return [
