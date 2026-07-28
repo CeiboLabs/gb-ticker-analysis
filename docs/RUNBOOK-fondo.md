@@ -29,6 +29,14 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
 - [ ] Deploy del Email Worker.
 - [ ] Secrets del worker + Email Routing + reenvío del cliente.
 - [ ] Histórico real cargado (depende del administrador).
+      🚨 **BLOQUEANTE DE LANZAMIENTO (verificado 2026-07-28)**: el home server
+      —que se publica por Tailscale Funnel, o sea es PÚBLICO— sigue sirviendo los
+      666 cierres simulados. Es un track record inventado de 2,5 años para un
+      fondo que arranca hoy. Hay que borrarlo (comandos abajo) y cargar en su
+      lugar `db/seeds/fondo-benchmark.sql` + la cartera real
+      (`db/seeds/fondo-holdings.sql`, `as_of='2026-07-28'`, 17 líneas del
+      cliente): las tenencias que hay cargadas allá también son simuladas
+      (`note` = "preview — cartera simulada").
       ⚠️ **En el home server (gestapp) hay serie SIMULADA cargada** desde
       2026-07-22, para que el equipo vea los gráficos en la preview: 666 cierres
       (2024-01-02 → 2026-07-21) en `fund_nav` + `fund_benchmark`, generados con
@@ -36,8 +44,8 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
       1.18 para el 60/40). Cada fila lleva `source='backfill'` y una `nota` que
       la marca como simulada (la `nota` no se expone al frontend), y hay una fila
       en `fund_audit`. Se cargó además un **snapshot de tenencias simulado**:
-      `as_of='2026-05-31'` (tiene que ser ≤ hoy − `HOLDINGS_LAG_DAYS`=30 para
-      ser divulgable), 18 líneas RV/RF/Otros = 51,5/34,0/14,5% sumando 10000 bps,
+      `as_of='2026-05-31'` (tiene que ser ≤ hoy − `HOLDINGS_LAG_DAYS`, hoy 0, para
+      ser divulgable), 18 líneas RV/RF/ALT = 51,5/34,0/14,5% sumando 10000 bps,
       con `note` marcándolo como simulado. **Borrar antes de cargar lo real:**
       `DELETE FROM fund_nav; DELETE FROM fund_benchmark;`
       `DELETE FROM fund_holdings_item; DELETE FROM fund_holdings_snapshot;`
@@ -46,7 +54,13 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
       por región están hardcodeados en `components/institucional/FondoGeografia.tsx`
       (`REGIONES`), y son datos inventados que siguen ahí desde antes.
 - [ ] Parser del mail (Etapa 3, depende de un mail de muestra).
-- [ ] Benchmark (Etapa 4, a confirmar con Adrián).
+- [x] **Etapa 4 — benchmark** (2026-07-28): compuesto definido y serie cargable.
+      **60% MSCI ACWI / 40% Bloomberg Global Aggregate** (tickers Bloomberg
+      `ACWI` / `LEGATRUU`), confirmado con el equipo el día del lanzamiento.
+      Serie reconstruida con **proxies ETF** — ver sección "Benchmark" más abajo.
+      Con `fund_nav` vacía y `fund_benchmark` cargada, la página entra en modo
+      **sólo benchmark**: grafica la referencia (rotulada como tal, línea
+      punteada, nota arriba del gráfico) en vez de un gráfico vacío.
 
 ## Gotchas de Cloudflare (ya aprendidos)
 
@@ -122,8 +136,9 @@ VALUES (unixepoch()*1000, 'admin', 'sql', 'override', 'superseded', 'ok', '2026-
 ```
 
 **Snapshot mensual de tenencias** — reemplaza el snapshot de ese `as_of`. Pesos en
-**bps** que suman ~10000 (100%); `asset_class` ∈ `RV` / `RF` / `Otros`. El sitio lo
-muestra recién tras el rezago de divulgación (`HOLDINGS_LAG_DAYS` = 30 días):
+**bps** que suman ~10000 (100%); `asset_class` ∈ `RV` / `RF` / `ALT`. El sitio lo
+muestra tras el rezago de divulgación (`HOLDINGS_LAG_DAYS`, en **0** mientras el
+Fondo no opere — restaurar a 30 cuando empiece):
 ```sql
 DELETE FROM fund_holdings_item WHERE as_of = '2026-05-31';
 
@@ -158,9 +173,99 @@ Mientras `EXTRACTORS` (en `lib/fondoIngest.ts`) esté vacío, cada mail recibido
 una alerta. Con 1-3 mails reales se escribe la estrategia de extracción activa
 (asunto / cuerpo / CSV / XLSX / PDF) y se enciende.
 
-## Etapa 4 — benchmark (a confirmar con Adrián)
-Fuente del 60/40: compuesto provisto por el administrador (recomendado) vs proxy
-ETF (URTH+AGG) con la infra Yahoo existente. Se carga en `fund_benchmark`.
+## Benchmark — 60% MSCI ACWI / 40% Bloomberg Global Aggregate
+
+Compuesto confirmado con el equipo (2026-07-28). Tickers Bloomberg de los
+índices: `ACWI` y `LEGATRUU`. La definición vive en `BENCHMARK` (`lib/fondo.ts`)
+y la serie, en `fund_benchmark`.
+
+### Cómo está armada la serie HOY (proxy ETF)
+Los niveles de MSCI ACWI y del Bloomberg Global Aggregate son **datos
+licenciados**: no hay fuente pública que los sirva (se verificaron Yahoo y Twelve
+Data). Mientras el administrador no pase el export real, la serie se
+**reconstruye con ETFs** a precios ajustados por dividendos (total return, que es
+lo que miden los índices originales) y rebalanceo diario:
+
+| Pata | Peso | ETF | Por qué |
+|---|---|---|---|
+| Renta variable | 60% | `ACWI` (iShares MSCI ACWI) | réplica directa del índice |
+| Renta fija | 18% | `AGG` (iShares Core U.S. Aggregate) | 45% del tramo = parte USD del Global Agg |
+| Renta fija | 22% | `BWX` (SPDR Bloomberg Intl. Treasury, **sin cobertura**) | 55% del tramo = parte no-USD |
+
+El tramo de renta fija es el aproximado: **no existe** un ETF accesible que siga
+al Global Aggregate sin cobertura de moneda (BNDX/BNDW/AGGU están cubiertos, y la
+cobertura es justo lo que separa a LEGATRUU de su gemelo cubierto). Los pesos
+45/55 imitan la partición por moneda del índice real.
+
+Contraste contra los índices reales (años calendario): 2022 −17,3% (real ≈ −17/−18%),
+2023 +15,5% (≈ +15,5%), 2024 +9,1% (≈ +9,8%). La aproximación es buena, pero **no
+es el valor oficial** — y el pie de la página lo dice (`BENCHMARK_PROXY.nota`).
+
+### Generar / refrescar la serie
+```bash
+npx tsx scripts/fondo-benchmark-proxy.ts            # 5 años → db/seeds/fondo-benchmark.sql
+npx tsx scripts/fondo-benchmark-proxy.ts --years=3  # otra ventana
+sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql   # aplicar (local)
+```
+Es **idempotente** (UPSERT por `dia`): volver a correrlo extiende la serie hasta
+el último cierre sin duplicar. Corriéndolo con el mercado abierto, el punto del
+día queda con el precio en curso; una corrida post-cierre lo corrige.
+
+⚠️ **Nadie lo corre solo todavía**: la serie no se actualiza sola. Hasta que haya
+un cron (o llegue el dato real), refrescarla a mano cada tanto — si no, la línea
+del benchmark se queda quieta mientras el mercado se mueve.
+
+## Modo demo (presentaciones internas)
+
+Para mostrarle el producto TERMINADO al equipo comercial antes de que el custodio
+publique el primer cierre: enciende un valor cuota **simulado**, derivado de la
+serie real del benchmark (beta 0,90 + ~1,5% anual de alfa), y con eso la página
+se ve exactamente como en régimen — cotización del día, AUM con sparkline,
+toggle Valor cuota ↔ Base 100, rendimientos, año calendario e indicadores de
+riesgo.
+
+```bash
+FONDO_DEMO=1 npx next start          # o en el systemd unit: Environment=FONDO_DEMO=1
+```
+
+🚨 **SÓLO EN INSTANCIAS QUE NO ALCANCEN A UN INVERSOR.** La página no distingue
+estos números de los reales —ése es el punto— así que quien la vea lee un track
+record que el Fondo no tiene. En una instancia pública eso es publicar
+rendimientos inventados de un fondo regulado por el BCU.
+
+Por qué es un flag de entorno y no filas en la base (que es como se había hecho
+en julio): apagarlo es **no setearlo**. No hay que acordarse de limpiar ninguna
+tabla, no queda rastro simulado que alguien confunda con real más adelante, y no
+puede filtrarse a un deploy sin que alguien lo escriba a mano. Además el demo
+**sólo actúa si `fund_nav` está vacía**: en cuanto entra un cierre real manda el
+dato real, aunque el flag haya quedado prendido.
+
+Antes de una presentación, verificar qué va a mostrar la página sin levantar el
+server:
+
+```bash
+npx tsx scripts/dev-tests/check-fondo-demo.ts               # como se ve hoy
+FONDO_DEMO=1 npx tsx scripts/dev-tests/check-fondo-demo.ts  # con el demo prendido
+```
+
+⚠️ **El home server tiene Tailscale Funnel PRENDIDO** (verificado 2026-07-28):
+`https://gestapp.tail75b274.ts.net` lo abre cualquiera con el link. Para una
+demo interna hay que bajarlo a la tailnet —`tailscale funnel off` y
+`tailscale serve https / http://127.0.0.1:8788`—, que deja el sitio accesible
+sólo desde dispositivos de la tailnet. Con Funnel prendido, "no es público" es
+falso.
+
+### Cuando llegue el export real del administrador
+Pedir niveles diarios de `ACWI` y `LEGATRUU` (o el 60/40 ya compuesto) en Excel/CSV.
+Al cargarlos, poner `source='administrator'` y borrar antes lo del proxy:
+`DELETE FROM fund_benchmark;`. No hay que tocar la UI — sólo cambia el origen del
+dato y conviene revisar la nota de `BENCHMARK_PROXY` en `lib/fondo.ts`.
+
+### Qué pasa cuando el fondo empiece a publicar valor cuota
+`snapshotFromSeries` **acota** la serie del benchmark a la vida del fondo: la
+tabla compara los dos sobre el mismo período y el gráfico no abre un eje de cinco
+años para dibujar dos puntos de fondo. La historia larga se conserva en la tabla;
+sólo se recorta al servir.
 
 ## Staging en el home server (preview)
 

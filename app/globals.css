@@ -731,6 +731,15 @@ a { color: inherit; text-decoration: none; }
   --shadow-card:       0 1px 2px rgba(3,6,94,0.04), 0 12px 32px rgba(3,6,94,0.06);
   --shadow-card-hover: 0 2px 6px rgba(3,6,94,0.07), 0 20px 48px rgba(3,6,94,0.11);
 
+  /* MEDIDA DE LOS AVISOS LEGALES. Un párrafo de 12px que corre los 1.200px del
+     site-wrap son ~170 caracteres por línea: el ojo pierde el renglón al volver.
+     Va en `ch` (ancho del "0" de la propia fuente del elemento) y no en `em`
+     para que el tope sea el MISMO en caracteres aunque cada nota tenga su
+     cuerpo — con `em` el mismo número daba anchos distintos, que es de donde
+     venía la inconsistencia. 96ch ≈ 105 caracteres: generoso para texto denso
+     que se hojea, lejos de los 170 de una nota sin tope. */
+  --medida-legal: 96ch;
+
   font-family: var(--site-font);
   color: var(--site-ink);
   font-size: 17px;
@@ -1164,7 +1173,9 @@ a { color: inherit; text-decoration: none; }
 .band-navy .link-arrow:hover { color: var(--gold-soft); }
 
 /* Lista de filas con divisores finos (categorías) */
-.ui-list { border-top: 1px solid var(--site-border); }
+/* El cuerpo del título va en variable porque hay que poder darle su misma
+   línea a otra cosa (un ícono que se alinea con él, p.ej.) sin repetir el ramp. */
+.ui-list { border-top: 1px solid var(--site-border); --row-title-size: clamp(22px, 2.4vw, 30px); }
 .ui-list-row {
   display: flex;
   align-items: center;
@@ -1177,7 +1188,7 @@ a { color: inherit; text-decoration: none; }
   color: inherit;
 }
 a.ui-list-row:hover { padding-left: 14px; }
-.ui-list-row .row-title { font-size: clamp(22px, 2.4vw, 30px); font-weight: 400; letter-spacing: -0.015em; color: var(--site-ink); }
+.ui-list-row .row-title { font-size: var(--row-title-size); font-weight: 400; letter-spacing: -0.015em; color: var(--site-ink); }
 .ui-list-row .row-desc  { font-size: 15px; color: var(--site-ink-3); margin-top: 4px; max-width: 40em; }
 .band-navy .ui-list, .band-navy .ui-list-row { border-color: rgba(255,255,255,0.16); }
 .band-navy .ui-list-row .row-title { color: #FFFFFF; }
@@ -1662,6 +1673,7 @@ a.ui-list-row:hover { padding-left: 14px; }
   --site-border:   #E7E8F2;
   --site-border-2: #D7D9E8;
   --r-card: 14px; --r-btn: 6px; --r-input: 8px; --r-pill: 999px;
+  --medida-legal: 96ch;
   /* El análisis va en Arial, TODO. Se anulan las tres familias editoriales
      SÓLO dentro del análisis, para que cualquier uso —inline, clases .az-*,
      .serif/.panel-h2/.display-*, o atributos font-family de los SVG— caiga en

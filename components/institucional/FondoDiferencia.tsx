@@ -8,7 +8,12 @@
 
 const PARES: [string, string][] = [
   ["Elegir y comprar decenas de instrumentos", "Un solo vehículo, una sola decisión"],
-  ["Rebalancear cuando el mercado se mueve", "La asignación entre clases se ajusta de forma activa y se monitorea a diario"],
+  // "se monitorea a diario" era una afirmación sobre la operativa interna que no
+  // figura en el Reglamento. Lo que sí está (cláusula 3.2) es el Comité de
+  // Inversiones que revisa el proceso y la selección de activos al menos cada
+  // dos meses, con decisiones vinculantes para el Gestor: más verificable y más
+  // fuerte que "a diario".
+  ["Rebalancear cuando el mercado se mueve", "La asignación entre clases se ajusta de forma activa, con un Comité de Inversiones que la revisa al menos cada dos meses"],
   ["Investigar y seguir cada activo por tu cuenta", "Investigación propia y de terceros para tomar las mejores decisiones de inversión"],
   ["Decidir por tu cuenta", "Gestión profesional, a cargo de una institución regulada por el BCU"],
 ];

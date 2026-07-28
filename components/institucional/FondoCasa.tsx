@@ -4,8 +4,25 @@ import { ArrowRight } from "@/components/institucional/icons";
 // "La casa" — beat de CREDIBILIDAD del fondo. En pre-lanzamiento no hay track
 // record propio, así que la prueba no son rendimientos sino la casa que lo
 // gestiona: Gastón Bengochea & Cía. Por eso este beat va ANTES de Performance.
-// Todas las CIFRAS son verificables y ya se publican en /nosotros (1967, BVM,
-// BCU, cuentas segregadas) — no inventar nuevas acá (ver "Claims verificables").
+// Todas las CIFRAS son verificables: 1967/BVM, BCU y las cuentas segregadas ya
+// se publican en /nosotros y en la home; los fondos mutuos con Fidelity, en
+// /historia (años 80) — no inventar nuevas acá (ver "Claims verificables").
+//
+// Las tres primeras prueban LEGITIMIDAD (la casa existe, está regulada, los
+// activos del cliente no se mezclan con los suyos). La cuarta es la única que
+// prueba COMPETENCIA en la disciplina de este producto: el Fondo invierte
+// predominantemente en ETFs y fondos mutuos (lib/fondo.ts, Reglamento 3.3.1) y
+// la casa selecciona fondos mutuos de terceros desde los 80.
+// Sin ella, las cuatro dicen lo mismo — que fue el problema del par
+// 1967 + "6 décadas" que había acá (el h2 ya dice "seis décadas").
+//
+// NO poner acá el nombre de un custodio/socio de la casa (BNY, Clearstream,
+// Fidelity) en el slot grande: en la página de un fondo se lee como si ese
+// tercero respaldara ESTE vehículo, y esos acuerdos son de la casa.
+//
+// El token dice "Criterio" y no "Selección" por dos razones: "Selección" rima
+// de forma con "Segregadas" en la misma fila, y repetía el nombre del producto
+// dentro de su propia prueba.
 //
 // JERARQUÍA: el protagonista es la CASA (las cifras cargan el "lo gestiona
 // Bengochea"). El portfolio manager, Adrián Moreira, va en registro DISCRETO:
@@ -14,11 +31,23 @@ import { ArrowRight } from "@/components/institucional/icons";
 // sigue como Trader · Mesa de Operaciones (no se toca); acá es "Portfolio
 // Manager". Foto reusada de /equipo (verificable, sin bio inventada).
 
+// ⚠️ "Segregadas — Cuentas siempre a nombre del cliente" es la cifra tal cual
+// vive en /nosotros: es una prueba de LA CASA (esta sección se llama "La
+// Institución", igual que 1967 / BCU / Criterio), no del vehículo. Pedido
+// expreso del usuario (2026-07-28), que revierte la baja del 2026-07-27.
+// El matiz que motivó aquella baja sigue en pie y hay que tenerlo a mano si
+// vuelve el tema: el cuotapartista NO tiene una cuenta a su nombre —es
+// copropietario de un patrimonio de afectación, con cuotapartes escriturales
+// en el registro que lleva la Sociedad Administradora (Reglamento 2.2, 2.3 y
+// literal (f))—, así que esta cifra no debe leerse como si describiera al
+// Fondo. Si alguna vez hay que reformularla sin perder el hecho, el sustituto
+// correcto es "El patrimonio del Fondo está separado del de la Administradora
+// y del Gestor". No cambiarla por iniciativa propia: es decisión del usuario.
 const CIFRAS: [string, string][] = [
   ["1967", "Miembros de la Bolsa de Valores de Montevideo"],
-  ["6 décadas", "Gestionando patrimonios de uruguayos y extranjeros"],
   ["BCU", "Sociedad de bolsa regulada por el Banco Central del Uruguay"],
-  ["Segregadas", "Las cuentas están siempre a nombre del cliente"],
+  ["Segregadas", "Cuentas siempre a nombre del cliente"],
+  ["Criterio", "Elegimos fondos mutuos para las carteras de nuestros clientes desde los años 80"],
 ];
 
 export function FondoCasa() {
@@ -42,13 +71,14 @@ export function FondoCasa() {
             <img src="/equipo/adrian-moreira.jpg" alt="Adrián Moreira" loading="lazy" />
           </span>
           <span className="casa-pm-text">
-            <span className="casa-pm-name">Adrián Moreira, CFA</span>
+            <span className="casa-pm-name">Adrián Moreira</span>
             <span className="casa-pm-role">Portfolio Manager</span>
           </span>
         </div>
 
+        {/* "Conocenos" apuntaba a /nosotros, que está en lib/paginasOcultas.ts
+            y devuelve 404: se saca hasta que esa sección se publique. */}
         <div className="casa-cta-row">
-          <Link href="/nosotros" className="link-arrow">Conocenos <ArrowRight /></Link>
           <Link href="/equipo" className="link-arrow">Conocé al equipo <ArrowRight /></Link>
         </div>
       </div>

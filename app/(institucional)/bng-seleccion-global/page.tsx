@@ -8,6 +8,7 @@ import {
   Scales, Waveform, Shield, ArrowRight,
 } from "@/components/institucional/icons";
 import { FondoDocumentos } from "@/components/institucional/FondoDocumentos";
+import { FondoPartes } from "@/components/institucional/FondoPartes";
 import { FondoHero } from "@/components/institucional/FondoHero";
 import { FondoNav } from "@/components/institucional/FondoNav";
 import { FondoMundo } from "@/components/institucional/FondoMundo";
@@ -18,7 +19,6 @@ import { FondoPerformance } from "@/components/institucional/FondoPerformance";
 import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FondoTenencias } from "@/components/institucional/FondoTenencias";
-import { FondoGeografia } from "@/components/institucional/FondoGeografia";
 import { pageMetadata } from "@/lib/seo";
 import { estaOculta } from "@/lib/paginasOcultas";
 
@@ -126,11 +126,16 @@ export default function FondoPage() {
 
           <FondoCartera />
 
-          {/* Mayores tenencias — composición ilustrativa (datos ilustrativos) */}
+          {/* Mayores tenencias — sale del snapshot real (fund_holdings); sin
+              snapshot divulgable muestra el estado vacío honesto. */}
           <FondoTenencias />
 
-          {/* Exposición geográfica — choropleth de puntos (datos ilustrativos) */}
-          <FondoGeografia />
+          {/* ⚠️ La exposición geográfica (<FondoGeografia />) quedó FUERA de la
+              página: sus pesos por región son inventados y el Fondo todavía no
+              comenzó a funcionar, así que no hay cartera que distribuir. Rotularlos
+              como "datos ilustrativos" no alcanza en la página de un fondo
+              inscripto para oferta pública. Vuelve cuando el snapshot de tenencias
+              traiga región y se pueda derivar del dato real. */}
         </div>
       </section>
 
@@ -161,9 +166,16 @@ export default function FondoPage() {
             <div className="eyebrow-sm">La Institución</div>
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>Detrás de la estrategia, seis décadas de historia.</h2>
+              {/* Acá va el nombre COMERCIAL de la casa ("Bengochea Inversiones"):
+                  es prosa editorial, no identificación de la parte. El nombre
+                  legal del literal (l) del Reglamento —"Gastón Bengochea y
+                  Compañía Corredor de Bolsa S.A."— sigue completo donde
+                  identifica jurídicamente al gestor: Partes intervinientes y el
+                  aviso legal al pie. No mezclar los registros. */}
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
-                BNG Selección Global lo gestiona Gastón Bengochea & Cía. —sociedad de bolsa en la
-                plaza uruguaya desde 1967—, con Adrián Moreira, CFA al frente de la gestión del fondo.
+                La gestión de la cartera está a cargo de Bengochea Inversiones
+                —sociedad de bolsa uruguaya desde 1967—, con Adrián Moreira al frente
+                de la gestión del fondo.
               </p>
             </div>
           </Reveal>
@@ -194,12 +206,18 @@ export default function FondoPage() {
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Calculadora</div>
             <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Proyectá una inversión en el tiempo.</h2>
+              {/* ⚠️ La tasa es un SUPUESTO DEL LECTOR, no el retorno del fondo.
+                  Antes esta calculadora fijaba el retorno en el promedio anualizado
+                  del fondo —y, sin serie propia, en una referencia del 8 % anual—:
+                  eso es performance simulada de un producto que todavía no
+                  comenzó a funcionar. La tasa vuelve a ser editable y en ningún
+                  lado se la presenta como rendimiento esperado del Fondo. */}
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>El interés compuesto, en el tiempo.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Configurá monto inicial, aporte periódico y horizonte para ver el efecto del
-                interés compuesto, aplicando el retorno promedio del fondo desde su inicio.
-                Las cifras son indicativas y asumen rendimiento constante — no una promesa
-                del fondo.
+                Configurá monto inicial, aporte periódico, rendimiento promedio y horizonte para ver
+                cómo compone una inversión. El rendimiento lo elegís vos: no es una estimación ni una
+                proyección de BNG Selección Global, y la simulación asume una tasa constante, algo que
+                ningún mercado hace.
               </p>
             </div>
           </Reveal>
@@ -252,13 +270,17 @@ export default function FondoPage() {
             <div className="eyebrow-sm">Documentos</div>
             <div>
               <h2 className="t-h2">Documentación de BNG Selección Global.</h2>
+              {/* Copy neutral a propósito: la lista mezcla documentos publicados
+                  (Descargar) y no publicados (Solicitar), y el estado sólo se
+                  conoce en el cliente. */}
               <p className="t-lead" style={{ marginTop: 16, maxWidth: "36em" }}>
-                Ficha técnica, reglamento e informes de BNG Selección Global. Solicitá la documentación a un asesor nuestro
-                y te la hacemos llegar.
+                Factsheet, reglamento y autorización del Banco Central. Descargá los documentos disponibles;
+                el resto te lo hacemos llegar por un asesor.
               </p>
             </div>
           </Reveal>
           <FondoDocumentos />
+          <FondoPartes />
         </div>
       </section>
 
@@ -289,25 +311,77 @@ export default function FondoPage() {
                 Un asesor nuestro te explica el producto en detalle y evalúa si encaja con tus objetivos.
                 Sin compromiso.
               </p>
+              {/* El segundo botón iba a /servicios, que está en
+                  lib/paginasOcultas.ts y devuelve 404. Va a la documentación del
+                  Fondo, que además es lo que corresponde ofrecer acá. */}
               <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
                 <Link href="/contacto" className="ui-btn ui-btn-on-navy">Hablar con un asesor</Link>
-                <Link href="/servicios" className="ui-btn ui-btn-on-navy-ghost">Ver el ecosistema</Link>
+                <a href="#documentos" className="ui-btn ui-btn-on-navy-ghost">Ver la documentación</a>
               </div>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ── Disclaimer ────────────────────────────────────────────── */}
-      <section className="band site-section-sm">
+      {/* ── Información legal ─────────────────────────────────────────
+           EL ÚNICO bloque de legal largo de la página, y va al pie: es el
+           patrón de la industria (Itaú UY titula el suyo "Condiciones generales
+           para la contratación de Fondos de inversión"; SPDR, Vanguard y
+           Schroders cierran con su bloque regulatorio). El corolario del mismo
+           patrón es que las notas CORTAS no bajan acá: la de rendimientos vive
+           debajo de las tablas de Performance, la de composición debajo de
+           Tenencias, la de comisión debajo de la Calculadora y la de límites
+           debajo de Cartera. Una advertencia a 13.000 px del dato que califica
+           no protege a nadie.
+
+           Lleva título y ancla (#legal) por lo mismo: sin encabezado se leía
+           como pie de imprenta y no había forma de apuntarle.
+
+           Todo el contenido sale del Reglamento de Gestión aprobado por el BCU y
+           de la Resolución RR-SSF-2026-434, los dos publicados en Documentos:
+             · párrafo 1 — leyenda de autorización, TEXTUAL del Reglamento;
+             · párrafo 2 — partes (literales (a) y (l));
+             · párrafo 3 — cláusula 1(n) "Fondo no garantizado" y los riesgos
+               enumerados en 3.2 y 16, incluido el de inversión indirecta, que
+               es el propio de un fondo que invierte en otros fondos;
+             · párrafo 4 — adhesión al Reglamento (8.3, art. 17 Ley 16.774).
+           No decimos "no constituye oferta": el Fondo está justamente inscripto
+           y habilitado para oferta pública. Lo que no es, es asesoramiento
+           personalizado. */}
+      <section id="legal" className="band site-section-sm">
         <div className="site-wrap">
-          <p className="fondo-disclaimer">
-            Esta página tiene fines exclusivamente informativos y no constituye asesoramiento de inversión,
-            oferta ni recomendación de compra o suscripción. Las inversiones están sujetas a riesgos, incluida
-            la posible pérdida del capital invertido; los rendimientos pasados no garantizan resultados futuros.
-            Antes de invertir, leé la documentación del fondo y consultá con un asesor. Gastón Bengochea & Cía.
-            Corredor de Bolsa S.A. es una sociedad regulada y supervisada por el Banco Central del Uruguay.
-          </p>
+          <div className="fondo-legal">
+            <div className="eyebrow-sm fondo-legal-title">Información legal</div>
+            <div className="fondo-disclaimer">
+              <p>
+                «Fondo BNG Selección Global, Fondo de Inversión», autorizado por el Banco Central del Uruguay
+                por Resolución de fecha 7 de julio de 2026 (Comunicación N° 2026/139) e inscripto en el Registro
+                del Mercado de Valores. Esta autorización sólo acredita que la Sociedad Administradora ha cumplido
+                con los requisitos legales y reglamentarios, no significando que el Banco Central del Uruguay
+                exprese un juicio de valor acerca del futuro desenvolvimiento del Fondo, ni sobre las perspectivas
+                de las inversiones. El Fondo no cuenta con calificación de riesgo.
+              </p>
+              <p>
+                Sociedad Administradora: Valores Administradora de Fondos de Inversión y Fideicomisos S.A.
+                Gestor del Fondo: Gastón Bengochea y Compañía Corredor de Bolsa S.A., sociedad de bolsa regulada
+                y supervisada por el Banco Central del Uruguay. Auditor externo: Ernst & Young Uy S.A.S.
+              </p>
+              <p>
+                El Fondo no está garantizado ni constituye un depósito u otra obligación de la Sociedad
+                Administradora, del Gestor del Fondo ni de sus accionistas, afiliadas o subsidiarias. Las
+                inversiones están sujetas a riesgos —de mercado, de crédito, cambiario, de inflación, de liquidez,
+                país y de inversión indirecta, en tanto el Fondo invierte en otros fondos cuyo desempeño depende
+                de terceros gestores—, incluida la posible pérdida del capital invertido. Los rendimientos pasados
+                no garantizan resultados futuros.
+              </p>
+              <p>
+                Esta página tiene fines exclusivamente informativos y no constituye asesoramiento de inversión ni
+                una recomendación personalizada. La suscripción de cuotapartes implica la adhesión al Reglamento
+                de Gestión, cuya lectura previa se recomienda: se descarga en la sección Documentos de esta página
+                y está disponible en el sitio de la Sociedad Administradora.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -379,13 +453,44 @@ export default function FondoPage() {
 
         /* ── Documentos ── */
         .fondo-doc-row { justify-content: space-between; align-items: center; }
+        .fondo-doc-main { display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
+        /* El ícono se centra en la PRIMERA línea del título: su caja mide
+           exactamente una línea de ese cuerpo (1lh sobre --row-title-size) y el
+           svg va centrado adentro. Sigue alineado cuando el título envuelve y
+           en cualquier viewport, sin números mágicos. */
+        .fondo-doc-row .list-icon { margin-top: 0; font-size: var(--row-title-size); height: 1lh; }
         .fondo-doc-tag { flex: none; }
-
-        /* ── Disclaimer ── */
-        .fondo-disclaimer {
-          font-size: 12.5px; line-height: 1.7; color: var(--site-ink-3); max-width: 70em; margin: 0;
-          padding-top: 24px; border-top: 1px solid var(--site-border);
+        /* Ficha del archivo: formato · peso · fecha, en el tono más bajo de la
+           escala — es dato de servicio, no jerarquía. */
+        .fondo-doc-meta {
+          display: block; margin-top: 9px;
+          font-size: 12.5px; letter-spacing: 0.02em; color: var(--site-ink-3);
+          font-variant-numeric: tabular-nums;
         }
+
+        /* ── Información legal ── */
+        /* La regla de arriba la abre como sección (antes el filete colgaba del
+           propio párrafo, que sin título se leía como pie de imprenta). */
+        .fondo-legal { padding-top: 26px; border-top: 1px solid var(--site-border); }
+        .fondo-legal-title { margin-bottom: 18px; }
+        /* El tope va en el PÁRRAFO, no en el contenedor: ch (y em) se resuelven
+           contra el font-size del propio elemento, y el contenedor hereda los
+           17px de .site — ahí el 70em de antes valía 1.190px y el bloque
+           quedaba de hecho sin tope.
+
+           ⚠️ DOS TRAMPAS EN ESTOS COMENTARIOS:
+           · nada de backticks — cierran el template literal de estilos y dejan
+             la página en 500;
+           · nada de escribir la etiqueta de estilos entre ángulos — el render
+             del server escapa esa secuencia adentro del CSS (para que el parser
+             de HTML no cierre el bloque antes de tiempo) y el cliente no la
+             escapa: el texto deja de coincidir, la hidratación FALLA y toda la
+             página se vuelve a renderizar en el cliente. Nombrarla en prosa. */
+        .fondo-disclaimer p {
+          margin: 0; max-width: var(--medida-legal);
+          font-size: 12.5px; line-height: 1.7; color: var(--site-ink-3);
+        }
+        .fondo-disclaimer p + p { margin-top: 14px; }
 
         @media (max-width: 880px) {
           .resumen-sec { min-height: 0; }

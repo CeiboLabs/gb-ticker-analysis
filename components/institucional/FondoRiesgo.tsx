@@ -1,11 +1,18 @@
 "use client";
 
 // Indicador de riesgo estilo SRI (escala 1–7), igual que la ficha de un fondo
-// europeo. ⚠️ PLACEHOLDER: el nivel (4) es provisional hasta confirmar el SRI
-// oficial del fondo. Por su naturaleza —cartera balanceada entre renta variable
-// y renta fija— se ubica en un perfil de riesgo moderado.
+// europeo.
+//
+// ⚠️ NO MONTAR EN NINGUNA PÁGINA. Hoy no se renderiza en ningún lado y así tiene
+// que seguir: el SRI es un indicador del régimen europeo (KIID/PRIIPs) que este
+// Fondo NO tiene. No surge del Reglamento aprobado por el BCU ni de ninguna
+// norma uruguaya, y el "4 de 7" es una estimación nuestra: publicar una escala
+// regulatoria inventada es peor que no publicar ninguna. Lo que sí dice el
+// Reglamento es que el Fondo está dirigido a inversores de perfil MODERADO
+// (cláusula 3.1) y que no cuenta con calificación de riesgo — eso ya está en la
+// página, en texto.
 
-const NIVEL = 4; // ⚠️ provisional — confirmar con el SRI oficial del fondo.
+const NIVEL = 4; // ⚠️ estimación nuestra, sin respaldo normativo. Ver arriba.
 
 export function FondoRiesgo() {
   const niveles = [1, 2, 3, 4, 5, 6, 7];

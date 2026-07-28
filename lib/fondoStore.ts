@@ -20,7 +20,16 @@ import { todayUY, type NormalizedNav } from "./fondoIngest";
 
 // Rezago de divulgación de tenencias (anti front-running). El sitio sólo expone
 // el snapshot más reciente con as_of <= hoy - este rezago.
-export const HOLDINGS_LAG_DAYS = 30;
+//
+// ⚠️ EN 0 A PROPÓSITO, Y ES TEMPORAL. El rezago protege a un fondo EN MARCHA:
+// impide que un tercero opere contra las posiciones que el Fondo todavía está
+// armando o deshaciendo. El Fondo aún no comenzó a funcionar (el inicio se
+// comunica al BCU con 10 días hábiles de anticipación, art. 74 RNMV), así que
+// no hay nada contra qué operar y la cartera publicada se ve el mismo día.
+//
+// RESTAURAR A 30 cuando el Fondo empiece a operar — junto con la primera fila
+// real de `fund_nav`. Ver RUNBOOK-panel.md.
+export const HOLDINGS_LAG_DAYS = 0;
 
 // ── Lecturas de serie (las usa lib/fondo.ts) ─────────────────────────────────
 

@@ -14,6 +14,12 @@ function formatNum(n: number): string {
   return Math.round(n).toLocaleString("de-DE", { maximumFractionDigits: 0 });
 }
 
+// Coma decimal rioplatense y sin decimales cuando el valor es entero: "7 %",
+// "7,25 %". Importa desde que el slider de rendimiento admite pasos fraccionarios.
+function formatPct(n: number): string {
+  return n.toLocaleString("es-UY", { maximumFractionDigits: 2 });
+}
+
 function AnimatedValue({
   value,
   format,
@@ -160,38 +166,64 @@ interface YearData {
   gains: number;
 }
 
+// Geometría del gráfico. El SVG se estira al ancho del panel
+// (preserveAspectRatio="none"): la escala horizontal cambia con el viewport
+// mientras la vertical queda clavada en SVG_H/VB_H. Dentro de ese sistema un
+// <circle> se ovala —medido: 8,8 × 8,9 px a 1900 de viewport, 6,4 × 8,9 a
+// 500—, y uno apoyado en el borde derecho se corta por la mitad contra el
+// recorte del SVG. Por eso los puntos de fin de serie se dibujan en HTML
+// encima del SVG (redondos a cualquier ancho) y el trazado reserva
+// PLOT_INSET a la derecha para que entren dentro del área del gráfico.
+// Color de cada serie, en un solo lugar. La referencia y el trazo salían de
+// fuentes distintas —el swatch de "Valor total" con var(--gold), la línea con
+// #C9A84C hardcodeado— y habían quedado en dos oros que no eran el mismo
+// (#EBD288 vs #C9A84C). Ninguno de los dos era el correcto: sobre fondo claro
+// el token es gold-deep (docs/lenguaje-visual.md: "gold-deep sobre claro").
+// Todo lo que pinte una serie tiene que leer de acá, incluida la leyenda.
+const SERIE = {
+  aportado: "var(--navy-500)",
+  total: "var(--gold-deep)",
+} as const;
+
+const VB_W = 500; // ancho del viewBox
+const VB_H = 220; // alto del viewBox
+const PLOT_H = 200; // alto útil de la serie: deja aire arriba
+const PLOT_INSET = 12; // reserva a la derecha, en unidades del viewBox
+const PLOT_W = VB_W - PLOT_INSET;
+const SVG_H = 280; // alto renderizado, en px
+
 // Núcleo del simulador (cifras + sliders + gráfico + hitos), sin header ni
 // site-wrap: lo embebe la página /calculadora con su propio encabezado y la
 // página del fondo dentro de su sección #calculadora, cada una con los
 // defaults que le hacen sentido a su audiencia.
 export function CalculadoraSim({
   defaults = {},
-  rateLocked = false,
   fees,
-  omitGenericLegal = false,
+  rateRange,
 }: {
   defaults?: Partial<{ initial: number; monthly: number; rate: number; years: number }>;
-  // Con rateLocked el retorno anual no es editable: se muestra como dato fijo
-  // (la página del fondo lo fija en el promedio anualizado del fondo).
-  rateLocked?: boolean;
   // Costo opcional del fondo (lo pasa la página del fondo). Cuando se provee, la
-  // proyección se muestra neta de la comisión de administración del fondo:
-  //   annualPct  comisión anual sobre el valor de la inversión (p.ej. 0,015 = 1,5 %)
-  // Es el único costo del fondo —reemplaza al Tarifario general de Bengochea— y
-  // se toma como valor final, IVA incluido. La calculadora genérica
-  // (/calculadora) no lo pasa y simula sin costos.
+  // proyección se muestra neta de la comisión del Fondo:
+  //   annualPct  tasa anual máxima (p.ej. 0,015 = 1,5 %), IVA incluido
+  // Se descuenta porque la tasa del simulador es un rendimiento BRUTO supuesto
+  // por el lector. NO es el único costo del Fondo (ver FondoCalculadora). La
+  // calculadora genérica (/calculadora) no lo pasa y simula sin costos.
   fees?: { annualPct: number };
-  // Cuando la página ya carga el aviso legal genérico en otro lado (la del
-  // fondo lo tiene al pie + en el lead de la sección), se omite acá el
-  // "no constituye asesoramiento / rendimientos pasados" para no repetirlo, y
-  // queda sólo la nota de método (tasa constante) y de costos. La calculadora
-  // genérica (/calculadora) no tiene ese bloque, así que mantiene el texto completo.
-  omitGenericLegal?: boolean;
+  // Recorrido del slider de rendimiento anual promedio. Por defecto abierto
+  // (1–20 % de a 0,5), que es lo que corresponde a un simulador genérico de
+  // interés compuesto. La página del fondo lo acota a una banda estrecha.
+  rateRange?: { min: number; max: number; step?: number };
 }) {
+  const rateMin = rateRange?.min ?? 1;
+  const rateMax = rateRange?.max ?? 20;
+  const rateStep = rateRange?.step ?? 0.5;
+
   const [initial, setInitial] = useState(defaults.initial ?? 200000);
   const [aporte, setAporte] = useState(defaults.monthly ?? 500);
   const [freq, setFreq] = useState<"mensual" | "anual">("mensual");
-  const [rate, setRate] = useState(defaults.rate ?? 8);
+  // Se acota al rango: un default fuera de banda dejaría el valor simulado y el
+  // del slider desacoplados (el <input range> clampea, el estado no).
+  const [rate, setRate] = useState(Math.min(Math.max(defaults.rate ?? 8, rateMin), rateMax));
   const [years, setYears] = useState(defaults.years ?? 25);
 
   // Al cambiar la frecuencia se convierte el monto (×12 / ÷12) para que la
@@ -242,6 +274,10 @@ export function CalculadoraSim({
   const gainsPct = final.invested > 0 ? Math.round((final.gains / final.invested) * 100) : 0;
 
   const hitos = [5, 10, 15, 20, years].filter((y, i, arr) => y <= years && arr.indexOf(y) === i);
+
+  // Índice de año → x, y valor → y, ambos en unidades del viewBox.
+  const px = (i: number) => (i / years) * PLOT_W;
+  const py = (v: number) => VB_H - (maxTotal > 0 ? (v / maxTotal) * PLOT_H : 0);
 
   return (
     <div>
@@ -310,28 +346,17 @@ export function CalculadoraSim({
             maxLabel={freq === "mensual" ? "USD 10 K" : "USD 120 K"}
             onChange={setAporte}
           />
-          {rateLocked ? (
-            <div className="calc-slider">
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                <label className="ui-label" style={{ marginBottom: 0 }}>Retorno anual</label>
-                <span style={{ fontSize: 20, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--site-ink)" }}>
-                  {rate.toLocaleString("es-UY", { maximumFractionDigits: 2 })} %
-                </span>
-              </div>
-            </div>
-          ) : (
-            <Slider
-              label="Retorno anual esperado"
-              value={rate}
-              displayValue={`${rate} %`}
-              min={1}
-              max={20}
-              step={0.5}
-              minLabel="1 %"
-              maxLabel="20 %"
-              onChange={setRate}
-            />
-          )}
+          <Slider
+            label="Rendimiento anual promedio"
+            value={rate}
+            displayValue={`${formatPct(rate)} %`}
+            min={rateMin}
+            max={rateMax}
+            step={rateStep}
+            minLabel={`${formatPct(rateMin)} %`}
+            maxLabel={`${formatPct(rateMax)} %`}
+            onChange={setRate}
+          />
           <Slider
             label="Horizonte temporal"
             value={years}
@@ -351,91 +376,84 @@ export function CalculadoraSim({
             <div className="eyebrow-sm">Proyección de crecimiento</div>
             <div style={{ display: "flex", gap: 18 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <span style={{ width: 16, height: 3, borderRadius: 2, background: "var(--navy-500)" }} />
+                <span style={{ width: 16, height: 3, borderRadius: 2, background: SERIE.aportado }} />
                 <span className="t-small" style={{ fontSize: 12 }}>Aportado</span>
               </span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <span style={{ width: 16, height: 3, borderRadius: 2, background: "var(--gold)" }} />
+                <span style={{ width: 16, height: 3, borderRadius: 2, background: SERIE.total }} />
                 <span className="t-small" style={{ fontSize: 12 }}>Valor total</span>
               </span>
             </div>
           </div>
 
           <div style={{ position: "relative" }}>
-            <svg viewBox="0 0 500 220" preserveAspectRatio="none" style={{ width: "100%", height: 280, display: "block" }}>
+            <svg viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none" style={{ width: "100%", height: SVG_H, display: "block" }}>
               <defs>
                 <linearGradient id="area-total" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#C9A84C" stopOpacity="0.20" />
-                  <stop offset="100%" stopColor="#C9A84C" stopOpacity="0.02" />
+                  <stop offset="0%" stopColor={SERIE.total} stopOpacity="0.20" />
+                  <stop offset="100%" stopColor={SERIE.total} stopOpacity="0.02" />
                 </linearGradient>
               </defs>
 
-              {/* Líneas guía */}
+              {/* Líneas guía — el marco sí ocupa el ancho completo */}
               {[0.25, 0.5, 0.75].map((pct) => (
                 <line
                   key={pct}
                   x1="0"
-                  y1={220 - pct * 200}
-                  x2="500"
-                  y2={220 - pct * 200}
+                  y1={VB_H - pct * PLOT_H}
+                  x2={VB_W}
+                  y2={VB_H - pct * PLOT_H}
                   stroke="#E7E8F2"
                   strokeWidth="1"
                 />
               ))}
-              <line x1="0" y1="220" x2="500" y2="220" stroke="#D7D9E8" strokeWidth="1" />
+              <line x1="0" y1={VB_H} x2={VB_W} y2={VB_H} stroke="#D7D9E8" strokeWidth="1" />
 
               {/* Área valor total */}
               <path
-                d={`M0 220 ${data
-                  .map((d, i) => {
-                    const x = (i / years) * 500;
-                    const y = 220 - (maxTotal > 0 ? (d.total / maxTotal) * 200 : 0);
-                    return `L${x} ${y}`;
-                  })
-                  .join(" ")} L500 220 Z`}
+                d={`M0 ${VB_H} ${data.map((d, i) => `L${px(i)} ${py(d.total)}`).join(" ")} L${PLOT_W} ${VB_H} Z`}
                 fill="url(#area-total)"
               />
 
               {/* Línea aportado */}
               <path
-                d={`M${data
-                  .map((d, i) => {
-                    const x = (i / years) * 500;
-                    const y = 220 - (maxTotal > 0 ? (d.invested / maxTotal) * 200 : 0);
-                    return `${x} ${y}`;
-                  })
-                  .join(" L")}`}
+                d={`M${data.map((d, i) => `${px(i)} ${py(d.invested)}`).join(" L")}`}
                 fill="none"
-                stroke="#2C3194"
+                stroke={SERIE.aportado}
                 strokeWidth="1.5"
               />
               {/* Línea valor total */}
               <path
-                d={`M${data
-                  .map((d, i) => {
-                    const x = (i / years) * 500;
-                    const y = 220 - (maxTotal > 0 ? (d.total / maxTotal) * 200 : 0);
-                    return `${x} ${y}`;
-                  })
-                  .join(" L")}`}
+                d={`M${data.map((d, i) => `${px(i)} ${py(d.total)}`).join(" L")}`}
                 fill="none"
-                stroke="#C9A84C"
+                stroke={SERIE.total}
                 strokeWidth="2"
               />
-
-              <circle
-                cx="500"
-                cy={220 - (maxTotal > 0 ? (final.total / maxTotal) * 200 : 0)}
-                r="3.5"
-                fill="#C9A84C"
-              />
-              <circle
-                cx="500"
-                cy={220 - (maxTotal > 0 ? (final.invested / maxTotal) * 200 : 0)}
-                r="3"
-                fill="#2C3194"
-              />
             </svg>
+
+            {/* Puntos de fin de serie. Van en HTML y no adentro del SVG para que
+                queden redondos con cualquier ancho de panel (ver PLOT_INSET). */}
+            {[
+              { valor: final.total, color: SERIE.total, d: 9 },
+              { valor: final.invested, color: SERIE.aportado, d: 8 },
+            ].map(({ valor, color, d }) => (
+              <span
+                key={color}
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: `${(PLOT_W / VB_W) * 100}%`,
+                  top: (py(valor) / VB_H) * SVG_H,
+                  width: d,
+                  height: d,
+                  marginLeft: -d / 2,
+                  marginTop: -d / 2,
+                  borderRadius: "50%",
+                  background: color,
+                  pointerEvents: "none",
+                }}
+              />
+            ))}
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
@@ -480,12 +498,18 @@ export function CalculadoraSim({
         </div>
       </div>
 
-      <p className="t-small" style={{ marginTop: 32, maxWidth: "44em" }}>
-        {!omitGenericLegal && "Esta simulación es informativa y no constituye asesoramiento financiero. Los retornos pasados no garantizan resultados futuros. "}
-        Los cálculos asumen interés compuesto mensual con tasa anual constante.
+      {/* Misma medida que el resto de los avisos legales del sitio (globals.css
+          → --medida-legal): el tope en caracteres, no en em. */}
+      <p className="t-small" style={{ marginTop: 32, maxWidth: "var(--medida-legal)" }}>
+        Esta simulación es informativa y no constituye asesoramiento financiero ni una proyección de
+        rendimiento de ningún producto. El rendimiento anual promedio lo elegís vos; los cálculos
+        asumen interés compuesto mensual con tasa constante.
         {fees && (
           <>
-            {" "}Las cifras son netas de la comisión de administración del fondo ({(fees.annualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % anual sobre el valor de la inversión), su único costo.
+            {" "}Las cifras se muestran netas de la comisión del Fondo (hasta{" "}
+            {(fees.annualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % anual, IVA
+            incluido, sobre su patrimonio neto), y no contemplan los demás gastos ni los tributos
+            aplicables.
           </>
         )}
       </p>
@@ -577,7 +601,7 @@ export function Calculadora() {
         <div>
           <h2 className="t-h2" style={{ maxWidth: "14em" }}>El interés compuesto, paso a paso.</h2>
           <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-            Configurá monto inicial, aporte periódico, tasa esperada y horizonte. Las cifras son indicativas y asumen rendimiento constante.
+            Configurá monto inicial, aporte periódico, rendimiento promedio y horizonte. Las cifras son indicativas y asumen rendimiento constante.
           </p>
         </div>
       </div>

@@ -71,14 +71,12 @@ function tone(ci: number, cj: number): string {
   return toHex(LIGHT[0] + (DARK[0] - LIGHT[0]) * t + d, LIGHT[1] + (DARK[1] - LIGHT[1]) * t + d, LIGHT[2] + (DARK[2] - LIGHT[2]) * t + d);
 }
 
-type Piece = { pts: string; cx: number; cy: number; fill: string };
+type Piece = { pts: string; ci: number; cj: number; fill: string };
 const PIECES: Piece[] = [];
 for (let cj = 0; cj < NY; cj++) {
   for (let ci = 0; ci < NX; ci++) {
     const p = [lat(ci, cj), lat(ci + 1, cj), lat(ci + 1, cj + 1), lat(ci, cj + 1)];
-    const cx = (p[0][0] + p[1][0] + p[2][0] + p[3][0]) / 4;
-    const cy = (p[0][1] + p[1][1] + p[2][1] + p[3][1]) / 4;
-    PIECES.push({ pts: p.map((q) => q.join(",")).join(" "), cx, cy, fill: tone(ci, cj) });
+    PIECES.push({ pts: p.map((q) => q.join(",")).join(" "), ci, cj, fill: tone(ci, cj) });
   }
 }
 
@@ -95,6 +93,52 @@ export const FACHADA_HORIZONTE: [number, number][] =
   Array.from({ length: NX + 1 }, (_, i) => lat(i, HJ));
 
 const horizonPts = FACHADA_HORIZONTE.map((p) => p.join(",")).join(" ");
+
+/**
+ * Largo del horizonte en unidades del lienzo. Es la suma analítica de sus
+ * segmentos —no necesita DOM—, así que el hero puede armar el `stroke-dasharray`
+ * del trazado de entrada en el SERVER, sin `getTotalLength()` ni un efecto que
+ * lo mida después de hidratar (que dejaría la línea entera visible un frame
+ * antes de esconderse para animar).
+ *
+ * Va redondeado hacia ARRIBA a propósito: un dasharray apenas mayor que el
+ * largo real cubre la polilínea completa; uno menor dejaría un hueco al final.
+ */
+export const FACHADA_HORIZONTE_LEN = Math.ceil(
+  FACHADA_HORIZONTE.reduce((acc, p, i) => (
+    i === 0 ? acc : acc + Math.hypot(p[0] - FACHADA_HORIZONTE[i - 1][0], p[1] - FACHADA_HORIZONTE[i - 1][1])
+  ), 0),
+);
+
+/**
+ * Máscara CSS con la silueta de la fachada: los 24 paneles —cada uno con su
+ * propio alfa— más el horizonte. Sirve para recortar una capa de luz superpuesta
+ * contra la GEOMETRÍA: la luz entra panel por panel, como en una fachada real,
+ * en vez de barrer el hero como un brillo uniforme (que es lo que delata a un
+ * "shine sweep" genérico).
+ *
+ * Los paneles de arriba reciben más luz que los de abajo — el mismo gradiente de
+ * valor que ya tiene el mosaico (renta variable clara arriba, renta fija grave
+ * abajo), ahora también en cómo cada panel responde a la luz.
+ *
+ * El horizonte entra a alfa pleno para que lo ilumine LA MISMA luz que a los
+ * paneles. Es deliberado que no tenga destello propio: dos brillos con relojes
+ * distintos leen como decoración, uno solo lee como un sol.
+ *
+ * ⚠️ `pan` tiene que ser el MISMO que se le pasa a <Fachada>, o la máscara queda
+ * corrida respecto de los paneles que dice recortar.
+ */
+export function fachadaMascara(pan?: { x: number; y: number }): string {
+  const paneles = PIECES.map((p) => {
+    const alfa = (0.55 + 0.45 * rand(p.ci, p.cj, 7)) * (1 - 0.42 * (p.cj / (NY - 1)));
+    return `<polygon points='${p.pts}' fill='#fff' fill-opacity='${alfa.toFixed(3)}'/>`;
+  }).join("");
+  const linea = `<polyline points='${horizonPts}' fill='none' stroke='#fff' stroke-width='3'`
+    + ` stroke-linejoin='round' stroke-linecap='round'/>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${pan?.x ?? 0} ${pan?.y ?? 0} ${VW} ${VH}'`
+    + ` preserveAspectRatio='xMidYMid slice'>${paneles}${linea}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 /**
  * Mosaico estático (sin animación de entrada) posicionado en absoluto para
@@ -150,8 +194,11 @@ export function Fachada({ className, crisp = false, pan }: { className?: string;
       ))}
       {/* Grabado fino sobre toda la fachada (textura material, no patrón). */}
       <rect x={0} y={0} width={VW} height={VH} fill={`url(#${hatchId})`} />
-      {/* Horizonte dorado: único acento — el equilibrio RV/RF, de lado a lado. */}
+      {/* Horizonte dorado: único acento — el equilibrio RV/RF, de lado a lado.
+          La clase es el asidero para que el hero lo TRACE al entrar; nadie más
+          la usa, así que la miniatura del navbar sigue apareciendo dibujada. */}
       <polyline
+        className="ffac-horizonte"
         points={horizonPts} fill="none" stroke="var(--gold)" strokeWidth={2}
         strokeLinejoin="round" strokeLinecap="round" opacity={0.92}
         vectorEffect={vfx}

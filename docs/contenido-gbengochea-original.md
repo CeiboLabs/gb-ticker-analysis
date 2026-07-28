@@ -223,7 +223,7 @@ Campos: Nombre/Empresa*, E-mail*, Teléfono de contacto, Tipo de cuenta* (Empres
 ## 9. Navegación
 
 ### Menú principal
-Home · Nosotros · Historia · Ecosistema · Novedades (Informes / Noticias) · Cuenta Activa · Contacto · Consultanet
+Home · Nosotros · Historia · Ecosistema · Novedades (Informes / Noticias) · Contacto · Consultanet
 
 ### Footer
 Home · Nosotros · Historia · Ecosistema · Novedades · Contacto · Reclamos · Legal · Tarifario
@@ -235,7 +235,6 @@ Home · Nosotros · Historia · Ecosistema · Novedades · Contacto · Reclamos 
 - Instagram
 
 ### Accesos externos
-- Cuenta Activa: https://cuentaactiva.gbengochea.com.uy/
 - Consultanet (e-banking): https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx
 - Video instructivo Consultanet: https://www.youtube.com/watch?v=HtIjF2N9i-0
 
@@ -267,5 +266,4 @@ Home · Nosotros · Historia · Ecosistema · Novedades · Contacto · Reclamos 
 | Más informes | https://gbengochea.com.uy/mas-informes.php |
 | Novedades | https://gbengochea.com.uy/novedades.php |
 | Contacto | https://gbengochea.com.uy/contacto.php |
-| Cuenta Activa (app) | https://cuentaactiva.gbengochea.com.uy/ |
 | Consultanet (e-banking) | https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx |

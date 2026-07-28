@@ -375,7 +375,7 @@ function TabCorregir() {
 
 // ── Tenencias ────────────────────────────────────────────────────────────────
 
-type ItemTenencia = { name: string; short: string; assetClass: "RV" | "RF" | "Otros"; weightBps: string };
+type ItemTenencia = { name: string; short: string; assetClass: "RV" | "RF" | "ALT"; weightBps: string };
 
 function TabTenencias() {
   const [asOf, setAsOf] = useState("");
@@ -410,7 +410,7 @@ function TabTenencias() {
     });
     setBusy(false);
     if (r.status === 200) {
-      setMsg({ kind: "ok", text: `Snapshot de ${asOf} guardado (${items.length} líneas). El sitio lo publica pasado el rezago de 30 días.` });
+      setMsg({ kind: "ok", text: `Snapshot de ${asOf} guardado (${items.length} líneas). Ya está publicado en el sitio.` });
     } else {
       setMsg({ kind: "error", text: errorMessage(r) });
     }
@@ -450,9 +450,9 @@ function TabTenencias() {
                       value={it.assetClass}
                       onChange={(e) => setItem(i, { assetClass: e.target.value as ItemTenencia["assetClass"] })}
                     >
-                      <option value="RV">RV</option>
-                      <option value="RF">RF</option>
-                      <option value="Otros">Otros</option>
+                      <option value="RV">RV — Renta variable</option>
+                      <option value="RF">RF — Renta fija</option>
+                      <option value="ALT">ALT — Alternativos</option>
                     </Select>
                   </td>
                   <td className="pr-2">
@@ -502,9 +502,10 @@ type Doc = {
 };
 
 const DOC_LABELS: Record<string, string> = {
-  "ficha-tecnica": "Ficha técnica",
+  "ficha-tecnica": "Factsheet",
   "datos-fundamentales": "Datos fundamentales para el inversor",
   "reglamento": "Reglamento de gestión",
+  "autorizacion-bcu": "Autorización del Banco Central",
   "informe-cartera": "Informe de cartera",
 };
 

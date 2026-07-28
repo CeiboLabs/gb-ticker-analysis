@@ -35,7 +35,7 @@ const AREAS: Area[] = [
       { name: "Andrea Stolowicz", role: "Asesor Financiero", photo: "/equipo/andrea-stolowicz.jpg" },
       { name: "Gabriel Angiolini", role: "Asesor Financiero", photo: "/equipo/gabriel-angiolini.jpg" },
       { name: "Graciana Noya", role: "Asesor Financiero", photo: "/equipo/graciana-noya.jpg" },
-      { name: "Hernán Castro", role: "Asesor Financiero", photo: "/equipo/hernan-castro.png" },
+      { name: "Hernán Castro", role: "Asesor Financiero", photo: "/equipo/hernan-castro.jpg" },
       { name: "Lucia Arias", role: "Asesor Financiero", photo: "/equipo/lucia-arias.jpg" },
       { name: "Francisco Echegoyen", role: "Asesor Financiero", photo: "/equipo/francisco-echegoyen.jpg" },
       { name: "Facundo Gonzalez", role: "Asesor Financiero", photo: "/equipo/facundo-gonzalez.jpg" },

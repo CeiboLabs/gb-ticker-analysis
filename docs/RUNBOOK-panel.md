@@ -51,8 +51,10 @@ de credenciales.
   **no se pisa** desde la carga normal: va por **Corregir** (motivo
   obligatorio, queda `superseded` en `fund_audit` con el valor previo). El
   backfill exige confirmación expresa si el rango pisa cierres existentes.
-  Tenencias: pesos en bps, Σ≈10000±100; el sitio recién publica el snapshot
-  pasado el rezago anti front-running (30 días).
+  Tenencias: pesos en bps, Σ≈10000±100, `asset_class` ∈ `RV`/`RF`/`ALT`. El
+  rezago anti front-running (`HOLDINGS_LAG_DAYS`, lib/fondoStore.ts) está en
+  **0** mientras el Fondo no opere: el snapshot se publica el mismo día.
+  ⚠️ **Volver a 30 cuando el Fondo empiece a operar.**
 - **Documentos del fondo**: subir el PDF por tipo → queda publicado; la
   sección del sitio los muestra sólo con el flag `fondo_documentos` prendido.
   Sin archivo/flag ⇒ el sitio cae al fallback "Solicitar" → /contacto.

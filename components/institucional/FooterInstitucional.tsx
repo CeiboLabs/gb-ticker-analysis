@@ -30,7 +30,6 @@ const NAV_GROUPS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Accesos",
     links: [
-      { label: "Cuenta Activa", href: "https://cuentaactiva.gbengochea.com.uy/", external: true },
       { label: "Consultanet", href: "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx", external: true },
       { label: "Informes", href: "/informes" },
       { label: "Instructivo Consultanet", href: "https://www.youtube.com/watch?v=HtIjF2N9i-0", external: true },

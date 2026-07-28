@@ -21,6 +21,7 @@ export async function GET() {
     titulo: d.titulo,
     descripcion: d.descripcion,
     actualizado: d.updated_at,
+    bytes: d.content_len,
   }));
   return NextResponse.json({ documentos }, { headers: CACHE });
 }

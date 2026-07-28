@@ -233,6 +233,17 @@ necesita el `PANEL_PEPPER` del server.
 > aplique, el write path de /api/analyze falla silencioso: el análisis sigue
 > funcionando, sólo se pierde el historial.)
 
+> **Pendiente de aplicar — autorización del BCU** (`2026-07-27-fondo-doc-autorizacion-bcu.sql`):
+> agrega `'autorizacion-bcu'` al CHECK de `fondo_documentos.tipo` (SQLite no sabe
+> alterar un CHECK: la migración reconstruye la tabla y copia las filas). Sin
+> ella, subir ese documento por el panel falla con *CHECK constraint failed*; el
+> resto de los tipos sigue andando. En base ya inicializada:
+> ```
+> sqlite3 data/bengochea.sqlite3 < db/migrations/2026-07-27-fondo-doc-autorizacion-bcu.sql
+> ```
+> (En base fresca el CHECK nuevo ya viene en `schema.sql`. Re-correrla es
+> idempotente: rehace la misma tabla con el mismo contenido.)
+
 ## Secciones sin publicar (lo que el equipo NO tiene que ver)
 
 Se bloquea el **acceso**, no la visibilidad: el navbar y el footer siguen

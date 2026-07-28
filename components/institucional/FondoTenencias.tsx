@@ -14,22 +14,27 @@ import type { HoldingItem } from "@/lib/fondo";
 // un snapshot lo bastante viejo para divulgar— se muestra el estado vacío
 // honesto. El color NO viaja en el dato: se deriva acá por clase + rank.
 
-type Clase = "RV" | "RF" | "Otros";
+// Las mismas tres clases de <FondoCartera /> y de la ficha técnica. El gris de
+// ALT es el mismo slate del panel "Activos alternativos": no es un "otros"
+// residual, es la tercera clase del balanceado.
+type Clase = "RV" | "RF" | "ALT";
 type Cell = { name: string; short: string; clase: Clase; peso: number; color: string };
 
-const CLASE_LABEL: Record<Clase, string> = { RV: "Renta variable", RF: "Renta fija", Otros: "Otros" };
-const CLASE_COLOR: Record<Clase, string> = { RV: "#1a3163", RF: "#A07C28", Otros: "#9AA0B4" };
-const CLASE_ORDER: Clase[] = ["RV", "RF", "Otros"];
+const CLASE_LABEL: Record<Clase, string> = { RV: "Renta variable", RF: "Renta fija", ALT: "Alternativos" };
+const CLASE_COLOR: Record<Clase, string> = { RV: "#1a3163", RF: "#A07C28", ALT: "#9AA0B4" };
+const CLASE_ORDER: Clase[] = ["RV", "RF", "ALT"];
 
 // Rampa de sombra por clase: oscuro (mayor peso) → claro (menor), interpolada
 // por rank dentro de la clase para soportar cualquier número de tenencias.
 const CLASE_RAMP: Record<Clase, [string, string]> = {
   RV: ["#0f2249", "#5E63B8"],
   RF: ["#7C5E1A", "#D9BE6E"],
-  Otros: ["#7E869C", "#B4BACA"],
+  ALT: ["#6E7689", "#B4BACA"],
 };
 
-const fmt = (n: number) => `${n.toFixed(0)}%`;
+// Los pesos reales llegan en medios puntos (2,5% / 7,5%): redondear a entero
+// mostraría "2%" y "8%" y la suma de las clases no cerraría en 100.
+const fmt = (n: number) => `${(Math.round(n * 10) / 10).toLocaleString("es-UY", { maximumFractionDigits: 1 })}%`;
 const byPeso = (a: Cell, b: Cell) => b.peso - a.peso;
 
 function lerpHex(a: string, b: string, t: number): string {
@@ -68,8 +73,12 @@ function buildCells(items: HoldingItem[]): Cell[] {
 // Cada layout se squarifica para SU forma; se alternan por media query (sin JS,
 // sin saltos de hidratación). La tipografía escala con el tamaño real de la
 // celda (unidades de container query), así el texto siempre entra.
-const TM_WIDE = { w: 1040, h: 416 };
-const TM_TALL = { w: 600, h: 680 };
+// La proporción del marco decide cuán legibles quedan las celdas chicas: con una
+// cartera de ~17 líneas donde la menor pesa 2,5%, a 2,5:1 el squarify deja la
+// última en una astilla de 63px (muda). A 2,22:1 la peor relación de aspecto baja
+// de 2,76 a 1,50 y entran las 17 etiquetas. Medido sobre la cartera real.
+const TM_WIDE = { w: 1040, h: 468 };
+const TM_TALL = { w: 600, h: 840 };
 
 type Rect = { x: number; y: number; w: number; h: number };
 type Placed = Cell & { rect: Rect };
@@ -142,8 +151,10 @@ function TreemapGrid({ placed, frame, variant, scale }: {
       {placed.map((p, i) => {
         const rw = p.rect.w * scale;
         const rh = p.rect.h * scale;
-        const show = rw > 64 && rh > 40;
-        const big = rw > 140 && rh > 88;
+        // Tres escalones de etiqueta según el tamaño real de la celda. Ninguna
+        // celda queda MUDA: la más chica muestra al menos su peso, y el nombre
+        // completo (no el corto) vive en el title para el hover.
+        const nivel = rw > 140 && rh > 88 ? "full" : rw > 64 && rh > 40 ? "nombre" : rw > 34 && rh > 24 ? "pct" : "mudo";
         // Fuente ligada al lado menor renderizado de la celda (en px, vía cqw/cqh),
         // con piso legible y techo editorial. Padding y gap derivan de ella.
         const fs = `clamp(9px, calc(min(${((p.rect.w / frame.w) * 100).toFixed(2)}cqw, ${((p.rect.h / frame.h) * 100).toFixed(2)}cqh) * 0.15), 17px)`;
@@ -151,6 +162,7 @@ function TreemapGrid({ placed, frame, variant, scale }: {
           <div
             key={p.name}
             className="ten-tm-cell"
+            title={`${p.name} · ${fmt(p.peso)}`}
             style={{
               left: `${(p.rect.x / frame.w) * 100}%`,
               top: `${(p.rect.y / frame.h) * 100}%`,
@@ -160,10 +172,17 @@ function TreemapGrid({ placed, frame, variant, scale }: {
               animationDelay: `${i * 38}ms`,
             }}
           >
-            {show && (
-              <div className="ten-tm-label" style={{ ["--fs"]: fs } as CSSProperties}>
-                <span className="ten-tm-eyebrow">{big ? CLASE_LABEL[p.clase] : p.clase}</span>
-                <span className="ten-tm-name">{p.short}</span>
+            {nivel !== "mudo" && (
+              // --lines: nombres como "Man Global IG Opps." no entran en una línea
+              // en una celda angosta, pero muchas de esas celdas son ALTAS. Donde
+              // sobra alto se permiten dos líneas; donde no, una sola con elipsis.
+              <div className="ten-tm-label" style={{ ["--fs"]: fs, ["--lines"]: rh > 120 ? 2 : 1 } as CSSProperties}>
+                {nivel !== "pct" && (
+                  <>
+                    <span className="ten-tm-eyebrow">{nivel === "full" ? CLASE_LABEL[p.clase] : p.clase}</span>
+                    <span className="ten-tm-name">{p.short}</span>
+                  </>
+                )}
                 <span className="ten-tm-pct">{fmt(p.peso)}</span>
               </div>
             )}
@@ -322,9 +341,14 @@ export function FondoTenencias() {
             {vista === "treemap" ? <Treemap placedWide={placedWide} placedTall={placedTall} /> : <Pie sorted={sorted} total={total} hover={hover} setHover={setHover} />}
           </div>
 
+          {/* Lo único que esta nota tiene que hacer es fechar el dato que está
+              arriba. El "factsheet mensual" que decía antes prometía una cadencia
+              que el Reglamento no obliga (literal (t): estado de cuenta semestral
+              + información permanente en la Administradora), y explicar acá el
+              régimen de información completo es traer el contrato a una nota al
+              pie de un gráfico. */}
           <p className="ten-foot">
-            Composición al {fmtFechaCorta(holdings!.asOf)}. Los pesos vigentes se informan en la ficha técnica
-            mensual y pueden haber variado desde esa fecha.
+            Composición al {fmtFechaCorta(holdings!.asOf)}; las ponderaciones pueden haber variado desde esa fecha.
           </p>
         </>
       ) : (
@@ -333,7 +357,7 @@ export function FondoTenencias() {
             {state.kind === "loading" ? "Cargando la composición de la cartera…" : "La composición de la cartera se publica próximamente."}
           </p>
           <p className="ten-empty-sub">
-            Las tenencias se informan en la ficha técnica mensual y a través de un asesor nuestro.
+            Un asesor nuestro te explica la composición del Fondo en detalle.
           </p>
         </div>
       )}
@@ -385,7 +409,15 @@ export function FondoTenencias() {
         .ten-split-dot { width: 9px; height: 9px; border-radius: 999px; }
 
         /* ── Stage (flush, sin tarjeta) ── */
-        .ten-stage { margin-top: 28px; animation: ten-fade 420ms ease both; }
+        /* ⚠️ fill-mode BACKWARDS, no "both", acá y en las celdas del treemap.
+           "both" retiene el último keyframe, y como ése lleva transform:none el
+           navegador lo conserva como MATRIZ IDENTIDAD: la caja queda con un
+           transform, se rasteriza en su propia capa y sus bordes se antialiasean
+           contra el fondo del contenedor en vez de calzar con la celda vecina —
+           hairline navy entre bloques, permanente. "backwards" sostiene el
+           primer keyframe durante el delay escalonado (que es lo único que hace
+           falta) y suelta el estado final, así el transform vuelve a none. */
+        .ten-stage { margin-top: 28px; animation: ten-fade 420ms ease backwards; }
         @keyframes ten-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
         /* ── Treemap ── */
@@ -401,7 +433,7 @@ export function FondoTenencias() {
           border: 1.5px solid rgba(255,255,255,0.10);
           display: flex; align-items: flex-start; overflow: hidden;
           transition: filter 160ms ease;
-          animation: ten-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          animation: ten-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
         }
         @keyframes ten-pop { from { opacity: 0; transform: scale(0.965); } to { opacity: 1; transform: none; } }
         .ten-tm-cell:hover { filter: brightness(1.12); }
@@ -417,7 +449,8 @@ export function FondoTenencias() {
         }
         .ten-tm-name {
           font-size: var(--fs); font-weight: 600; letter-spacing: -0.01em;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+          display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines, 1);
+          overflow: hidden; overflow-wrap: break-word; max-width: 100%;
         }
         .ten-tm-pct { font-size: calc(var(--fs) * 0.82); font-variant-numeric: tabular-nums; opacity: 0.82; }
 
@@ -425,11 +458,15 @@ export function FondoTenencias() {
         .ten-pie { display: grid; grid-template-columns: auto 1fr; gap: 52px; align-items: center; padding: 6px; }
         .ten-pie-chart { display: flex; justify-content: center; }
         .ten-pie-svg { width: 300px; height: 300px; flex: none; }
+        /* backwards, no "both", por el mismo motivo que arriba y por uno más: una
+           animación retenida GANA EN LA CASCADA sobre las reglas normales, así
+           que el fill dejaba clavada la opacidad en 1 y mataba el atenuado del
+           hover (.ten-pie-svg g[data-dim="1"] path). */
         .ten-pie-svg path {
           stroke: #f6f7fb; stroke-width: 1.5; stroke-linejoin: round;
           transform-origin: 150px 150px; cursor: default;
           transition: opacity 220ms ease, transform 220ms ease;
-          animation: ten-arc 480ms ease both;
+          animation: ten-arc 480ms ease backwards;
         }
         @keyframes ten-arc { from { opacity: 0; } to { opacity: 1; } }
         .ten-pie-svg g[data-dim="1"] path { opacity: 0.3; }
@@ -451,10 +488,10 @@ export function FondoTenencias() {
         .ten-leg-class { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; line-height: 1; }
         .ten-leg-class[data-c="RV"] { color: #1a3163; background: rgba(26,49,99,0.10); }
         .ten-leg-class[data-c="RF"] { color: #8A6A1E; background: rgba(160,124,40,0.12); }
-        .ten-leg-class[data-c="Otros"] { color: #5b6172; background: rgba(154,160,180,0.18); }
+        .ten-leg-class[data-c="ALT"] { color: #5b6172; background: rgba(154,160,180,0.18); }
         .ten-leg-pct { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 34px; text-align: right; }
 
-        .ten-foot { margin: 24px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--site-ink-3); max-width: 60em; }
+        .ten-foot { margin: 24px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--site-ink-3); max-width: var(--medida-legal); }
 
         @media (max-width: 920px) {
           .ten-pie { grid-template-columns: 1fr; gap: 30px; justify-items: center; }

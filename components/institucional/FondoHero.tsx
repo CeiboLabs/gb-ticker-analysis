@@ -1,17 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  useSyncExternalStore,
+} from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { Fachada, FACHADA_HORIZONTE, FACHADA_VIEWBOX } from "@/components/institucional/Fachada";
+import {
+  Fachada, fachadaMascara, FACHADA_HORIZONTE, FACHADA_HORIZONTE_LEN, FACHADA_VIEWBOX,
+} from "@/components/institucional/Fachada";
 
 // Hero del fondo — versión FACHADA full-bleed. El header entero es el mosaico de
 // paneles embutidos <Fachada /> (extraído a su propio componente, reusado como
 // miniatura en el destacado "Invertir" del navbar). Acá va a tamaño completo: un
 // scrim oscurece la izquierda para que el claim se lea; y la firma BNG a la
-// derecha, sobre el horizonte, como remate. SIN animación de entrada: todo
-// renderiza en su estado final; sólo queda un push-out sutil al scroll (atenuado
-// en reduce-motion).
+// derecha, sobre el horizonte, como remate.
+//
+// ── LA VIDA DEL HEADER ────────────────────────────────────────────────────
+// La composición no se toca; lo que se agrega es LUZ y una LLEGADA. Se midió
+// qué animan de hecho las casas del rubro: Man Group tiene un hero de mosaico
+// facetado casi igual a este y es 100% estático; Baillie Gifford tampoco mueve
+// nada en reposo, pero sí coreografía la entrada (su `wordFadeInUp`). O sea: el
+// loop ambiente NO es la convención, y lo que se lee como vivo es otra cosa.
+//
+//  1. LLEGADA (CSS puro, sin depender de la hidratación) — el horizonte se
+//     traza de izquierda a derecha y la firma BNG materializa justo donde la
+//     línea aterriza. Hasta ahora todo el trabajo de `encuadrar()` era
+//     invisible: la línea ya estaba en el hueco del wordmark cuando mirabas.
+//     Trazarla convierte esa precisión en el gesto de marca del header.
+//  2. LUZ RASANTE — una luz recorre la fachada en 30 s, ida y vuelta,
+//     RECORTADA POR LAS PROPIAS FACETAS (ver `fachadaMascara`): la reciben
+//     panel por panel, como un edificio real.
+//  3. FOCO AL PUNTERO — relieve. Mueve la luz, nunca la geometría: el encuadre
+//     wordmark↔horizonte queda intacto.
+//
+// Un solo sol gobierna las tres: el horizonte va dentro de la misma máscara, no
+// tiene destello propio. Nada parpadea por su cuenta.
+//
+// Las dos capas de luz son CLIENT-ONLY (montan con `luzLista`): su máscara
+// depende del `pan` del encuadre, que en el server todavía es neutro. Antes de
+// hidratar el header se ve exactamente como antes, y la luz sube con un fade.
 //
 // El claim son DOS niveles, no tres: titular + ledger de hechos (convención de
 // key-facts strip de las casas de fondos). El párrafo lead intermedio
@@ -167,6 +195,22 @@ function scriptEncuadre(horizonte: number[][], vw: number, vh: number) {
 // useLayoutEffect avisa en SSR; en el server no hay nada que medir.
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
+// El titular entra palabra por palabra (patrón `wordFadeInUp` de Baillie
+// Gifford). Se parte acá, en el módulo, y no midiendo líneas en el cliente: el
+// índice de cada palabra es el mismo en server y en browser, así que la
+// coreografía arranca con el primer pintado en vez de esperar la hidratación
+// —que dejaría el titular quieto un instante y recién ahí lo animaría.
+const TITULAR =
+  "Una estrategia balanceada y gestionada profesionalmente, con exposición global.".split(" ");
+
+// "¿Ya estoy en el cliente?" vía useSyncExternalStore: devuelve false en el
+// server y true en el browser, sin el setState-dentro-de-effect que dispara un
+// render en cascada. Las tres funciones viven en el módulo para que sean
+// estables entre renders y no re-suscriban.
+const NO_SUSCRIBE = () => () => {};
+const HAY_CLIENTE = () => true;
+const NO_HAY_CLIENTE = () => false;
+
 export function FondoHero() {
   const reduce = useReducedMotion();
 
@@ -206,6 +250,69 @@ export function FondoHero() {
     return () => ro.disconnect();
   }, [encuadrar]);
 
+  // ── Luz ──────────────────────────────────────────────────────────────────
+  // Las capas de luz montan recién en el cliente: su máscara se recorta contra
+  // los paneles y tiene que llevar el MISMO pan que el mosaico, que en el
+  // server todavía es neutro. Montarlas después evita que la luz aparezca
+  // corrida medio edificio durante el primer pintado.
+  const luzLista = useSyncExternalStore(NO_SUSCRIBE, HAY_CLIENTE, NO_HAY_CLIENTE);
+  const mascara = useMemo(() => fachadaMascara(encuadre.pan), [encuadre.pan]);
+
+  // La luz sólo existe mientras el hero esté a la vista. Sin esto la banda
+  // rasante sigue animando toda la página —que mide unos 13.500 px contra los
+  // 774 del hero—, o sea que ~94% del scroll estaría gastando CPU y memoria de
+  // GPU en algo que nadie puede ver. La clase la escribe el observer directo
+  // sobre el nodo: pasarlo por estado dispararía un render por cada cruce.
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const io = new IntersectionObserver(([e]) => hero.classList.toggle("ffac-fuera", !e.isIntersecting));
+    io.observe(hero);
+    return () => io.disconnect();
+  }, []);
+
+  // Foco que sigue al puntero. Escribe el transform directo sobre el nodo (no
+  // por estado de React: son ~60 actualizaciones por segundo) y persigue al
+  // cursor con inercia, así el relieve se siente material y no pegado al mouse.
+  // Sólo con puntero fino: en touch no hay hover que seguir y sería una capa
+  // más para componer a cambio de nada.
+  // ⚠️ `luzLista` VA EN LAS DEPS. La bola se monta recién cuando esa bandera se
+  // prende, o sea un render DESPUÉS del de hidratación: si el efecto sólo
+  // dependiera de `reduce`, correría con bolaRef.current en null, saldría por la
+  // guarda y no volvería a intentarlo nunca. Enganchaba sólo de casualidad —
+  // cuando useReducedMotion pasaba de null a false después de montarse la capa y
+  // lo hacía correr de nuevo—, y de ahí que el foco anduviera a veces sí y a
+  // veces no.
+  const bolaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const hero = heroRef.current, bola = bolaRef.current;
+    if (!hero || !bola || reduce) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+
+    let destinoX = 0, destinoY = 0, x = 0, y = 0, raf = 0;
+    const paso = () => {
+      x += (destinoX - x) * 0.055;
+      y += (destinoY - y) * 0.055;
+      // Del ref y no de la variable capturada: si la capa se remontara, escribir
+      // sobre el nodo viejo —ya desconectado— no se vería y no habría error.
+      const nodo = bolaRef.current;
+      if (nodo) nodo.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      raf = Math.abs(destinoX - x) > 0.5 || Math.abs(destinoY - y) > 0.5
+        ? requestAnimationFrame(paso) : 0;
+    };
+    const mover = (e: PointerEvent) => {
+      const r = hero.getBoundingClientRect();
+      destinoX = e.clientX - r.left - r.width / 2;
+      destinoY = e.clientY - r.top - r.height / 2;
+      if (!raf) raf = requestAnimationFrame(paso);
+    };
+    window.addEventListener("pointermove", mover, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", mover);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [reduce, luzLista]);
+
   return (
     <header className="ffac-hero" ref={heroRef}>
       {/* ── Fachada (mosaico + horizonte) ── */}
@@ -217,7 +324,36 @@ export function FondoHero() {
           className="ffac-stage-fit" suppressHydrationWarning
           style={{ transform: `translateY(${encuadre.dy}px) scale(${encuadre.k})` }}
         >
-          <Fachada pan={encuadre.pan} />
+          {/* Caja de la LLEGADA. Va aparte del stage-fit porque ahí escribe el
+              encuadre, y aparte del stage porque ahí escribe framer el parallax:
+              tres transforms, tres cajas, ninguna pisando a la otra. */}
+          <div className="ffac-lienzo">
+            <Fachada pan={encuadre.pan} />
+
+            {luzLista && (
+              <>
+                {/* Luz rasante: la banda es lo único que se mueve (transform,
+                    compositada); la máscara de facetas es estática y se
+                    rasteriza una sola vez. */}
+                <div
+                  className="ffac-luz on"
+                  style={{ WebkitMaskImage: mascara, maskImage: mascara }}
+                  aria-hidden
+                >
+                  <div className="ffac-luz-banda" />
+                </div>
+
+                {/* Foco al puntero — misma máscara, mismo material. */}
+                <div
+                  className="ffac-foco on"
+                  style={{ WebkitMaskImage: mascara, maskImage: mascara }}
+                  aria-hidden
+                >
+                  <div className="ffac-foco-bola" ref={bolaRef} />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </motion.div>
 
@@ -229,15 +365,26 @@ export function FondoHero() {
         className="ffac-sign" aria-hidden
         style={reduce ? undefined : { opacity: signOpacity }}
       >
-        <span className="ffac-sign-bng">BNG</span>
-        <span className="ffac-sign-sub">SELECCIÓN GLOBAL</span>
+        {/* La llegada va en una caja INTERIOR: framer le anima la opacidad al
+            .ffac-sign para el fade-out del scroll, y lo hace por WAAPI —que en
+            la cascada le gana a las animaciones de CSS—, así que un keyframe de
+            entrada puesto ahí no se vería nunca. Separadas, cada una manda en su
+            capa y las dos opacidades se multiplican. */}
+        <span className="ffac-sign-in">
+          <span className="ffac-sign-bng">BNG</span>
+          <span className="ffac-sign-sub">SELECCIÓN GLOBAL</span>
+        </span>
       </motion.div>
 
       {/* ── Claim editorial ── */}
       <motion.div className="site-wrap ffac-content" style={reduce ? undefined : { y: contentY, opacity: contentOpacity }}>
         <div className="ffac-copy">
           <h1 className="fh-h1 t-serif-display">
-            Una estrategia balanceada y gestionada profesionalmente, con exposición global.
+            {TITULAR.map((palabra, i) => (
+              <Fragment key={i}>
+                <span className="fh-w" style={{ "--i": i } as React.CSSProperties}>{palabra}</span>{" "}
+              </Fragment>
+            ))}
           </h1>
           <ul className="fh-ledger">
             <li>Acciones + Bonos + Activos alternativos</li>
@@ -253,6 +400,8 @@ export function FondoHero() {
 
       <style>{`
         .ffac-hero {
+          /* La curva única de la casa (docs/lenguaje-visual.md). */
+          --ffac-ease: cubic-bezier(0.16, 1, 0.3, 1);
           position: relative; isolation: isolate; overflow: hidden;
           color: #fff; background: var(--navy);
           min-height: min(90vh, 860px);
@@ -267,6 +416,128 @@ export function FondoHero() {
            por el medio del wordmark. Va aparte del stage para no pelearse con el
            transform que framer escribe ahí para el parallax. */
         .ffac-stage-fit { position: absolute; inset: 0; }
+        .ffac-lienzo { position: absolute; inset: 0; }
+
+        /* ── LUZ ──────────────────────────────────────────────────────────
+           Dos capas, una sola máscara: la silueta de los paneles (la arma
+           fachadaMascara con el mismo pan que el mosaico). Por eso la luz cae
+           panel por panel en vez de barrer el hero como un brillo plano.
+           Quedan DEBAJO del scrim a propósito: a la izquierda el scrim las
+           apaga, que es donde tiene que mandar el claim. */
+        .ffac-luz, .ffac-foco {
+          position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+          opacity: 0; transition: opacity 900ms var(--ffac-ease);
+          -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+          -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+          /* Capa propia: la máscara se rasteriza una vez y el hijo que se mueve
+             no obliga a repintar el SVG de 24 polígonos que hay debajo. */
+          transform: translateZ(0);
+        }
+        .ffac-luz.on, .ffac-foco.on { opacity: 1; }
+
+        /* Fuera de pantalla no hay luz que valga: se van las capas enteras, no
+           sólo la animación — así el compositor tampoco carga con ellas. */
+        .ffac-hero.ffac-fuera .ffac-luz,
+        .ffac-hero.ffac-fuera .ffac-foco { display: none; }
+
+        /* En touch no hay puntero que seguir. El efecto ya no se suscribía a
+           nada, pero la capa se seguía componiendo: un degradado de varios MB
+           quieto para siempre. Acá muere del lado del CSS, que es el que manda
+           sobre si la capa existe. */
+        @media (hover: none), (pointer: coarse) {
+          .ffac-foco { display: none; }
+        }
+
+        /* Banda rasante: lo ÚNICO que se mueve en reposo. 30 s de ida y vuelta
+           con ease-in-out simétrico — no la curva de la casa, que es de llegada
+           y acá dejaría el retorno arrancando de golpe. El núcleo es blanco y
+           los flancos dorados: luz, no un tinte de color. */
+        /* La caja se queda en el alto del hero y sobra sólo a los costados, que
+           es por donde viaja. Desbordarla también en vertical no agregaba nada
+           —el degradado llena su caja igual, la inclinación de 101deg ya sale
+           de los stops— y engordaba la capa a componer un 40%. */
+        .ffac-luz-banda {
+          position: absolute; top: 0; bottom: 0; left: -45%; width: 190%;
+          background: linear-gradient(101deg,
+            transparent 0%,
+            rgba(235,210,136,0) 26%,
+            rgba(235,210,136,0.13) 40%,
+            rgba(255,255,255,0.22) 50%,
+            rgba(235,210,136,0.13) 60%,
+            rgba(235,210,136,0) 74%,
+            transparent 100%);
+          will-change: transform;
+          animation: ffac-rasante 30s ease-in-out infinite alternate;
+        }
+        /* ±28% del ancho propio (190%) = ±53% del hero: el núcleo de luz barre
+           de borde a borde justo, sin recorrido de más. */
+        @keyframes ffac-rasante {
+          from { transform: translate3d(-28%, 0, 0); }
+          to   { transform: translate3d(28%, 0, 0); }
+        }
+
+        /* Foco al puntero: lo posiciona el efecto de arriba escribiendo
+           transform. Sobredimensionado para que el borde del degradado nunca
+           entre en cuadro. */
+        .ffac-foco-bola {
+          position: absolute; left: 50%; top: 50%;
+          width: 80vmax; height: 80vmax; margin: -40vmax 0 0 -40vmax;
+          background: radial-gradient(closest-side,
+            rgba(255,255,255,0.20), rgba(235,210,136,0.07) 45%, transparent 72%);
+          will-change: transform;
+        }
+
+        /* ── LLEGADA ──────────────────────────────────────────────────────
+           Todo en CSS y servido desde el server: arranca con el primer pintado,
+           sin esperar la hidratación. El estado inicial (invisible) lo pone el
+           fill-mode, así que si el navegador pide reduce-motion y matamos las
+           animaciones, todo queda visible sin más. */
+        .ffac-lienzo { animation: ffac-entra-lienzo 1400ms var(--ffac-ease) both; }
+        @keyframes ffac-entra-lienzo {
+          from { opacity: 0; transform: scale(1.03); }
+          to   { opacity: 1; transform: none; }
+        }
+
+        /* El horizonte se traza. Scopeado al hero: la misma polilínea la usa la
+           miniatura del navbar, que tiene que seguir apareciendo dibujada. */
+        .ffac-hero .ffac-horizonte {
+          stroke-dasharray: ${FACHADA_HORIZONTE_LEN};
+          animation: ffac-traza 1500ms var(--ffac-ease) 250ms both;
+        }
+        @keyframes ffac-traza {
+          from { stroke-dashoffset: ${FACHADA_HORIZONTE_LEN}; }
+          to   { stroke-dashoffset: 0; }
+        }
+
+        /* La firma materializa cuando la línea ya le llegó: ese encuentro ES el
+           gesto de marca. Va en .ffac-sign-in y no en .ffac-sign porque ahí
+           manda framer (ver el comentario en el markup).
+           ⚠️ SÓLO OPACIDAD, NUNCA TRANSFORM. El wordmark es lo que mide
+           calcularEncuadre() para saber dónde tiene que entrar el horizonte, y
+           con fill: both la animación ya lo tiene desplazado ANTES de arrancar:
+           el script inline mediría la firma 14px más abajo, encuadraría contra
+           esa posición falsa y dejaría la línea pegada a SELECCIÓN GLOBAL para
+           siempre (el encuadre no se recalcula solo: el ResizeObserver mira el
+           tamaño del hero, que no cambia). Que la firma no se mueva además es
+           lo correcto de diseño: su posición es justamente el punto. */
+        .ffac-sign-in { display: block; }
+        .ffac-hero .ffac-sign-in {
+          animation: ffac-aparece 900ms var(--ffac-ease) 1000ms both;
+        }
+        @keyframes ffac-aparece { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Titular palabra por palabra; después el ledger y los botones. */
+        .fh-h1 .fh-w {
+          display: inline-block;
+          animation: ffac-entra 800ms var(--ffac-ease) both;
+          animation-delay: calc(120ms + var(--i) * 45ms);
+        }
+        .ffac-hero .fh-ledger  { animation: ffac-entra 800ms var(--ffac-ease) 1150ms both; }
+        .ffac-hero .fh-actions { animation: ffac-entra 800ms var(--ffac-ease) 1280ms both; }
+        @keyframes ffac-entra {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: none; }
+        }
 
         /* Scrim: izquierda muy oscura (claim) → derecha despejada (fachada y
            firma). Más un velo arriba (navbar) y abajo (CTAs). */
@@ -346,14 +617,43 @@ export function FondoHero() {
           .fh-ledger { flex-direction: column; gap: 9px; padding-top: 16px; }
           .fh-ledger li + li::before { content: none; }
         }
+
+        /* Reduce-motion: se apaga TODO el movimiento. Como el estado inicial de
+           la llegada lo pone el fill-mode, matar las animaciones deja cada cosa
+           en su estado final —no hace falta redeclarar nada visible—; sólo hay
+           que soltar el dasharray para que el horizonte no quede punteado. */
+        @media (prefers-reduced-motion: reduce) {
+          .ffac-lienzo,
+          .ffac-hero .ffac-horizonte,
+          .ffac-hero .ffac-sign-in,
+          .fh-h1 .fh-w,
+          .ffac-hero .fh-ledger,
+          .ffac-hero .fh-actions,
+          .ffac-luz-banda { animation: none; }
+          .ffac-hero .ffac-horizonte { stroke-dasharray: none; }
+          .ffac-foco { display: none; }
+        }
       `}</style>
 
       {/* Encuadre antes del primer pintado. Va acá abajo, después del markup y
           de los estilos del hero, para que al ejecutarse ya haya layout que
-          medir. */}
-      <script
+          medir.
+
+          ⚠️ VA COMO HTML CRUDO DE UN CONTENEDOR, no como un elemento script del
+          árbol de React. Un script sólo se ejecuta cuando el HTML lo escribe el
+          server: si React lo crea en el CLIENTE —navegación interna, o cualquier
+          render que no sea la hidratación— el nodo nace inerte, y React 19 lo
+          cantea por consola ("Encountered a script tag while rendering React
+          component"). Metido en el innerHTML de un div, el server lo sigue
+          emitiendo tal cual (el navegador lo ejecuta al parsear, que es lo único
+          que nos importa) y en el cliente queda un nodo muerto que no avisa nada:
+          ahí el encuadre ya lo pone el layout effect, antes del pintado. */}
+      <div
+        hidden
         dangerouslySetInnerHTML={{
-          __html: scriptEncuadre(FACHADA_HORIZONTE, FACHADA_VIEWBOX.w, FACHADA_VIEWBOX.h),
+          __html: `<script>${
+            scriptEncuadre(FACHADA_HORIZONTE, FACHADA_VIEWBOX.w, FACHADA_VIEWBOX.h)
+          }</script>`,
         }}
       />
     </header>

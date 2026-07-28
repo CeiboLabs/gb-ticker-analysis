@@ -234,7 +234,7 @@ export const HoldingsSchema = z
         z.object({
           name: z.string().trim().min(2, "Nombre muy corto").max(120),
           short: z.string().trim().max(24).optional(),
-          assetClass: z.enum(["RV", "RF", "Otros"]),
+          assetClass: z.enum(["RV", "RF", "ALT"]),
           weightBps: z.number().int("Los pesos van en basis points enteros").min(1).max(10_000),
         }),
       )
@@ -254,7 +254,16 @@ export const HoldingsSchema = z
 
 // ── Documentos del fondo ─────────────────────────────────────────────────────
 
-export const FONDO_DOC_TIPOS = ["ficha-tecnica", "datos-fundamentales", "reglamento", "informe-cartera"] as const;
+// ⚠️ "datos-fundamentales" e "informe-cartera" siguen acá por compatibilidad
+// con lo ya subido, pero la página del fondo NO los lista (ver el catálogo en
+// components/institucional/FondoDocumentos.tsx, que explica cada baja).
+export const FONDO_DOC_TIPOS = [
+  "ficha-tecnica",
+  "datos-fundamentales",
+  "reglamento",
+  "autorizacion-bcu",
+  "informe-cartera",
+] as const;
 export type FondoDocTipo = (typeof FONDO_DOC_TIPOS)[number];
 
 export function isFondoDocTipo(t: string): t is FondoDocTipo {

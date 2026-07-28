@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { FundNavPoint, ReturnKey } from "@/lib/fondo";
-import { BENCHMARK, MONEDA } from "@/lib/fondo";
+import { BENCHMARK, BENCHMARK_PROXY, MONEDA } from "@/lib/fondo";
 import { useFondo, fmtNav, fmtIndex, fmtPct, fmtAum, fmtFechaCorta } from "@/lib/useFondo";
 import { FondoChart } from "@/components/institucional/FondoChart";
 import { PeriodSlider } from "@/components/institucional/PeriodSlider";
@@ -72,6 +72,29 @@ function rebase100(rows: FundNavPoint[]): FundNavPoint[] {
   return rows.map((p) => ({ ...p, nav: (p.nav / base) * 100 }));
 }
 
+// Cuota HIPOTÉTICA con la que se expresa el benchmark en USD mientras el Fondo
+// no publica valor cuota: cuánto valdría hoy una cuota de USD 1.000 puesta en el
+// benchmark el día en que arranca la serie de referencia.
+//
+// ⚠️ NO es —ni pretende anticipar— el valor cuota del Fondo. Es el mismo
+// compuesto 60/40 de la vista base 100, con los MISMOS retornos, expresado en
+// otra escala: multiplicar toda la serie por una constante no cambia un solo
+// rendimiento. El rótulo del gráfico, la unidad del eje, la nota de arriba y el
+// pie lo dicen; sin eso, una curva en USD sobre la página del fondo se lee como
+// el track record que el Fondo todavía no tiene.
+const CUOTA_HIPOTETICA = 1000;
+
+// Escala ABSOLUTA, anclada al primer punto de la serie completa y no al del
+// período visible: así los USD 1.000 son un origen fijo en el tiempo (jul-2021)
+// y la ventana de 1M muestra ~1.300, no un 1.000 que se reinicia en cada
+// período —que sería base 100 disfrazada, y las dos vistas del toggle darían
+// exactamente la misma curva—.
+function scaleTo(rows: FundNavPoint[], anchor: number | null): FundNavPoint[] {
+  if (rows.length === 0 || !anchor) return rows;
+  const k = CUOTA_HIPOTETICA / anchor;
+  return rows.map((p) => ({ ...p, nav: p.nav * k }));
+}
+
 // Sparkline del AUM (mini-área) para el header: la tendencia del tamaño del
 // fondo de un vistazo, sin ejes ni interacción (la cifra exacta vive al lado).
 // SVG inline — hairline navy + relleno suave, en línea con el lenguaje visual.
@@ -111,25 +134,49 @@ export function FondoPerformance() {
 
   const data = state.kind === "ready" ? state.data : null;
   const live = !!(data && data.status === "live" && data.series.length > 1);
+  // Pre-lanzamiento CON benchmark cargado: el Fondo todavía no tiene serie de
+  // valor cuota propia (arranca hoy), pero sí podemos mostrar la evolución de la
+  // referencia contra la que se va a medir. Es la única línea del gráfico, y
+  // TODO —rótulo de la barra, leyenda, trazo punteado, nota al pie— dice que es
+  // el benchmark y no el fondo. Un gráfico vacío el día del lanzamiento no
+  // ayuda; uno que se pueda confundir con un track record que no existe, menos.
+  const benchOnly = !live && !!(data && data.benchmark.length > 1);
+  // Nivel del benchmark en el ORIGEN de la serie completa (no del período
+  // visible): es el ancla de la cuota hipotética — ver scaleTo().
+  const benchAnchor = data?.benchmark[0]?.nav ?? null;
   const series = useMemo(
     () => (live && data ? windowFor(data.series, period) : []),
     [live, data, period],
   );
+  // La serie del benchmark ya llega alineada a la vida del fondo desde el server
+  // (snapshotFromSeries la recorta), así que acá sólo se le aplica el período.
   const benchSeries = useMemo(
-    () => (live && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
-    [live, data, period],
+    () => ((live || benchOnly) && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
+    [live, benchOnly, data, period],
   );
   // Datos que entran al gráfico de rendimiento según el modo del slider:
   //   "cuota":   valor cuota real del fondo, una línea, eje en USD.
   //   "base100": fondo + benchmark reescalados a 100 en el primer punto del
   //              período (origen común para leer la evolución relativa); el eje
   //              pasa a índice. El benchmark sólo aparece en este modo.
+  // Sin fondo (benchOnly) el benchmark pasa a ser la serie protagonista y el
+  // toggle sigue existiendo, pero alterna DOS LECTURAS DE LA MISMA SERIE:
+  //   "base100": reescalada a 100 al inicio del período (evolución relativa).
+  //   "cuota":   la misma curva en USD, como una cuota hipotética de 1.000
+  //              puesta en el benchmark al inicio de la serie. Ni un número
+  //              inventado: es un cambio de escala, no un dato nuevo.
   const chart = useMemo(() => {
+    if (benchOnly) {
+      if (view === "base100") {
+        return { series: rebase100(benchSeries), benchmark: [] as FundNavPoint[], format: fmtIndex };
+      }
+      return { series: scaleTo(benchSeries, benchAnchor), benchmark: [] as FundNavPoint[], format: fmtNav };
+    }
     if (view === "base100") {
       return { series: rebase100(series), benchmark: rebase100(benchSeries), format: fmtIndex };
     }
     return { series, benchmark: [] as FundNavPoint[], format: fmtNav };
-  }, [view, series, benchSeries]);
+  }, [benchOnly, view, series, benchSeries, benchAnchor]);
   // Valores de AUM (historia completa) para el sparkline del header: la
   // tendencia del tamaño del fondo desde el inicio. No se ata al período — es un
   // resumen del dato, no un gráfico interactivo (el AUM es tamaño, no rendimiento).
@@ -153,17 +200,34 @@ export function FondoPerformance() {
     SI: "Desde inicio",
   };
 
-  // Año calendario en orden cronológico (columnas izq.→der.) + lookup del bench.
-  const calAsc = [...calendar].reverse();
+  // Lookups por año para las dos filas de la tabla calendario.
+  const fundByYear = new Map(calendar.map((c) => [c.year, c.pct]));
   const benchByYear = new Map(benchCalendar.map((c) => [c.year, c.pct]));
+  // Primer y último día de la serie del benchmark — el pie tiene que decir desde
+  // cuándo se la mide cuando es lo único que hay en pantalla.
+  const benchDesde = data?.benchmark[0]?.dia ?? null;
+  const benchHasta = data?.benchmark[data.benchmark.length - 1]?.dia ?? null;
+  // Años que van como columnas (cronológico, izq.→der.). Con serie del fondo,
+  // los del fondo. En pre-lanzamiento, los del benchmark — salvo su primer año
+  // si la serie no arranca en enero: sería un tramo parcial presentado como año
+  // calendario. (En el fondo ese primer año parcial SÍ vale: es "desde el inicio
+  // del fondo", que es exactamente lo que la columna dice.)
+  const calYears = benchOnly
+    ? benchCalendar
+        .map((c) => c.year)
+        .filter((y) => !(benchDesde?.slice(5) !== "01-01" && y === Number(benchDesde?.slice(0, 4))))
+        .sort((a, b) => a - b)
+    : [...calendar].reverse().map((c) => c.year);
   // Lookup del bench por período — para la tabla transpuesta de mobile.
   const benchByKey = new Map(benchReturns.map((r) => [r.key, r.pct]));
-  const asOfYear = data?.asOf ? Number(data.asOf.slice(0, 4)) : null;
+  // Cierre más reciente en pantalla: el del fondo, o el del benchmark cuando es
+  // la única serie. Marca si el último año calendario va parcial.
+  const ultimoDia = data?.asOf ?? (benchOnly ? benchHasta : null);
   const lastIsPartial =
-    asOfYear != null &&
-    calAsc.length > 0 &&
-    calAsc[calAsc.length - 1].year === asOfYear &&
-    (data?.asOf ?? "").slice(5) !== "12-31";
+    ultimoDia != null &&
+    calYears.length > 0 &&
+    calYears[calYears.length - 1] === Number(ultimoDia.slice(0, 4)) &&
+    ultimoDia.slice(5) !== "12-31";
 
   // Indicadores de riesgo — derivados de la serie NAV. Se muestran sólo los dos
   // más estables (volatilidad y retorno anualizado); drawdown, mejor/peor mes y
@@ -243,7 +307,7 @@ export function FondoPerformance() {
       </div>
 
       <div className="perf-bar">
-        {live ? (
+        {live || benchOnly ? (
           <div className="perf-view" data-active={view} role="tablist" aria-label="Modo del gráfico">
             <span className="perf-view-thumb" aria-hidden />
             <button
@@ -252,7 +316,14 @@ export function FondoPerformance() {
               className="perf-view-btn"
               onClick={() => setView("cuota")}
             >
-              Valor cuota
+              {/* Sin serie del fondo esta pestaña NO puede llamarse "Valor
+                  cuota": lo que muestra es el benchmark, no una cuota del Fondo.
+                  Y tampoco hace falta que se disculpe ("cuota hipotética" leía a
+                  provisorio): en pre-lanzamiento el toggle elige literalmente la
+                  ESCALA del eje —USD o índice base 100—, así que se nombra por
+                  lo que hace. Cuando el Fondo tenga serie propia, esta pestaña sí
+                  es el valor cuota y vuelve a decirlo. */}
+              {benchOnly ? "En USD" : "Valor cuota"}
             </button>
             <button
               role="tab"
@@ -264,26 +335,54 @@ export function FondoPerformance() {
             </button>
           </div>
         ) : (
+          // Ni serie del fondo ni benchmark: el módulo entero está vacío.
           <span className="perf-bar-label">Evolución del valor cuota</span>
         )}
         <PeriodSlider
           periods={PERIODS}
           value={period}
           onChange={setPeriod}
-          disabled={!live}
+          disabled={!live && !benchOnly}
         />
       </div>
 
       <div className="perf-chart-frame">
-        {live ? (
-          <FondoChart
-            series={chart.series}
-            benchmark={chart.benchmark}
-            formatValue={chart.format}
-            unitLabel={view === "base100" ? "Índice · base 100" : MONEDA}
-            seriesLabel="BNG Selección Global"
-            benchLabel={BENCHMARK.corto}
-          />
+        {live || benchOnly ? (
+          <>
+            {/* Antes del gráfico, no después: quien mira la curva tiene que
+                saber de qué serie es ANTES de leerle una pendiente. */}
+            {/* UNA línea, no un párrafo. La aclaración tiene que estar —la curva
+                es del benchmark y no del Fondo—, pero cinco renglones de
+                advertencia arriba del gráfico hacen ver toda la sección como
+                inacabada. El detalle largo (cuota hipotética, cómo se construye
+                la serie) vive al pie, que es donde una ficha de fondo lo pone. */}
+            {benchOnly && (
+              <p className="perf-benchonly">
+                El Fondo aún no publica valor cuota; la curva es la del{" "}
+                <strong>benchmark de referencia</strong> ({BENCHMARK.nombre}).
+              </p>
+            )}
+            <FondoChart
+              series={chart.series}
+              benchmark={chart.benchmark}
+              formatValue={chart.format}
+              unitLabel={
+                benchOnly
+                  ? view === "cuota"
+                    // "base 1.000" en vez de "hipotético": dice exactamente lo
+                    // mismo —que el origen es un supuesto— pero en la misma
+                    // clave factual que "base 100", sin sonar a advertencia.
+                    ? `${MONEDA} · base ${CUOTA_HIPOTETICA.toLocaleString("es-UY")}`
+                    : "Índice · base 100"
+                  : view === "base100"
+                    ? "Índice · base 100"
+                    : MONEDA
+              }
+              seriesLabel={benchOnly ? `${BENCHMARK.corto} — ${BENCHMARK.nombre}` : "BNG Selección Global"}
+              benchLabel={BENCHMARK.corto}
+              lineKind={benchOnly ? "bench" : "fund"}
+            />
+          </>
         ) : (
           <div className="perf-empty">
             <p className="perf-empty-title">{emptyMsg}</p>
@@ -296,7 +395,7 @@ export function FondoPerformance() {
         <section className="perf-block">
           <div className="perf-block-head">
             <h3>Rentabilidad acumulada</h3>
-            {data?.asOf && <span className="perf-asof">al {fmtFechaCorta(data.asOf)}</span>}
+            {ultimoDia && <span className="perf-asof">al {fmtFechaCorta(ultimoDia)}</span>}
           </div>
           <div className="perf-table-scroll">
             <table className="perf-grid">
@@ -360,6 +459,16 @@ export function FondoPerformance() {
           </table>
           <p className="perf-foot">
             Cifras netas en USD. «Desde inicio» es la rentabilidad acumulada desde el inicio del fondo; el resto, del período indicado.
+            {/* Con la fila del fondo toda en «—», «Desde inicio» en la fila del
+                benchmark se leería como si el fondo hubiera arrancado con él.
+                Hay que decir desde cuándo se mide la referencia. */}
+            {benchOnly && benchDesde && (
+              <>
+                {" "}El fondo aún no registra rendimientos: su primer valor cuota está pendiente de
+                publicación. En la fila del benchmark, «Desde inicio» corresponde al{" "}
+                {fmtFechaCorta(benchDesde)}, comienzo de la serie de referencia.
+              </>
+            )}
           </p>
         </section>
 
@@ -368,32 +477,37 @@ export function FondoPerformance() {
           <div className="perf-block-head">
             <h3>Rentabilidad por año calendario</h3>
           </div>
-          {calAsc.length > 0 ? (
+          {calYears.length > 0 ? (
             <>
               <div className="perf-table-scroll">
                 <table className="perf-grid">
                   <thead>
                     <tr>
                       <th scope="col" aria-label="Serie" />
-                      {calAsc.map((c) => (
-                        <th key={c.year} scope="col">{c.year}</th>
+                      {calYears.map((y) => (
+                        <th key={y} scope="col">{y}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <th scope="row">Fondo</th>
-                      {calAsc.map((c) => (
-                        <td key={c.year} data-accent={c.pct >= 0 ? "up" : "down"}>{fmtPct(c.pct)}</td>
-                      ))}
+                      {calYears.map((y) => {
+                        const f = fundByYear.get(y);
+                        return (
+                          <td key={y} data-accent={f == null ? "" : f >= 0 ? "up" : "down"}>
+                            {fmtPct(f ?? null)}
+                          </td>
+                        );
+                      })}
                     </tr>
                     {hasBench && (
                       <tr className="perf-bench">
                         <th scope="row">{BENCHMARK.corto}</th>
-                        {calAsc.map((c) => {
-                          const b = benchByYear.get(c.year);
+                        {calYears.map((y) => {
+                          const b = benchByYear.get(y);
                           return (
-                            <td key={c.year} data-accent={b == null ? "" : b >= 0 ? "up" : "down"}>
+                            <td key={y} data-accent={b == null ? "" : b >= 0 ? "up" : "down"}>
                               {fmtPct(b ?? null)}
                             </td>
                           );
@@ -413,12 +527,13 @@ export function FondoPerformance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {calAsc.map((c) => {
-                    const b = benchByYear.get(c.year);
+                  {calYears.map((y) => {
+                    const f = fundByYear.get(y);
+                    const b = benchByYear.get(y);
                     return (
-                      <tr key={c.year}>
-                        <th scope="row">{c.year}</th>
-                        <td data-accent={c.pct >= 0 ? "up" : "down"}>{fmtPct(c.pct)}</td>
+                      <tr key={y}>
+                        <th scope="row">{y}</th>
+                        <td data-accent={f == null ? "" : f >= 0 ? "up" : "down"}>{fmtPct(f ?? null)}</td>
                         {hasBench && (
                           <td className="perf-bench-cell" data-accent={b == null ? "" : b >= 0 ? "up" : "down"}>
                             {fmtPct(b ?? null)}
@@ -456,15 +571,36 @@ export function FondoPerformance() {
       </div>
 
       <p className="perf-disclaimer">
-        Los rendimientos pasados no garantizan resultados futuros. Cifras netas, expresadas en {MONEDA}, la moneda del fondo.
-        La volatilidad y el retorno anualizado se calculan sobre la serie diaria de valor cuota.
+        Los rendimientos pasados no garantizan resultados futuros. Cifras netas de la comisión del Fondo,
+        expresadas en {MONEDA}, la moneda del fondo. La volatilidad y el retorno anualizado se calculan
+        sobre la serie diaria de valor cuota.
         {view === "base100" &&
-          (benchSeries.length > 0 ? (
-            <> En la vista base 100, el fondo y su benchmark —un compuesto de referencia— parten
-            de 100 al inicio del período para comparar la evolución de ambas series.</>
+          (benchOnly ? (
+            <> En la vista base 100, la serie del benchmark se reescala a 100 al inicio del período.</>
+          ) : benchSeries.length > 0 ? (
+            <> En la vista base 100, el fondo y su benchmark parten de 100 al inicio del período para
+            comparar la evolución de ambas series.</>
           ) : (
             <> En la vista base 100, el valor cuota se reescala a 100 al inicio del período.</>
           ))}
+        {/* El aviso más importante de la página mientras dure el pre-lanzamiento:
+            una curva con el eje en USD, en la página de un fondo, se lee sola
+            como el rendimiento de ese fondo. */}
+        {benchOnly && view === "cuota" && (
+          <> La vista en {MONEDA} muestra la evolución de {CUOTA_HIPOTETICA.toLocaleString("es-UY")}{" "}
+          {MONEDA} invertidos en el benchmark de referencia
+          {benchDesde ? ` el ${fmtFechaCorta(benchDesde)}` : ""}. <strong>No es el valor cuota del
+          Fondo</strong>, que aún no registra cierres, ni una estimación de lo que rendirá: es la misma
+          serie del benchmark expresada en {MONEDA} en lugar de en base 100.</>
+        )}
+        {/* Lo que el lector necesita es qué índice es y que no es una promesa —
+            el gráfico y las tablas lo rotulaban sólo como "Benchmark". Que no
+            surja del Reglamento es cierto, pero es razonamiento nuestro: no le
+            cambia nada a quien mira la curva. */}
+        {(hasBench || benchSeries.length > 0) && (
+          <> El benchmark es un compuesto de referencia ({BENCHMARK.nombre}): no es un objetivo de
+          rentabilidad ni una garantía. {BENCHMARK_PROXY.nota}</>
+        )}
       </p>
 
       <style>{`
@@ -568,6 +704,15 @@ export function FondoPerformance() {
           border: 1px solid var(--site-border); border-radius: 16px; padding: 18px 18px 14px;
           background: #fff;
         }
+        /* Aclaración de que la curva es del benchmark y no del fondo. Va DENTRO
+           del marco del gráfico y arriba de la leyenda: pertenece al gráfico, no
+           al pie de la sección. Hairline de separación, sin caja ni color de
+           alerta — es una precisión, no una advertencia. */
+        .perf-benchonly {
+          margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--site-border);
+          font-size: 13px; line-height: 1.55; color: var(--site-ink-2); max-width: 82ch;
+        }
+        .perf-benchonly strong { font-weight: 600; color: var(--site-ink); }
         .perf-empty {
           min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center;
           text-align: center; gap: 6px; color: var(--site-ink-3); padding: 24px;
@@ -613,7 +758,7 @@ export function FondoPerformance() {
         .perf-grid tr.perf-bench th { color: var(--site-ink-2); font-weight: 400; }
         .perf-grid tr.perf-bench td { font-weight: 400; }
 
-        .perf-foot { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); }
+        .perf-foot { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); max-width: var(--medida-legal); }
 
         /* Indicadores de riesgo: grilla de celdas regladas, subordinada — no tarjetas. */
         /* Dos indicadores: strip compacto alineado a la izquierda (no dos celdas
@@ -637,7 +782,9 @@ export function FondoPerformance() {
         .perf-risk-item dd[data-accent="up"] { color: var(--pos); }
         .perf-risk-item dd[data-accent="down"] { color: var(--neg); }
 
-        .perf-disclaimer { margin-top: 20px; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); }
+        /* Sin tope corría los 1.152px del bloque: 173 caracteres por línea, el
+           doble de lo legible. Ahora comparte la medida del resto. */
+        .perf-disclaimer { margin-top: 20px; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); max-width: var(--medida-legal); }
 
         @media (max-width: 560px) {
           .perf-grid thead th, .perf-grid tbody td { padding-left: 18px; }

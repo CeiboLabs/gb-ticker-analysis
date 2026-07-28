@@ -48,6 +48,7 @@ export function FondoChart({
   unitLabel,
   seriesLabel = "Fondo",
   benchLabel = "Benchmark",
+  lineKind = "fund",
 }: {
   series: FundNavPoint[];
   /** Serie del benchmark, alineada por fecha. Vacía ⇒ sólo se dibuja el fondo. */
@@ -59,6 +60,15 @@ export function FondoChart({
   unitLabel?: string;
   seriesLabel?: string;
   benchLabel?: string;
+  /**
+   * Qué ES la serie protagonista. En pre-lanzamiento el Fondo todavía no tiene
+   * valor cuota, así que la ÚNICA línea del gráfico es la del benchmark: entra
+   * por `series` (es la que se mide con el gesto de arrastre) pero no puede
+   * vestirse de fondo. Con "bench" va en tono subordinado y sin sombra
+   * proyectada —el navy pleno con sombra es del fondo y de nadie más—, y la
+   * leyenda la nombra siempre.
+   */
+  lineKind?: "fund" | "bench";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Tramo medido con el gesto de arrastre. El ref lo escribe el propio gesto; el
@@ -197,9 +207,21 @@ export function FondoChart({
         benchSeries.setData(benchPoints);
       }
 
+      // Tono de la protagonista: navy pleno si es el fondo; si la única línea es
+      // el benchmark, el gris de referencia oscurecido a --site-ink-2 (el
+      // #9FA2C0 de la línea subordinada, solo sobre blanco, no se lee).
+      const soloBench = lineKind === "bench";
+      const mainColor = soloBench ? PALETTE.ink2 : PALETTE.navy;
+
       const lineSeries = chart.addSeries(LineSeries, {
-        color: PALETTE.navy,
+        color: mainColor,
         lineWidth: 2,
+        // Continua también cuando la protagonista es el benchmark: sobre una
+        // serie diaria de años, el punteado se pulveriza y la curva se lee rota
+        // —parece un defecto de render, no una convención—. El punteado sigue
+        // valiendo para la línea SUBORDINADA (la de abajo), que es corta y donde
+        // sí separa dos curvas superpuestas. Que esta serie no sea el fondo lo
+        // dicen el tono, la falta de sombra y cuatro rótulos de texto.
         priceScaleId: "right",
         priceLineVisible: false,
         // El valor cuota ya está en la tira de arriba — no se repite en el eje.
@@ -210,23 +232,26 @@ export function FondoChart({
         // Punto pleno, sin aro. El primitive del tramo lee ESTAS opciones, así
         // que el punto del hover y el del extremo medido cambian juntos.
         crosshairMarkerBorderWidth: 0,
-        crosshairMarkerBackgroundColor: PALETTE.navy,
+        crosshairMarkerBackgroundColor: mainColor,
       });
       lineSeries.setData(points);
       lineSeriesRef.current = lineSeries;
 
       // La curva deja caer su sombra (zOrder bottom: la línea sigue nítida y el
-      // benchmark, que se dibuja aparte, conserva su tono).
-      const shadow = new LineShadowPrimitive({ color: PALETTE.shadow });
-      lineSeries.attachPrimitive(shadow);
-      shadow.setPoints(points.map((p) => ({ time: p.time as unknown as string, value: p.value })));
+      // benchmark, que se dibuja aparte, conserva su tono). La sombra es un
+      // recurso de jerarquía: sólo la lleva el fondo.
+      if (!soloBench) {
+        const shadow = new LineShadowPrimitive({ color: PALETTE.shadow });
+        lineSeries.attachPrimitive(shadow);
+        shadow.setPoints(points.map((p) => ({ time: p.time as unknown as string, value: p.value })));
+      }
 
       chart.timeScale().fitContent();
 
       const primitive = new DragRangePrimitive({
         band: "rgba(15, 34, 73, 0.07)",
         edge: "rgba(15, 34, 73, 0.32)",
-        marker: PALETTE.navy,
+        marker: mainColor,
         markerHalo: PALETTE.bg,
       });
       lineSeries.attachPrimitive(primitive);
@@ -264,7 +289,7 @@ export function FondoChart({
       primitiveRef.current = null;
       lineSeriesRef.current = null;
     };
-  }, [series, benchmark, formatValue]);
+  }, [series, benchmark, formatValue, lineKind]);
 
   if (series.length === 0) return null;
 
@@ -278,18 +303,25 @@ export function FondoChart({
 
   return (
     <div className="fondo-chart">
-      {(benchmark.length > 0 || unitLabel) && (
+      {(benchmark.length > 0 || lineKind === "bench" || unitLabel) && (
         <div className="fondo-chart-legend">
-          {benchmark.length > 0 && (
+          {/* Con una sola línea la leyenda normalmente sobra —se sabe qué es—,
+              salvo justo cuando esa línea NO es el fondo: ahí es obligatoria. */}
+          {(benchmark.length > 0 || lineKind === "bench") && (
             <>
               <span className="fondo-chart-leg">
-                <span className="fondo-chart-leg-line" data-kind="fund" />
+                <span
+                  className="fondo-chart-leg-line"
+                  data-kind={lineKind === "bench" ? "bench-solo" : "fund"}
+                />
                 {seriesLabel}
               </span>
-              <span className="fondo-chart-leg">
-                <span className="fondo-chart-leg-line" data-kind="bench" />
-                {benchLabel}
-              </span>
+              {benchmark.length > 0 && (
+                <span className="fondo-chart-leg">
+                  <span className="fondo-chart-leg-line" data-kind="bench" />
+                  {benchLabel}
+                </span>
+              )}
             </>
           )}
           {/* Unidad del eje, alineada a la derecha —donde vive la escala—. */}
@@ -349,6 +381,11 @@ export function FondoChart({
         }
         .fondo-chart-leg-line[data-kind="bench"] {
           border-top: 2px dashed #9FA2C0;
+        }
+        /* Benchmark como única línea del gráfico (pre-lanzamiento): continua,
+           en el tono subordinado — espeja PALETTE.ink2 del trazo. */
+        .fondo-chart-leg-line[data-kind="bench-solo"] {
+          border-top: 2px solid var(--site-ink-2);
         }
         .fondo-chart-unit {
           margin-left: auto; font-family: var(--font-mono), monospace; font-size: 11px;

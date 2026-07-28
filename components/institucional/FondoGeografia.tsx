@@ -7,8 +7,16 @@ import { GDOTS, GMAP_W, GMAP_H } from "./worldDotsGlobal";
 // sitio: cada punto de tierra se tiñe con intensidad de navy según el peso de
 // su región. Reusa GDOTS/gproject para mantener la estética del resto de la web.
 //
-// ⚠️ DATOS ILUSTRATIVOS — el fondo está en pre-lanzamiento; los pesos reales se
-// informan en la ficha mensual. No publicar en prod (ver "Claims verificables").
+// ⚠️ FUERA DE LA PÁGINA DESDE EL 27-jul-2026 — este componente ya NO se
+// renderiza en /bng-seleccion-global (ver el comentario en la sección Cartera de
+// la página). Los pesos por región de acá abajo son INVENTADOS y el Fondo
+// todavía no comenzó a funcionar, así que no hay ninguna cartera que distribuir:
+// rotularlos como "datos ilustrativos" no alcanza en la página de un fondo
+// inscripto para oferta pública.
+//
+// Vuelve cuando el snapshot real de tenencias (fund_holdings) traiga región y
+// la distribución se pueda derivar del dato, con el mismo estado vacío honesto
+// que ya usa FondoTenencias. Hasta entonces no montarlo en ninguna página.
 
 type Region = { key: string; label: string; peso: number };
 
@@ -110,7 +118,7 @@ export function FondoGeografia() {
 
       <p className="geo-foot">
         Datos ilustrativos — La distribución geográfica refleja la exposición de los activos
-        subyacentes y se informa en la ficha técnica mensual.
+        subyacentes y se informa en el factsheet mensual.
       </p>
 
       <style>{`

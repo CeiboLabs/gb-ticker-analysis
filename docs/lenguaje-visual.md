@@ -159,6 +159,14 @@ columnas aliñen. Cifras grandes siempre peso 400 — el tamaño enfatiza, nunca
   ReportPreviewMini) usan radios chicos 2–4–10px que leen "papel".
 - **Las sombras se reservan para objetos-documento** (tarjeta-reporte, carpeta 3D), nunca para
   datos. Los datos viven entre hairlines sobre la superficie de la página.
+- **Medida de los avisos legales — `--medida-legal: 96ch`** (en `.site` y `.analyze-root`).
+  Todo aviso, nota al pie de un gráfico o bloque de disclaimer lleva
+  `max-width: var(--medida-legal)`, nunca el ancho completo del wrap: un párrafo de 12px que
+  corre los 1.200px son ~170 caracteres por línea y el ojo pierde el renglón al volver. El tope
+  va en **`ch`** —ancho del "0" de la fuente del propio elemento— y no en `em`, para que el
+  límite sea el mismo **en caracteres** aunque cada nota tenga su cuerpo (12 / 12,5 / 13,5 / 14px);
+  con `em` el mismo número daba anchos distintos y las notas quedaban desparejas.
+  ⚠️ Va declarado en el elemento que **tiene** el font-size, no en un contenedor que hereda otro.
 
 ---
 

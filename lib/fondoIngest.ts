@@ -61,7 +61,11 @@ export const DEFAULT_BANDS: NavBands = {
   navMin: 1,
   navMax: 100_000,
   maxDailyMove: 0.10,
-  inceptionDia: "2024-01-01", // FONDO.fichaTecnica → "Inicio: Enero 2024"
+  // El Fondo fue autorizado el 7-jul-2026 y todavía no comenzó a funcionar (su
+  // fecha de inicio se comunica al BCU con 10 días hábiles de anticipación,
+  // art. 74 RNMV): antes de esa fecha no puede existir un valor cuota. Cuando se
+  // fije el inicio efectivo, mover la banda a ese día.
+  inceptionDia: "2026-07-07",
   dupEpsilon: 5e-5,           // medio dígito en la 4ª decimal
 };
 

@@ -15,9 +15,10 @@ export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 const TITULO_DEFAULT: Record<FondoDocTipo, string> = {
-  "ficha-tecnica": "Ficha técnica",
+  "ficha-tecnica": "Factsheet",
   "datos-fundamentales": "Datos fundamentales para el inversor",
   "reglamento": "Reglamento de gestión",
+  "autorizacion-bcu": "Autorización del Banco Central",
   "informe-cartera": "Informe de cartera",
 };
 

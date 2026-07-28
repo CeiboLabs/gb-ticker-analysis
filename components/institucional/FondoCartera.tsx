@@ -13,15 +13,27 @@
 
 import { FONDO } from "@/lib/fondo";
 
+// El punto de cierre es lo último que se dibuja y lo primero que se recorta: el
+// viewBox tiene que contener cx + r (2.6) y no sólo la línea. Por eso las tres
+// firmas terminan en x=128.5 y no en el borde — el disco llega a 131.1 y entra
+// entero, con el mismo aire que deja el arranque en x=2.
+const FIN_X = 128.5;
+
+// ⚠️ El color de cada clase tiene que ser EL MISMO que en <FondoTenencias />, que
+// vive dos bloques más abajo en la misma sección: navy = renta variable, oro =
+// renta fija, slate = alternativos. La asignación la manda el treemap y no al
+// revés — ahí la renta variable ocupa 45% de un bloque grande, y el oro es color
+// de ACENTO (docs/lenguaje-visual.md): no puede cubrir media pantalla.
+
 // Firma de línea ascendente y con volatilidad: el motor de crecimiento (acciones).
 function FirmaCrecimiento() {
   return (
     <svg className="cart-firma" viewBox="0 0 132 44" fill="none" aria-hidden>
       <path
-        d="M2 38 L20 30 L33 34 L48 21 L64 26 L80 13 L96 17 L114 6 L130 9"
-        stroke="var(--gold-deep)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+        d={`M2 38 L20 30 L33 34 L48 21 L64 26 L80 13 L96 17 L114 6 L${FIN_X} 9`}
+        stroke="var(--navy-300)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
       />
-      <circle cx="130" cy="9" r="2.6" fill="var(--gold-deep)" />
+      <circle cx={FIN_X} cy="9" r="2.6" fill="var(--navy-300)" />
     </svg>
   );
 }
@@ -31,10 +43,10 @@ function FirmaEstabilidad() {
   return (
     <svg className="cart-firma cart-firma-rf" viewBox="0 0 132 44" fill="none" aria-hidden>
       <path
-        d="M2 24 Q33 18 66 23 T130 22"
-        stroke="var(--navy-300)" strokeWidth="1.8" strokeLinecap="round"
+        d={`M2 24 Q33 18 66 23 T${FIN_X} 22`}
+        stroke="var(--gold-deep)" strokeWidth="1.8" strokeLinecap="round"
       />
-      <circle cx="130" cy="22" r="2.6" fill="var(--navy-300)" />
+      <circle cx={FIN_X} cy="22" r="2.6" fill="var(--gold-deep)" />
     </svg>
   );
 }
@@ -45,10 +57,10 @@ function FirmaAlternativos() {
   return (
     <svg className="cart-firma cart-firma-alt" viewBox="0 0 132 44" fill="none" aria-hidden>
       <path
-        d="M2 14 L24 30 L46 16 L68 31 L90 15 L112 28 L130 18"
+        d={`M2 14 L24 30 L46 16 L68 31 L90 15 L112 28 L${FIN_X} 18`}
         stroke="#7E869C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
       />
-      <circle cx="130" cy="18" r="2.6" fill="#7E869C" />
+      <circle cx={FIN_X} cy="18" r="2.6" fill="#7E869C" />
     </svg>
   );
 }
@@ -87,18 +99,19 @@ export function FondoCartera() {
         .cart-panel { padding: 36px 30px 40px; position: relative; }
         /* Costura vertical entre clases. */
         .cart-panel + .cart-panel { border-left: 1px solid var(--site-border); }
-        /* Cada clase lleva un lavado tenue por rol: oro (crecimiento), navy
-           (defensivo) y slate (alternativos). Refuerza el rol sin gritar. */
-        .cart-panel-acc { background: linear-gradient(180deg, rgba(160,124,40,0.05), rgba(160,124,40,0) 62%); }
-        .cart-panel-bon { background: linear-gradient(180deg, rgba(15,34,73,0.045), rgba(15,34,73,0) 62%); }
+        /* Cada clase lleva un lavado tenue de SU color en el treemap: navy (renta
+           variable), oro (renta fija) y slate (alternativos). Refuerza la clase
+           sin gritar — y sin contradecir el gráfico de abajo. */
+        .cart-panel-acc { background: linear-gradient(180deg, rgba(15,34,73,0.045), rgba(15,34,73,0) 62%); }
+        .cart-panel-bon { background: linear-gradient(180deg, rgba(160,124,40,0.05), rgba(160,124,40,0) 62%); }
         .cart-panel-alt { background: linear-gradient(180deg, rgba(126,134,156,0.06), rgba(126,134,156,0) 62%); }
 
         .cart-rol {
           font-size: 11px; font-weight: 700; letter-spacing: 0.13em;
           text-transform: uppercase;
         }
-        .cart-panel-acc .cart-rol { color: var(--gold-deep); }
-        .cart-panel-bon .cart-rol { color: var(--navy-300); }
+        .cart-panel-acc .cart-rol { color: var(--navy-300); }
+        .cart-panel-bon .cart-rol { color: var(--gold-deep); }
         .cart-panel-alt .cart-rol { color: #6b7280; }
 
         .cart-clave {
@@ -114,7 +127,8 @@ export function FondoCartera() {
 
         .cart-nota {
           margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--site-border);
-          font-size: 13.5px; line-height: 1.65; color: var(--site-ink-3); max-width: 60em;
+          font-size: 13.5px; line-height: 1.65; color: var(--site-ink-3);
+          max-width: var(--medida-legal);
         }
 
         /* Tablet: dos arriba + una abajo entra apretado; se apila entero. */

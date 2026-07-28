@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+const CONSULTANET = "https://consultanet.gbengochea.com.uy/HBValores/wplogin.aspx";
+
 const FAQ_ITEMS = [
   {
     question: "¿Cómo se abre una cuenta?",
@@ -35,8 +37,17 @@ const FAQ_ITEMS = [
   },
   {
     question: "¿Cómo sigo mis inversiones?",
-    answer:
-      "Reportes periódicos consolidados y acceso a la mesa para consultas puntuales. La forma exacta del reporting se acuerda al inicio de la relación.",
+    answer: (
+      <>
+        Con{" "}
+        <a href={CONSULTANET} target="_blank" rel="noopener noreferrer" className="site-link">
+          Consultanet
+        </a>
+        , nuestro e-banking, consultás tu cuenta online las 24 horas, con la información actualizada
+        diariamente. A eso se suman los reportes periódicos consolidados: la forma exacta del
+        reporting se acuerda al inicio de la relación.
+      </>
+    ),
   },
 ];
 

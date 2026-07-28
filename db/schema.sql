@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS fund_holdings_item (
   ord         INTEGER NOT NULL,           -- orden de despliegue
   name        TEXT    NOT NULL,
   short       TEXT,                       -- etiqueta corta para la celda del treemap
-  asset_class TEXT    NOT NULL,           -- 'RV' | 'RF' | 'Otros' (enum cerrado, validado en ingesta)
+  asset_class TEXT    NOT NULL,           -- 'RV' | 'RF' | 'ALT' (enum cerrado, validado en ingesta)
   weight_bps  INTEGER NOT NULL,
   PRIMARY KEY (as_of, name)
 ) WITHOUT ROWID;
@@ -399,7 +399,7 @@ CREATE INDEX IF NOT EXISTS idx_informes_order ON informes(status, fecha);
 -- una key nueva con timestamp (las versiones viejas quedan en R2 para rollback
 -- manual). Vacía ⇒ el sitio cae al fallback "Solicitar" → /contacto.
 CREATE TABLE IF NOT EXISTS fondo_documentos (
-  tipo        TEXT    NOT NULL CHECK (tipo IN ('ficha-tecnica','datos-fundamentales','reglamento','informe-cartera')),
+  tipo        TEXT    NOT NULL CHECK (tipo IN ('ficha-tecnica','datos-fundamentales','reglamento','autorizacion-bcu','informe-cartera')),
   titulo      TEXT    NOT NULL,
   descripcion TEXT,
   r2_key      TEXT    NOT NULL,
