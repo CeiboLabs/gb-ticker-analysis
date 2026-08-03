@@ -35,14 +35,17 @@ const f = (n: number | null | undefined) => (n == null ? "—" : n.toFixed(2));
 
 async function main() {
   const s = await getFundSnapshot(shim);
+  // Sin serie del fondo la sección Performance se muestra igual, pero en
+  // andamiaje: el marco del gráfico lleva el aviso de «Próximamente» y las
+  // tablas van en «—». El benchmark cargado NO se grafica solo — se dibuja
+  // contra el fondo, no en su lugar. O sea que las cifras de benchmark que este
+  // script imprime abajo son el estado de la BASE, no lo que hay en pantalla.
   const modo =
     s.status === "live"
       ? process.env.FONDO_DEMO === "1"
         ? "VALOR CUOTA (⚠️ SIMULADO — FONDO_DEMO=1)"
         : "VALOR CUOTA (datos reales)"
-      : s.benchmark.length > 1
-        ? "SÓLO BENCHMARK (pre-lanzamiento con referencia)"
-        : "PRE-LANZAMIENTO (gráfico vacío)";
+      : "PRE-LANZAMIENTO — módulo en «Próximamente» (el benchmark no se grafica solo)";
 
   console.log(`base        ${file}`);
   console.log(`modo        ${modo}`);

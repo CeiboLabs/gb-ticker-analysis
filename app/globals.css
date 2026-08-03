@@ -109,6 +109,21 @@ html, body {
   padding: 0;
 }
 
+/* Que iOS no toque los tamaños de fuente: sin esto Safari de iOS vale `auto` y
+   su autosizer puede agrandar el texto por su cuenta.
+
+   PREVENTIVO, no un arreglo: se puso el 3-ago-2026 sospechando que era la
+   causa del salto del hero del fondo, y NO lo era —midiendo el ancho renderizado
+   de la primera palabra del titular cuadro a cuadro en dos grabaciones de
+   iPhone da 135px constante de punta a punta, o sea que iOS nunca infló nada—.
+   Queda igual porque es la línea de reset estándar (la traen normalize.css y el
+   preflight de Tailwind) y en un sitio ya responsive no cambia nada: sólo cierra
+   la puerta a que iOS decida escalar texto en otra página. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--ivory);
   color: var(--ink);
@@ -1080,8 +1095,12 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--site-font); font-size: 13px; font-weight: 600; color: var(--site-ink-3);
   padding: 6px 14px; border-radius: 999px; transition: color 220ms ease;
 }
-.pslider-btn[data-active="1"] { color: #fff; }
+/* El blanco es para leerse SOBRE el thumb navy, y deshabilitado no hay thumb
+   (pre-lanzamiento del fondo, sin serie): quedaba texto blanco sobre la píldora
+   clara. Ahí el período activo se marca en navy, apagado por la opacity. */
+.pslider-btn:not(:disabled)[data-active="1"] { color: #fff; }
 .pslider-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.pslider-btn:disabled[data-active="1"] { color: var(--navy); }
 .pslider-btn:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
 /* Con el dedo el blanco es la yema, no un cursor de 1px: los períodos son el
    control principal del gráfico y a 33px de alto quedaban por debajo del mínimo

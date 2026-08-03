@@ -51,17 +51,66 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
       `DELETE FROM fund_nav; DELETE FROM fund_benchmark;`
       `DELETE FROM fund_holdings_item; DELETE FROM fund_holdings_snapshot;`
       (sin filas, la página vuelve sola al estado honesto de pre-lanzamiento).
-      ⚠️ El bloque **Exposición geográfica** NO sale de las tenencias: los pesos
-      por región están hardcodeados en `components/institucional/FondoGeografia.tsx`
-      (`REGIONES`), y son datos inventados que siguen ahí desde antes.
+      ⚠️ El bloque **Exposición geográfica** NO sale de las tenencias ni de la
+      base: los pesos por región están hardcodeados en
+      `components/institucional/FondoGeografia.tsx` (`REGIONES`). Desde el
+      3-ago-2026 son la **asignación objetivo de la estrategia** que pasó el
+      equipo (46 / 24 / 22 / 5 / 3), no datos inventados — por eso el bloque
+      volvió a la página. Como son objetivo y no una foto a una fecha, el pie no
+      lleva fecha de corte y no envejece solo: **si el objetivo cambia, hay que
+      editarlo a mano ahí.** Los países de cada bucket están en `PAIS_A_REGION`
+      del mismo archivo, y cada punto del mapa sabe su país por
+      `worldDotsCountries.ts` (lo genera `scripts/gen-dotmap-countries.mjs`, que
+      aborta si el GeoJSON de upstream se movió).
 - [ ] Parser del mail (Etapa 3, depende de un mail de muestra).
 - [x] **Etapa 4 — benchmark** (2026-07-28): compuesto definido y serie cargable.
       **60% MSCI ACWI / 40% Bloomberg Global Aggregate** (tickers Bloomberg
       `ACWI` / `LEGATRUU`), confirmado con el equipo el día del lanzamiento.
       Serie reconstruida con **proxies ETF** — ver sección "Benchmark" más abajo.
-      Con `fund_nav` vacía y `fund_benchmark` cargada, la página entra en modo
-      **sólo benchmark**: grafica la referencia (rotulada como tal, línea
-      punteada, nota arriba del gráfico) en vez de un gráfico vacío.
+      ⚠️ Desde el 3-ago-2026 la serie del benchmark **no se grafica sola**: se
+      dibuja contra el fondo, no en su lugar (ver abajo). Se sigue cargando y
+      verificando igual — es lo que el gráfico va a comparar el día que haya
+      valor cuota.
+
+## Qué muestra la sección Performance según el estado de los datos
+
+| `fund_nav` | Qué se ve |
+| --- | --- |
+| con filas | El módulo completo: cotización, gráfico (fondo + benchmark), rentabilidad acumulada y por año calendario, indicadores de riesgo. |
+| vacía | La sección está, en **andamiaje**: cotización y tablas en «—», y el marco del gráfico con el aviso de **«Próximamente»** en el lugar de la curva. |
+
+⚠️ **El Fondo empieza a operar ANTES de que su valor cuota llegue a la página**
+— una o dos semanas antes (confirmado por el cliente, 3-ago-2026). O sea que
+existe una ventana en la que el Fondo está operando de verdad y la página sigue
+mostrando el aviso. Toda la copy de ese estado está escrita para ser cierta
+también ahí: el aviso dice «se publicará aquí en las próximas semanas» y no «en
+cuanto el Fondo comience a operar», el pie de la tabla dice «pendiente de
+publicación» y no «el fondo aún no registra rendimientos», y la respuesta
+«¿Cómo sigo la evolución?» de la FAQ tampoco lo ata al arranque. **No volver a
+atarlo**: en esa ventana la promesa queda desmentida por los hechos.
+
+Corolario: «las próximas semanas» es copy con fecha de vencimiento. Si el
+arranque se corre varios meses, hay que revisarla — el aviso se apaga solo
+cuando entra la primera fila a `fund_nav`, pero nadie lo apaga si el plazo se
+estira.
+
+Decisión del cliente (3-ago-2026). Lo que se sacó es el **modo "sólo
+benchmark"**: hasta ese día, sin valor cuota la página graficaba igual la serie
+de la referencia, y su vista en USD la expresaba como una cuota hipotética de
+1.000 → 1.300. Era la misma serie del compuesto 60/40 multiplicada por una
+constante, y estaba rotulada como tal en cuatro lugares, pero en la página de un
+fondo una curva que sube con el eje en USD se lee como el track record del
+fondo. Por el mismo motivo la fila del benchmark tampoco entra a las tablas
+mientras la del fondo esté vacía.
+
+No hay flag que prender ni apagar: el interruptor es el dato. Con el primer
+cierre real en `fund_nav`, `/api/fondo` pasa a `live`, la curva y el benchmark
+aparecen solos y el aviso se va — sin tocar código ni volver a deployar. El
+**modo demo** de acá abajo hace lo mismo, que es para lo que existe.
+
+⚠️ Se resuelve **en el cliente**, no en el build: el sitio del fondo es HTML
+estático y su render no consulta la base. El HTML publicado trae el aviso, y en
+régimen la curva entra apenas responde `/api/fondo`.
 
 ## Gotchas de Cloudflare (ya aprendidos)
 

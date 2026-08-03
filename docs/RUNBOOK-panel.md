@@ -57,7 +57,7 @@ de credenciales.
   ⚠️ **Volver a 30 cuando el Fondo empiece a operar.**
 - **Documentos del fondo**: subir el PDF por tipo → queda publicado; la
   sección del sitio los muestra sólo con el flag `fondo_documentos` prendido.
-  Sin archivo/flag ⇒ el sitio cae al fallback "Solicitar" → /contacto.
+  Sin archivo/flag ⇒ el sitio lista el documento marcado "Próximamente", sin acción.
 - **Secciones** (`/admin/secciones`): toggles de `videos_casa` (módulo de
   YouTube al pie de /informes), `instagram_feed` (novedades en la home — deja
   OFF hasta desplegar el worker de Instagram) y `fondo_documentos`. El cambio

@@ -568,7 +568,7 @@ function TabDocumentos() {
     <div className="flex flex-col gap-3">
       <Notice kind="info">
         La sección «Documentos» de la página del fondo muestra los archivos publicados sólo si el módulo está
-        prendido en Secciones. Sin archivo publicado, el sitio ofrece «Solicitar» → contacto, como hasta ahora.
+        prendido en Secciones. Sin archivo publicado, el sitio lista el documento marcado «Próximamente», sin acción.
       </Notice>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       {tipos.map((tipo) => {

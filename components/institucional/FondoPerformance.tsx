@@ -72,28 +72,19 @@ function rebase100(rows: FundNavPoint[]): FundNavPoint[] {
   return rows.map((p) => ({ ...p, nav: (p.nav / base) * 100 }));
 }
 
-// Cuota HIPOTÉTICA con la que se expresa el benchmark en USD mientras el Fondo
-// no publica valor cuota: cuánto valdría hoy una cuota de USD 1.000 puesta en el
-// benchmark el día en que arranca la serie de referencia.
+// ⚠️ ACÁ VIVÍA EL MODO "SÓLO BENCHMARK" (jul-2026 → 3-ago-2026).
 //
-// ⚠️ NO es —ni pretende anticipar— el valor cuota del Fondo. Es el mismo
-// compuesto 60/40 de la vista base 100, con los MISMOS retornos, expresado en
-// otra escala: multiplicar toda la serie por una constante no cambia un solo
-// rendimiento. El rótulo del gráfico, la unidad del eje, la nota de arriba y el
-// pie lo dicen; sin eso, una curva en USD sobre la página del fondo se lee como
-// el track record que el Fondo todavía no tiene.
-const CUOTA_HIPOTETICA = 1000;
-
-// Escala ABSOLUTA, anclada al primer punto de la serie completa y no al del
-// período visible: así los USD 1.000 son un origen fijo en el tiempo (jul-2021)
-// y la ventana de 1M muestra ~1.300, no un 1.000 que se reinicia en cada
-// período —que sería base 100 disfrazada, y las dos vistas del toggle darían
-// exactamente la misma curva—.
-function scaleTo(rows: FundNavPoint[], anchor: number | null): FundNavPoint[] {
-  if (rows.length === 0 || !anchor) return rows;
-  const k = CUOTA_HIPOTETICA / anchor;
-  return rows.map((p) => ({ ...p, nav: p.nav * k }));
-}
+// Mientras el Fondo no publicaba valor cuota, el gráfico dibujaba igual la
+// serie del benchmark, y su vista en USD la expresaba como una cuota
+// HIPOTÉTICA de 1.000 — misma curva del compuesto 60/40, sólo multiplicada por
+// una constante, con el rótulo, la unidad del eje y el pie aclarándolo.
+//
+// Se sacó por decisión del cliente: en la página de un fondo, una curva que
+// sube de 1.000 a 1.300 con el eje en USD se lee como el track record del
+// fondo, por más que cuatro avisos digan lo contrario. El benchmark vuelve al
+// gráfico cuando haya serie propia contra la cual compararlo, que es el único
+// trabajo que tiene que hacer. Hasta entonces, el marco del gráfico muestra el
+// aviso de «Próximamente» (ver el estado vacío, más abajo).
 
 // Sparkline del AUM (mini-área) para el header: la tendencia del tamaño del
 // fondo de un vistazo, sin ejes ni interacción (la cifra exacta vive al lado).
@@ -134,49 +125,30 @@ export function FondoPerformance() {
 
   const data = state.kind === "ready" ? state.data : null;
   const live = !!(data && data.status === "live" && data.series.length > 1);
-  // Pre-lanzamiento CON benchmark cargado: el Fondo todavía no tiene serie de
-  // valor cuota propia (arranca hoy), pero sí podemos mostrar la evolución de la
-  // referencia contra la que se va a medir. Es la única línea del gráfico, y
-  // TODO —rótulo de la barra, leyenda, trazo punteado, nota al pie— dice que es
-  // el benchmark y no el fondo. Un gráfico vacío el día del lanzamiento no
-  // ayuda; uno que se pueda confundir con un track record que no existe, menos.
-  const benchOnly = !live && !!(data && data.benchmark.length > 1);
-  // Nivel del benchmark en el ORIGEN de la serie completa (no del período
-  // visible): es el ancla de la cuota hipotética — ver scaleTo().
-  const benchAnchor = data?.benchmark[0]?.nav ?? null;
   const series = useMemo(
     () => (live && data ? windowFor(data.series, period) : []),
     [live, data, period],
   );
   // La serie del benchmark ya llega alineada a la vida del fondo desde el server
   // (snapshotFromSeries la recorta), así que acá sólo se le aplica el período.
+  // Sin serie del fondo NO se usa: la referencia existe para comparar, no para
+  // ocupar el lugar de la curva que falta (ver el comentario de arriba).
   const benchSeries = useMemo(
-    () => ((live || benchOnly) && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
-    [live, benchOnly, data, period],
+    () => (live && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
+    [live, data, period],
   );
   // Datos que entran al gráfico de rendimiento según el modo del slider:
   //   "cuota":   valor cuota real del fondo, una línea, eje en USD.
   //   "base100": fondo + benchmark reescalados a 100 en el primer punto del
   //              período (origen común para leer la evolución relativa); el eje
   //              pasa a índice. El benchmark sólo aparece en este modo.
-  // Sin fondo (benchOnly) el benchmark pasa a ser la serie protagonista y el
-  // toggle sigue existiendo, pero alterna DOS LECTURAS DE LA MISMA SERIE:
-  //   "base100": reescalada a 100 al inicio del período (evolución relativa).
-  //   "cuota":   la misma curva en USD, como una cuota hipotética de 1.000
-  //              puesta en el benchmark al inicio de la serie. Ni un número
-  //              inventado: es un cambio de escala, no un dato nuevo.
+  // Sin serie del fondo no se arma gráfico: el marco muestra el aviso.
   const chart = useMemo(() => {
-    if (benchOnly) {
-      if (view === "base100") {
-        return { series: rebase100(benchSeries), benchmark: [] as FundNavPoint[], format: fmtIndex };
-      }
-      return { series: scaleTo(benchSeries, benchAnchor), benchmark: [] as FundNavPoint[], format: fmtNav };
-    }
     if (view === "base100") {
       return { series: rebase100(series), benchmark: rebase100(benchSeries), format: fmtIndex };
     }
     return { series, benchmark: [] as FundNavPoint[], format: fmtNav };
-  }, [benchOnly, view, series, benchSeries, benchAnchor]);
+  }, [view, series, benchSeries]);
   // Valores de AUM (historia completa) para el sparkline del header: la
   // tendencia del tamaño del fondo desde el inicio. No se ata al período — es un
   // resumen del dato, no un gráfico interactivo (el AUM es tamaño, no rendimiento).
@@ -189,7 +161,12 @@ export function FondoPerformance() {
   const calendar = data?.calendar ?? [];
   const benchCalendar = data?.benchCalendar ?? [];
   const stats = data?.stats ?? null;
-  const hasBench = benchReturns.length > 0;
+  // El API sigue mandando los rendimientos del benchmark en pre-lanzamiento —no
+  // cuesta nada y el día del lanzamiento no hay que tocar el server—, pero acá
+  // sólo entran a las tablas cuando hay fondo con qué comparar. Una fila de
+  // benchmark con cifras reales al lado de una fila de fondo toda en «—» es el
+  // mismo problema que la curva sola: se lee como el rendimiento del Fondo.
+  const hasBench = live && benchReturns.length > 0;
 
   // Etiquetas de columna (cortas) por período — convención de ficha en español.
   const COL_LABEL: Record<ReturnKey, string> = {
@@ -203,26 +180,14 @@ export function FondoPerformance() {
   // Lookups por año para las dos filas de la tabla calendario.
   const fundByYear = new Map(calendar.map((c) => [c.year, c.pct]));
   const benchByYear = new Map(benchCalendar.map((c) => [c.year, c.pct]));
-  // Primer y último día de la serie del benchmark — el pie tiene que decir desde
-  // cuándo se la mide cuando es lo único que hay en pantalla.
-  const benchDesde = data?.benchmark[0]?.dia ?? null;
-  const benchHasta = data?.benchmark[data.benchmark.length - 1]?.dia ?? null;
-  // Años que van como columnas (cronológico, izq.→der.). Con serie del fondo,
-  // los del fondo. En pre-lanzamiento, los del benchmark — salvo su primer año
-  // si la serie no arranca en enero: sería un tramo parcial presentado como año
-  // calendario. (En el fondo ese primer año parcial SÍ vale: es "desde el inicio
-  // del fondo", que es exactamente lo que la columna dice.)
-  const calYears = benchOnly
-    ? benchCalendar
-        .map((c) => c.year)
-        .filter((y) => !(benchDesde?.slice(5) !== "01-01" && y === Number(benchDesde?.slice(0, 4))))
-        .sort((a, b) => a - b)
-    : [...calendar].reverse().map((c) => c.year);
+  // Años que van como columnas (cronológico, izq.→der.): los del fondo. En
+  // pre-lanzamiento no hay ninguno y el bloque muestra su propia línea — no se
+  // rellena con los del benchmark, que arrancó cinco años antes que el Fondo.
+  const calYears = [...calendar].reverse().map((c) => c.year);
   // Lookup del bench por período — para la tabla transpuesta de mobile.
   const benchByKey = new Map(benchReturns.map((r) => [r.key, r.pct]));
-  // Cierre más reciente en pantalla: el del fondo, o el del benchmark cuando es
-  // la única serie. Marca si el último año calendario va parcial.
-  const ultimoDia = data?.asOf ?? (benchOnly ? benchHasta : null);
+  // Cierre más reciente en pantalla. Marca si el último año calendario va parcial.
+  const ultimoDia = data?.asOf ?? null;
   const lastIsPartial =
     ultimoDia != null &&
     calYears.length > 0 &&
@@ -246,14 +211,14 @@ export function FondoPerformance() {
   // Variación del período elegido en el slider — sigue al gráfico, no al día.
   const periodPct = returns.find((r) => r.key === PERIOD_RETURN[period])?.pct ?? null;
 
-  // Estado vacío: distinguir carga, error y pre-lanzamiento. En prod sin datos
-  // reales esto queda en "en proceso de lanzamiento" (no un spinner perpetuo).
-  const emptyMsg =
-    state.kind === "loading"
-      ? "Cargando datos del fondo…"
-      : state.kind === "error"
-        ? "No pudimos cargar los datos del fondo en este momento."
-        : "El fondo está en proceso de lanzamiento. El valor cuota y su evolución se publican aquí en cuanto comiencen a calcularse.";
+  // Qué ocupa el marco del gráfico cuando no hay serie del fondo. Son TRES
+  // estados distintos y hay que distinguirlos: mientras carga no se puede
+  // afirmar todavía que el Fondo no opera, y un error de red no es un estado
+  // del producto. El de pre-lanzamiento es el único que lleva el aviso de
+  // «Próximamente» —los otros dos son transitorios y se resuelven solos, así
+  // que no merecen un rótulo permanente.
+  const estadoVacio: "cargando" | "error" | "prelanzamiento" =
+    state.kind === "loading" ? "cargando" : state.kind === "error" ? "error" : "prelanzamiento";
 
   return (
     <div className="perf">
@@ -307,7 +272,7 @@ export function FondoPerformance() {
       </div>
 
       <div className="perf-bar">
-        {live || benchOnly ? (
+        {live ? (
           <div className="perf-view" data-active={view} role="tablist" aria-label="Modo del gráfico">
             <span className="perf-view-thumb" aria-hidden />
             <button
@@ -316,14 +281,7 @@ export function FondoPerformance() {
               className="perf-view-btn"
               onClick={() => setView("cuota")}
             >
-              {/* Sin serie del fondo esta pestaña NO puede llamarse "Valor
-                  cuota": lo que muestra es el benchmark, no una cuota del Fondo.
-                  Y tampoco hace falta que se disculpe ("cuota hipotética" leía a
-                  provisorio): en pre-lanzamiento el toggle elige literalmente la
-                  ESCALA del eje —USD o índice base 100—, así que se nombra por
-                  lo que hace. Cuando el Fondo tenga serie propia, esta pestaña sí
-                  es el valor cuota y vuelve a decirlo. */}
-              {benchOnly ? "En USD" : "Valor cuota"}
+              Valor cuota
             </button>
             <button
               role="tab"
@@ -335,57 +293,60 @@ export function FondoPerformance() {
             </button>
           </div>
         ) : (
-          // Ni serie del fondo ni benchmark: el módulo entero está vacío.
+          // Sin serie del fondo el toggle no tiene entre qué elegir: en su lugar
+          // va el rótulo de lo que el marco de abajo va a mostrar.
           <span className="perf-bar-label">Evolución del valor cuota</span>
         )}
-        <PeriodSlider
-          periods={PERIODS}
-          value={period}
-          onChange={setPeriod}
-          disabled={!live && !benchOnly}
-        />
+        <PeriodSlider periods={PERIODS} value={period} onChange={setPeriod} disabled={!live} />
       </div>
 
       <div className="perf-chart-frame">
-        {live || benchOnly ? (
-          <>
-            {/* Antes del gráfico, no después: quien mira la curva tiene que
-                saber de qué serie es ANTES de leerle una pendiente. */}
-            {/* UNA línea, no un párrafo. La aclaración tiene que estar —la curva
-                es del benchmark y no del Fondo—, pero cinco renglones de
-                advertencia arriba del gráfico hacen ver toda la sección como
-                inacabada. El detalle largo (cuota hipotética, cómo se construye
-                la serie) vive al pie, que es donde una ficha de fondo lo pone. */}
-            {benchOnly && (
-              <p className="perf-benchonly">
-                El Fondo aún no publica valor cuota; la curva es la del{" "}
-                <strong>benchmark de referencia</strong> ({BENCHMARK.nombre}).
+        {live ? (
+          <FondoChart
+            series={chart.series}
+            benchmark={chart.benchmark}
+            formatValue={chart.format}
+            unitLabel={view === "base100" ? "Índice · base 100" : MONEDA}
+            seriesLabel="BNG Selección Global"
+            benchLabel={BENCHMARK.corto}
+            lineKind="fund"
+          />
+        ) : (
+          // El aviso ocupa el LUGAR del gráfico —centrado, con el mismo alto que
+          // tendría la curva— en vez de ir arriba o abajo del marco: el hueco es
+          // justamente lo que hay que explicar, y una nota al costado deja al
+          // lector mirando un rectángulo vacío preguntándose si algo falló.
+          <div className="perf-empty">
+            {estadoVacio === "prelanzamiento" ? (
+              <>
+                {/* El oro, una sola palabra: es el acento de identidad de la
+                    casa, y acá marca un ESTADO, no un dato (docs/lenguaje-visual). */}
+                <span className="perf-empty-eyebrow">Próximamente</span>
+                {/* ⚠️ NO atar esta frase al arranque del Fondo ("en cuanto
+                    comience a operar"). El Fondo empieza a operar ANTES de que
+                    su valor cuota llegue a esta página —hay una ventana de una
+                    o dos semanas entre una cosa y la otra—, y en esa ventana
+                    una promesa así queda desmentida por los hechos: el Fondo
+                    opera y acá no hay nada. La frase habla de la PUBLICACIÓN,
+                    que es lo único que este módulo controla. Sin fecha: en la
+                    página de un fondo del BCU, un plazo público que se corre es
+                    peor que no haberlo dado. */}
+                <p className="perf-empty-title">
+                  El valor cuota se publicará aquí en las próximas semanas.
+                </p>
+                {/* Sólo la cadencia. Enumerar acá lo que el módulo va a traer
+                    —evolución, rendimientos por período, año calendario— era
+                    redundante: los tres bloques ya están abajo, rotulados y en
+                    «—», así que el lector los tiene a la vista. */}
+                <p className="perf-empty-sub">Con actualización diaria.</p>
+              </>
+            ) : (
+              <p className="perf-empty-title">
+                {estadoVacio === "cargando"
+                  ? "Cargando datos del fondo…"
+                  : "No pudimos cargar los datos del fondo en este momento."}
               </p>
             )}
-            <FondoChart
-              series={chart.series}
-              benchmark={chart.benchmark}
-              formatValue={chart.format}
-              unitLabel={
-                benchOnly
-                  ? view === "cuota"
-                    // "base 1.000" en vez de "hipotético": dice exactamente lo
-                    // mismo —que el origen es un supuesto— pero en la misma
-                    // clave factual que "base 100", sin sonar a advertencia.
-                    ? `${MONEDA} · base ${CUOTA_HIPOTETICA.toLocaleString("es-UY")}`
-                    : "Índice · base 100"
-                  : view === "base100"
-                    ? "Índice · base 100"
-                    : MONEDA
-              }
-              seriesLabel={benchOnly ? `${BENCHMARK.corto} — ${BENCHMARK.nombre}` : "BNG Selección Global"}
-              benchLabel={BENCHMARK.corto}
-              lineKind={benchOnly ? "bench" : "fund"}
-            />
-          </>
-        ) : (
-          <div className="perf-empty">
-            <p className="perf-empty-title">{emptyMsg}</p>
           </div>
         )}
       </div>
@@ -459,16 +420,13 @@ export function FondoPerformance() {
           </table>
           <p className="perf-foot">
             Cifras netas en USD. «Desde inicio» es la rentabilidad acumulada desde el inicio del fondo; el resto, del período indicado.
-            {/* Con la fila del fondo toda en «—», «Desde inicio» en la fila del
-                benchmark se leería como si el fondo hubiera arrancado con él.
-                Hay que decir desde cuándo se mide la referencia. */}
-            {benchOnly && benchDesde && (
-              <>
-                {" "}El fondo aún no registra rendimientos: su primer valor cuota está pendiente de
-                publicación. En la fila del benchmark, «Desde inicio» corresponde al{" "}
-                {fmtFechaCorta(benchDesde)}, comienzo de la serie de referencia.
-              </>
-            )}
+            {/* La fila entera en «—» necesita decir POR QUÉ está vacía: sin esto
+                se lee como un error de carga, no como el estado del producto.
+                Dice «pendiente de publicación» y no «el fondo aún no registra
+                rendimientos»: una vez que el Fondo arranque va a registrarlos
+                durante un par de semanas antes de que aparezcan acá, y negarlo
+                sería falso. */}
+            {!live && <> El primer valor cuota del Fondo está pendiente de publicación.</>}
           </p>
         </section>
 
@@ -547,7 +505,16 @@ export function FondoPerformance() {
               {lastIsPartial && <p className="perf-foot">El año en curso es parcial, a la fecha indicada.</p>}
             </>
           ) : (
-            <p className="perf-foot">Cargando…</p>
+            // Sin años no hay tabla que armar: las columnas de este bloque SON
+            // los años del fondo. Antes acá decía "Cargando…", que con el Fondo
+            // en pre-lanzamiento no terminaba nunca — prometía un dato en camino
+            // que no estaba en camino. Se distingue el estado transitorio del
+            // permanente, igual que en el marco del gráfico.
+            <p className="perf-foot">
+              {state.kind === "loading"
+                ? "Cargando…"
+                : "El primer año calendario se publica cuando el Fondo cierre su primer ejercicio."}
+            </p>
           )}
         </section>
 
@@ -574,29 +541,19 @@ export function FondoPerformance() {
         Los rendimientos pasados no garantizan resultados futuros. Cifras netas de la comisión del Fondo,
         expresadas en {MONEDA}, la moneda del fondo. La volatilidad y el retorno anualizado se calculan
         sobre la serie diaria de valor cuota.
-        {view === "base100" &&
-          (benchOnly ? (
-            <> En la vista base 100, la serie del benchmark se reescala a 100 al inicio del período.</>
-          ) : benchSeries.length > 0 ? (
+        {live && view === "base100" &&
+          (benchSeries.length > 0 ? (
             <> En la vista base 100, el fondo y su benchmark parten de 100 al inicio del período para
             comparar la evolución de ambas series.</>
           ) : (
             <> En la vista base 100, el valor cuota se reescala a 100 al inicio del período.</>
           ))}
-        {/* El aviso más importante de la página mientras dure el pre-lanzamiento:
-            una curva con el eje en USD, en la página de un fondo, se lee sola
-            como el rendimiento de ese fondo. */}
-        {benchOnly && view === "cuota" && (
-          <> La vista en {MONEDA} muestra la evolución de {CUOTA_HIPOTETICA.toLocaleString("es-UY")}{" "}
-          {MONEDA} invertidos en el benchmark de referencia
-          {benchDesde ? ` el ${fmtFechaCorta(benchDesde)}` : ""}. <strong>No es el valor cuota del
-          Fondo</strong>, que aún no registra cierres, ni una estimación de lo que rendirá: es la misma
-          serie del benchmark expresada en {MONEDA} en lugar de en base 100.</>
-        )}
         {/* Lo que el lector necesita es qué índice es y que no es una promesa —
             el gráfico y las tablas lo rotulaban sólo como "Benchmark". Que no
             surja del Reglamento es cierto, pero es razonamiento nuestro: no le
-            cambia nada a quien mira la curva. */}
+            cambia nada a quien mira la curva.
+            Sin fondo el benchmark no está en pantalla: explicar acá cómo se
+            construye una serie que nadie ve sólo agrega letra chica. */}
         {(hasBench || benchSeries.length > 0) && (
           <> El benchmark es un compuesto de referencia ({BENCHMARK.nombre}): no es un objetivo de
           rentabilidad ni una garantía. {BENCHMARK_PROXY.nota}</>
@@ -720,20 +677,29 @@ export function FondoPerformance() {
           border: 1px solid #DCDEEE; border-radius: 16px; padding: 18px 18px 14px;
           background: var(--surface-muted);
         }
-        /* Aclaración de que la curva es del benchmark y no del fondo. Va DENTRO
-           del marco del gráfico y arriba de la leyenda: pertenece al gráfico, no
-           al pie de la sección. Hairline de separación, sin caja ni color de
-           alerta — es una precisión, no una advertencia. */
-        .perf-benchonly {
-          margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--site-border);
-          font-size: 13px; line-height: 1.55; color: var(--site-ink-2); max-width: 82ch;
-        }
-        .perf-benchonly strong { font-weight: 600; color: var(--site-ink); }
+        /* Estado vacío del marco del gráfico. El alto mínimo NO es decorativo:
+           iguala el del gráfico para que el módulo no se desinfle en
+           pre-lanzamiento ni pegue un salto de layout el día que entre la curva.
+           Centrado en los dos ejes — el aviso ocupa el lugar de la serie. */
         .perf-empty {
           min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center;
           text-align: center; gap: 6px; color: var(--site-ink-3); padding: 24px;
         }
         .perf-empty-title { font-size: 17px; color: var(--site-ink-2); max-width: 30em; margin: 0; }
+        /* «Próximamente» — el rótulo del estado. Oro como acento de una sola
+           palabra, en la misma métrica que los antetítulos de la página
+           (.eyebrow-sm): mayúsculas, 0.14em de tracking. El filete de abajo es
+           el hairline que la casa usa para abrir un bloque de dato; acá, corto y
+           centrado, apoya la palabra sin encajonarla. */
+        .perf-empty-eyebrow {
+          font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+          color: var(--gold-deep); padding-bottom: 12px; margin-bottom: 4px;
+          border-bottom: 1.5px solid var(--gold-deep);
+        }
+        .perf-empty-sub {
+          margin: 4px 0 0; font-size: 13.5px; line-height: 1.6;
+          color: var(--site-ink-3); max-width: 38em;
+        }
 
         .perf-data { margin-top: 30px; display: flex; flex-direction: column; gap: 38px; }
         .perf-block-head {

@@ -58,7 +58,12 @@ const PARTES: Parte[] = [
     alto: 30,
   },
   {
-    rol: "Gestor del Portafolio",
+    // "Gestor del Fondo" y no "Gestor del Portafolio": es el TÉRMINO DEFINIDO
+    // del Reglamento (literal (l) del resumen y cláusula 1(m)) y es el que usa
+    // el bloque de «Información legal» al pie de esta misma página. Tener los
+    // dos rótulos para la misma parte, en la misma página, invita a preguntarse
+    // si son dos roles distintos.
+    rol: "Gestor del Fondo",
     nombre: "Gastón Bengochea y Compañía Corredor de Bolsa S.A.",
     // Mismo dibujo que la barra de marca de arriba (logo-bengochea.svg), en su
     // versión para fondo CLARO: aquel archivo tiene el texto blanco y sobre la
@@ -92,13 +97,17 @@ const PARTES: Parte[] = [
     // debería decir cuál.
     rol: "Asesor legal",
     nombre: "Estudio Rocca",
-    // Derivado del logo que publica el estudio (sólo tienen versión blanca,
-    // para fondo oscuro): se pasó la letra a tinta y el escudo dorado quedó
-    // como está. Reemplazar por su positivo oficial cuando lo manden.
-    logo: "/logos/estudio-rocca.png",
-    // 44 y no 34: el escudo sobresale por arriba de la caja, así que la
-    // palabra queda más chica que en los otros tres a igual altura de imagen.
-    alto: 44,
+    // ⚠️ SIN LOGO A PROPÓSITO (revisión legal del 3-ago-2026). El archivo que
+    // había acá —/logos/estudio-rocca.png— era un DERIVADO hecho por nosotros:
+    // el estudio sólo publica su versión en blanco (para fondo oscuro) y se le
+    // había pasado la letra a tinta dejando el escudo dorado. Publicar la marca
+    // MODIFICADA de un estudio jurídico es peor que no publicar ninguna, y peor
+    // todavía que usar la oficial sin permiso: al problema de autorización le
+    // suma el de integridad de marca.
+    //
+    // La celda cae al nombre en tipografía del sitio, que es el hueco visible
+    // que el componente ya sabe dibujar. Vuelve el logo cuando manden su
+    // positivo oficial Y el OK escrito para publicarlo.
   },
 ];
 
@@ -129,7 +138,12 @@ export function FondoPartes() {
               )}
             </span>
             <span className="partes-rol">{p.rol}</span>
-            <span className="partes-nombre">{p.nombre}</span>
+            {/* Sin logo, el nombre YA ocupa el slot de arriba: repetirlo acá
+                deja la celda diciendo "Estudio Rocca / Asesor legal / Estudio
+                Rocca", que no lee como un hueco a la espera de un archivo sino
+                como un error. El hueco se sigue notando —es la única celda sin
+                marca—, que es todo lo que la nota de arriba pedía. */}
+            {p.logo && <span className="partes-nombre">{p.nombre}</span>}
           </div>
         ))}
       </div>

@@ -186,17 +186,26 @@ function calcularEncuadre(HORIZ: number[][], VW: number, VH: number): Encuadre |
  * salto de ~330px en mobile. El resultado queda en window para que el primer
  * render de React arranque de ahí y no lo pise.
  *
- * ⚠️ Y SE QUEDA ESCUCHANDO EL RESIZE hasta que React monte. No es de más: el
- * encuadre depende del viewport (el padding del hero y el `top` del wordmark
- * son vh), y en el teléfono el viewport CAMBIA durante la carga —Safari de iOS
- * hace el primer layout con la barra desplegada y lo rehace con el viewport
- * grande—. Entre esos dos layouts pasan ~200ms; la hidratación en un teléfono
- * llega segundos después. Sin este listener nadie reencuadra en el medio, la
- * corrección se acumula, y la aplica de golpe el primer `encuadrar()` de React
- * —que llega tardísimo y sin relación con nada que el usuario haya hecho—: eso
- * es el salto del mosaico que se veía en el iPhone. Medido en ese cruce
- * (844↔750): dy 13.5px y escala 1.41→1.46, con la línea dorada quedando hasta
- * 19px fuera de un hueco que mide 23.
+ * ⚠️ Y SE QUEDA VIGILANDO EL LAYOUT hasta que React monte, con los MISMOS tres
+ * disparadores que después usa el efecto de React (resize, tamaño del hero,
+ * fuentes). No es de más: entre el primer pintado y la hidratación pasa mucho
+ * —en un teléfono, segundos; contra el dev server, más— y en ese rato el layout
+ * cambia solo dos veces:
+ *   · el viewport, porque Safari de iOS hace el primer layout con la barra
+ *     desplegada y lo rehace con el viewport grande (el padding del hero y el
+ *     `top` del wordmark son vh). Medido en ese cruce (844↔750): dy 13.5px y
+ *     escala 1.41→1.46;
+ *   · el TITULAR, que en la primera visita (cache frío) se reacomoda solo a los
+ *     ~200ms y con eso mueve el alto del hero, que es contra lo que se encuadra.
+ *     Medido en el iPhone: el h1 pasa de 245px a 140px y el hero de 850 a 745.
+ *     Por eso vigilamos el tamaño del hero y `document.fonts.ready` además del
+ *     resize: cuál de los dos lo dispara no está confirmado, pero los dos
+ *     llegan antes que la hidratación y con cualquiera alcanza.
+ * Sin vigilar, el encuadre queda viejo hasta que alguien lo despierte: o se
+ * aplica de golpe (el salto del mosaico) o no se aplica nunca y la línea dorada
+ * queda fuera del hueco del wordmark hasta que recargues. Las dos cosas se
+ * vieron en el iPhone; la segunda, medida en dos fotos con el MISMO layout y la
+ * línea 56px más arriba en la primera visita que en el refresh.
  *
  * El HTML que devuelve es 100% estático —números del propio módulo y el código
  * de `calcularEncuadre`—: no entra nada de afuera, no hay superficie de XSS.
@@ -205,17 +214,32 @@ function scriptEncuadre(horizonte: number[][], vw: number, vh: number) {
   return `(function(){try{`
     + `var f=${calcularEncuadre.toString()};`
     + `var raf=0;`
-    + `var aplicar=function(){raf=0;`
+    + `var aplicar=function(){raf=0;if(!vivo)return;`
     + `var r=f(${JSON.stringify(horizonte)},${vw},${vh});if(!r)return;window.__ffacEncuadre=r;`
     + `var s=document.querySelector(".ffac-stage svg");if(s)s.setAttribute("viewBox",r.pan.x+" "+r.pan.y+" "+${vw}+" "+${vh});`
     + `var d=document.querySelector(".ffac-stage-fit");if(d)d.style.transform="translateY("+r.dy+"px) scale("+r.k+")";};`
     // Un solo recálculo por frame: al retraerse la barra del navegador el
     // resize llega en ráfaga.
-    + `var pedir=function(){if(!raf)raf=requestAnimationFrame(aplicar)};`
+    + `var vivo=1;`
+    + `var pedir=function(){if(vivo&&!raf)raf=requestAnimationFrame(aplicar)};`
     + `addEventListener("resize",pedir);`
+    // El alto del hero, en border-box —el padding es en vh y el de contenido no
+    // lo ve— y las fuentes, que recortan el titular distinto al entrar.
+    // El del hero aplica EN EL ACTO, sin pasar por rAF: el callback del
+    // ResizeObserver corre después del layout y antes de pintar, así que el
+    // mosaico se reencuadra en el MISMO frame en que el hero cambió de alto.
+    // Diferido, el frame del medio muestra el encuadre viejo — que es el
+    // parpadeo que se ve. Escribir acá no puede realimentar al observer: lo
+    // único que toca son un transform y un viewBox, y ninguno mueve la caja.
+    + `var ro=null,h=document.querySelector(".ffac-hero");`
+    + `if(h&&window.ResizeObserver){ro=new ResizeObserver(function(){`
+    + `if(raf){cancelAnimationFrame(raf);raf=0}aplicar()});ro.observe(h,{box:"border-box"});}`
+    + `if(document.fonts&&document.fonts.ready)document.fonts.ready.then(pedir);`
     // React lo llama al montar: de ahí en adelante el transform lo escribe él y
-    // no puede haber dos manos sobre el mismo nodo.
-    + `window.__ffacSuelta=function(){removeEventListener("resize",pedir);if(raf)cancelAnimationFrame(raf);raf=0;};`
+    // no puede haber dos manos sobre el mismo nodo. `vivo` corta también lo que
+    // no se puede desenganchar, que es el then() de las fuentes.
+    + `window.__ffacSuelta=function(){vivo=0;removeEventListener("resize",pedir);`
+    + `if(ro)ro.disconnect();if(raf)cancelAnimationFrame(raf);raf=0;};`
     // El primer encuadre va ÚLTIMO a propósito: si llegara a fallar, el catch
     // se lo come y queremos que el listener ya esté puesto igual.
     + `aplicar();`
@@ -230,8 +254,24 @@ const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayout
 // índice de cada palabra es el mismo en server y en browser, así que la
 // coreografía arranca con el primer pintado en vez de esperar la hidratación
 // —que dejaría el titular quieto un instante y recién ahí lo animaría.
-const TITULAR =
-  "Una estrategia balanceada y gestionada profesionalmente, con exposición global.".split(" ");
+// Va agrupado porque hay pares que NO se pueden cortar. Cada grupo de más de
+// una palabra se envuelve en `.fh-liga` (white-space: nowrap) — y tiene que ser
+// eso, no un espacio duro: entre dos `inline-block` la oportunidad de corte
+// existe igual, con `&nbsp;` o sin él (probado, el nbsp no cambia nada).
+//
+// Atar "con exposición" es lo que permite APAGAR `text-wrap: balance` en el
+// teléfono sin que el titular corte en preposición, que era justo lo que el
+// balance estaba evitando. Ver el porqué en la regla de .fh-h1, abajo.
+const GRUPOS = [
+  ["Una"], ["estrategia"], ["balanceada"], ["y"], ["gestionada"],
+  ["profesionalmente,"], ["con", "exposición"], ["global."],
+];
+// El índice del escalonado es el de PALABRA, no el de grupo: la coreografía
+// entra palabra por palabra aunque dos viajen atadas. Se calcula una sola vez.
+const TITULAR: { palabra: string; i: number }[][] = (() => {
+  let i = 0;
+  return GRUPOS.map((grupo) => grupo.map((palabra) => ({ palabra, i: i++ })));
+})();
 
 // "¿Ya estoy en el cliente?" vía useSyncExternalStore: devuelve false en el
 // server y true en el browser, sin el setState-dentro-de-effect que dispara un
@@ -454,11 +494,16 @@ export function FondoHero({ casa }: { casa: string }) {
       <motion.div className="site-wrap ffac-content" style={reduce ? undefined : { y: contentY, opacity: contentOpacity }}>
         <div className="ffac-copy">
           <h1 className="fh-h1 t-serif-display">
-            {TITULAR.map((palabra, i) => (
-              <Fragment key={i}>
-                <span className="fh-w" style={{ "--i": i } as React.CSSProperties}>{palabra}</span>{" "}
-              </Fragment>
-            ))}
+            {TITULAR.map((grupo, g) => {
+              const palabras = grupo.map(({ palabra, i }) => (
+                <Fragment key={i}>
+                  <span className="fh-w" style={{ "--i": i } as React.CSSProperties}>{palabra}</span>{" "}
+                </Fragment>
+              ));
+              return grupo.length > 1
+                ? <span className="fh-liga" key={g}>{palabras}</span>
+                : <Fragment key={g}>{palabras}</Fragment>;
+            })}
           </h1>
           <ul className="fh-ledger">
             <li>Acciones + Bonos + Activos alternativos</li>
@@ -665,11 +710,14 @@ export function FondoHero({ casa }: { casa: string }) {
         /* text-wrap: balance reparte las palabras entre las líneas en vez de
            llenar cada una hasta el borde: sin esto el titular corta en
            preposición ("profesionalmente, con" / "exposición global") y deja
-           una línea huérfana en el medio. */
+           una línea huérfana en el medio. Se apaga en el teléfono — ver la regla
+           en el bloque de ≤920px, que explica por qué. */
         .ffac-hero .fh-h1 {
           margin: 0; color: #fff; text-wrap: balance;
           font-size: clamp(34px, 4.6vw, 60px); line-height: 1.04;
         }
+        /* Par de palabras que viaja junto (ver GRUPOS arriba). */
+        .fh-liga { white-space: nowrap; }
         /* Sin lead de por medio, el ledger cuelga directo del titular: necesita
            más aire arriba para no leerse como una cuarta línea del H1. */
         .fh-ledger {
@@ -708,6 +756,25 @@ export function FondoHero({ casa }: { casa: string }) {
             background: linear-gradient(180deg, rgba(7,14,34,0.50) 0%, rgba(7,14,34,0.18) 36%, rgba(7,14,34,0.86) 78%);
           }
           .ffac-copy { max-width: none; }
+
+          /* ⚠️ SIN BALANCE ACÁ, y no es capricho de diseño.
+             El balanceador de WebKit entrega un resultado INTERMEDIO antes de
+             asentarse: medido en un iPhone (iOS 18.7, primera visita en frío),
+             a los 369ms el titular estaba en 7 renglones —"Una" sola, después
+             "estrategia" sola— y a los 706ms pasaba a los 4 definitivos. No es
+             la fuente ni el ancho: en las dos muestras las palabras miden lo
+             mismo (Una=57, estrategia=126, balanceada=149), el contenedor mide
+             335 en las dos y ninguna @font-face había cargado todavía. Con
+             "Una estrategia" ocupando 189 de 335, cortar después de "Una" no es
+             una decisión de ancho: es el balanceador a medio hacer.
+             Eso mueve el alto del titular de 245 a 140 y con él el del hero,
+             que es contra lo que se encuadra el mosaico (ver calcularEncuadre).
+             En desktop se puede dejar porque ahí el hero tiene min-height: su
+             alto no depende del titular y un intermedio no mueve nada.
+             El corte bueno no se pierde: lo sostiene la atadura de
+             "con exposición" (ver GRUPOS), que es lo único que el balance
+             estaba comprando en este ancho. */
+          .ffac-hero .fh-h1 { text-wrap: wrap; }
         }
         @media (max-width: 640px) {
           .fh-ledger { flex-direction: column; gap: 9px; padding-top: 16px; }

@@ -9,16 +9,21 @@
 //   2. la lista estática (lib/fondoDocsEstaticos.ts) — los PDFs que viajan en el
 //      deploy como archivos de public/: se descargan de su propia ruta.
 //
-// El resto se sigue pidiendo a un asesor, como hasta ahora. Así publicar UNO no
-// borra los otros de la página, que es justo lo que pasaba cuando la lista salía
-// sólo del API.
+// El que no está por ninguno de los dos caminos se lista igual, marcado
+// "Próximamente" y sin acción. Así publicar UNO no borra los otros de la página,
+// que es justo lo que pasaba cuando la lista salía sólo del API.
+//
+// ⚠️ Antes esa fila decía "Solicitar" y linkeaba a contacto. Se cambió
+// (2026-08-03) porque el factsheet todavía NO EXISTE: ofrecer pedirlo prometía
+// un documento que nadie puede entregar — el mismo criterio que sacó del
+// catálogo al KIID y al informe de cartera (ver abajo).
 //
 // El camino 2 existe porque en el sitio del fondo el API responde SIEMPRE vacío:
 // vive en otra cuenta de Cloudflare, sin R2 y sin puente desde el panel. El
 // porqué completo y su costo están en lib/fondoDocsEstaticos.ts.
 
 import { useEffect, useState } from "react";
-import { ArrowRight, FileDown } from "@/components/institucional/icons";
+import { ArrowRight, Clock, FileDown } from "@/components/institucional/icons";
 import { DOCS_ESTATICOS_POR_TIPO } from "@/lib/fondoDocsEstaticos";
 import type { FondoDocTipo } from "@/lib/panelSchemas";
 
@@ -27,8 +32,8 @@ import type { FondoDocTipo } from "@/lib/panelSchemas";
 // siempre de acá (el panel no la edita).
 // ⚠️ "Datos fundamentales para el inversor" salió del catálogo (2026-07-27): es
 // un documento del régimen europeo (el KIID), no existe en el marco uruguayo ni
-// surge del Reglamento de este Fondo. Ofrecerlo con acción "Solicitar" prometía
-// un documento que nadie puede entregar. El tipo sigue existiendo en
+// surge del Reglamento de este Fondo. Ofrecerlo con una acción prometía un
+// documento que nadie puede entregar. El tipo sigue existiendo en
 // lib/panelSchemas.ts por compatibilidad; si el fondo llega a publicar un
 // documento equivalente, vuelve acá con su nombre real.
 // ⚠️ "Informe de cartera" salió del catálogo (2026-07-28). Mismo criterio: el
@@ -62,11 +67,10 @@ function metaLinea(d: { bytes: number | null; actualizado: number | null }): str
   return partes.join(" · ");
 }
 
-/** `casa`: ver lib/sitios.ts — contacto vive en el sitio institucional. */
-export function FondoDocumentos({ casa }: { casa: string }) {
+export function FondoDocumentos() {
   const [publicados, setPublicados] = useState<Record<string, DocPublico>>({});
   // Hasta saber qué hay publicado no se muestra ninguna acción: mostrar
-  // "Solicitar" y corregirlo a "Descargar" un instante después sería mentirle
+  // "Próximamente" y corregirlo a "Descargar" un instante después sería mentirle
   // al lector. El alto de la fila lo fijan título y descripción, así que la
   // acción entra sin mover nada.
   //
@@ -88,7 +92,7 @@ export function FondoDocumentos({ casa }: { casa: string }) {
         }
       })
       .catch(() => {
-        /* fallback silencioso: todo el catálogo queda en "Solicitar" */
+        /* fallback silencioso: todo el catálogo queda en "Próximamente" */
       })
       .finally(() => {
         if (alive) setCargando(false);
@@ -110,21 +114,28 @@ export function FondoDocumentos({ casa }: { casa: string }) {
         const cuerpo = (
           <>
             <span className="fondo-doc-main">
-              <span className="list-icon" aria-hidden><FileDown /></span>
+              {/* El ícono también dice el estado: la flecha de descarga sobre un
+                  documento que no existe promete un archivo. Mientras se resuelve
+                  el API queda el de siempre — cambiarlo de ida y vuelta sería el
+                  parpadeo que la espera evita en la acción. */}
+              <span className="list-icon" aria-hidden>{descarga || cargando ? <FileDown /> : <Clock />}</span>
               <span>
                 <span className="row-title">{pub?.titulo ?? doc.titulo}</span>
                 <span className="row-desc" style={{ display: "block" }}>{pub?.descripcion ?? doc.desc}</span>
                 {meta && <span className="fondo-doc-meta">{metaLinea(meta)}</span>}
               </span>
             </span>
-            {(!cargando || est) && (
+            {descarga ? (
               <span className="link-arrow fondo-doc-tag" style={{ pointerEvents: "none" }}>
-                {descarga ? "Descargar" : "Solicitar"} <ArrowRight />
+                Descargar <ArrowRight />
               </span>
+            ) : (
+              !cargando && <span className="fondo-doc-tag fondo-doc-pendiente">Próximamente</span>
             )}
           </>
         );
 
+        // Sin archivo no hay a dónde ir: la fila queda informativa, sin link.
         return descarga ? (
           <a
             key={doc.tipo}
@@ -136,9 +147,9 @@ export function FondoDocumentos({ casa }: { casa: string }) {
             {cuerpo}
           </a>
         ) : (
-          <a key={doc.tipo} href={`${casa}/contacto`} className="ui-list-row fondo-doc-row">
+          <div key={doc.tipo} className="ui-list-row fondo-doc-row fondo-doc-row-pendiente">
             {cuerpo}
-          </a>
+          </div>
         );
       })}
     </div>

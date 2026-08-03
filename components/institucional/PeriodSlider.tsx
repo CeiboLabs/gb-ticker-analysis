@@ -34,11 +34,18 @@ export function PeriodSlider<T extends string>({
       aria-label={ariaLabel}
       style={{ ["--pslider-count" as string]: periods.length }}
     >
-      <span
-        className="pslider-thumb"
-        aria-hidden
-        style={{ transform: `translateX(${activeIndex * 100}%)` }}
-      />
+      {/* Deshabilitado NO lleva thumb. Los botones se apagan con opacity, pero
+          el thumb es un span aparte: quedaba una píldora navy a saturación
+          plena, con su sombra, encima de un control muerto — la única cosa
+          "encendida" del módulo era la que no se podía tocar. Y sin serie no hay
+          período seleccionado que señalar. */}
+      {!disabled && (
+        <span
+          className="pslider-thumb"
+          aria-hidden
+          style={{ transform: `translateX(${activeIndex * 100}%)` }}
+        />
+      )}
       {periods.map((p) => (
         <button
           key={p.id}

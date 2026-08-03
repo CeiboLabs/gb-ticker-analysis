@@ -46,7 +46,8 @@ const CACHE_DOCS = { "Cache-Control": "public, max-age=300, s-maxage=300" };
 
 /**
  * Documentos publicados. Respeta el flag `fondo_documentos` y sólo lista filas
- * 'live'; vacío ⇒ el componente cae al fallback "Solicitar". Nunca expone
+ * 'live'; vacío ⇒ el componente cae a los PDFs del deploy y, si tampoco hay,
+ * marca el documento "Próximamente". Nunca expone
  * r2_key: la descarga va por tipo.
  */
 export async function respuestaDocumentos(db: D1Database | null): Promise<Response> {

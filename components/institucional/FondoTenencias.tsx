@@ -31,9 +31,9 @@ import type { HoldingItem } from "@/lib/fondo";
 //
 // Es la misma doctrina que el resto de la sección ya aplica: <FondoCartera />
 // muestra las tres clases SIN porcentajes ("son paneles, no una barra de
-// proporción") porque los pesos reales son activos, y <FondoGeografia /> quedó
-// fuera de la página entera por tener pesos inventados. No se dibuja una
-// proporción que no es la proporción.
+// proporción") porque los pesos reales son activos, y <FondoGeografia /> estuvo
+// fuera de la página entera hasta tener pesos del equipo en vez de inventados.
+// No se dibuja una proporción que no es la proporción.
 
 // Las mismas tres clases de <FondoCartera /> y de la ficha técnica. El gris de
 // ALT es el mismo slate del panel "Activos alternativos": no es un "otros"
@@ -571,8 +571,26 @@ export function FondoTenencias() {
               fechar el dato. El alcance del gráfico ya no hay que aclararlo —el
               gráfico es la cartera entera— y lo que antes vivía acá abajo pasó
               a la línea de arriba. La salvedad de `incompleto` es para el
-              snapshot mal cerrado, que no debería llegar nunca. */}
+              snapshot mal cerrado, que no debería llegar nunca.
+
+              ⚠️ ABRE CON EL ALCANCE DEL DATO (pedido del usuario, 3-ago-2026):
+              antes de fechar el snapshot hay que decir que los pesos son
+              aproximados. No es una fórmula de cortesía — es literal: los pesos
+              se cargan redondeados (medios puntos), se muestran a un decimal, y
+              la cartera de un fondo abierto se mueve todos los días con el
+              mercado, las suscripciones y los rescates. La frase va PRIMERO
+              porque una salvedad después de la fecha se lee como pie de
+              imprenta; abriendo, califica al gráfico entero.
+
+              ⚠️ "A título ilustrativo" NO quiere decir inventado: la
+              composición sale del snapshot real que carga el panel
+              (fund_holdings). Si algún día vuelve a haber datos de relleno acá,
+              el problema no se arregla con esta nota — se arregla no
+              publicándolos (ver el porqué en el comentario de FondoGeografia y
+              en la auditoría del 27-jul-2026). */}
           <p className="ten-foot">
+            Datos aproximados, a título ilustrativo: los pesos están redondeados y la composición
+            varía con el mercado y con las decisiones de gestión.{" "}
             {incompleto && (
               <>
                 El gráfico muestra las {cells.length} mayores tenencias, que representan el {fmt(total)} de la

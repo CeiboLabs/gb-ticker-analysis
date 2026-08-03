@@ -533,11 +533,19 @@ export function CalculadoraSim({
         Esta simulación es informativa y no constituye asesoramiento financiero ni una proyección de
         rendimiento de ningún producto. El rendimiento anual promedio lo elegís vos; los cálculos
         asumen interés compuesto mensual con tasa constante.
+        {/* La enumeración de lo que NO está descontado importa tanto como la
+            comisión que sí lo está: el Fondo invierte principalmente a través de
+            ETFs y fondos de terceros, y esos vehículos cobran su propia comisión
+            de administración (Reglamento, factor de riesgo 7: "costos
+            adicionales por comisiones de administración en dos niveles"). Sin
+            nombrarla, "netas de la comisión del Fondo" se lee como "netas de
+            todo costo". */}
         {fees && (
           <>
             {" "}Las cifras se muestran netas de la comisión del Fondo (hasta{" "}
             {(fees.annualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % anual, IVA
-            incluido, sobre su patrimonio neto), y no contemplan los demás gastos ni los tributos
+            incluido, sobre su patrimonio neto descontado de provisiones), y no contemplan las
+            comisiones de los ETFs y fondos subyacentes, los demás gastos del Fondo ni los tributos
             aplicables.
           </>
         )}

@@ -30,18 +30,37 @@ import { ArrowRight } from "@/components/institucional/icons";
 // sigue como Trader · Mesa de Operaciones (no se toca); acá es "Portfolio
 // Manager". Foto reusada de /equipo (verificable, sin bio inventada).
 
-// ⚠️ "Segregadas — Cuentas siempre a nombre del cliente" es la cifra tal cual
-// vive en /nosotros: es una prueba de LA CASA (esta sección se llama "La
-// Institución", igual que 1967 / BCU / Criterio), no del vehículo. Pedido
-// expreso del usuario (2026-07-28), que revierte la baja del 2026-07-27.
-// El matiz que motivó aquella baja sigue en pie y hay que tenerlo a mano si
-// vuelve el tema: el cuotapartista NO tiene una cuenta a su nombre —es
-// copropietario de un patrimonio de afectación, con cuotapartes escriturales
-// en el registro que lleva la Sociedad Administradora (Reglamento 2.2, 2.3 y
-// literal (f))—, así que esta cifra no debe leerse como si describiera al
-// Fondo. Si alguna vez hay que reformularla sin perder el hecho, el sustituto
-// correcto es "El patrimonio del Fondo está separado del de la Administradora
-// y del Gestor". No cambiarla por iniciativa propia: es decisión del usuario.
+// ⚠️ LA TERCERA CIFRA ES "SEGREGADAS" Y SE QUEDA ASÍ. Van tres intentos de
+// cambiarla y tres reversiones del usuario (27-jul, 3-ago mañana, 3-ago tarde):
+// antes de tocarla otra vez, leé por qué el argumento legal NO gana acá.
+//
+// El argumento legal, que es correcto pero incompleto: "Cuentas siempre a nombre
+// del cliente" describe a LA CASA, y del FONDO sería falso — el cuotapartista no
+// tiene una cuenta a su nombre, es copropietario indiviso de un patrimonio de
+// afectación con cuotapartes escriturales en el registro que lleva la Sociedad
+// Administradora (Reglamento 2.2, 2.3 y literal (f)), y la custodia la contrata
+// la Administradora en instituciones que incluyen a la propia Bengochea (4.1).
+//
+// Lo que le falta a ese argumento —y es el motivo de la última reversión, con
+// palabras del usuario— es que ESTA SECCIÓN NO HABLA DEL FONDO. Se llama "La
+// Institución", su titular es "Detrás de la estrategia, seis décadas de
+// historia", su bajada presenta a Bengochea Inversiones, y las otras TRES cifras
+// (1967 · BCU · Criterio) son todas de la casa. En ese contexto la cifra no se
+// lee como una propiedad del vehículo: se lee como lo que es, una prueba de la
+// casa que lo gestiona. Meter ahí "El patrimonio del Fondo es independiente…"
+// —que fue el reemplazo del 3-ago— rompía el registro: tres pruebas de la casa
+// y una del producto, en la misma tira de cuatro.
+//
+// Y el hecho legal no se pierde: el patrimonio de afectación está dicho donde
+// corresponde, en «Información legal» al pie ("El Fondo no está garantizado ni
+// constituye un depósito u otra obligación de la Sociedad Administradora, del
+// Gestor del Fondo…"), que es el bloque que sí habla del vehículo.
+//
+// Si algún día hay que endurecerla sin romper el registro, la salida es anclarla
+// a la casa en primera persona —"Las cuentas de nuestros clientes están siempre
+// a su nombre", que además rima con la cuarta cifra— y NO mudarla al Fondo. Pero
+// desincroniza el texto de /nosotros, de donde sale tal cual: ofrecido al
+// usuario el 3-ago-2026, sin respuesta. No lo apliques por tu cuenta.
 const CIFRAS: [string, string][] = [
   ["1967", "Miembros de la Bolsa de Valores de Montevideo"],
   ["BCU", "Sociedad de bolsa regulada por el Banco Central del Uruguay"],

@@ -30,7 +30,20 @@ export const FONDO = {
   responsable: "Adrián Moreira",
   objetivo:
     "Construir una cartera diversificada y global en un solo vehículo, combinando acciones, bonos y activos alternativos, para acompañar el crecimiento del capital a lo largo de un ciclo completo de mercado.",
-  // Ficha técnica del producto — la grilla densa de la página.
+  // Ficha técnica del producto.
+  //
+  // ⚠️ HOY NO SE RENDERIZA EN NINGÚN LADO, y es una decisión, no un olvido. En
+  // la revisión legal del 3-ago-2026 se montó como bloque «Datos del Fondo» al
+  // pie de Documentos —la convención de la industria es publicar los datos del
+  // vehículo juntos— y el usuario lo sacó ese mismo día. No volver a montarlo
+  // por iniciativa propia.
+  //
+  // Se conserva igual porque es la única tabla del repo que mapea cada hecho
+  // publicable del producto contra su literal del Reglamento: sirve de checklist
+  // al auditar la página, y es de donde salieron varias de las correcciones de
+  // esa revisión. Ningún dato de acá depende de esta constante para llegar al
+  // lector — todos viven además en la FAQ, en las partes intervinientes o en el
+  // bloque de «Información legal».
   //
   // ⚠️ FUENTE ÚNICA: el Reglamento de Gestión aprobado por el BCU (Resolución
   // RR-SSF-2026-434 del 7-jul-2026, Comunicación N° 2026/139), publicado en la
@@ -48,18 +61,29 @@ export const FONDO = {
     ["Estructura", "ETFs y fondos mutuos; deuda soberana y de organismos internacionales, directa"],
     ["Alcance", "Exposición global"],
     ["Domicilio", "Uruguay"],
-    // Literal (d): hasta 30% en $/UI y 5% en otras monedas.
-    ["Moneda", MONEDA],
+    // Literal (d). Los topes van EN LA FILA y no en un comentario: son el
+    // límite del claim "Moneda: USD", y hasta esta revisión no estaban dichos
+    // en ningún lugar visible de la página.
+    [`Moneda`, `${MONEDA} — hasta 30% en pesos o unidades indexadas y 5% en otras monedas`],
     ["Sociedad administradora", "Valores Administradora de Fondos de Inversión y Fideicomisos S.A."],
     ["Gestor del Fondo", "Gastón Bengochea y Compañía Corredor de Bolsa S.A."],
     ["Responsable del fondo", "Adrián Moreira"],
     ["Autorización", "BCU, 7 de julio de 2026 (Comunicación N° 2026/139)"],
-    ["Inicio", "Pendiente de comunicación al BCU"],
+    // ⚠️ NO hay fila "Inicio". La había, con el valor "Pendiente de comunicación
+    // al BCU", y se sacó: es un dato que no tenemos. El art. 74 de la RNMV
+    // obliga a comunicarle al BCU la fecha de inicio con 10 días hábiles de
+    // anticipación; si ya se comunicó, la fila mentía, y si no se comunicó, la
+    // ficha lo anunciaba. Vuelve con la fecha real cuando el cliente la
+    // confirme — que es además el dato que hace envejecer al aviso de
+    // «Próximamente» de Performance.
     ["Valor cuota", "Cálculo diario"],
-    ["Mínimo de suscripción", "USD 100"],
+    ["Mínimo de suscripción", "USD 100, sin monto máximo"],
     ["Suscripciones", "Diarias"],
     ["Rescates", "Martes y viernes hábiles; pago dentro de 4 días hábiles"],
-    ["Comisión", "Hasta 1,5% anual (IVA incluido) sobre el patrimonio neto del Fondo"],
+    ["Comisión de rescate", "0%"],
+    // 12.1: "como máximo", "descontado de provisiones", "incluyendo el Impuesto
+    // al Valor Agregado". Los tres calificativos son del texto, no glosa.
+    ["Comisión", "Hasta 1,5% anual (IVA incluido) sobre el patrimonio neto del Fondo descontado de provisiones"],
     ["Auditor externo", "Ernst & Young Uy S.A.S."],
     ["Calificación de riesgo", "El Fondo no cuenta con calificación de riesgo"],
   ] as const satisfies ReadonlyArray<readonly [string, string]>,
