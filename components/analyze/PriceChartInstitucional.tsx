@@ -6,6 +6,7 @@ import type { ChartRange, ChartRangePayload } from "@/lib/fetchChartRange";
 import { QuarterBarSeries } from "@/components/QuarterBarSeries";
 import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
+import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
 import {
   attachDragRange,
   chronological,
@@ -209,6 +210,28 @@ function fmtPrice(value: number): string {
   return value.toLocaleString("es-AR", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
+// Etiquetas de PRECIO del gráfico (eje derecho + mira). Mismo criterio que el
+// gráfico del fondo (components/institucional/FondoChart.tsx):
+//
+//   · las marcas del eje caen en valores redondos (180, 200, 220…) y ahí los
+//     decimales son ruido que sólo ensancha la escala;
+//   · el valor bajo la mira es un dato real (261,59) y ahí el decimal ES el dato.
+//
+// Entero ⇒ marca del eje, con decimales ⇒ lectura. De paso arregla el separador:
+// sin formateador la librería escribía "260.00" con punto, contra las comas de
+// todo el resto del informe. Las barras de revenue no entran acá — tienen su
+// propio priceFormat con fmtRevenue.
+function etiquetaPrecio(value: number): string {
+  return Number.isInteger(value)
+    ? value.toLocaleString("es-AR", { maximumFractionDigits: 0 })
+    : fmtPrice(value);
+}
+
+// ¿El gráfico está en una caja de teléfono? Se decide por el ANCHO REAL del
+// contenedor, no por un media query: lo que importa es cuánto le queda a la
+// serie después de los ejes, y eso es una medida del elemento.
+const angosto = (el: HTMLElement) => el.clientWidth < 420;
+
 function fmtTime(time: string | number): string {
   if (typeof time === "number") {
     const d = new Date(time * 1000);
@@ -243,21 +266,26 @@ export function PriceChartInstitucional({
   const [cache, setCache] = useState<Map<ChartRange, ChartRangePayload>>(() => new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Tramo medido con el gesto de arrastre. `null` = nada seleccionado. El ref lo
-  // escribe el propio gesto (ver `onSelection`): el estado sólo alimenta la
-  // lectura numérica, y el ref repone el tramo si hay que recrear el gráfico.
-  const [selection, setSelection] = useState<DragRangeSelection | null>(null);
+  // Tramo medido con el gesto de arrastre, en dos lugares y por dos motivos:
+  //
+  //   · el ref es el tramo VIGENTE —lo escribe el propio gesto (ver
+  //     `onSelection`)— y sirve para reponerlo si hay que recrear el gráfico;
+  //   · el estado es el CONTENIDO de la caja de lectura, y por eso nunca vuelve
+  //     a null: al soltar, la caja se esconde pero queda montada con la última
+  //     medición, así ya tiene ancho medido cuando el gesto la ubica en el
+  //     arrastre siguiente (ver DragRangeCard).
+  const [reading, setReading] = useState<DragRangeSelection | null>(null);
   const selectionRef = useRef<DragRangeSelection | null>(null);
   const [dragging, setDragging] = useState(false);
   const primitiveRef = useRef<DragRangePrimitive | null>(null);
   const lineSeriesRef = useRef<LineSeriesApi>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  // Reset del tramo: limpia ref y estado a la vez. Se usa cuando cambia la serie
-  // por afuera del gesto —otro rango, otro ticker—, casos que además recrean el
-  // gráfico: si el ref quedara con el tramo viejo, el nuevo lo repondría.
-  const resetSelection = useCallback(() => {
+  // Olvida el tramo vigente. Se usa cuando cambia la serie por afuera del gesto
+  // —otro rango, otro ticker—, casos que además recrean el gráfico: si el ref
+  // quedara con el tramo viejo, el nuevo lo repondría sobre otra serie.
+  const forgetSelection = useCallback(() => {
     selectionRef.current = null;
-    setSelection(null);
   }, []);
 
   useEffect(() => {
@@ -275,8 +303,8 @@ export function PriceChartInstitucional({
     setRange("3Y");
     setError(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-    resetSelection();
-  }, [historicalPrices, ticker, resetSelection]);
+    forgetSelection();
+  }, [historicalPrices, ticker, forgetSelection]);
 
   useEffect(() => {
     if (cache.has(range)) return;
@@ -379,9 +407,8 @@ export function PriceChartInstitucional({
   );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cambiar de rango
-    resetSelection();
-  }, [range, resetSelection]);
+    forgetSelection();
+  }, [range, forgetSelection]);
 
   useEffect(() => {
     if (!containerRef.current || !prices || prices.length === 0) return;
@@ -408,7 +435,11 @@ export function PriceChartInstitucional({
       const container = containerRef.current;
       const chart = createChart(container, {
         width: container.clientWidth,
-        height: 280,
+        // El alto lo manda el CSS (.az-chart-canvas), no un número acá: en el
+        // teléfono baja, y el ResizeObserver de abajo lo replica en el gráfico.
+        // Con 280 fijos la serie quedaba en 258x252 —un cuadrado— y con las
+        // barras de revenue encendidas en 202x252, más alta que ancha.
+        height: container.clientHeight || 280,
         layout: {
           background: { color: PALETTE.paper },
           textColor: PALETTE.ink3,
@@ -416,6 +447,11 @@ export function PriceChartInstitucional({
         },
         localization: {
           locale: "es-AR",
+          // ⚠️ NO va acá el formateador de precio. `localization.priceFormatter`
+          // PISA el priceFormat de todas las series, incluida la de revenue con
+          // su fmtRevenue: el eje izquierdo pasaba de "30.0B" a
+          // "30.000.000.000" y se comía 126px. Va en la serie de precio (ver
+          // `priceFormat` en regularSeries / extendedOpts).
           timeFormatter: (time: import("lightweight-charts").Time) => {
             if (typeof time === "number") {
               const d = new Date(time * 1000);
@@ -435,17 +471,41 @@ export function PriceChartInstitucional({
         crosshair: {
           mode: CrosshairMode.Normal,
           vertLine: { color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy },
-          horzLine: { color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy },
+          horzLine: {
+            color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy,
+            // La escala RESERVA el ancho de esta etiqueta, no el de sus marcas:
+            // con decimales se comía ~16px del eje aunque las marcas ya fueran
+            // enteras. En pantalla angosta se apaga — en touch la mira sólo
+            // aparece durante el arrastre y ahí los dos extremos con decimales
+            // ya están en la lectura de abajo, mientras que el chip tapaba justo
+            // las marcas del eje debajo del dedo. La etiqueta de FECHA es la del
+            // eje de tiempo (vertLine) y no se toca.
+            labelVisible: !angosto(container),
+          },
         },
         leftPriceScale: {
-          visible: showRevenue,
+          // El eje del revenue desaparece en el teléfono: sus 56px eran el 18%
+          // del ancho y con ellos la serie de precio quedaba en 202px (0,8:1) o
+          // en 132px (0,52:1) a 320. Las barras siguen ahí —son una referencia
+          // de fondo, rotulada en la leyenda "Revenue trimestral"—; lo que se va
+          // es una escala que a ese tamaño no se lee igual. Es lo que hacen las
+          // apps de mercado con el volumen.
+          visible: showRevenue && !angosto(container),
           borderColor: PALETTE.rule,
           textColor: PALETTE.ink3,
           scaleMargins: { top: 0.1, bottom: 0.0 },
         },
         rightPriceScale: {
           borderColor: PALETTE.rule,
-          scaleMargins: { top: 0.1, bottom: showRevenue ? 0.35 : 0.05 },
+          // El colchón de abajo existe para que la línea de precio no se meta
+          // entre las barras de revenue. Con 280px de alto, 0,35 costaba 88px y
+          // sobraba; con 192 en el teléfono le dejaba a la línea la mitad de la
+          // caja —flotando arriba—, así que ahí se achica. El de arriba sube un
+          // punto en angosto porque con la caja más baja la marca más alta del
+          // eje caía justo en el borde y salía cortada por la mitad.
+          scaleMargins: angosto(container)
+            ? { top: 0.14, bottom: showRevenue ? 0.2 : 0.06 }
+            : { top: 0.1, bottom: showRevenue ? 0.35 : 0.05 },
         },
         timeScale: {
           borderColor: PALETTE.rule,
@@ -527,6 +587,10 @@ export function PriceChartInstitucional({
         color: ink.line,
         lineWidth: 2,
         priceScaleId: "right",
+        // Etiquetas del eje derecho y de la mira (ver etiquetaPrecio): enteras en
+        // las marcas, con decimales en la lectura. En la SERIE y no en
+        // localization, para no pisar el formato de las barras de revenue.
+        priceFormat: { type: "custom", formatter: etiquetaPrecio },
         priceLineVisible: false,
         // El último precio ya está en la tira de arriba: repetirlo pegado al eje
         // duplica el dato y le come lugar a las etiquetas de los puntos fijados.
@@ -547,6 +611,7 @@ export function PriceChartInstitucional({
         lineWidth: 2 as const,
         lineStyle: LineStyle.Dashed,
         priceScaleId: "right",
+        priceFormat: { type: "custom" as const, formatter: etiquetaPrecio },
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: true,
@@ -630,15 +695,31 @@ export function PriceChartInstitucional({
         initial: selectionRef.current,
         onSelection: (sel) => {
           selectionRef.current = sel;
-          setSelection(sel);
+          if (sel) setReading(sel);
         },
         onDragging: setDragging,
+        labelEl: cardRef,
       });
 
+      // Ancho Y ALTO: el alto sale del CSS (baja en el teléfono), así que rotar
+      // el aparato o cruzar el breakpoint tiene que re-encuadrar. Y con el ancho
+      // puede cambiar de lado del umbral de `angosto`, así que la etiqueta de la
+      // mira y el eje del revenue se recalculan acá también.
       observerInstance = new ResizeObserver(() => {
-        if (containerRef.current) {
-          chart.applyOptions({ width: containerRef.current.clientWidth });
-        }
+        const el = containerRef.current;
+        if (!el) return;
+        const chico = angosto(el);
+        chart.applyOptions({
+          width: el.clientWidth,
+          height: el.clientHeight,
+          crosshair: { horzLine: { labelVisible: !chico } },
+          leftPriceScale: { visible: showRevenue && !chico },
+          rightPriceScale: {
+            scaleMargins: chico
+              ? { top: 0.14, bottom: showRevenue ? 0.2 : 0.06 }
+              : { top: 0.1, bottom: showRevenue ? 0.35 : 0.05 },
+          },
+        });
       });
       observerInstance.observe(container);
     });
@@ -663,14 +744,20 @@ export function PriceChartInstitucional({
 
   // Lectura del tramo medido, siempre del extremo más viejo al más nuevo.
   const measure = (() => {
-    if (!selection) return null;
-    const [a, b] = chronological(selection.from, selection.to);
+    const sel = reading;
+    if (!sel) return null;
+    const [a, b] = chronological(sel.from, sel.to);
     if (!a.price) return null;
+    const abs = b.price - a.price;
+    const pct = (abs / a.price) * 100;
     return {
-      a,
-      b,
-      abs: b.price - a.price,
-      pct: ((b.price - a.price) / a.price) * 100,
+      fromLabel: fmtTime(a.time),
+      fromValue: fmtPrice(a.price),
+      toLabel: fmtTime(b.time),
+      toValue: fmtPrice(b.price),
+      pct: `${pct >= 0 ? "+" : ""}${pct.toFixed(1).replace(".", ",")}%`,
+      abs: `${abs >= 0 ? "+" : ""}${fmtPrice(abs)}`,
+      dir: (abs >= 0 ? "up" : "down") as "up" | "down",
     };
   })();
 
@@ -736,7 +823,11 @@ export function PriceChartInstitucional({
         />
       </div>
 
-      <div className="az-figure">
+      {/* --chart: el modificador existe para que la regla de "al ras" del
+          teléfono (globals.css) toque SÓLO el marco del gráfico y no los otros
+          .az-figure del informe —el Sankey del estado de resultados es otro
+          animal y no se evaluó en mobile—. */}
+      <div className="az-figure az-figure--chart">
         <div className="az-figure-hd">
           <span
             style={{
@@ -771,14 +862,27 @@ export function PriceChartInstitucional({
           <span className="src">Yahoo Finance</span>
         </div>
 
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", ["--chart-bg" as string]: PALETTE.paper }}>
           {/* cursor de mira + sin selección de texto: el arrastre es un gesto de
-              medición, no una selección del documento. */}
+              medición, no una selección del documento.
+
+              touch-action — SIN esto la medición NO EXISTE en el teléfono. Con
+              el valor por defecto el navegador se reserva el gesto en los dos
+              ejes: al segundo pointermove decide que el dedo está haciendo
+              scroll, dispara pointercancel y el arrastre muere antes de marcar
+              un tramo. Dejándole sólo el eje vertical (y el pinch, que no se le
+              saca a nadie), el horizontal queda para nosotros y la página se
+              sigue scrolleando igual. La propiedad no se hereda pero sí se
+              compone con la de los ancestros, así que alcanza con ponerla acá:
+              los canvas que inyecta la librería adentro quedan cubiertos.
+              Mismo gesto y misma corrección que el gráfico del fondo
+              (components/institucional/FondoChart.tsx). */}
           <div
             ref={containerRef}
+            className="az-chart-canvas"
             style={{
-              height: 280,
               cursor: "crosshair",
+              touchAction: "pan-y pinch-zoom",
               userSelect: dragging ? "none" : undefined,
               WebkitUserSelect: dragging ? "none" : undefined,
             }}
@@ -819,99 +923,14 @@ export function PriceChartInstitucional({
               Sin datos para este rango.
             </div>
           )}
-        </div>
-
-        {/* Lectura del tramo: sólo existe mientras se arrastra. minHeight fija la
-            altura para que la tira no salte al aparecer/desaparecer la medición. */}
-        <div
-          style={{
-            marginTop: 10,
-            borderTop: `1px solid ${PALETTE.ruleSoft}`,
-            paddingTop: 10,
-            minHeight: 34,
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          {!measure ? (
-            <p
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                color: PALETTE.ink4,
-                letterSpacing: "0.04em",
-              }}
-            >
-              Arrastrá sobre el gráfico para medir un tramo.
-            </p>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              {/* Extremos del tramo: fecha y precio de cada punto real. */}
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: PALETTE.ink2,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {fmtTime(measure.a.time)} · {fmtPrice(measure.a.price)}
-              </span>
-              <span style={{ color: PALETTE.ink4, fontSize: 11 }}>→</span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: PALETTE.ink2,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {fmtTime(measure.b.time)} · {fmtPrice(measure.b.price)}
-              </span>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "baseline",
-                  gap: 8,
-                  paddingLeft: 12,
-                  borderLeft: `1px solid ${PALETTE.ruleSoft}`,
-                }}
-              >
-                {/* La variación va en chip de fondo pleno (verde bosque /
-                    oxblood del sistema) — misma señal que el valor cuota de
-                    /bng-seleccion-global. El absoluto queda al lado en tinta
-                    neutra: el color ya lo carga el chip, duplicarlo satura. */}
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    lineHeight: 1,
-                    fontVariantNumeric: "tabular-nums",
-                    color: PALETTE.paper,
-                    background: measure.abs >= 0 ? PALETTE.pos : PALETTE.neg,
-                    padding: "5px 8px",
-                    borderRadius: 4,
-                  }}
-                >
-                  {measure.pct >= 0 ? "+" : ""}
-                  {measure.pct.toFixed(1).replace(".", ",")}%
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    fontVariantNumeric: "tabular-nums",
-                    color: PALETTE.ink3,
-                  }}
-                >
-                  {measure.abs >= 0 ? "+" : ""}
-                  {fmtPrice(measure.abs)}
-                </span>
-              </span>
-            </div>
-          )}
+          {/* Sin serie que medir, la invitación no invita a nada. */}
+          <DragRangeHint hidden={dragging || measure !== null || !!error || !!noData} />
+          {/* Caja de lectura del tramo: siempre montada, la muestra y la centra
+              sobre la banda el propio gesto (components/dragRange). Su color
+              sigue al signo del TRAMO, que puede ir al revés que el del período
+              —un tramo en baja adentro de un año en alza—: ahí la discrepancia
+              con la banda es justamente el dato. */}
+          <DragRangeCard ref={cardRef} reading={measure} />
         </div>
       </div>
     </>

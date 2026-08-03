@@ -375,7 +375,7 @@ function TabCorregir() {
 
 // ── Tenencias ────────────────────────────────────────────────────────────────
 
-type ItemTenencia = { name: string; short: string; assetClass: "RV" | "RF" | "ALT"; weightBps: string };
+type ItemTenencia = { name: string; short: string; assetClass: "RV" | "RF" | "ALT" | "OTROS"; weightBps: string };
 
 function TabTenencias() {
   const [asOf, setAsOf] = useState("");
@@ -453,6 +453,10 @@ function TabTenencias() {
                       <option value="RV">RV — Renta variable</option>
                       <option value="RF">RF — Renta fija</option>
                       <option value="ALT">ALT — Alternativos</option>
+                      {/* Residual, no una clase de activo: la línea que cierra el
+                          100% cuando el snapshot publica sólo las mayores
+                          tenencias. Una sola por snapshot. */}
+                      <option value="OTROS">OTROS — Resto de la cartera (residual)</option>
                     </Select>
                   </td>
                   <td className="pr-2">

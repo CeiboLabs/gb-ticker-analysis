@@ -20,13 +20,28 @@ export async function generateMetadata({
   const ticker = (Array.isArray(raw) ? raw[0] : raw)?.trim().toUpperCase();
 
   if (ticker) {
-    return pageMetadata({
+    const meta = pageMetadata({
       title: `Análisis · ${ticker}`,
       description:
         "Reporte de análisis bursátil por acción: veredicto, métricas clave, escenarios y contexto de mercado.",
       path: "/analisis",
       noindex: true,
     });
+    // Tarjeta OG POR ACCIÓN. noindex no impide compartir: un informe reenviado por
+    // WhatsApp es una presentación tibia de la casa —el canal que más convierte en
+    // este negocio— y hasta ahora ese link salía pelado. La imagen la arma
+    // /api/og/analisis leyendo el último veredicto de verdict_log.
+    return {
+      ...meta,
+      openGraph: {
+        ...meta.openGraph,
+        images: [{ url: `/api/og/analisis?ticker=${encodeURIComponent(ticker)}`, width: 1200, height: 630 }],
+      },
+      twitter: {
+        ...meta.twitter,
+        images: [`/api/og/analisis?ticker=${encodeURIComponent(ticker)}`],
+      },
+    };
   }
 
   return pageMetadata({

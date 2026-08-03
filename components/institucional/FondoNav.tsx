@@ -1,14 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-// Barra de navegación interna del fondo — sticky bajo el navbar, con anclas a
-// las secciones de la página y scrollspy (patrón de las fichas de producto de
+// Barra de secciones del SITIO DEL FONDO — sticky al tope, con anclas a las
+// secciones de la página y scrollspy (patrón de las fichas de producto de
 // Vontobel/SSGA). El activo se resuelve con un listener de scroll (la última
 // sección cuyo tope quedó por encima de la línea de lectura), no con
 // IntersectionObserver: con secciones de alturas muy distintas el observer
 // produce saltos de activo poco intuitivos.
+//
+// Desde que el fondo es un sitio propio (ver lib/sitios.ts) ésta es LA barra de
+// navegación de la página, y no una sub-barra debajo del navbar de la casa. Dos
+// consecuencias, las dos abajo:
+//   · muestra el nombre del fondo — cuando el hero se fue, es la única marca en
+//     pantalla (la barra institucional scrollea con la página);
+//   · ya no hay que correr ningún navbar fijo para no quedar tapada. El bloque
+//     que hacía eso —transform sobre .nav-root frame a frame, más apagarle el
+//     backdrop-filter mientras se deslizaba— se fue completo: era la pieza más
+//     frágil de este componente y existía sólo por convivir con el otro navbar.
 
 // Subconjunto curado de las secciones de la página, en el MISMO orden vertical
 // del DOM — requisito del scrollspy de abajo: la lista debe ser una subsecuencia
@@ -29,12 +38,16 @@ const LINKS = [
   { id: "faq", label: "Preguntas" },
 ] as const;
 
-export function FondoNav() {
+// Línea de lectura del scrollspy, en px desde el tope del viewport: apenas por
+// debajo de esta barra (≈50 px de alto). Tiene que quedar POR DEBAJO del
+// scroll-margin-top de las secciones (58 px, ver la página) para que al saltar a
+// un ancla su pestaña quede activa.
+const LINEA_LECTURA = 140;
+
+export function FondoNav({ casa }: { casa: string }) {
   const [active, setActive] = useState<string>("");
   const raf = useRef<number>(0);
-  const navRef = useRef<HTMLElement>(null);
   const linksRef = useRef<HTMLDivElement>(null);
-  const lastShift = useRef<number>(-1);
 
   // Al cambiar el activo, deslizamos la tira horizontal para centrarlo. Movemos
   // sólo el scrollLeft del contenedor (no scrollIntoView, que arrastraría el
@@ -55,44 +68,15 @@ export function FondoNav() {
   }, [active]);
 
   useEffect(() => {
-    // Nodo del navbar global (se desplaza para meterse detrás de esta barra).
-    const navRoot = document.querySelector<HTMLElement>(".nav-root");
-
     const onScroll = () => {
       cancelAnimationFrame(raf.current);
       raf.current = requestAnimationFrame(() => {
-        // Línea de lectura: justo debajo del navbar + esta barra.
-        const line = 72 + 120;
         let current = "";
         for (const { id } of LINKS) {
           const el = document.getElementById(id);
-          if (el && el.getBoundingClientRect().top <= line) current = id;
+          if (el && el.getBoundingClientRect().top <= LINEA_LECTURA) current = id;
         }
         setActive(current);
-
-        // El navbar global se mete detrás de esta barra a medida que sube: lo
-        // desplazamos hacia arriba en lockstep con el borde superior de la
-        // sub-navbar, de modo que su borde inferior nunca quede por debajo de
-        // ella (la sub-navbar es más baja, así que taparlo no alcanzaría).
-        const nav = navRef.current;
-        if (nav && navRoot) {
-          const top = nav.getBoundingClientRect().top; // distancia de la sub-navbar al tope
-          const shift = Math.round(Math.min(72, Math.max(0, 72 - top))); // 0 → navbar entera, 72 → fuera
-          if (shift !== lastShift.current) {
-            const wasShifting = lastShift.current > 0;
-            const isShifting = shift > 0;
-            lastShift.current = shift;
-            // transform DIRECTO sobre el navbar (un solo nodo, costo de
-            // compositor). Evitamos una CSS var en :root: cambiarla por frame
-            // recalcula el estilo de TODO el documento → eso trababa la PC.
-            navRoot.style.transform = shift ? `translateY(-${shift}px)` : "";
-            // Mientras se desliza apagamos su backdrop-filter (clase en el mismo
-            // nodo): animar el blur por frame es el otro costo que la fundía.
-            if (isShifting !== wasShifting) {
-              navRoot.classList.toggle("nav-tucking", isShifting);
-            }
-          }
-        }
       });
     };
     onScroll();
@@ -102,16 +86,17 @@ export function FondoNav() {
       cancelAnimationFrame(raf.current);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
-      if (navRoot) {
-        navRoot.style.transform = "";
-        navRoot.classList.remove("nav-tucking");
-      }
     };
   }, []);
 
   return (
-    <nav ref={navRef} className="fnav" aria-label="Secciones del fondo">
+    <nav className="fnav" aria-label="Secciones del fondo">
       <div className="site-wrap fnav-row">
+        {/* Marca del sitio, no un título de sección: es lo que queda en pantalla
+            una vez que el hero —donde vive el wordmark grande— se fue. Va al tope
+            de la página, que en este sitio es su home. */}
+        <a href="#top" className="fnav-marca">BNG Selección Global</a>
+
         <div className="fnav-links" ref={linksRef}>
           {LINKS.map((l) => (
             <a key={l.id} href={`#${l.id}`} className="fnav-link" data-active={active === l.id ? "1" : "0"}>
@@ -119,7 +104,9 @@ export function FondoNav() {
             </a>
           ))}
         </div>
-        <Link href="/contacto" className="ui-btn ui-btn-primary fnav-cta">Hablar con un asesor</Link>
+        {/* Contacto vive en el sitio institucional: <a> y no <Link>, porque en
+            producción el destino está en otro origen (ver lib/sitios.ts). */}
+        <a href={`${casa}/contacto`} className="ui-btn ui-btn-primary fnav-cta">Hablar con un asesor</a>
       </div>
 
       <style>{`
@@ -129,8 +116,11 @@ export function FondoNav() {
           backdrop-filter: blur(10px);
           border-bottom: 1px solid var(--site-border);
         }
-        .fnav-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .fnav-row { display: flex; align-items: center; gap: 20px; }
+        /* La tira de secciones toma el espacio libre y empuja el CTA al margen
+           derecho; la marca queda pegada al izquierdo. */
         .fnav-links {
+          flex: 1 1 auto; min-width: 0;
           display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
           /* Cada enlace es un punto de anclaje: el deslizamiento se asienta con
@@ -140,6 +130,14 @@ export function FondoNav() {
           scroll-behavior: smooth;
         }
         .fnav-links::-webkit-scrollbar { display: none; }
+        .fnav-marca {
+          flex: none; margin-right: 8px;
+          font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
+          color: var(--navy); text-decoration: none; white-space: nowrap;
+        }
+        /* Por debajo de ~1180 px la marca le saca lugar a las secciones, que son
+           ocho: gana la navegación. La marca vuelve a estar en el pie. */
+        @media (max-width: 1180px) { .fnav-marca { display: none; } }
         /* En teléfonos los enlaces no entran todos: scrollean en horizontal.
            Un degradé en el borde derecho señala que hay más (evita que el
            último enlace se vea "cortado" como si la barra estuviera rota). */

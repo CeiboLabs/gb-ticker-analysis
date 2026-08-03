@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Reveal } from "@/components/motion";
-import { SplitText } from "@/components/scroll";
 import {
   Scales, Waveform, Shield, ArrowRight,
 } from "@/components/institucional/icons";
@@ -19,14 +17,20 @@ import { FondoPerformance } from "@/components/institucional/FondoPerformance";
 import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FondoTenencias } from "@/components/institucional/FondoTenencias";
-import { pageMetadata } from "@/lib/seo";
+import { fondoMetadata } from "@/lib/seo";
 import { estaOculta } from "@/lib/paginasOcultas";
+import { RUTA_FONDO } from "@/lib/sitios";
+import { origenCasaServer } from "@/lib/sitiosServer";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = fondoMetadata({
   title: "BNG Selección Global",
   description:
     "BNG Selección Global: estrategia diversificada, con exposición a renta variable y fija a nivel global, domiciliada en Uruguay. Estrategia, performance y documentos.",
-  path: "/bng-seleccion-global",
+  // Canonical a la RAÍZ del dominio del fondo: en su sitio, esta página ES la
+  // home. `/bng-seleccion-global` es sólo dónde vive el archivo —y por dónde se
+  // entra donde hay un solo hostname (dev y home server)—, así que si el
+  // canonical saliera del path habría dos URLs compitiendo por la misma página.
+  path: "/",
 });
 
 // Estrategia · "Cómo invierte" — las 3 piezas son MECANISMO, no repetición del
@@ -39,10 +43,11 @@ const ESTRATEGIA: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Shield />, title: "Diversificación amplia", body: "El riesgo se diversifica no solo por clase de activo, sino también de forma geográfica — no depende de un solo instrumento ni del desempeño de un país o industria puntual." },
 ];
 
-// Los documentos del fondo son data-driven: los publica el panel de empleados
-// (D1 + R2, flag `fondo_documentos`) y los renderiza el cliente
-// FondoDocumentos, que sin archivos publicados cae al render histórico
-// "Solicitar" → /contacto. La lista hardcodeada vive como fallback ahí adentro.
+// Los documentos del fondo salen de dos lados, y FondoDocumentos los mezcla en
+// un catálogo fijo: los que publica el panel de empleados (D1 + R2, flag
+// `fondo_documentos`) y los que viajan en el deploy como archivos de public/
+// (lib/fondoDocsEstaticos.ts). Un tipo sin ninguno de los dos cae al render
+// histórico "Solicitar" → /contacto.
 
 // Perfil del inversor — retrato en dos VERBOS (no etiquetas sueltas): describen
 // el comportamiento de quien invierte acá. Cada uno sale de un hecho ya
@@ -53,18 +58,28 @@ const PERFIL: { verbo: string; desc: string }[] = [
   { verbo: "Proyecta", desc: "A mediano y largo plazo, acompañando un ciclo completo de mercado en lugar de su día a día." },
 ];
 
-export default function FondoPage() {
+export default async function FondoPage() {
   // 404 con el not-found de la casa mientras la sección siga listada en
   // lib/paginasOcultas.ts. Publicada = la guarda queda inerte.
-  if (estaOculta("/bng-seleccion-global")) notFound();
+  if (estaOculta(RUTA_FONDO)) notFound();
 
+  // Origen del sitio institucional para los links que SALEN de este sitio
+  // (contacto, equipo): absoluto cuando el request entró por el dominio del
+  // fondo, vacío —o sea relativo— cuando los dos sitios comparten hostname, y
+  // constante en el build standalone (que es lo que deja esta página estática).
+  // Ver lib/sitiosServer.ts · origenCasaServer.
+  const casa = await origenCasaServer();
+
+  // id="top": destino del nombre del fondo en la barra sticky (volver al tope).
+  // No puede apuntar a "/" — donde los dos sitios comparten hostname, ésa es la
+  // home de la casa y se saldría del sitio del fondo.
   return (
-    <main className="site fondo-page">
+    <main id="top" className="site fondo-page">
       {/* ── Header data-rich: claim editorial + cotización viva ───────── */}
-      <FondoHero />
+      <FondoHero casa={casa} />
 
       {/* ── Nav interna sticky con anclas (patrón Vontobel/SSGA) ──────── */}
-      <FondoNav />
+      <FondoNav casa={casa} />
 
       {/* ── Resumen: el mundo en un mapa de puntos (diagonal, sangra a la derecha) ─ */}
       <section id="resumen" className="band site-section resumen-sec">
@@ -90,7 +105,10 @@ export default function FondoPage() {
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Cómo invierte</div>
             <div>
-              <SplitText text="Diversificación en un único vehículo." as="h2" className="t-h2" style={{ maxWidth: "16em" }} />
+              {/* Mecanismo, no el claim de Resumen otra vez: ahí el argumento es
+                  "decenas de instrumentos → un solo vehículo" y acá es cómo se
+                  combinan. Por eso el titular no repite "vehículo". */}
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Muchos activos, una sola cartera.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 La estrategia selecciona y combina activos para brindar crecimiento y
                 diversificación global.
@@ -174,12 +192,12 @@ export default function FondoPage() {
                   aviso legal al pie. No mezclar los registros. */}
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
                 La gestión de la cartera está a cargo de Bengochea Inversiones
-                —sociedad de bolsa uruguaya desde 1967—, con Adrián Moreira al frente
+                —sociedad de bolsa uruguaya desde 1967—, con Adrián Moreira, CFA, al frente
                 de la gestión del fondo.
               </p>
             </div>
           </Reveal>
-          <div style={{ marginTop: 48 }}><FondoCasa /></div>
+          <div style={{ marginTop: 48 }}><FondoCasa casa={casa} /></div>
         </div>
       </section>
 
@@ -253,10 +271,12 @@ export default function FondoPage() {
                 ))}
               </div>
 
-              {/* Cierre: la invitación ahora sí enlaza al asesor. */}
+              {/* Cierre: la invitación ahora sí enlaza al asesor. Contacto vive
+                  en el sitio institucional: <a> y no <Link>, porque en producción
+                  el destino está en otro origen. */}
               <div className="perfil-cta">
                 <span className="perfil-cta-q">¿Te reconocés en esto?</span>
-                <Link href="/contacto" className="link-arrow">Hablar con un asesor <ArrowRight /></Link>
+                <a href={`${casa}/contacto`} className="link-arrow">Hablar con un asesor <ArrowRight /></a>
               </div>
             </div>
           </Reveal>
@@ -279,7 +299,7 @@ export default function FondoPage() {
               </p>
             </div>
           </Reveal>
-          <FondoDocumentos />
+          <FondoDocumentos casa={casa} />
           <FondoPartes />
         </div>
       </section>
@@ -315,7 +335,7 @@ export default function FondoPage() {
                   lib/paginasOcultas.ts y devuelve 404. Va a la documentación del
                   Fondo, que además es lo que corresponde ofrecer acá. */}
               <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
-                <Link href="/contacto" className="ui-btn ui-btn-on-navy">Hablar con un asesor</Link>
+                <a href={`${casa}/contacto`} className="ui-btn ui-btn-on-navy">Hablar con un asesor</a>
                 <a href="#documentos" className="ui-btn ui-btn-on-navy-ghost">Ver la documentación</a>
               </div>
             </div>
@@ -386,9 +406,13 @@ export default function FondoPage() {
       </section>
 
       <style>{`
-        /* Anclas de la nav interna: el tope de cada sección queda por debajo
-           del navbar fijo + la barra sticky del fondo. */
-        .fondo-page section[id] { scroll-margin-top: calc(var(--nav-h) + 56px); }
+        /* Anclas de la nav interna: el tope de cada sección queda por debajo de
+           la barra sticky de secciones. Antes acá había que sumarle también el
+           --nav-h del navbar FIJO de la casa; en el sitio del fondo ese navbar ya
+           no existe —la barra de marca scrollea con la página— y lo único que
+           tapa el tope es la sticky. Sumar los 72px de más dejaba un hueco
+           muerto en cada salto de ancla. */
+        .fondo-page section[id] { scroll-margin-top: 58px; }
 
         /* ── Resumen (mapa de puntos en diagonal) ── */
         .resumen-sec { position: relative; overflow: hidden; min-height: clamp(460px, 56vh, 620px); }
@@ -511,6 +535,17 @@ export default function FondoPage() {
           .perfil-verbo, .perfil-verbo:first-child, .perfil-verbo:last-child {
             padding: 22px 0; border-right: 0;
           }
+        }
+        /* Las cifras de La casa se apilan en el teléfono, con el mismo idioma que
+           las dos grillas de arriba (hairlines horizontales, texto al ras del
+           margen de la página). Acá los "números" son palabras —Segregadas,
+           Criterio, BCU— y sus glosas son largas: a dos columnas de ~175px la
+           columna derecha partía la glosa en cinco y ocho renglones. La regla es
+           de la PÁGINA y no del componente compartido a propósito: en /equipo las
+           cifras son cortas y su 2×2 se lee bien. */
+        @media (max-width: 560px) {
+          .fondo-page .cifras-row { grid-template-columns: 1fr; border-left: 0; }
+          .fondo-page .cifra { padding: 24px 0; border-right: 0; }
         }
         @media (max-width: 640px) {
           .fondo-doc-row { flex-direction: column; align-items: flex-start; gap: 12px; }

@@ -94,14 +94,17 @@ function Slider({
 
   return (
     <div className="calc-slider">
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+      {/* Encabezado del parámetro: rótulo (+ el toggle de frecuencia, si lo
+          hay) a la izquierda y el valor a la derecha. Envuelve: en el teléfono
+          angosto "Aporte + Mensual/Anual + USD 500" no entra en un renglón y el
+          valor se partía en dos ("USD" / "500"). Al envolver, el valor baja
+          entero y sigue alineado a la derecha por el margin auto. */}
+      <div className="calc-slider-head">
+        <span className="calc-slider-lab">
           <label className="ui-label" style={{ marginBottom: 0 }}>{label}</label>
           {labelExtra}
         </span>
-        <span style={{ fontSize: 20, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--site-ink)" }}>
-          {displayValue}
-        </span>
+        <span className="calc-slider-val">{displayValue}</span>
       </div>
 
       <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
@@ -132,6 +135,11 @@ function Slider({
             pointerEvents: "none",
           }}
         />
+        {/* El input real es invisible y se estira por FUERA de la pista: lo que
+            se ve mide 22px de alto —el thumb dibujado— y con el dedo eso queda
+            muy por debajo del mínimo táctil de 44. Los 11px de más por lado los
+            absorbe el padding del propio .calc-slider (16px arriba y abajo), así
+            que ningún slider invade al de al lado. */}
         <input
           type="range"
           min={min}
@@ -142,10 +150,16 @@ function Slider({
           aria-label={label}
           style={{
             position: "absolute",
-            inset: 0,
+            left: 0,
+            right: 0,
+            top: -11,
+            bottom: -11,
             width: "100%",
             opacity: 0,
             cursor: "grab",
+            // pinch-zoom explícito: restringir el gesto no puede costarle el zoom
+            // a quien lo necesita para leer.
+            touchAction: "pan-y pinch-zoom",
             zIndex: 3,
           }}
         />
@@ -531,6 +545,15 @@ export function CalculadoraSim({
         .calc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: clamp(32px, 6vw, 72px); align-items: start; }
         .calc-panel { min-width: 0; }
         .calc-slider { padding: 16px 0; border-bottom: 1px solid var(--site-border); }
+        .calc-slider-head {
+          display: flex; align-items: baseline; justify-content: space-between;
+          flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px;
+        }
+        .calc-slider-lab { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+        .calc-slider-val {
+          margin-left: auto; white-space: nowrap;
+          font-size: 20px; font-weight: 400; letter-spacing: -0.015em; color: var(--site-ink);
+        }
         /* Toggle mensual/anual — mismo patrón que el toggle de "Mayores
            tenencias" (.ten-toggle): pastilla con thumb navy deslizante. */
         .calc-freq {
@@ -551,6 +574,11 @@ export function CalculadoraSim({
         }
         .calc-freq-btn[aria-selected="true"] { color: #fff; }
         .calc-freq-btn:not([aria-selected="true"]):hover { color: var(--navy); }
+        /* Mismo criterio táctil que el selector de períodos (.pslider-btn en
+           globals.css): con el dedo, 29px de alto se quedan cortos. */
+        @media (pointer: coarse) {
+          .calc-freq-btn { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
+        }
         .calc-slider:last-child { border-bottom: 0; padding-bottom: 0; }
         .calc-table { width: 100%; border-collapse: collapse; min-width: 460px; }
         .calc-table th {

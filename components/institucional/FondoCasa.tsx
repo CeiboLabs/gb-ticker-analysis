@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ArrowRight } from "@/components/institucional/icons";
 
 // "La casa" — beat de CREDIBILIDAD del fondo. En pre-lanzamiento no hay track
@@ -50,7 +49,8 @@ const CIFRAS: [string, string][] = [
   ["Criterio", "Elegimos fondos mutuos para las carteras de nuestros clientes desde los años 80"],
 ];
 
-export function FondoCasa() {
+/** `casa`: ver lib/sitios.ts — /equipo vive en el sitio institucional. */
+export function FondoCasa({ casa }: { casa: string }) {
   return (
     <div className="casa-fondo">
       {/* Protagonista: las cifras de la casa */}
@@ -67,11 +67,37 @@ export function FondoCasa() {
       <div className="casa-foot">
         <div className="casa-pm">
           <span className="casa-pm-avatar">
+            {/* Avatares propios 1x/2x/3x: el retrato de /equipo es 1000×1250 /
+                164 KB y acá entra a 46 px — ~130× los bytes necesarios, y el
+                navegador igual decodifica el JPEG entero (~5 MB de bitmap).
+
+                Los tamaños son 46/92/138 y no 48/96/144 porque la caja mide 48
+                px con box-sizing: border-box y el borde de 1px le come 2: el
+                contenido son 46 px. Clavarlos ahí los deja 1:1 en cada densidad
+                y le saca al navegador el reescalado intermedio (con 144 en una
+                caja de 138 la foto caía al 57% de nitidez).
+
+                El recorte cuadrado (cover + center 20%) viene horneado, así que
+                el object-position de abajo queda en no-op. Regenerar con:
+                sharp("public/equipo/adrian-moreira.jpg")
+                  .extract({ left: 0, top: 50, width: 1000, height: 1000 })
+                  .resize(px, px).sharpen({ sigma })      // 46:0.9  92:0.9  138:0.7
+                  .jpeg({ quality: 90, mozjpeg: true })
+                El sharpen no es cosmético: sin él el downscale de ~10× deja la
+                foto en un tercio de la nitidez que rendereaba el original; con
+                él queda en 91/95/104% según densidad. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/equipo/adrian-moreira.jpg" alt="Adrián Moreira" loading="lazy" />
+            <img
+              src="/equipo/adrian-moreira-avatar-92.jpg"
+              srcSet="/equipo/adrian-moreira-avatar-46.jpg 1x, /equipo/adrian-moreira-avatar-92.jpg 2x, /equipo/adrian-moreira-avatar-138.jpg 3x"
+              alt="Adrián Moreira"
+              width={46}
+              height={46}
+              loading="lazy"
+            />
           </span>
           <span className="casa-pm-text">
-            <span className="casa-pm-name">Adrián Moreira</span>
+            <span className="casa-pm-name">Adrián Moreira, CFA</span>
             <span className="casa-pm-role">Portfolio Manager</span>
           </span>
         </div>
@@ -79,7 +105,7 @@ export function FondoCasa() {
         {/* "Conocenos" apuntaba a /nosotros, que está en lib/paginasOcultas.ts
             y devuelve 404: se saca hasta que esa sección se publique. */}
         <div className="casa-cta-row">
-          <Link href="/equipo" className="link-arrow">Conocé al equipo <ArrowRight /></Link>
+          <a href={`${casa}/equipo`} className="link-arrow">Conocé al equipo <ArrowRight /></a>
         </div>
       </div>
 

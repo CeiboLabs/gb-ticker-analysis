@@ -46,6 +46,15 @@ export interface AttachDragRangeParams {
   onSelection: (selection: DragRangeSelection | null) => void;
   /** Para que el componente pueda cortar la selección de texto mientras dura. */
   onDragging?: (dragging: boolean) => void;
+  /**
+   * La caja de lectura (`DragRangeCard`), montada por el componente sobre el
+   * gráfico. Acá se la UBICA y se la muestra; qué dice la arma el componente.
+   *
+   * La posición se escribe en el mismo evento que la banda y no con el commit
+   * de React: la caja está pegada a un borde que se mueve con el cursor, y un
+   * frame de retraso se ve como si se despegara y la persiguiera.
+   */
+  labelEl?: { readonly current: HTMLElement | null };
 }
 
 /** Ordena los extremos cronológicamente: la variación se lee siempre del punto
@@ -76,11 +85,22 @@ export function attachDragRange({
   initial = null,
   onSelection,
   onDragging,
+  labelEl,
 }: AttachDragRangeParams): () => void {
   let down = false;
   let anchor: DragRangePoint | null = null;
 
-  primitive.setSelection(toSelection(initial));
+  // El PANE es la caja de la serie, y no arranca en el borde del contenedor:
+  // cuando hay un eje izquierdo visible empieza corrido ese ancho. Sin
+  // descontarlo la medición cae a la derecha del cursor. `width()` ya devuelve
+  // 0 con el eje oculto.
+  const paneBox = () => {
+    const leftAxis = chart.priceScale("left").width();
+    return {
+      leftAxis,
+      width: chart.paneSize?.().width ?? container.getBoundingClientRect().width - leftAxis,
+    };
+  };
 
   // Traduce un x de pantalla al punto REAL de la serie más cercano. Se calcula
   // desde las coordenadas y NO desde el crosshair: durante un arrastre con el
@@ -89,12 +109,7 @@ export function attachDragRange({
   const pointAtX = (clientX: number): DragRangePoint | null => {
     if (points.length === 0) return null;
     const rect = container.getBoundingClientRect();
-    // coordinateToTime trabaja en coordenadas del PANE, no del contenedor:
-    // cuando hay un eje izquierdo visible el pane arranca corrido ese ancho.
-    // Sin descontarlo la medición cae a la derecha del cursor. width() ya
-    // devuelve 0 si el eje está oculto.
-    const leftAxis = chart.priceScale("left").width();
-    const paneWidth = chart.paneSize?.().width ?? rect.width - leftAxis;
+    const { leftAxis, width: paneWidth } = paneBox();
     // Clampeado al pane: arrastrar más allá del borde mide hasta el extremo.
     const x = Math.max(0, Math.min(clientX - rect.left - leftAxis, paneWidth));
     const t = chart.timeScale().coordinateToTime(x);
@@ -137,6 +152,120 @@ export function attachDragRange({
     chart.applyOptions({ crosshair: { vertLine: { visible: !own } } });
   };
 
+  // Ubica la caja de lectura CENTRADA sobre el tramo: centrada pertenece a la
+  // banda entera y no a una de sus puntas. Al ser más ancha que un tramo corto,
+  // se sale de la banda por los dos lados; eso es correcto, sigue apuntando al
+  // medio. Lo único que se corrige en el eje X es que no se salga del gráfico:
+  // contra los bordes la caja se frena y el centro se corre. Prefiero eso a
+  // recortarla contra el eje.
+  //
+  // En el eje Y va arriba salvo que ahí esté la serie. En una curva que sube
+  // —el caso normal— medir el tramo final dejaba la caja justo encima de la
+  // parte alta de la línea, tapando la curva y los dos puntos del tramo. Así que
+  // se mira la franja de serie que queda DEBAJO de la caja (no sólo los extremos
+  // del tramo: la caja suele ser más ancha que él) y se elige el lado con aire.
+  const LABEL_MARGIN = 10;
+  let lastMaxWidth = -1;
+  const ms = (t: string | number) => (typeof t === "number" ? t : Date.parse(String(t)));
+
+  const placeLabel = (sel: DragRangeSelection | null) => {
+    const el = labelEl?.current;
+    if (!el) return;
+    const ts = chart.timeScale();
+    const xTo = sel ? ts.timeToCoordinate(sel.to.time as unknown as Time) : null;
+    const xFrom = sel ? ts.timeToCoordinate(sel.from.time as unknown as Time) : null;
+    if (!sel || xTo == null || xFrom == null) {
+      el.style.visibility = "hidden";
+      // Sin transición mientras está escondida: si no, al empezar el arrastre
+      // siguiente la caja se desliza desde el lado en que quedó la anterior.
+      el.style.transition = "none";
+      return;
+    }
+    const { leftAxis, width: paneWidth } = paneBox();
+
+    // Techo de ancho = el pane. El renglón es de ancho variable (números largos,
+    // o el zoom de texto del navegador, que agranda la caja y no el gráfico): si
+    // superara al pane, el clamp de abajo la dejaría en x=0 igual y se saldría
+    // POR FUERA del gráfico, que en un teléfono es scroll horizontal de todo el
+    // documento. Con el techo se recorta contra el borde y no pasa. Se escribe
+    // sólo cuando cambia: cada write invalida el layout que se lee dos líneas
+    // más abajo, y esto corre en cada pointermove.
+    const maxWidth = Math.max(0, Math.round(paneWidth));
+    if (maxWidth !== lastMaxWidth) {
+      lastMaxWidth = maxWidth;
+      el.style.maxWidth = `${maxWidth}px`;
+    }
+
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const x = Math.max(0, Math.min((xFrom + xTo) / 2 - w / 2, Math.max(0, paneWidth - w)));
+
+    el.style.top = `${Math.round(labelTop(x, w, h))}px`;
+    // La X va en transform y la Y en `top`: el transform no transiciona —tiene
+    // que pegarse al cursor sin arrastre— y el `top` sí, para que el cambio de
+    // lado no sea un salto (la regla vive en el CSS de la caja).
+    el.style.transform = `translateX(${Math.round(x + leftAxis)}px)`;
+    if (el.style.visibility !== "visible") {
+      el.style.visibility = "visible";
+      // Reflow: fija la posición de arranque SIN transición y recién después la
+      // reactiva, para que anime sólo los cambios de lado dentro del arrastre.
+      void el.offsetHeight;
+      el.style.transition = "";
+    }
+  };
+
+  /** Y de la caja: arriba, salvo que la serie no deje lugar. */
+  const labelTop = (x: number, w: number, h: number): number => {
+    const paneHeight = chart.paneSize?.().height ?? container.clientHeight;
+    const series = primitive.series;
+    const ts = chart.timeScale();
+    const arribaDelTodo = LABEL_MARGIN;
+    const abajoDelTodo = Math.max(LABEL_MARGIN, paneHeight - h - LABEL_MARGIN);
+    if (!series || points.length === 0) return arribaDelTodo;
+
+    // Franja de tiempo que cubre la CAJA, no el tramo. Los bordes van clampeados
+    // al primer y último dato: `coordinateToTime` devuelve null fuera del rango
+    // con datos, y la caja se pasa de largo justo en el caso que importa —el
+    // tramo contra el final de la serie, que es donde una curva que sube tiene
+    // su parte alta—.
+    const xPrimero = ts.timeToCoordinate(points[0].time as unknown as Time);
+    const xUltimo = ts.timeToCoordinate(points[points.length - 1].time as unknown as Time);
+    if (xPrimero == null || xUltimo == null) return arribaDelTodo;
+    const xa = Math.max(x, Math.min(xPrimero, xUltimo));
+    const xb = Math.min(x + w, Math.max(xPrimero, xUltimo));
+    if (xb < xa) return arribaDelTodo; // la caja no tiene serie debajo
+    const t0 = ts.coordinateToTime(xa);
+    const t1 = ts.coordinateToTime(xb);
+    if (t0 == null || t1 == null) return arribaDelTodo;
+    const lo = Math.min(ms(t0 as unknown as string | number), ms(t1 as unknown as string | number));
+    const hi = Math.max(ms(t0 as unknown as string | number), ms(t1 as unknown as string | number));
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return arribaDelTodo;
+
+    // Alcanza con los extremos de VALOR: priceToCoordinate es monótona, así que
+    // el máximo da el punto más alto en pantalla. Dos llamadas en vez de una por
+    // punto — esto corre en cada pointermove.
+    let vMax = -Infinity;
+    let vMin = Infinity;
+    for (const p of points) {
+      const t = ms(p.time);
+      if (t < lo || t > hi) continue;
+      if (p.value > vMax) vMax = p.value;
+      if (p.value < vMin) vMin = p.value;
+    }
+    if (vMax === -Infinity) return arribaDelTodo;
+
+    const yAlto = series.priceToCoordinate(vMax);
+    const yBajo = series.priceToCoordinate(vMin);
+    if (yAlto == null || yBajo == null) return arribaDelTodo;
+
+    const aireArriba = yAlto - LABEL_MARGIN;
+    const aireAbajo = paneHeight - yBajo - LABEL_MARGIN;
+    if (aireArriba >= h + LABEL_MARGIN) return arribaDelTodo;
+    if (aireAbajo >= h + LABEL_MARGIN) return abajoDelTodo;
+    // No entra en ninguno (la serie cruza todo el alto): el lado más despejado.
+    return aireArriba >= aireAbajo ? arribaDelTodo : abajoDelTodo;
+  };
+
   // El tramo se le pasa al primitive EN EL MISMO EVENTO, sin esperar a React.
   //
   // El canvas lo pinta el gráfico dentro de su propio requestAnimationFrame:
@@ -148,8 +277,14 @@ export function attachDragRange({
   const applySelection = (next: DragRangeSelection | null) => {
     ownCursorMarks(next !== null);
     primitive.setSelection(toSelection(next));
+    placeLabel(next);
     onSelection(next);
   };
+
+  // Tramo vigente al (re)crear el gráfico: se repone entero —banda, marcas y
+  // caja—, no sólo la banda.
+  if (initial) applySelection(initial);
+  else primitive.setSelection(null);
 
   // Apretar → arrastrar → soltar. Sin pointer capture: capturar redirige los
   // eventos y el canvas dejaría de recibirlos. El move/up van en window para no
@@ -193,5 +328,9 @@ export function attachDragRange({
     window.removeEventListener("pointercancel", onUp);
     down = false;
     anchor = null;
+    // La caja la monta el componente y sobrevive al gráfico (un cambio de
+    // período lo recrea): si quedara visible, quedaría flotando sobre una serie
+    // que ya no es la que se midió.
+    if (labelEl?.current) labelEl.current.style.visibility = "hidden";
   };
 }

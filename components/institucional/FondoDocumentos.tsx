@@ -1,16 +1,25 @@
 "use client";
 
 // Documentos del fondo. El CATÁLOGO es fijo y se lista SIEMPRE completo: los
-// cuatro documentos aparecen publicados o no. Los que el panel ya publicó (y
-// con el flag `fondo_documentos` prendido) se descargan same-origin desde
-// /api/fondo/documentos/[tipo]; el resto se sigue pidiendo a un asesor, como
-// hasta ahora. Así publicar UNO no borra los otros tres de la página, que es
-// justo lo que pasaba cuando la lista salía sólo del API.
-// La página del fondo sigue 100% estática — el estado vive en este cliente.
+// documentos aparecen publicados o no. Cada uno se resuelve por DOS caminos, en
+// este orden:
+//
+//   1. el API — lo que el panel publicó, con el flag `fondo_documentos`
+//      prendido: se descarga same-origin desde /api/fondo/documentos/[tipo];
+//   2. la lista estática (lib/fondoDocsEstaticos.ts) — los PDFs que viajan en el
+//      deploy como archivos de public/: se descargan de su propia ruta.
+//
+// El resto se sigue pidiendo a un asesor, como hasta ahora. Así publicar UNO no
+// borra los otros de la página, que es justo lo que pasaba cuando la lista salía
+// sólo del API.
+//
+// El camino 2 existe porque en el sitio del fondo el API responde SIEMPRE vacío:
+// vive en otra cuenta de Cloudflare, sin R2 y sin puente desde el panel. El
+// porqué completo y su costo están en lib/fondoDocsEstaticos.ts.
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ArrowRight, FileDown } from "@/components/institucional/icons";
+import { DOCS_ESTATICOS_POR_TIPO } from "@/lib/fondoDocsEstaticos";
 import type { FondoDocTipo } from "@/lib/panelSchemas";
 
 // Catálogo canónico: define el orden de la página y el copy de cada documento.
@@ -40,7 +49,7 @@ type DocPublico = {
 };
 
 /** "PDF · 1,2 MB · Actualizado 22/07/2026" — lo que se sabe del archivo, nada más. */
-function metaLinea(d: DocPublico): string {
+function metaLinea(d: { bytes: number | null; actualizado: number | null }): string {
   const partes = ["PDF"];
   if (d.bytes) {
     const mb = d.bytes / 1024 / 1024;
@@ -53,12 +62,19 @@ function metaLinea(d: DocPublico): string {
   return partes.join(" · ");
 }
 
-export function FondoDocumentos() {
+/** `casa`: ver lib/sitios.ts — contacto vive en el sitio institucional. */
+export function FondoDocumentos({ casa }: { casa: string }) {
   const [publicados, setPublicados] = useState<Record<string, DocPublico>>({});
   // Hasta saber qué hay publicado no se muestra ninguna acción: mostrar
   // "Solicitar" y corregirlo a "Descargar" un instante después sería mentirle
   // al lector. El alto de la fila lo fijan título y descripción, así que la
   // acción entra sin mover nada.
+  //
+  // La espera es sólo para los documentos que dependen del API. Los que viajan
+  // en el deploy ya se sabe que se descargan —el archivo está ahí—, así que su
+  // acción sale en el render del server: nada que corregir después, y de paso el
+  // href queda en el HTML, que es de donde scripts/build-fondo.mts recolecta los
+  // assets a publicar.
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -86,6 +102,11 @@ export function FondoDocumentos() {
     <div className="ui-list" style={{ marginTop: 48 }}>
       {CATALOGO.map((doc) => {
         const pub = publicados[doc.tipo];
+        const est = DOCS_ESTATICOS_POR_TIPO[doc.tipo];
+        // El API tiene precedencia: donde el panel gobierna, gobierna. La lista
+        // estática entra sólo si el API no trajo este tipo.
+        const descarga = pub ? `/api/fondo/documentos/${doc.tipo}` : est?.archivo;
+        const meta = pub ?? est;
         const cuerpo = (
           <>
             <span className="fondo-doc-main">
@@ -93,21 +114,21 @@ export function FondoDocumentos() {
               <span>
                 <span className="row-title">{pub?.titulo ?? doc.titulo}</span>
                 <span className="row-desc" style={{ display: "block" }}>{pub?.descripcion ?? doc.desc}</span>
-                {pub && <span className="fondo-doc-meta">{metaLinea(pub)}</span>}
+                {meta && <span className="fondo-doc-meta">{metaLinea(meta)}</span>}
               </span>
             </span>
-            {!cargando && (
+            {(!cargando || est) && (
               <span className="link-arrow fondo-doc-tag" style={{ pointerEvents: "none" }}>
-                {pub ? "Descargar" : "Solicitar"} <ArrowRight />
+                {descarga ? "Descargar" : "Solicitar"} <ArrowRight />
               </span>
             )}
           </>
         );
 
-        return pub ? (
+        return descarga ? (
           <a
             key={doc.tipo}
-            href={`/api/fondo/documentos/${doc.tipo}`}
+            href={descarga}
             target="_blank"
             rel="noopener noreferrer"
             className="ui-list-row fondo-doc-row"
@@ -115,9 +136,9 @@ export function FondoDocumentos() {
             {cuerpo}
           </a>
         ) : (
-          <Link key={doc.tipo} href="/contacto" className="ui-list-row fondo-doc-row">
+          <a key={doc.tipo} href={`${casa}/contacto`} className="ui-list-row fondo-doc-row">
             {cuerpo}
-          </Link>
+          </a>
         );
       })}
     </div>

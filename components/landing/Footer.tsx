@@ -47,8 +47,8 @@ export function Footer({ onSearch }: Props) {
         </p>
         <p className="text-[10px] text-[#03065E]/15 mt-6">
           Desarrollado por{" "}
-          <a href="https://ceibolabs.dev" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#03065E]/30 transition-colors">
-            ceibolabs
+          <a href="https://www.linkedin.com/in/emiliano-rodriguez-uy/" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#03065E]/30 transition-colors">
+            Emiliano Rodríguez
           </a>
         </p>
       </div>

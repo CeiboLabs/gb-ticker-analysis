@@ -2,6 +2,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import type { Informe } from "@/lib/informes";
 import type { Bloque, ContenidoInforme } from "@/lib/informeContenido/tipos";
+import { RUTA_FONDO } from "@/lib/sitios";
 import { BarrasRetorno } from "./BarrasRetorno";
 import { TablaDatos } from "./TablaDatos";
 import { LineaTiempo } from "./LineaTiempo";
@@ -220,10 +221,14 @@ export function ArticuloInforme({
                   <span className="inf-mas-k">Más research</span>
                   <span className="inf-mas-d">Todos los informes de la mesa, semana a semana.</span>
                 </Link>
-                <Link href="/bng-seleccion-global" className="inf-mas-item">
+                {/* El fondo es OTRO sitio (lib/sitios.ts): <a> en la misma pestaña
+                    con el path relativo — en producción el 307 de next.config.ts
+                    lleva a su dominio, y donde los dos sitios comparten hostname
+                    (dev, home server) entra derecho. */}
+                <a href={RUTA_FONDO} className="inf-mas-item">
                   <span className="inf-mas-k">El fondo</span>
                   <span className="inf-mas-d">BNG Selección Global — nosotros, en un solo vehículo.</span>
-                </Link>
+                </a>
                 <Link href="/contacto" className="inf-mas-item">
                   <span className="inf-mas-k">Hablar con un asesor</span>
                   <span className="inf-mas-d">Tu cartera no cabe en un informe general.</span>

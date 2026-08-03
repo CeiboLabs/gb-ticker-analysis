@@ -234,7 +234,11 @@ export const HoldingsSchema = z
         z.object({
           name: z.string().trim().min(2, "Nombre muy corto").max(120),
           short: z.string().trim().max(24).optional(),
-          assetClass: z.enum(["RV", "RF", "ALT"]),
+          // "OTROS" es el residual de la divulgación, no una clase de activo
+          // (ver HoldingItem en lib/fondo.ts): agrupa el tramo de la cartera que
+          // el snapshot no abre por instrumento y es lo que permite que la suma
+          // cierre en 10.000 bps publicando sólo las mayores tenencias.
+          assetClass: z.enum(["RV", "RF", "ALT", "OTROS"]),
           weightBps: z.number().int("Los pesos van en basis points enteros").min(1).max(10_000),
         }),
       )

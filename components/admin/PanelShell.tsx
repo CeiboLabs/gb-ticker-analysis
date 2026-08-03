@@ -22,6 +22,7 @@ const NAV: Array<{ href: string; label: string; perm?: string; adminOnly?: boole
   { href: "/admin", label: "Resumen" },
   { href: "/admin/informes", label: "Informes", perm: "informes" },
   { href: "/admin/fondo", label: "Fondo BNG", perm: "fondo" },
+  { href: "/admin/leads", label: "Leads", perm: "leads" },
   { href: "/admin/monitor", label: "Monitor", perm: "monitor" },
   { href: "/admin/secciones", label: "Secciones", perm: "secciones" },
   { href: "/admin/usuarios", label: "Usuarios", adminOnly: true },

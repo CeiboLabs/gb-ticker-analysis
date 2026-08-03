@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   useSyncExternalStore,
@@ -9,6 +8,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 import {
   Fachada, fachadaMascara, FACHADA_HORIZONTE, FACHADA_HORIZONTE_LEN, FACHADA_VIEWBOX,
 } from "@/components/institucional/Fachada";
+import { scrollWindow } from "@/components/scroll";
 
 // Hero del fondo — versión FACHADA full-bleed. El header entero es el mosaico de
 // paneles embutidos <Fachada /> (extraído a su propio componente, reusado como
@@ -211,7 +211,9 @@ const NO_SUSCRIBE = () => () => {};
 const HAY_CLIENTE = () => true;
 const NO_HAY_CLIENTE = () => false;
 
-export function FondoHero() {
+/** `casa` = origen del sitio institucional para los links que salen de este
+ *  sitio; vacío cuando los dos comparten hostname. Ver lib/sitios.ts. */
+export function FondoHero({ casa }: { casa: string }) {
   const reduce = useReducedMotion();
 
   const heroRef = useRef<HTMLElement>(null);
@@ -226,7 +228,15 @@ export function FondoHero() {
   const contentY = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.65, 1], [1, 1, 0.4]);
   const stageScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
-  const signOpacity = useTransform(scrollYProgress, [0, 0.45], [1, 0]);
+  // La firma se va con el scroll, y a mitad del hero ya no está. Es la única
+  // ventana PARCIAL de las cuatro (las otras tres llegan a 1), así que va por
+  // scrollWindow: framer v12 acelera estos transforms a WAAPI y usa el
+  // inputRange como offsets de keyframes; sin uno explícito en 1, el navegador
+  // completa la cola interpolando hacia el valor subyacente del style
+  // —opacity: 1— y el wordmark REAPARECE de a poco hasta el final del hero
+  // (medido: 0 a los 368px, de vuelta en 1 a los 810). Ver components/scroll.tsx.
+  const signW = scrollWindow(0, 0.45, 1, 0);
+  const signOpacity = useTransform(scrollYProgress, signW.times, signW.values);
 
   /** Corre el mosaico hasta que el horizonte entre por el medio del wordmark. */
   const encuadrar = useCallback(() => {
@@ -392,7 +402,7 @@ export function FondoHero() {
             <li>Domiciliado en Uruguay</li>
           </ul>
           <div className="fh-actions">
-            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Hablar con un asesor</Link>
+            <a href={`${casa}/contacto`} className="ui-btn ui-btn-on-navy">Hablar con un asesor</a>
             <a href="#estrategia" className="fh-link">Cómo invierte →</a>
           </div>
         </div>
@@ -597,6 +607,12 @@ export function FondoHero() {
           font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.9);
           text-decoration: none; transition: color 180ms ease;
         }
+        /* Con el dedo el link tiene que ser tan tocable como el botón que tiene
+           al lado: 24px de alto de texto pasan a 44 de caja. No mueve nada —el
+           botón blanco ya mide 47 y la fila los centra—. */
+        @media (pointer: coarse) {
+          .fh-link { display: inline-flex; align-items: center; min-height: 44px; }
+        }
         .fh-link:hover { color: var(--gold-soft); }
 
         @media (max-width: 920px) {
@@ -616,6 +632,26 @@ export function FondoHero() {
         @media (max-width: 640px) {
           .fh-ledger { flex-direction: column; gap: 9px; padding-top: 16px; }
           .fh-ledger li + li::before { content: none; }
+        }
+
+        /* ── Teléfono acostado ────────────────────────────────────────────
+           La firma se posiciona con 26vh y el claim con 30vh, pero cada clamp
+           tiene su propio piso: con 390px de alto los dos vh se derrumban y
+           mandan los pisos —firma clavada a 150px del tope, claim arrancando a
+           192— así que entre el subtítulo de la marca y el titular quedaban
+           CUATRO píxeles (medido a 844x390 y a 667x375; en vertical el aire es
+           de 36 a 62). El disparador es el ALTO, que es la dimensión que falta:
+           un teléfono en vertical (568px o más) no entra acá.
+
+           La firma tampoco puede subir más allá de lo que tapa el navbar fijo:
+           su caja está centrada en su propio top (translate -50%), así que el
+           límite es --nav-h + la mitad de su alto + aire. Con 94px la mitad del
+           wordmark quedaba abajo de la barra. */
+        @media (max-width: 920px) and (max-height: 560px) {
+          .ffac-hero { padding-top: calc(var(--nav-h) + 112px); }
+          .ffac-sign { top: calc(var(--nav-h) + 46px); }
+          .ffac-sign-bng { font-size: clamp(32px, 4vw, 52px); }
+          .ffac-sign-sub { margin-top: 9px; }
         }
 
         /* Reduce-motion: se apaga TODO el movimiento. Como el estado inicial de

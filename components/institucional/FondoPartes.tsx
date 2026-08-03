@@ -30,6 +30,10 @@ import { ArrowRight } from "@/components/institucional/icons";
 // publicar. EY además exige que su logo vaya sin alterar (Off Black + beam
 // EY Yellow): no pasarlos a gris ni teñirlos con la paleta del sitio.
 //
+// Las celdas NO enlazan al sitio de cada firma (2026-08-02): es una ficha de
+// quién es quién, no un directorio de proveedores, y un enlace saliente al lado
+// de un logo empuja a leer la fila como respaldo/patrocinio.
+//
 // El auditor se publica como DATO DE FICHA, no como sello de confianza: nunca
 // "auditado por EY" en tono de respaldo — EY audita los estados contables, no
 // avala el vehículo ni su desempeño.
@@ -44,7 +48,6 @@ type Parte = {
   /** Altura del logo en px: se normaliza a OJO, no por caja — cada marca
    *  tiene su propia proporción y peso de trazo. */
   alto?: number;
-  href?: string;
 };
 
 const PARTES: Parte[] = [
@@ -53,15 +56,15 @@ const PARTES: Parte[] = [
     nombre: "Valores Administradora de Fondos de Inversión y Fideicomisos S.A.",
     logo: "/logos/valores-afisa.svg",
     alto: 30,
-    href: "https://valo.uy/",
   },
   {
     rol: "Gestor del Portafolio",
     nombre: "Gastón Bengochea y Compañía Corredor de Bolsa S.A.",
-    // Pedido: el logo de logo-bengochea.svg (el del acento dorado en
-    // "INVERSIONES"). Ese archivo es la versión para fondo OSCURO —el texto es
-    // blanco y sobre la tira desaparecería—, así que acá va la misma pieza con
-    // el texto en navy y el oro intacto.
+    // Mismo dibujo que la barra de marca de arriba (logo-bengochea.svg), en su
+    // versión para fondo CLARO: aquel archivo tiene el texto blanco y sobre la
+    // tira desaparecería. Los dos dorados NO coinciden y no hay que igualarlos
+    // —se intentó el 30-jul-2026 y "INVERSIONES" quedó ilegible sobre blanco—;
+    // el porqué está dentro del SVG.
     logo: "/logos/bengochea-tira.svg",
     alto: 24,
   },
@@ -70,7 +73,6 @@ const PARTES: Parte[] = [
     nombre: "Ernst & Young Uy S.A.S.",
     logo: "/logos/ey.svg",
     alto: 42,
-    href: "https://www.ey.com/es_uy",
   },
   {
     // ⚠️ NO SACAR ESTA FILA por no encontrarla en el Reglamento. Se sacó una vez
@@ -97,7 +99,6 @@ const PARTES: Parte[] = [
     // 44 y no 34: el escudo sobresale por arriba de la caja, así que la
     // palabra queda más chica que en los otros tres a igual altura de imagen.
     alto: 44,
-    href: "https://estudiorocca.com.uy/",
   },
 ];
 
@@ -117,29 +118,20 @@ export function FondoPartes() {
       <div className="eyebrow-sm partes-title">Partes intervinientes</div>
 
       <div className="partes-tira">
-        {PARTES.map((p) => {
-          const cuerpo = (
-            <>
-              <span className="partes-logo">
-                {p.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.logo} alt={p.nombre} style={{ height: p.alto }} loading="lazy" />
-                ) : (
-                  <span className="partes-logo-txt">{p.corto ?? p.nombre}</span>
-                )}
-              </span>
-              <span className="partes-rol">{p.rol}</span>
-              <span className="partes-nombre">{p.nombre}</span>
-            </>
-          );
-          return p.href ? (
-            <a key={p.rol} className="partes-celda" href={p.href} target="_blank" rel="noopener noreferrer">
-              {cuerpo}
-            </a>
-          ) : (
-            <div key={p.rol} className="partes-celda">{cuerpo}</div>
-          );
-        })}
+        {PARTES.map((p) => (
+          <div key={p.rol} className="partes-celda">
+            <span className="partes-logo">
+              {p.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.logo} alt={p.nombre} style={{ height: p.alto }} loading="lazy" />
+              ) : (
+                <span className="partes-logo-txt">{p.corto ?? p.nombre}</span>
+              )}
+            </span>
+            <span className="partes-rol">{p.rol}</span>
+            <span className="partes-nombre">{p.nombre}</span>
+          </div>
+        ))}
       </div>
 
       {/* La leyenda de autorización del BCU vivía acá Y otra vez, palabra por
@@ -175,11 +167,7 @@ export function FondoPartes() {
           padding: 32px 28px 28px 24px;
           border-right: 1px solid var(--site-border);
           border-bottom: 1px solid var(--site-border);
-          text-decoration: none;
-          color: inherit;
-          transition: background-color 200ms ease;
         }
-        a.partes-celda:hover { background: var(--surface-muted); }
 
         /* Alto fijo para todos los slots: los logos se alinean por su base
            óptica aunque cada uno tenga su propia proporción. */

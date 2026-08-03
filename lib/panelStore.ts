@@ -12,7 +12,10 @@ import type { D1Database, D1PreparedStatement } from "@/lib/metrics";
 
 // ── Tipos de dominio ─────────────────────────────────────────────────────────
 
-export const PANEL_PERMS = ["informes", "fondo", "secciones", "monitor"] as const;
+// 'leads' (2026-07-28) es dato personal de gente que dejó su correo en el sitio:
+// se asigna a quien atiende la mesa, no a cualquier editor. Como todos, viene
+// apagado por defecto — un editor nuevo no lo tiene hasta que se le da.
+export const PANEL_PERMS = ["informes", "fondo", "secciones", "monitor", "leads"] as const;
 export type PanelPerm = (typeof PANEL_PERMS)[number];
 export type PanelRole = "admin" | "editor";
 export type SessionScope = "setup" | "full";
@@ -346,7 +349,7 @@ export type PanelAuditEntry = {
   actorId?: number | null;
   actorEmail?: string | null;
   ipHash?: string | null;
-  section: "auth" | "informes" | "fondo" | "secciones" | "monitor" | "usuarios";
+  section: "auth" | "informes" | "fondo" | "secciones" | "monitor" | "usuarios" | "leads";
   action: string;
   target?: string | null;
   decision: "ok" | "denied" | "rejected" | "error";

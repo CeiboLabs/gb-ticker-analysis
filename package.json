@@ -11,7 +11,10 @@
     "test:int": "INTEGRATION=1 tsx --test lib/*.test.ts lib/*.test.tsx",
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:deploy": "npm run pages:build && npx wrangler pages deploy",
-    "pages:preview": "npm run pages:build && npx wrangler pages dev"
+    "pages:preview": "npm run pages:build && npx wrangler pages dev",
+    "fondo:build": "tsx scripts/build-fondo.mts",
+    "fondo:dev": "npm run fondo:build && npx wrangler dev --config workers/fondo-site/wrangler.jsonc",
+    "fondo:deploy": "npm run fondo:build && npx wrangler deploy --config workers/fondo-site/wrangler.jsonc"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",

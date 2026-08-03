@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb, eventBaseFromRequest } from "@/lib/metrics";
 import { checkContactLimit, clientIpFrom } from "@/lib/rateLimiter";
 import { ContactRequestSchema, CONTACT_MOTIVOS } from "@/lib/validators";
+import { guardarContacto } from "@/lib/leadProfile";
 
 export const dynamic = "force-dynamic";
 
 const MOTIVO_LABEL: Record<(typeof CONTACT_MOTIVOS)[number], string> = {
   "cuenta-personal": "Abrir una cuenta personal",
   "cuenta-empresa": "Abrir una cuenta empresa",
+  // Etiqueta distinta a propósito: el asunto del mail tiene que delatar de una
+  // que este lead viene del informe, porque es el que se contesta primero.
+  "cuenta-analisis": "Abrir cuenta · desde el análisis",
   "asesoria": "Asesoramiento financiero",
   "productos": "Información de productos",
   "otro": "Otra consulta",
@@ -20,7 +24,7 @@ const MOTIVO_LABEL: Record<(typeof CONTACT_MOTIVOS)[number], string> = {
 // del remitente.
 async function sendNotification(data: {
   nombre: string; apellido: string; email: string;
-  telefono: string; motivo: string; mensaje: string;
+  telefono: string; motivo: string; mensaje: string; contexto: string;
 }): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   const to = process.env.CONTACT_TO;
@@ -38,14 +42,19 @@ async function sendNotification(data: {
         from,
         to: to.split(",").map((s) => s.trim()).filter(Boolean),
         reply_to: data.email,
-        subject: `[Web] ${label} — ${data.nombre} ${data.apellido}`,
+        subject: data.contexto
+          ? `[Web] ${label} — ${data.nombre} ${data.apellido} (${data.contexto})`
+          : `[Web] ${label} — ${data.nombre} ${data.apellido}`,
         text:
           `Nuevo mensaje desde el formulario de contacto:\n\n` +
           `Nombre:   ${data.nombre} ${data.apellido}\n` +
           `Email:    ${data.email}\n` +
           `Teléfono: ${data.telefono || "—"}\n` +
-          `Motivo:   ${label}\n\n` +
-          `${data.mensaje}\n`,
+          `Motivo:   ${label}\n` +
+          // La línea sólo aparece cuando hay contexto (pedidos del informe), así
+          // que los mensajes del formulario general se leen igual que siempre.
+          (data.contexto ? `Miraba:   ${data.contexto} · /analisis?ticker=${data.contexto}\n` : "") +
+          `\n${data.mensaje || "(sin mensaje — pedido de apertura desde el informe)"}\n`,
       }),
     });
     return res.ok;
@@ -96,8 +105,8 @@ export async function POST(req: NextRequest) {
 
   await db
     .prepare(
-      "INSERT INTO contact_messages (ts, nombre, apellido, email, telefono, motivo, mensaje, ip_hash, emailed) " +
-      "VALUES (?,?,?,?,?,?,?,?,?)"
+      "INSERT INTO contact_messages (ts, nombre, apellido, email, telefono, motivo, mensaje, ip_hash, emailed, contexto) " +
+      "VALUES (?,?,?,?,?,?,?,?,?,?)"
     )
     .bind(
       Date.now(),
@@ -109,8 +118,18 @@ export async function POST(req: NextRequest) {
       data.mensaje,
       eventBaseFromRequest(req).ipHash,
       emailed ? 1 : 0,
+      data.contexto || null,
     )
     .run();
+
+  // El perfil del lead se completa de a un dato (perfilado progresivo). Este
+  // formulario ya pide nombre y teléfono, así que se aprovechan: con ellos el
+  // panel de la mesa muestra a quién llamar y el cierre del informe puede saludar
+  // por el nombre. COALESCE en guardarContacto ⇒ no pisa lo que ya hubiera.
+  await guardarContacto(db, data.email, {
+    nombre: data.nombre,
+    telefono: data.telefono || null,
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

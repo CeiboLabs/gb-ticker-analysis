@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FundNavPoint } from "@/lib/fondo";
 import { fmtNav, fmtFechaCorta } from "@/lib/useFondo";
 import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
+import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
 import {
   attachDragRange,
   chronological,
@@ -21,13 +22,24 @@ import {
 
 // Paleta institucional — espejo de los tokens de app/globals.css :root.
 const PALETTE = {
-  // El frame que envuelve el gráfico (.perf-chart-frame) es blanco puro;
-  // pintamos el canvas en #fff para que no se note la costura.
-  bg: "#ffffff",
+  // El canvas se pinta del MISMO color que la banda que lo contiene
+  // (--surface-muted, la sección #performance) para que no se note la costura:
+  // el frame (.perf-chart-frame) pasa a ser un contorno hairline, no una tarjeta
+  // blanca flotando sobre la banda. Si cambia el fondo de la sección, hay que
+  // cambiar este valor con él — el canvas no hereda CSS.
+  bg: "#F4F5FB",     // --surface-muted
   ink3: "#797D99",     // --site-ink-3
   ink4: "#9FA2C0",
-  rule: "#E7E8F2",     // --site-border
-  ruleSoft: "#ECEDF6", // --navy-050
+  // Las reglas del gráfico van RECALIBRADAS a la banda, no copiadas del token.
+  // --navy-050 (#ECEDF6) estaba calculado contra blanco: sobre la banda muted
+  // queda en delta 8 —contra 19 que tenía— y la grilla se borra. El nivel al que
+  // sube es el de --site-border, que es lo que usan las tablas de la sección
+  // sobre este mismo fondo: la grilla es la línea más suave del sistema, así que
+  // no puede pesar MÁS que las reglas de las tablas (ese fue el primer intento).
+  // El eje va un escalón más oscuro, igualado al contorno del marco
+  // (.perf-chart-frame): el borde del canvas y el de la caja son un solo trazo.
+  rule: "#DCDEEE",     // eje + contorno del marco, sobre --surface-muted
+  ruleSoft: "#E7E8F2", // grilla — mismo peso que los hairlines de las tablas
   navy: "#0f2249",     // --navy
   ink2: "#4A4E6B",     // --site-ink-2
   paper: "#FBFBFE",    // --paper (texto de etiquetas sobre navy)
@@ -40,6 +52,30 @@ const PALETTE = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LineSeriesApi = any;
+
+// Formateador de las etiquetas de PRECIO del gráfico (eje + mira). El mismo
+// formateador atiende a los dos, pero no necesitan lo mismo:
+//
+//   · las marcas del eje caen siempre en valores redondos (1.050, 1.100, 1.150…)
+//     y ahí los decimales son ruido puro — ocho etiquetas "1.400,00" apiladas se
+//     comían 70px de los 312 del gráfico en un teléfono, un 22% del ancho para
+//     no decir nada;
+//   · el valor bajo la mira es un dato real (1.369,37) y ahí el decimal ES el
+//     dato.
+//
+// Se distinguen solos: entero ⇒ marca del eje, con decimales ⇒ lectura. No hay
+// pérdida de precisión en ningún lado y el eje angosta en cualquier viewport.
+const etiquetaPrecio = (formatValue: (n: number) => string) => (p: number) =>
+  Number.isInteger(p) ? p.toLocaleString("es-UY", { maximumFractionDigits: 0 }) : formatValue(p);
+
+// "28 sep 2022" → "28 sep '22". La lectura del tramo entra en UN renglón sobre
+// el gráfico: ahí el siglo es ruido, y son dos fechas.
+const fechaTramo = (dia: string) => fmtFechaCorta(dia).replace(/ (\d{2})(\d{2})$/, " '$2");
+
+// ¿El gráfico está en una caja de teléfono? Se decide por el ANCHO REAL del
+// contenedor y no por un media query: lo que importa es cuánto le queda a la
+// serie después del eje, y eso es una medida del elemento, no del viewport.
+const angosto = (el: HTMLElement) => el.clientWidth < 420;
 
 export function FondoChart({
   series,
@@ -71,27 +107,28 @@ export function FondoChart({
   lineKind?: "fund" | "bench";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // Tramo medido con el gesto de arrastre. El ref lo escribe el propio gesto; el
-  // estado sólo alimenta la lectura numérica de abajo.
-  const [selection, setSelection] = useState<DragRangeSelection | null>(null);
+  // Tramo medido con el gesto de arrastre, en dos lugares y por dos motivos:
+  //
+  //   · el ref es el tramo VIGENTE —lo escribe el propio gesto— y sirve para
+  //     reponerlo si hay que recrear el gráfico;
+  //   · el estado es el CONTENIDO de la caja de lectura, y por eso nunca vuelve
+  //     a null: al soltar, la caja se esconde pero queda montada con la última
+  //     medición, así ya tiene ancho medido cuando el gesto la ubica en el
+  //     arrastre siguiente (ver DragRangeCard).
+  const [reading, setReading] = useState<DragRangeSelection | null>(null);
   const selectionRef = useRef<DragRangeSelection | null>(null);
   const [dragging, setDragging] = useState(false);
   const primitiveRef = useRef<DragRangePrimitive | null>(null);
   const lineSeriesRef = useRef<LineSeriesApi>(null);
-
-  const resetSelection = useCallback(() => {
-    selectionRef.current = null;
-    setSelection(null);
-  }, []);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Al cambiar la ventana (cambio de período en FondoPerformance) se borra el
   // tramo: la serie es otra y la medición ya no corresponde. Ese cambio además
   // recrea el gráfico, así que hay que limpiar el ref o el nuevo lo repondría.
   const sig = series.length > 0 ? `${series[0].dia}|${series[series.length - 1].dia}|${series.length}` : "";
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cambiar de rango
-    resetSelection();
-  }, [sig, resetSelection]);
+    selectionRef.current = null;
+  }, [sig]);
 
   useEffect(() => {
     if (!containerRef.current || series.length === 0) return;
@@ -107,7 +144,12 @@ export function FondoChart({
       const container = containerRef.current;
       const chart = createChart(container, {
         width: container.clientWidth,
-        height: 300,
+        // El alto lo manda el CSS (.fondo-chart-canvas), no un número acá: en el
+        // teléfono baja a 220 y el ResizeObserver de abajo lo replica en el
+        // gráfico. Con 300 fijos y 242px de plot la serie quedaba en una caja
+        // casi cuadrada (0,89:1) y una curva de tres años no se lee en un
+        // cuadrado — el gesto de una serie de tiempo es horizontal.
+        height: container.clientHeight || 300,
         layout: {
           background: { color: PALETTE.bg },
           textColor: PALETTE.ink3,
@@ -115,7 +157,7 @@ export function FondoChart({
         },
         localization: {
           locale: "es-UY",
-          priceFormatter: (p: number) => formatValue(p),
+          priceFormatter: etiquetaPrecio(formatValue),
           timeFormatter: (time: import("lightweight-charts").Time) =>
             typeof time === "string" ? fmtFechaCorta(time) : String(time),
         },
@@ -129,7 +171,19 @@ export function FondoChart({
         crosshair: {
           mode: CrosshairMode.Normal,
           vertLine: { color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy },
-          horzLine: { color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy },
+          horzLine: {
+            color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy,
+            // La escala de precios RESERVA el ancho de esta etiqueta, no el de
+            // sus marcas: por eso el eje seguía midiendo 70px después de sacarle
+            // los decimales a las marcas —el chip de la mira sí los lleva—. En
+            // pantalla angosta la apagamos y el eje se achica a lo que miden sus
+            // números. No se pierde nada: en touch la mira sólo aparece durante
+            // el arrastre, y ahí los DOS extremos con decimales ya están en la
+            // lectura de abajo del gráfico —mientras que el chip, además, tapaba
+            // justo las marcas del eje debajo del dedo—. La etiqueta de FECHA es
+            // la del eje de tiempo (vertLine) y no se toca.
+            labelVisible: !angosto(container),
+          },
         },
         rightPriceScale: {
           borderColor: PALETTE.rule,
@@ -268,15 +322,24 @@ export function FondoChart({
         initial: selectionRef.current,
         onSelection: (sel) => {
           selectionRef.current = sel;
-          setSelection(sel);
+          if (sel) setReading(sel);
         },
         onDragging: setDragging,
+        labelEl: cardRef,
       });
 
+      // Ancho Y ALTO: el alto sale del CSS (baja en el teléfono), así que rotar
+      // el aparato o cruzar el breakpoint tiene que re-encuadrar el gráfico. Y
+      // con el ancho puede cambiar de lado del umbral de `angosto`, así que la
+      // etiqueta de la mira se recalcula acá también.
       observerInstance = new ResizeObserver(() => {
-        if (containerRef.current) {
-          chart.applyOptions({ width: containerRef.current.clientWidth });
-        }
+        const el = containerRef.current;
+        if (!el) return;
+        chart.applyOptions({
+          width: el.clientWidth,
+          height: el.clientHeight,
+          crosshair: { horzLine: { labelVisible: !angosto(el) } },
+        });
       });
       observerInstance.observe(container);
     });
@@ -295,10 +358,22 @@ export function FondoChart({
 
   // Lectura del tramo, siempre del extremo más viejo al más nuevo.
   const measure = (() => {
-    if (!selection) return null;
-    const [a, b] = chronological(selection.from, selection.to);
+    const sel = reading;
+    if (!sel) return null;
+    const [a, b] = chronological(sel.from, sel.to);
     if (!a.price) return null;
-    return { a, b, abs: b.price - a.price, pct: ((b.price - a.price) / a.price) * 100 };
+    const abs = b.price - a.price;
+    const pct = (abs / a.price) * 100;
+    return {
+      fromLabel: fechaTramo(String(a.time)),
+      fromValue: formatValue(a.price),
+      toLabel: fechaTramo(String(b.time)),
+      toValue: formatValue(b.price),
+      // Coma decimal, como el resto de los números de la página.
+      pct: `${pct >= 0 ? "+" : ""}${pct.toFixed(2).replace(".", ",")}%`,
+      abs: `${abs >= 0 ? "+" : ""}${formatValue(abs)}`,
+      dir: (abs >= 0 ? "up" : "down") as "up" | "down",
+    };
   })();
 
   return (
@@ -330,43 +405,47 @@ export function FondoChart({
       )}
 
       {/* Cursor de mira y sin selección de texto: el arrastre es un gesto de
-          medición, no una selección del documento. */}
-      <div
-        ref={containerRef}
-        style={{
-          height: 300,
-          cursor: "crosshair",
-          userSelect: dragging ? "none" : undefined,
-          WebkitUserSelect: dragging ? "none" : undefined,
-        }}
-      />
+          medición, no una selección del documento.
 
-      {/* La medición sólo existe mientras se arrastra; la altura queda fija para
-          que la tira no salte al aparecer y desaparecer. */}
-      <div className="fondo-chart-read">
-        {!measure ? (
-          <p className="fondo-chart-hint">Arrastrá sobre el gráfico para medir un tramo.</p>
-        ) : (
-          <div className="fondo-chart-pins-list">
-            <span className="fondo-chart-pin">
-              <span className="fondo-chart-pin-date">{fmtFechaCorta(String(measure.a.time))}</span>
-              <span className="fondo-chart-pin-nav">{formatValue(measure.a.price)}</span>
-            </span>
-            <span className="fondo-chart-pin-arrow">→</span>
-            <span className="fondo-chart-pin">
-              <span className="fondo-chart-pin-date">{fmtFechaCorta(String(measure.b.time))}</span>
-              <span className="fondo-chart-pin-nav">{formatValue(measure.b.price)}</span>
-            </span>
-            <span className="fondo-chart-diff" data-dir={measure.abs >= 0 ? "up" : "down"}>
-              {/* Coma decimal, como el resto de los números de la página. */}
-              <strong>{measure.pct >= 0 ? "+" : ""}{measure.pct.toFixed(2).replace(".", ",")}%</strong>
-              <em>{measure.abs >= 0 ? "+" : ""}{formatValue(measure.abs)}</em>
-            </span>
-          </div>
-        )}
+          touch-action — SIN esto la medición NO EXISTE en el teléfono.
+          Con el valor por defecto el navegador se reserva el gesto en los dos
+          ejes: al segundo pointermove decide que el dedo está haciendo scroll,
+          dispara pointercancel y el arrastre muere antes de marcar un tramo
+          (medido: down 1, move 2, cancel 1, ninguna lectura). Dejándole sólo el
+          eje vertical (y el pinch, que no se le saca a nadie), el horizontal
+          queda para nosotros y la página se sigue scrolleando igual. La
+          propiedad no se hereda pero sí se compone con la de los ancestros, así
+          que alcanza con ponerla acá: los canvas que inyecta la librería adentro
+          quedan cubiertos. */}
+      {/* Envoltorio posicionado: la caja de lectura se ubica contra ESTA caja,
+          que es la misma del gráfico. No va adentro del contenedor del gráfico
+          porque ese div es de la librería —le mete sus canvas y le maneja el
+          tamaño—, y un hijo ajeno ahí adentro es pedir problemas. */}
+      <div className="fondo-chart-plot" style={{ ["--chart-bg" as string]: PALETTE.bg }}>
+        <div
+          ref={containerRef}
+          className="fondo-chart-canvas"
+          style={{
+            cursor: "crosshair",
+            touchAction: "pan-y pinch-zoom",
+            userSelect: dragging ? "none" : undefined,
+            WebkitUserSelect: dragging ? "none" : undefined,
+          }}
+        />
+        <DragRangeHint hidden={dragging || measure !== null} />
+        {/* Siempre montada: el gesto la muestra, la centra sobre el tramo y la
+            vuelve a esconder al soltar. */}
+        <DragRangeCard ref={cardRef} reading={measure} />
       </div>
 
       <style>{`
+        /* El alto vive acá y no en un style inline para que el teléfono lo pueda
+           bajar: la caja de la serie tiene que leerse horizontal (ver el
+           comentario de createChart). El ResizeObserver replica el valor en el
+           gráfico, así que basta con cambiarlo por media query. */
+        .fondo-chart-canvas { height: 300px; }
+        .fondo-chart-plot { position: relative; }
+
         .fondo-chart-legend {
           display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
           margin-bottom: 10px;
@@ -391,31 +470,20 @@ export function FondoChart({
           margin-left: auto; font-family: var(--font-mono), monospace; font-size: 11px;
           letter-spacing: 0.08em; color: var(--site-ink-3);
         }
-        .fondo-chart-read {
-          margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--site-border);
-          min-height: 26px; display: flex; align-items: center;
+        @media (max-width: 560px) {
+          /* Caja más baja: con el ancho que gana el marco al ir de borde a borde
+             (ver .perf-chart-frame) la serie pasa de 242x272 —cuadrada— a
+             ~320x190, que es la proporción con la que se lee una curva. */
+          .fondo-chart-canvas { height: 220px; }
+          /* La leyenda pasa a pesar menos que el gráfico. */
+          .fondo-chart-leg { font-size: 12px; }
         }
-        .fondo-chart-hint {
-          margin: 0; font-family: var(--font-mono), monospace; font-size: 11px;
-          letter-spacing: 0.04em; color: var(--site-ink-3);
+        /* Teléfono chico (360 y menos): al eje ya no se le puede sacar más, así
+           que la proporción se recupera bajando el alto — 246x162 lee como serie,
+           246x192 lee como cuadrado. */
+        @media (max-width: 360px) {
+          .fondo-chart-canvas { height: 190px; }
         }
-        .fondo-chart-pins-list { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .fondo-chart-pin {
-          display: inline-flex; align-items: center; gap: 7px;
-          font-family: var(--font-mono), monospace; font-size: 11px;
-          color: var(--site-ink-2); font-variant-numeric: tabular-nums;
-        }
-        .fondo-chart-pin-nav { color: var(--site-ink); font-weight: 500; }
-        .fondo-chart-pin-arrow { color: var(--site-ink-3); font-size: 11px; }
-        .fondo-chart-diff {
-          display: inline-flex; align-items: baseline; gap: 8px;
-          padding-left: 14px; border-left: 1px solid var(--site-border);
-          font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums;
-        }
-        .fondo-chart-diff strong { font-size: 13px; }
-        .fondo-chart-diff em { font-size: 10px; font-style: normal; opacity: 0.75; }
-        .fondo-chart-diff[data-dir="up"] strong, .fondo-chart-diff[data-dir="up"] em { color: var(--pos); }
-        .fondo-chart-diff[data-dir="down"] strong, .fondo-chart-diff[data-dir="down"] em { color: var(--neg); }
       `}</style>
     </div>
   );

@@ -22,6 +22,16 @@ export const FLAG_DEFS = {
     label: "Documentos del fondo",
     descripcion: "Publica los documentos descargables del fondo (ficha, reglamento) en /bng-seleccion-global.",
   },
+  // El récord medido del analizador. Default OFF y con razón: prenderlo publica
+  // que los precios objetivo aciertan la dirección MENOS que el pronóstico
+  // trivial "siempre sube", y eso expone a la casa de una forma que no se
+  // deshace. La página y el cómputo están hechos; la decisión de publicarlo es
+  // del cliente, y este interruptor es esa decisión.
+  record_publico: {
+    label: "Récord del analizador",
+    descripcion:
+      "Publica /analisis/record: cuánto le ganó al índice cada calificación, con sus límites declarados (precisión del precio objetivo y tamaño de la muestra). Apagado, la página devuelve 404.",
+  },
   // Único flag que no es de visibilidad: no oculta nada, cobra un peaje. Vive
   // acá igual porque es la misma decisión de negocio ("¿lo prendemos?") y el
   // panel ya la sabe editar. Default OFF ⇒ /analisis se comporta como hoy.

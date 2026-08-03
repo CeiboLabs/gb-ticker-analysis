@@ -32,6 +32,8 @@ import {
 } from "@/lib/metrics";
 import { readFlag } from "@/lib/flags";
 import { leadCookieName, leadGateConfigured, verifyLeadToken } from "@/lib/leadGate";
+import { recordLeadActivity } from "@/lib/leadStore";
+import { estadoLector } from "@/lib/leadProfile";
 import { reportError } from "@/lib/errorReporter";
 import { buildVerdictLogRow, recordVerdictLog } from "@/lib/verdictLog";
 import { fetchChartRange } from "@/lib/fetchChartRange";
@@ -778,6 +780,28 @@ export async function POST(req: NextRequest) {
 
   const { ticker, refresh } = parsed.data;
 
+  // 1b. Identidad del lead — se resuelve UNA vez acá y la reusan dos cosas: el
+  // peaje de §2b-pre y el registro de actividad del embudo (lib/leadStore.ts).
+  // Antes se verificaba dentro del peaje; se subió porque la actividad hay que
+  // anotarla TAMBIÉN cuando el peaje está apagado (el correo pudo llegar del
+  // bloque de /informes) y en los caminos que salen por cache, que ni siquiera
+  // pasan por ahí.
+  //
+  // Verificar de más no cuesta: es un HMAC en memoria, sin I/O, y con el gate
+  // sin configurar devuelve null de una. Que sea null es el caso normal —
+  // visitante anónimo—, no un error.
+  const leadEmail = (await verifyLeadToken(req.cookies.get(leadCookieName())?.value))?.email ?? null;
+
+  // Anotar que ESTE lead miró ESTE ticker. `kind` se decide en cada salida:
+  // 'cache' donde se sirve algo ya hecho, 'fresh' recién cuando la generación
+  // arranca de verdad (después de todos los caps) — así un pedido que muere en
+  // un rate-limit no queda contado como intención que nunca ocurrió.
+  // Fire-and-forget: la escritura no bloquea ni puede tumbar el análisis, y el
+  // consentimiento lo chequea el propio SQL.
+  const anotarLead = (kind: "fresh" | "cache", verdict?: string | null) => {
+    if (leadEmail) void recordLeadActivity(leadEmail, ticker, kind, verdict);
+  };
+
   // 2. Cache check + regeneration cooldown.
   // GPT-4o at temperature 0 no es bit-determinístico (MoE routing + mixed
   // precision). Sin cooldown, dos clicks de "regenerar" sobre el mismo input
@@ -802,6 +826,7 @@ export async function POST(req: NextRequest) {
     await cacheClear(ticker);
   } else if (cached && (!refresh || cooldownBlocksRefresh)) {
     void recordTickerView(ticker).catch(() => {});
+    anotarLead("cache", cached.report.verdict?.rating ?? null);
     const qCached = scoreSankey(cached.report.segmentData ?? null, ticker);
     fireEvent({
       ticker,
@@ -877,8 +902,9 @@ export async function POST(req: NextRequest) {
   // —el equipo— nunca lo ve. Cualquier problema de config degrada a "sin peaje":
   // ver la nota de fail-open en lib/leadGate.ts.
   if (!isIpAllowlisted(clientIp) && leadGateConfigured() && (await readFlag(getMetricsDb(), "lead_gate"))) {
-    const lead = await verifyLeadToken(req.cookies.get(leadCookieName())?.value);
-    if (!lead) {
+    // La identidad ya se resolvió en §1b (la necesita también el registro de
+    // actividad, que corre con el peaje apagado y en los caminos por cache).
+    if (!leadEmail) {
       // La ficha de Yahoo (nombre, logo, precio, variación, múltiplos) alcanza
       // para dibujar la cabecera REAL y borronear el resto. Es la parte gratis
       // del pipeline: ni EDGAR ni OpenAI.
@@ -909,14 +935,41 @@ export async function POST(req: NextRequest) {
 
   const freshGate = await checkDailyFreshLimit(clientIp);
   if (!freshGate.allowed) {
-    fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
-    return NextResponse.json(
-      {
-        error: "Límite diario de análisis nuevos alcanzado. Vuelva mañana o consulte tickers ya analizados.",
-        code: "daily_cap_reached",
-      },
-      { status: 429, headers: { "Retry-After": String(freshGate.retryAfter) } }
-    );
+    // Cupo diario agotado. Antes esto era el final del camino para todos por
+    // igual; ahora se mira A QUIÉN se le está negando.
+    //
+    // EL PRESUPUESTO DE ANÁLISIS ES PRESUPUESTO DE MARKETING: cada generación
+    // fresca es una llamada paga a GPT-4o, y la plata rinde distinto según quién
+    // la gasta. Un cliente de la casa o alguien que ya volvió tres veces vale el
+    // gasto — es la persona que puede terminar en una orden o en una apertura. Un
+    // primer rebote anónimo se lleva el cache, que es igual de bueno para leer y
+    // cuesta cero.
+    //
+    // No es un privilegio inventado: es dejar de tratar el cupo como un techo
+    // ciego. El cap GLOBAL de más abajo sigue valiendo para todos, así que esto
+    // no puede desbordar el presupuesto total.
+    const prioritario = leadEmail
+      ? await (async () => {
+          try {
+            const info = await estadoLector(getMetricsDb(), leadEmail);
+            return info.estado === "cliente" || info.estado === "recurrente";
+          } catch {
+            return false;
+          }
+        })()
+      : false;
+
+    if (!prioritario) {
+      fireEvent({ ticker, status: "rate_limited", errorStage: "rate_limit", errorMsg: "daily fresh cap" });
+      return NextResponse.json(
+        {
+          error: "Límite diario de análisis nuevos alcanzado. Vuelva mañana o consulte tickers ya analizados.",
+          code: "daily_cap_reached",
+        },
+        { status: 429, headers: { "Retry-After": String(freshGate.retryAfter) } }
+      );
+    }
+    fireEvent({ ticker, status: "cache_hit", errorMsg: "cupo diario excedido, prioridad por estado del lector" });
   }
 
   // 2c. GLOBAL daily ceiling — the cross-IP backstop. Per-IP gates can't stop a
@@ -948,6 +1001,7 @@ export async function POST(req: NextRequest) {
     const recached = await cacheGet(ticker);
     if (recached && !isAnalysisStale(recached.stockData, recached.report.segmentData ?? null)) {
       void recordTickerView(ticker).catch(() => {});
+      anotarLead("cache", recached.report.verdict?.rating ?? null);
       fireEvent({
         ticker,
         status: "cache_hit",
@@ -957,6 +1011,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ report: recached.report, stockData: recached.stockData, cached: true });
     }
   }
+
+  // Punto de no retorno: de acá para abajo la generación arranca de verdad
+  // (Yahoo + EDGAR + OpenAI). Es la señal de intención más fuerte del embudo —
+  // esta persona eligió el ticker y se banca el minuto de espera—, así que se
+  // anota como 'fresh'. Va DESPUÉS de todos los caps a propósito.
+  anotarLead("fresh");
 
   // 3. Fetch financial data
   let stockData;

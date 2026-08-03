@@ -34,8 +34,9 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
       666 cierres simulados. Es un track record inventado de 2,5 años para un
       fondo que arranca hoy. Hay que borrarlo (comandos abajo) y cargar en su
       lugar `db/seeds/fondo-benchmark.sql` + la cartera real
-      (`db/seeds/fondo-holdings.sql`, `as_of='2026-07-28'`, 17 líneas del
-      cliente): las tenencias que hay cargadas allá también son simuladas
+      (`db/seeds/fondo-holdings.sql`, `as_of='2026-07-28'`, 8 tenencias del
+      cliente + el residual `OTROS` 40%): las tenencias que hay cargadas allá
+      también son simuladas
       (`note` = "preview — cartera simulada").
       ⚠️ **En el home server (gestapp) hay serie SIMULADA cargada** desde
       2026-07-22, para que el equipo vea los gráficos en la preview: 666 cierres

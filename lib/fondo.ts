@@ -162,10 +162,18 @@ export type FundNavPoint = {
 // de <FondoCartera />: renta variable, renta fija y activos alternativos. "ALT"
 // no es un cajón de sastre — es la tercera clase del balanceado (Reglamento
 // 3.3.1: asignación táctica, tope 20%).
+//
+// "OTROS" NO es una cuarta clase de activo: es el RESIDUAL de la divulgación —
+// el tramo de la cartera que el snapshot no abre por instrumento. Existe porque
+// la convención de las fichas técnicas es publicar las mayores tenencias y
+// cerrar el 100% con un "resto", y porque sin él los pesos de las líneas que sí
+// se publican quedarían inflados al normalizar sobre una suma parcial. Va
+// siempre en una sola línea y el componente lo pinta neutro y lo baja al final
+// de la leyenda.
 export type HoldingItem = {
   name: string;
   short: string | null;
-  assetClass: "RV" | "RF" | "ALT";
+  assetClass: "RV" | "RF" | "ALT" | "OTROS";
   weightBps: number;
 };
 export type HoldingsSnapshot = { asOf: string; items: HoldingItem[] };

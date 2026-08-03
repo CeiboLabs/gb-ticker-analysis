@@ -10,6 +10,7 @@ import { panelFetch, errorMessage, Btn, Card, Input, Label, Notice, Badge, PageH
 const PERMS = [
   { key: "informes", label: "Informes" },
   { key: "fondo", label: "Fondo BNG" },
+  { key: "leads", label: "Leads" },
   { key: "monitor", label: "Monitor" },
   { key: "secciones", label: "Secciones" },
 ] as const;

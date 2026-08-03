@@ -699,10 +699,26 @@ export function FondoPerformance() {
         }
         .perf-view-btn[aria-selected="true"] { color: #fff; }
         .perf-view-btn:not([aria-selected="true"]):hover { color: var(--navy); }
+        /* Mismo criterio táctil que el selector de períodos (.pslider-btn). */
+        @media (pointer: coarse) {
+          .perf-view-btn { padding-top: 12px; padding-bottom: 12px; }
+        }
 
+        /* Relleno igual al de la banda: el marco deja de ser una tarjeta blanca
+           flotando y queda como un contorno en torno al gráfico. El canvas de
+           lightweight-charts NO hereda CSS, así que su color va replicado a mano
+           en PALETTE.bg (FondoChart.tsx) — los dos tienen que moverse juntos.
+           El contorno NO usa --site-border: ese token está calculado contra
+           blanco y sobre la banda se apaga hasta leerse como un fantasma en las
+           esquinas. Va un escalón más oscuro, el mismo PALETTE.rule con que el
+           canvas pinta sus ejes, para que caja y eje sean un solo trazo. Los
+           hairlines de ADENTRO (separador de la lectura, nota de benchmark) sí
+           siguen en --site-border: igualan a las tablas de abajo. */
+        /* (Se probó sin marco —borde, radio y padding en 0, el gráfico apoyado
+           directo sobre la banda— y se descartó: el marco se queda.) */
         .perf-chart-frame {
-          border: 1px solid var(--site-border); border-radius: 16px; padding: 18px 18px 14px;
-          background: #fff;
+          border: 1px solid #DCDEEE; border-radius: 16px; padding: 18px 18px 14px;
+          background: var(--surface-muted);
         }
         /* Aclaración de que la curva es del benchmark y no del fondo. Va DENTRO
            del marco del gráfico y arriba de la leyenda: pertenece al gráfico, no
@@ -763,8 +779,12 @@ export function FondoPerformance() {
         /* Indicadores de riesgo: grilla de celdas regladas, subordinada — no tarjetas. */
         /* Dos indicadores: strip compacto alineado a la izquierda (no dos celdas
            estiradas a media página). La regla navy superior acompaña al ancho. */
+        /* El piso de 150px por celda sumaba 301px de contenido mínimo y a 320 de
+           viewport —donde la columna de texto mide 280— la tira se salía de la
+           página. Sin piso: las dos celdas reparten lo que haya y el techo de
+           240 sigue evitando que se estiren a media página en desktop. */
         .perf-risk {
-          margin: 0; display: grid; grid-template-columns: repeat(2, minmax(150px, 240px));
+          margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 240px));
           width: fit-content; max-width: 100%;
           border-top: 1.5px solid var(--navy); border-left: 1px solid var(--site-border);
         }
@@ -787,6 +807,22 @@ export function FondoPerformance() {
         .perf-disclaimer { margin-top: 20px; font-size: 12px; line-height: 1.5; color: var(--site-ink-3); max-width: var(--medida-legal); }
 
         @media (max-width: 560px) {
+          /* El gráfico sale a los bordes de la pantalla. Contado en un teléfono
+             de 390: de los 350px del marco, 36 se iban en su padding y 70 en las
+             etiquetas del eje, así que la curva vivía en 242px — el 62% de la
+             pantalla— dentro de una caja casi cuadrada. Al ras y con el eje
+             angostado (ver etiquetaPrecio en FondoChart) la serie pasa a ~320.
+             Los márgenes negativos son exactamente el padding de .site-wrap en
+             este breakpoint (20px, globals.css); el marco deja de ser una caja
+             redondeada y queda como una banda entre dos hairlines, que es el
+             mismo idioma de las tablas que vienen abajo. Es además lo que hace la
+             industria: ninguna app de fondos gasta un tercio del ancho del
+             teléfono en el marco de su gráfico. */
+          .perf-chart-frame {
+            margin-left: -20px; margin-right: -20px;
+            padding: 14px 10px 12px;
+            border-left: 0; border-right: 0; border-radius: 0;
+          }
           .perf-grid thead th, .perf-grid tbody td { padding-left: 18px; }
           /* Transpuesta: períodos/años en filas, Fondo/Benchmark en columnas.
              Entra sin scroll horizontal. */

@@ -14,6 +14,8 @@ import { MarketStatus } from "@/components/MarketStatus";
 import { NewsletterSignup } from "@/components/institucional/NewsletterSignup";
 import { PREVIEW_CREATED_AT, PREVIEW_REPORT, PREVIEW_STOCK } from "./previewReport";
 import { useLogoBrightness } from "@/lib/useLogoBrightness";
+import { FollowCell, SeguidosStrip } from "@/components/analyze/Seguimiento";
+import { CierreSegunLector } from "@/components/analyze/Cierre";
 
 // "gate" no es un error: el server rechazó GENERAR (no leer) porque falta el
 // correo. Estado propio para no disfrazar de falla lo que es un peaje —
@@ -403,6 +405,10 @@ function AnalisisReporteInner() {
           masthead rellenándose in situ, sin saltar a otro shell. */}
       {(status === "loading" || ((status === "partial" || status === "done" || status === "gate") && !!data)) && (
         <>
+          {/* Lo que se movió en las acciones que la persona sigue, arriba de todo.
+              Se auto-oculta si no sigue ninguna (o si es anónima), así que para
+              la mayoría de las visitas no existe. */}
+          <SeguidosStrip tickerActual={ticker} onSelect={selectTicker} />
           <AnalyzeMasthead
             data={viewData}
             ticker={ticker}
@@ -691,6 +697,13 @@ function AnalyzeMasthead({
                 (el informe se genera hoy) sin inventar la hora de algo que todavía
                 no corrió. */}
             <div className="cell"><div className="label">Generado</div><div className="value">{status === "done" ? data.lastUpdated : data.lastUpdatedDate}</div></div>
+            {/* Seguimiento como CELDA de la ficha, no como botón de marketing.
+                Es metadato del documento —quién lo sigue— y va acá porque la
+                celda de al lado ya declara CUÁNDO se generó: esa fecha es el
+                argumento ("esto tiene fecha de vencimiento, avisame cuando
+                venza"). Sólo con informe real: seguir un esqueleto no significa
+                nada. */}
+            {!gated && hasReport && <FollowCell key={ticker} ticker={ticker} />}
           </div>
         </div>
 
@@ -754,6 +767,11 @@ function AnalyzeMasthead({
                 )}
               </div>
             )}
+
+            {/* El archivo de la propia calificación. Va ANTES del aviso legal —
+                que cierra el panel— y sólo aparece si hay más de un veredicto
+                registrado para este ticker. */}
+            <VerdictHistoryBlock key={ticker} ticker={ticker} />
 
             <div style={{ height: 1, background: "rgba(255,255,255,0.25)", margin: "16px 0 12px" }} />
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, lineHeight: 1.6, letterSpacing: "0.02em", color: "rgba(255,255,255,0.62)", maxWidth: "26em" }}>
@@ -1008,6 +1026,9 @@ function ReportBody({
       <SecNews data={data} />
       <SecScenarios data={data} hasReport={hasReport} />
       <SecRisks data={data} hasReport={hasReport} />
+      {/* El cierre se GANA: al desconocido no se le menciona abrir una cuenta, y
+          al cliente nunca —ya la tiene—. Ver components/analyze/Cierre.tsx. */}
+      {hasReport && <CierreSegunLector ticker={ticker} />}
       <SecDisclaimer />
     </>
   );
@@ -1714,6 +1735,89 @@ function actionKind(action: string): "up" | "down" | "flat" | "init" | null {
   if (a.includes("init")) return "init";
   if (a.includes("main") || a.includes("reit")) return "flat";
   return null;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Historia de la calificación
+   ────────────────────────────────────────────────────────────── */
+
+type VerdictRun = {
+  rating: "BUY" | "HOLD" | "AVOID";
+  conviction: string | null;
+  since: number;
+  priceAt: number | null;
+  count: number;
+};
+
+/**
+ * Archivo de calificaciones del ticker. Sale de verdict_log vía
+ * /api/verdict-history: una consulta indexada, sin upstreams y sin costo, así
+ * que se pide en paralelo al análisis y no lo demora.
+ *
+ * Falla en silencio a propósito: sin historia el bloque no se dibuja y el
+ * informe queda exactamente como antes.
+ */
+function useVerdictHistory(ticker: string) {
+  const [data, setData] = useState<{ runs: VerdictRun[]; previous: string | null; total: number } | null>(null);
+
+  // Sin resets al cambiar de ticker: el bloque se monta con key={ticker}, así que
+  // un ticker nuevo trae estado limpio. Resetear acá además viola la regla de no
+  // llamar setState sincrónico dentro de un effect.
+  useEffect(() => {
+    if (!ticker) return;
+    let cancelado = false;
+    fetch(`/api/verdict-history?ticker=${encodeURIComponent(ticker)}`, { headers: { Accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelado) setData(j); })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [ticker]);
+
+  return data;
+}
+
+/**
+ * "Cómo se movió esta calificación", dentro del panel de veredicto.
+ *
+ * Muestra el arranque de cada TRAMO, no cada generación: lo que importa es desde
+ * cuándo la casa dice lo que dice, y cuál era la lectura anterior. Un solo tramo
+ * también es información —"sostenido en N análisis"—, pero con un único veredicto
+ * en el archivo no hay nada que contar y el bloque se calla.
+ *
+ * Todo el texto va en la rampa blanca del panel, sin teñir los ratings viejos: el
+ * fondo del bloque YA es el color del veredicto vigente, y pintar un BUY verde
+ * ahí adentro competiría con esa señal.
+ */
+function VerdictHistoryBlock({ ticker }: { ticker: string }) {
+  const hist = useVerdictHistory(ticker);
+  if (!hist || hist.total < 2 || hist.runs.length === 0) return null;
+
+  const sinCambios = hist.runs.length === 1;
+
+  return (
+    <>
+      <div style={{ height: 1, background: "rgba(255,255,255,0.25)", margin: "16px 0 12px" }} />
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>
+        {sinCambios ? "Calificación sostenida" : "Cómo se movió"}
+      </div>
+      <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
+        {hist.runs.map((r) => (
+          <div key={r.since} style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ color: "rgba(255,255,255,0.6)", minWidth: 62 }}>{fmtDateEs(new Date(r.since).toISOString())}</span>
+            <span style={{ color: "var(--ivory)", letterSpacing: "0.06em", minWidth: 42 }}>{r.rating}</span>
+            <span style={{ color: "rgba(255,255,255,0.72)" }}>
+              {r.priceAt != null ? `USD ${fmtNum(r.priceAt)}` : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontFamily: "var(--site-font)", fontSize: 11, lineHeight: 1.5, color: "rgba(255,255,255,0.62)", marginTop: 8, maxWidth: "26em" }}>
+        {sinCambios
+          ? `Sin cambios en ${hist.total} análisis de esta acción.`
+          : `${hist.total} análisis registrados. La fecha es el día en que la casa pasó a esa calificación.`}
+      </div>
+    </>
+  );
 }
 
 const MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];

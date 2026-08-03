@@ -11,7 +11,18 @@
     <path d="M645.52,16.58h-43.32v17.72h39.78v14.06h-39.78v20h44.12v14.97h-61.84V1.94h61.04v14.63Z"/>
     <path d="M730,83.33h-18.75l-6.4-18.17h-30.29l-6.63,18.17h-18.29L680.62,1.83h18.4l30.98,81.5ZM689.77,21.83l-10.86,30.29h21.6l-10.74-30.29Z"/>
   </g>
-  <g fill="#E5B83C">
+  <!-- "INVERSIONES" en el ORO SOBRE NAVY del sistema (el token gold, #EBD288), no
+       en el oro latón del logo original (#E5B83C). Este archivo es la variante para
+       FONDO OSCURO y ahí el latón no cierra: el acento dorado de todo lo que va
+       sobre navy —el horizonte del hero del fondo, las volantas, los filetes— es
+       #EBD288, y dos dorados distintos a 20px de distancia se leen como error.
+       Este oro vale SÓLO acá, sobre oscuro. La variante sobre claro
+       (logos/bengochea-tira.svg) lleva un oro más profundo y NO hay que
+       igualarla a este: se probó el 30-jul-2026 y sobre blanco "INVERSIONES"
+       quedó ilegible. El porqué está en ese archivo.
+       Si alguien re-exporta esta pieza desde el original del cliente, este color
+       se pierde: reponerlo. -->
+  <g fill="#EBD288">
     <path d="M417.84,148.44h-6.12v-34.57h6.12v34.57Z"/>
     <path d="M453.19,148.44h-6.26l-16.12-25.44v25.44h-5.73v-34.57h6.36l15.93,25.49v-25.49h5.83v34.57Z"/>
     <path d="M462.71,113.87l8.74,27.34,8.93-27.34h6.17l-11.85,34.57h-6.75l-11.6-34.57h6.36Z"/>

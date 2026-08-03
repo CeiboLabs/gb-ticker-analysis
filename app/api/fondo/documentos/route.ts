@@ -1,27 +1,12 @@
-// Documentos del fondo publicados — lectura PÚBLICA. Respeta el flag
-// `fondo_documentos` y sólo lista filas 'live'; vacío ⇒ el componente cae al
-// fallback "Solicitar". Nunca expone r2_key: la descarga va por [tipo].
+// Documentos del fondo publicados — lectura PÚBLICA. La lógica (flag, filas
+// 'live', qué campos se exponen) vive en lib/fondoApi.ts: el worker del sitio del
+// fondo en Cloudflare sirve este mismo endpoint.
 
-import { NextResponse } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
-import { readFlag } from "@/lib/flags";
-import { listDocsLive } from "@/lib/fondoDocsStore";
+import { respuestaDocumentos } from "@/lib/fondoApi";
 
 export const dynamic = "force-dynamic";
 
-const CACHE = { "Cache-Control": "public, max-age=300, s-maxage=300" };
-
 export async function GET() {
-  const db = getMetricsDb();
-  if (!db || !(await readFlag(db, "fondo_documentos"))) {
-    return NextResponse.json({ documentos: [] }, { headers: CACHE });
-  }
-  const documentos = (await listDocsLive(db)).map((d) => ({
-    tipo: d.tipo,
-    titulo: d.titulo,
-    descripcion: d.descripcion,
-    actualizado: d.updated_at,
-    bytes: d.content_len,
-  }));
-  return NextResponse.json({ documentos }, { headers: CACHE });
+  return respuestaDocumentos(getMetricsDb());
 }

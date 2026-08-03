@@ -5,6 +5,7 @@ import { Reveal } from "@/components/motion";
 import { HistoriaTimeline, type Era } from "@/components/institucional/HistoriaTimeline";
 import { pageMetadata } from "@/lib/seo";
 import { estaOculta } from "@/lib/paginasOcultas";
+import { RUTA_FONDO } from "@/lib/sitios";
 
 export const metadata: Metadata = pageMetadata({
   title: "Historia",
@@ -109,7 +110,11 @@ const ERAS: Era[] = [
 
 const SPRINGBOARD = [
   {
-    href: "/bng-seleccion-global",
+    // El fondo es OTRO sitio de la casa (lib/sitios.ts): se sale con <a>, no
+    // con <Link>. Path relativo — en producción el 307 de next.config.ts lo
+    // manda a su dominio.
+    href: RUTA_FONDO,
+    otroSitio: true,
     title: "BNG Selección Global",
     desc: "Nuestro fondo: una cartera global gestionada desde Montevideo.",
   },
@@ -258,15 +263,18 @@ export default function HistoriaPage() {
               casa y decisiones que se discuten en la mesa.
             </p>
             <div className="ui-list" style={{ marginTop: 40 }}>
-              {SPRINGBOARD.map((s) => (
-                <Link key={s.href} href={s.href} className="ui-list-row">
-                  <div>
-                    <div className="row-title">{s.title}</div>
-                    <div className="row-desc">{s.desc}</div>
-                  </div>
-                  <span className="list-icon"><ArrowRight /></span>
-                </Link>
-              ))}
+              {SPRINGBOARD.map((s) => {
+                const Tag = s.otroSitio ? "a" : Link;
+                return (
+                  <Tag key={s.href} href={s.href} className="ui-list-row">
+                    <div>
+                      <div className="row-title">{s.title}</div>
+                      <div className="row-desc">{s.desc}</div>
+                    </div>
+                    <span className="list-icon"><ArrowRight /></span>
+                  </Tag>
+                );
+              })}
             </div>
           </Reveal>
         </div>

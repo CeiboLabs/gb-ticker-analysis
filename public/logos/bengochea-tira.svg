@@ -11,7 +11,24 @@
     <path d="M645.52,16.58h-43.32v17.72h39.78v14.06h-39.78v20h44.12v14.97h-61.84V1.94h61.04v14.63Z"/>
     <path d="M730,83.33h-18.75l-6.4-18.17h-30.29l-6.63,18.17h-18.29L680.62,1.83h18.4l30.98,81.5ZM689.77,21.83l-10.86,30.29h21.6l-10.74-30.29Z"/>
   </g>
-  <g fill="#E5B83C">
+  <!-- ORO PARA FONDO CLARO. No es ninguno de los dos dorados que andan dando
+       vueltas, y es a propósito:
+         · #EBD288 es el oro del navbar, calibrado para el hero NAVY. Se probó
+           acá el 30-jul-2026 buscando que las dos piezas fueran el mismo logo, y
+           sobre blanco "INVERSIONES" quedó ilegible (1,49:1) — a 8px de altura
+           la palabra se disuelve. Subirla a 32px tampoco la salvó.
+         · #E5B83C es el latón del original del cliente, y sobre blanco tampoco
+           llega (1,87:1).
+       Este #B8891F es el mismo oro corrido en luminosidad hasta que la palabra
+       se lee (3,16:1) sin dejar de leerse como oro — al lado del escudo dorado
+       de Rocca y del rayo amarillo de EY sostiene el tono de la tira.
+       ⚠️ NO igualar esto al oro del navbar: ya se intentó y el resultado fue el
+       bug que este archivo arregla. Que las dos piezas tengan distinto oro NO es
+       un descuido — es la misma marca resuelta para dos fondos distintos, que es
+       exactamente para lo que existe una versión sobre claro.
+       Si alguien re-exporta esta pieza desde el original, este color se pierde:
+       reponerlo. -->
+  <g fill="#B8891F">
     <path d="M417.84,148.44h-6.12v-34.57h6.12v34.57Z"/>
     <path d="M453.19,148.44h-6.26l-16.12-25.44v25.44h-5.73v-34.57h6.36l15.93,25.49v-25.49h5.83v34.57Z"/>
     <path d="M462.71,113.87l8.74,27.34,8.93-27.34h6.17l-11.85,34.57h-6.75l-11.6-34.57h6.36Z"/>

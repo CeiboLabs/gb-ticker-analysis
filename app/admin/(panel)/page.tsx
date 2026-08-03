@@ -6,6 +6,7 @@ import { panelPageGate, hasPerm } from "@/lib/panelAuth";
 import { getMetricsDb } from "@/lib/metrics";
 import { readAudit } from "@/lib/panelStore";
 import { readAllFlags } from "@/lib/flags";
+import { leadsResumen } from "@/lib/leadStore";
 import { Badge, Card, PageHeader } from "@/components/admin/ui";
 import { fmtTs } from "@/components/admin/format";
 
@@ -17,7 +18,7 @@ export default async function PanelHome() {
   const user = gate.user;
   const db = getMetricsDb()!; // panelPageGate ya verificó el binding
 
-  const [ultimoInforme, ultimoNav, flags, audit] = await Promise.all([
+  const [ultimoInforme, ultimoNav, flags, audit, leads] = await Promise.all([
     hasPerm(user, "informes")
       ? db
           .prepare("SELECT slug, titulo, status, updated_at FROM informes ORDER BY fecha DESC LIMIT 1")
@@ -30,6 +31,7 @@ export default async function PanelHome() {
       : Promise.resolve(null),
     hasPerm(user, "secciones") ? readAllFlags(db) : Promise.resolve(null),
     user.role === "admin" ? readAudit(db, { limit: 8 }) : Promise.resolve(null),
+    hasPerm(user, "leads") ? leadsResumen(db) : Promise.resolve(null),
   ]);
 
   return (
@@ -71,6 +73,22 @@ export default async function PanelHome() {
             ) : (
               <p className="adm-help mt-0!">Sin cierres publicados (pre-lanzamiento).</p>
             )}
+          </Card>
+        )}
+        {leads && (
+          <Card title="Leads">
+            {/* El dato que se mira primero es el que hay que trabajar hoy: quién
+                pidió que lo contacten. El resto es contexto. */}
+            <div className="text-sm">
+              <p>
+                <span className="mono num text-[color:var(--site-ink)]">{leads.pedidosApertura}</span>{" "}
+                {leads.pedidosApertura === 1 ? "pedido de apertura" : "pedidos de apertura"} desde el análisis
+              </p>
+              <p className="adm-help">
+                {leads.suscriptores} {leads.suscriptores === 1 ? "suscriptor activo" : "suscriptores activos"} ·{" "}
+                {leads.conActividad} con actividad
+              </p>
+            </div>
           </Card>
         )}
         {flags && (

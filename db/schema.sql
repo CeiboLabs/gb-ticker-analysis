@@ -93,7 +93,12 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   motivo   TEXT    NOT NULL,
   mensaje  TEXT    NOT NULL,
   ip_hash  TEXT,
-  emailed  INTEGER NOT NULL DEFAULT 0
+  emailed  INTEGER NOT NULL DEFAULT 0,
+  -- 2026-07-28: de dónde salió el pedido. Hoy, el ticker que la persona estaba
+  -- leyendo cuando pidió abrir cuenta desde el informe (motivo
+  -- 'cuenta-analisis'); NULL en los mensajes del formulario general. En bases ya
+  -- creadas la agrega el ALTER de db/migrations/2026-07-28-leads-conversion.sql.
+  contexto TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_contact_ts ON contact_messages(ts);
@@ -209,7 +214,8 @@ CREATE TABLE IF NOT EXISTS fund_holdings_item (
   ord         INTEGER NOT NULL,           -- orden de despliegue
   name        TEXT    NOT NULL,
   short       TEXT,                       -- etiqueta corta para la celda del treemap
-  asset_class TEXT    NOT NULL,           -- 'RV' | 'RF' | 'ALT' (enum cerrado, validado en ingesta)
+  asset_class TEXT    NOT NULL,           -- 'RV' | 'RF' | 'ALT' | 'OTROS' (enum cerrado, validado en ingesta)
+                                          -- 'OTROS' = residual no detallado, una sola línea por snapshot
   weight_bps  INTEGER NOT NULL,
   PRIMARY KEY (as_of, name)
 ) WITHOUT ROWID;
@@ -488,3 +494,131 @@ CREATE TABLE IF NOT EXISTS ticker_reason (
   created_at    INTEGER NOT NULL,    -- epoch ms de la generación
   PRIMARY KEY (symbol, day, prompt_v)
 ) WITHOUT ROWID;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 2026-07-28: embudo de /analisis → cliente. Qué acciones consulta
+-- cada lead identificado (el que ya dejó su correo en el peaje), para que la
+-- mesa sepa a quién llamar y de qué hablarle. Detalle y postura de dato
+-- personal en db/migrations/2026-07-28-leads-conversion.sql.
+--
+-- Se escribe SÓLO con cookie de leadGate válida: el tráfico anónimo no deja
+-- rastro acá (para eso está ticker_views, agregado y sin persona). Log de
+-- eventos y no contador: "volvió tres veces en diez días" es la señal, y un
+-- agregado la perdería.
+CREATE TABLE IF NOT EXISTS lead_activity (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  email   TEXT    NOT NULL,  -- minúsculas, misma clave natural que newsletter_subscribers
+  ticker  TEXT    NOT NULL,  -- mayúsculas, como en analyze_events
+  ts      INTEGER NOT NULL,  -- Date.now() de la consulta
+  kind    TEXT    NOT NULL,  -- 'fresh' (mandó a generar) | 'cache' (leyó uno hecho)
+  -- 2026-07-29: veredicto vigente cuando lo vio. Habilita "qué cambió desde tu
+  -- última visita" sin mandar un mail. En bases ya creadas lo agrega el ALTER de
+  -- db/migrations/2026-07-29-captacion-record.sql.
+  verdict TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_lead_activity_email  ON lead_activity(email, ts);
+CREATE INDEX IF NOT EXISTS idx_lead_activity_ticker ON lead_activity(ticker, ts);
+
+-- La otra mitad de esa migración —contact_messages.contexto— ya está declarada
+-- arriba, en el CREATE de contact_messages: una base creada de cero con este
+-- schema la trae, y en las que ya existen la agrega el ALTER de la migración.
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 2026-07-29: estrategia de captación de /analisis. El récord medido
+-- del propio analizador (lo que sostiene la confianza), el seguimiento de
+-- acciones (la continuidad que la nota promete), el perfil del lead (cliente vs
+-- prospecto) y las preguntas a la mesa (la firma humana que el aviso legal dice
+-- que falta). Detalle y método en db/migrations/2026-07-29-captacion-record.sql.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Retorno realizado por veredicto. Cache derivado de verdict_log: truncable, lo
+-- reconstruye lib/recordStore.ts. El exceso es contra el S&P 500 en la MISMA
+-- ventana y sobre serie ajustada — el método exacto del backtest, para que el
+-- número publicado coincida con el medido. matured_* separa la ventana cerrada
+-- del mark-to-market: el récord publica sólo los maduros.
+CREATE TABLE IF NOT EXISTS verdict_return (
+  verdict_id   INTEGER PRIMARY KEY,  -- = verdict_log.id
+  ticker       TEXT    NOT NULL,
+  rating       TEXT    NOT NULL,
+  verdict_day  TEXT    NOT NULL,
+  price_at     REAL,
+  ret_6m       REAL,
+  spy_6m       REAL,
+  excess_6m    REAL,
+  ret_12m      REAL,
+  spy_12m      REAL,
+  excess_12m   REAL,
+  matured_6m   INTEGER NOT NULL DEFAULT 0,
+  matured_12m  INTEGER NOT NULL DEFAULT 0,
+  -- Precisión del precio objetivo — la parte del análisis que NO funciona, medida
+  -- en vivo para que los límites publicados envejezcan con el producto.
+  target_at    REAL,
+  bull_at      REAL,
+  bear_at      REAL,
+  actual_6m    REAL,
+  actual_12m   REAL,
+  abs_err_6m   REAL,
+  abs_err_12m  REAL,
+  dir_ok_6m    INTEGER,
+  dir_ok_12m   INTEGER,
+  in_range_6m  INTEGER,
+  in_range_12m INTEGER,
+  up_6m        INTEGER,
+  up_12m       INTEGER,
+  computed_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_verdict_return_rating ON verdict_return(rating, matured_6m);
+CREATE INDEX IF NOT EXISTS idx_verdict_return_ticker ON verdict_return(ticker, verdict_day);
+
+-- Precisión del target, agregada por horizonte. baseline_dir_rate (el acierto de
+-- "siempre sube") es imprescindible al lado de dir_rate: sin él, un 48 % parece
+-- moneda al aire cuando en realidad es PEOR que no pronosticar.
+CREATE TABLE IF NOT EXISTS record_target_agg (
+  horizon           TEXT    NOT NULL PRIMARY KEY,
+  n                 INTEGER NOT NULL,
+  mae               REAL,
+  dir_rate          REAL,
+  baseline_dir_rate REAL,
+  in_range_n        INTEGER NOT NULL,
+  in_range_rate     REAL,
+  computed_at       INTEGER NOT NULL
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS record_agg (
+  horizon     TEXT    NOT NULL,   -- '6m' | '12m'
+  rating      TEXT    NOT NULL,   -- 'BUY' | 'HOLD' | 'AVOID' | 'ALL'
+  n           INTEGER NOT NULL,
+  n_open      INTEGER NOT NULL,
+  excess_med  REAL,
+  excess_avg  REAL,
+  win_rate    REAL,
+  computed_at INTEGER NOT NULL,
+  PRIMARY KEY (horizon, rating)
+) WITHOUT ROWID;
+
+-- Quién sigue qué. last_seen_* habilita "cambió desde que lo viste" SIN correo.
+CREATE TABLE IF NOT EXISTS lead_follow (
+  email             TEXT    NOT NULL,
+  ticker            TEXT    NOT NULL,
+  created_at        INTEGER NOT NULL,
+  last_seen_verdict TEXT,
+  last_seen_price   REAL,
+  last_seen_at      INTEGER,
+  PRIMARY KEY (email, ticker)
+) WITHOUT ROWID;
+
+CREATE INDEX IF NOT EXISTS idx_lead_follow_ticker ON lead_follow(ticker);
+
+-- Perfil comercial del lead, autodeclarado y llenado de a un campo (perfilado
+-- progresivo). SEPARADO de newsletter_subscribers, que es el registro de
+-- consentimiento y no recibe campos comerciales.
+CREATE TABLE IF NOT EXISTS lead_profile (
+  email      TEXT    PRIMARY KEY,
+  es_cliente INTEGER NOT NULL DEFAULT 0,
+  nombre     TEXT,
+  telefono   TEXT,
+  updated_at INTEGER NOT NULL
+) WITHOUT ROWID;
+

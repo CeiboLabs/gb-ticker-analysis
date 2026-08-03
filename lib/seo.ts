@@ -3,15 +3,18 @@
 // reemplaza por completo el último segmento que los define). Ver docs/SEO-plan.md.
 
 import type { Metadata } from "next";
+import { SITIO_CASA_URL, SITIO_FONDO_URL } from "./sitios";
 
 /**
- * Origen canónico del sitio. El dominio real está TBD (ver decisión D1 del plan):
- * se usa gbengochea.com.uy como placeholder y se cambia en UN solo lugar por env
+ * Origen canónico del sitio institucional. El dominio real está TBD (ver decisión
+ * D1 del plan): se usa gbengochea.com.uy como placeholder y se cambia por env
  * `NEXT_PUBLIC_SITE_URL`. Sin barra final (para componer paths sin dobles `//`).
+ *
+ * La definición vive en `lib/sitios.ts` —junto con la del sitio del fondo, que es
+ * OTRO dominio del mismo deploy— porque `next.config.ts` también la necesita para
+ * rutear por Host. Acá sólo se reexporta con el nombre que ya usa todo el sitio.
  */
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://gbengochea.com.uy"
-).replace(/\/+$/, "");
+export const SITE_URL = SITIO_CASA_URL;
 
 export const SITE_NAME = "Gastón Bengochea & Cía.";
 export const LOCALE = "es_UY";
@@ -72,6 +75,45 @@ export function pageMetadata(m: PageMeta): Metadata {
             authors: m.authors,
           }
         : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: m.title,
+      description: m.description,
+    },
+  };
+}
+
+/**
+ * Metadata de una página del SITIO DEL FONDO (ver `lib/sitios.ts`).
+ *
+ * Difiere de `pageMetadata` en dos cosas, las dos por ser otro dominio:
+ *   · canonical y `og:url` van ABSOLUTOS al origen del fondo. El `metadataBase`
+ *     del root layout apunta al sitio institucional, así que un path relativo
+ *     resolvería al dominio equivocado — y como la misma página además se sirve
+ *     por path en dev y en el home server, sin canonical absoluto las dos URLs
+ *     competirían entre sí en el índice;
+ *   · `og:site_name` es el del fondo: al compartir un link, el sitio que se
+ *     nombra es el del producto, no el de la casa.
+ */
+export function fondoMetadata(m: {
+  title: string;
+  description: string;
+  /** Path DENTRO del sitio del fondo. La home del fondo es "/". */
+  path?: string;
+}): Metadata {
+  const url = `${SITIO_FONDO_URL}${m.path && m.path !== "/" ? m.path : "/"}`;
+  return {
+    title: m.title,
+    description: m.description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      url,
+      siteName: "BNG Selección Global",
+      locale: LOCALE,
+      title: m.title,
+      description: m.description,
     },
     twitter: {
       card: "summary_large_image",

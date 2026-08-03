@@ -127,16 +127,19 @@ async function main() {
     `-- ⚠️ Es una APROXIMACIÓN: reemplazar por los niveles reales de los índices`,
     `--    en cuanto el administrador pase el export (source='administrator').`,
     `--`,
-    `-- Aplicar:  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql`,
+    `-- Aplicar (home server):  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql`,
+    `-- Aplicar (D1):           npx wrangler d1 execute <base> --file=db/seeds/fondo-benchmark.sql`,
+    `--`,
+    `-- Sin BEGIN/COMMIT a propósito: D1 rechaza las transacciones explícitas`,
+    `-- ("use the state.storage.transaction() APIs instead") y acá no hacen falta —`,
+    `-- es UN solo INSERT con upsert, atómico por sí mismo, y re-aplicarlo es seguro.`,
     ``,
-    `BEGIN;`,
     `INSERT INTO fund_benchmark (dia, level, source, updated_at) VALUES`,
     filas
       .map((f) => `  ('${f.dia}', ${f.level.toFixed(6)}, 'etf_proxy', unixepoch()*1000)`)
       .join(",\n") + "",
     `ON CONFLICT(dia) DO UPDATE SET`,
     `  level = excluded.level, source = excluded.source, updated_at = excluded.updated_at;`,
-    `COMMIT;`,
     ``,
   ].join("\n");
 

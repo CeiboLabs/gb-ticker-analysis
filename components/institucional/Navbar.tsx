@@ -8,8 +8,23 @@ import { Fachada } from "@/components/institucional/Fachada";
 import { useUltimoInforme } from "@/lib/useUltimoInforme";
 import type { UltimoInforme } from "@/lib/ultimoInforme";
 import { HAY_PRENSA } from "@/lib/prensa";
+import { RUTA_FONDO } from "@/lib/sitios";
 
-type NavItem = { label: string; href: string; desc: string };
+type NavItem = {
+  label: string;
+  href: string;
+  desc: string;
+  /**
+   * El destino es el OTRO sitio de la casa (hoy: el del fondo, ver lib/sitios.ts).
+   * Se renderiza como <a> en la misma pestaña y no como <Link>: el href se deja
+   * RELATIVO —así sigue funcionando donde los dos sitios comparten hostname, el
+   * dev y el home server—, y en producción el 307 de next.config.ts lo manda al
+   * dominio del fondo. Con <Link>, el router tendría que descubrir a mitad de una
+   * navegación de cliente que el redirect sale a otro origen, y además
+   * prefetchearía una página de otro sitio para nada.
+   */
+  otroSitio?: boolean;
+};
 type Featured = {
   kind: "tile" | "doc" | "fachada" | "dossier";
   zoneLabel: string;   // eyebrow de la zona (Destacado / Archivo / En contexto)
@@ -23,6 +38,8 @@ type Featured = {
   live?: "ultimo-informe";
   /** El href sale del sitio o abre un PDF: <a target="_blank"> en vez de <Link>. */
   externo?: boolean;
+  /** Igual que NavItem.otroSitio: <a> en la misma pestaña. */
+  otroSitio?: boolean;
 };
 type NavGroup = {
   label: string;
@@ -71,7 +88,7 @@ const NAV_GROUPS: NavGroup[] = [
     hint: "Un vehículo que resuelve todo, o el mercado a medida desde la mesa.",
     listEyebrow: "Vías",
     items: [
-      { label: "BNG Selección Global", href: "/bng-seleccion-global", desc: "Nuestro fondo · el mundo en una sola posición" },
+      { label: "BNG Selección Global", href: RUTA_FONDO, desc: "Nuestro fondo · el mundo en una sola posición", otroSitio: true },
       { label: "Ecosistema", href: "/servicios", desc: "Mercado local e internacional · instrumentos a medida" },
     ],
     featured: {
@@ -80,8 +97,9 @@ const NAV_GROUPS: NavGroup[] = [
       eyebrow: "El fondo",
       title: "El mundo, en una sola posición.",
       note: "BNG Selección Global · desde nuestra mesa",
-      href: "/bng-seleccion-global",
+      href: RUTA_FONDO,
       cta: "Ver el fondo",
+      otroSitio: true,
     },
   },
   {
@@ -444,8 +462,9 @@ export function Navbar() {
               </div>
               {group.items.map((it) => {
                 const active = isItemActive(pathname, it.href);
+                const Tag = it.otroSitio ? "a" : Link;
                 return (
-                  <Link
+                  <Tag
                     key={it.href}
                     href={it.href}
                     className="py-3"
@@ -458,7 +477,7 @@ export function Navbar() {
                     }}
                   >
                     {it.label}
-                  </Link>
+                  </Tag>
                 );
               })}
             </div>
@@ -552,8 +571,9 @@ export function Navbar() {
                     <div className="nav-eb">{group.listEyebrow}</div>
                     {group.items.map((it) => {
                       const active = isItemActive(pathname, it.href);
+                      const Tag = it.otroSitio ? "a" : Link;
                       return (
-                        <Link
+                        <Tag
                           key={it.href}
                           href={it.href}
                           className="nav-item"
@@ -563,7 +583,7 @@ export function Navbar() {
                         >
                           <span className="nav-item-t" style={{ fontFamily: ARIAL }}>{it.label}</span>
                           <span className="nav-item-d" style={{ fontFamily: ARIAL }}>{it.desc}</span>
-                        </Link>
+                        </Tag>
                       );
                     })}
                   </div>
@@ -582,6 +602,11 @@ export function Navbar() {
                         tabIndex={isOpen ? 0 : -1}
                         onKeyDown={escClose}
                       >
+                        <FeaturedCard f={f} />
+                      </a>
+                    ) : f.otroSitio ? (
+                      // Otro sitio de la casa, misma pestaña (ver NavItem.otroSitio).
+                      <a href={f.href} className="nav-feat-link" tabIndex={isOpen ? 0 : -1} onKeyDown={escClose}>
                         <FeaturedCard f={f} />
                       </a>
                     ) : (

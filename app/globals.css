@@ -1083,6 +1083,12 @@ a { color: inherit; text-decoration: none; }
 .pslider-btn[data-active="1"] { color: #fff; }
 .pslider-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 .pslider-btn:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
+/* Con el dedo el blanco es la yema, no un cursor de 1px: los períodos son el
+   control principal del gráfico y a 33px de alto quedaban por debajo del mínimo
+   de 44 de las guías táctiles. El thumb se estira solo (top/bottom: 3px). */
+@media (pointer: coarse) {
+  .pslider-btn { padding-top: 12px; padding-bottom: 12px; }
+}
 
 /* ── Inputs ── */
 
@@ -1242,9 +1248,15 @@ a.ui-list-row:hover { padding-left: 14px; }
 .ui-list-row .list-icon { align-self: start; }
 
 /* Banda de cifras / estadísticas */
+/* ⚠️ minmax(0, 1fr) y no 1fr: `1fr` es `minmax(auto, 1fr)`, así que una columna
+   cuyo contenido no puede angostarse —una cifra de una sola palabra larga
+   ("Segregadas") a 32px— se lleva puesto el reparto y EMPUJA la grilla más allá
+   del contenedor. Medido: en el fondo la fila daba columnas de 219 + 151px
+   dentro de 350, sobraba 21px y con eso todo el documento quedaba con scroll
+   horizontal en cualquier teléfono. El tope en 0 obliga a repartir parejo. */
 .cifras-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 56px;
   border-top: 1px solid var(--site-border);
   border-left: 1px solid var(--site-border);
@@ -1302,12 +1314,12 @@ a.ui-list-row:hover { padding-left: 14px; }
 .proceso-step:last-child .proceso-arrow { display: none; }
 
 @media (max-width: 900px) {
-  .cifras-row { grid-template-columns: repeat(2, 1fr); }
+  .cifras-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .proceso-grid { grid-template-columns: 1fr 1fr; row-gap: 36px; }
   .proceso-arrow { display: none; }
 }
 @media (max-width: 560px) {
-  .cifras-row { grid-template-columns: 1fr 1fr; }
+  .cifras-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .proceso-grid { grid-template-columns: 1fr; }
 }
 
@@ -1923,6 +1935,32 @@ a.ui-list-row:hover { padding-left: 14px; }
 .az-figure-hd .lbl, .az-figure-bar .lbl { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.02em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .az-figure-hd .lbl strong, .az-figure-bar .lbl strong { font-weight: 600; color: var(--ink); }
 .az-figure-hd .src { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); }
+
+/* Alto de la caja del gráfico de precio. Vive acá y no en un style inline para
+   que el teléfono lo pueda bajar; el ResizeObserver del componente replica el
+   valor en el gráfico (components/analyze/PriceChartInstitucional.tsx). */
+.az-chart-canvas { height: 280px; }
+
+@media (max-width: 560px) {
+  /* El gráfico de precio sale a los bordes de la pantalla. Contado en un
+     teléfono de 390: de los 350px del marco, 28 se iban en su padding y 62 en el
+     eje —118 con las barras de revenue, que encienden un segundo eje—, así que
+     la serie vivía en 258px de ancho por 252 de alto: un cuadrado, o peor, 202x252
+     con revenue y 132x252 a 320px, más alta que ancha. Al ras, con el eje
+     angostado y sin la escala del revenue, la serie recupera la proporción de una
+     serie de tiempo. Los márgenes negativos son exactamente el padding de
+     .site-wrap en este breakpoint (20px). El modificador --chart mantiene la
+     regla fuera de los otros marcos del informe (el Sankey). */
+  .az-figure--chart {
+    margin-left: -20px; margin-right: -20px;
+    padding: 12px 10px 10px;
+    border-left: 0; border-right: 0; border-radius: 0;
+  }
+  .az-chart-canvas { height: 220px; }
+}
+@media (max-width: 360px) {
+  .az-chart-canvas { height: 190px; }
+}
 
 /* Prosa del argumento (dentro de bandas claras). Arial a 17px: misma medida de
    cuerpo que el resto del sitio institucional (.t-body). */

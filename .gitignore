@@ -20,6 +20,9 @@
 # production
 /build
 
+# sitio estático del fondo (scripts/build-fondo.mts → deploy a Cloudflare)
+/dist
+
 # misc
 .DS_Store
 *.pem

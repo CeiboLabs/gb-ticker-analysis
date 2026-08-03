@@ -11,9 +11,13 @@
 -- ⚠️ Es una APROXIMACIÓN: reemplazar por los niveles reales de los índices
 --    en cuanto el administrador pase el export (source='administrator').
 --
--- Aplicar:  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql
+-- Aplicar (home server):  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql
+-- Aplicar (D1):           npx wrangler d1 execute <base> --file=db/seeds/fondo-benchmark.sql
+--
+-- Sin BEGIN/COMMIT a propósito: D1 rechaza las transacciones explícitas
+-- ("use the state.storage.transaction() APIs instead") y acá no hacen falta —
+-- es UN solo INSERT con upsert, atómico por sí mismo, y re-aplicarlo es seguro.
 
-BEGIN;
 INSERT INTO fund_benchmark (dia, level, source, updated_at) VALUES
   ('2021-07-28', 100.000000, 'etf_proxy', unixepoch()*1000),
   ('2021-07-29', 100.373736, 'etf_proxy', unixepoch()*1000),
@@ -1272,4 +1276,3 @@ INSERT INTO fund_benchmark (dia, level, source, updated_at) VALUES
   ('2026-07-28', 130.032655, 'etf_proxy', unixepoch()*1000)
 ON CONFLICT(dia) DO UPDATE SET
   level = excluded.level, source = excluded.source, updated_at = excluded.updated_at;
-COMMIT;
