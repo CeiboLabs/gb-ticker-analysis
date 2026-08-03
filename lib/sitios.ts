@@ -31,9 +31,15 @@
 
 const sinBarraFinal = (url: string) => url.replace(/\/+$/, "");
 
+// `||` y no `??`: en CI estas variables llegan SIEMPRE, y llegan VACÍAS cuando no
+// están configuradas (`${{ vars.X }}` de una variable inexistente es la cadena
+// vacía, no la ausencia). Con `??` esa cadena vacía ganaba y el canonical, el
+// sitemap y los links salientes quedaban con origen "" — un deploy roto en
+// silencio. Vacío es lo mismo que sin definir.
+
 /** Origen del sitio institucional. Lo reexporta `lib/seo.ts` como `SITE_URL`. */
 export const SITIO_CASA_URL = sinBarraFinal(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://gbengochea.com.uy",
+  process.env.NEXT_PUBLIC_SITE_URL || "https://gbengochea.com.uy",
 );
 
 /**
@@ -44,7 +50,7 @@ export const SITIO_CASA_URL = sinBarraFinal(
  * fondo—, y el institucional se conserva en `gbengochea.com.uy`.
  */
 export const SITIO_FONDO_URL = sinBarraFinal(
-  process.env.NEXT_PUBLIC_FONDO_URL ?? "https://bengocheainversiones.com",
+  process.env.NEXT_PUBLIC_FONDO_URL || "https://bengocheainversiones.com",
 );
 
 /**

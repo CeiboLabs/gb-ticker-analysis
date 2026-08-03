@@ -73,10 +73,16 @@ const { DOCS_ESTATICOS } = await import("../lib/fondoDocsEstaticos");
 
 function prepararCopia() {
   fs.mkdirSync(COPIA, { recursive: true });
+  // `.env.local` NO viaja: ya lo cargó `cargarEnvLocal()` en este proceso y de acá
+  // pasa entero al `next build` por el env del hijo. Si además viajara el archivo,
+  // Next lo releería en la copia y repondría las variables que `correrBuild()`
+  // saca a propósito (FONDO_DEMO) — las variables reales tienen precedencia sobre
+  // un .env, pero una variable BORRADA no es una variable. Así este proceso es la
+  // única puerta por la que entra el entorno del build.
   const excluir = [
     ".git", "node_modules", ".next", ".vercel", ".wrangler", ".cache",
     ".lapicera-backup", "tsconfig.tsbuildinfo", "data", "certificates",
-    "dist", ".DS_Store",
+    "dist", ".DS_Store", ".env.local",
   ];
   execFileSync(
     "rsync",
@@ -98,11 +104,25 @@ function prepararCopia() {
 
 function correrBuild() {
   const next = path.join(COPIA, "node_modules", ".bin", "next");
-  execFileSync(next, ["build"], {
-    cwd: COPIA,
-    stdio: "inherit",
-    env: { ...process.env, FONDO_STANDALONE: "1" },
-  });
+
+  // FONDO_DEMO se SACA del build, aunque esté en el `.env.local` del desarrollador
+  // (donde tiene todo el sentido: es el modo que deja ver la página con un valor
+  // cuota simulado antes de que haya datos). Este build no arma un dev: arma el
+  // sitio PÚBLICO. Hoy la página no renderiza ningún dato en el server y por eso
+  // el flag no cambia el HTML — pero el día que algo se prerenderice, la máquina
+  // que tenga el flag prendido publicaría números inventados, y la que no, no.
+  // La misma razón por la que el worker no lo declara (workers/fondo-site).
+  // De paso, iguala el build de acá con el de CI, que nunca va a tener .env.local.
+  // La anotación NO sobra: el spread de `process.env` PIERDE su índice de string
+  // —TS no lo propaga— y sin ella `env.FONDO_DEMO` no compila. Y esto lo type-chequea
+  // el propio `next build`, que barre `scripts/` (el error aparece recién ahí).
+  const env: NodeJS.ProcessEnv = { ...process.env, FONDO_STANDALONE: "1" };
+  if (env.FONDO_DEMO) {
+    console.log("  (FONDO_DEMO ignorado — el sitio público nunca se buildea en modo demo)");
+    delete env.FONDO_DEMO;
+  }
+
+  execFileSync(next, ["build"], { cwd: COPIA, stdio: "inherit", env });
 }
 
 // ── Recolección de assets ────────────────────────────────────────────────────

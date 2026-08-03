@@ -150,6 +150,64 @@ reusa el último build.
 El script imprime los tres primeros al arrancar: mirar esa línea antes de
 deployar es la forma barata de no publicar el canonical equivocado.
 
+`FONDO_DEMO` **no entra al build** aunque esté en el `.env.local`: el script lo
+saca del entorno del hijo y excluye el archivo de la copia. El modo demo es para
+mirar la página sin datos en el dev, no para publicar números simulados.
+
+---
+
+## Deploy automático
+
+`.github/workflows/fondo-deploy.yml` — **cada push a `feat/institucional`
+republica el sitio.** También se puede disparar a mano desde la pestaña Actions
+(*Run workflow*).
+
+El job corre `npm run fondo:deploy`, el MISMO comando de arriba: CI y la máquina
+del desarrollador no pueden divergir porque no hay dos recetas. Después del
+deploy verifica lo que quedó **servido** —la página responde 200, el HTML es el
+del fondo, `/api/fondo` contesta desde la D1— y falla si no.
+
+No se dispara con cambios que sólo tocan `**/*.md`, `docs/`, `prompts/`,
+`.claude/` ni `scripts/dev-tests/`. Dos pushes seguidos cancelan el primero: lo
+que importa es que el sitio termine en el último commit.
+
+### Lo que hay que configurar una vez
+
+GitHub → repo → **Settings → Secrets and variables → Actions**:
+
+| | Nombre | Valor |
+|---|---|---|
+| Secret | `CLOUDFLARE_API_TOKEN` | el token de la cuenta del fondo (mismo de `~/.config/bng-fondo-cf.env`) |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | `d991d6dfeee96a8b4fd2152385beb594` |
+| Variable | `SEO_INDEXABLE` | vacía en pre-lanzamiento; `1` el día que se lance |
+| Variable | `NEXT_PUBLIC_FONDO_URL` | vacía mientras valga el default de `lib/sitios.ts` |
+| Variable | `NEXT_PUBLIC_SITE_URL` | ídem para el institucional |
+| Variable | `FONDO_SMOKE_URL` | contra qué URL se verifica (default: la de `workers.dev`) |
+
+Por CLI, desde el repo:
+
+```bash
+set -a; . ~/.config/bng-fondo-cf.env; set +a
+gh secret set CLOUDFLARE_API_TOKEN  --body "$CLOUDFLARE_API_TOKEN"
+gh secret set CLOUDFLARE_ACCOUNT_ID --body "$CLOUDFLARE_ACCOUNT_ID"
+```
+
+Las variables **vacías no rompen nada**: `lib/sitios.ts` trata la cadena vacía
+igual que la ausencia y cae en sus defaults. (Por eso usa `||` y no `??` — con
+`??` una variable de GitHub sin configurar publicaba un canonical con origen
+vacío.)
+
+Los tres flags de dominio/indexación son de **build**: cambiarlos en GitHub no
+hace nada hasta que el workflow vuelva a correr. Para aplicarlos sin un commit,
+*Run workflow*.
+
+### Cuándo hay que tocar el workflow
+
+- **Al mergear a `main`**: agregar la rama en `on.push.branches` (o cambiarla),
+  o el sitio del fondo deja de actualizarse.
+- **Al atar el dominio propio**: cargar `NEXT_PUBLIC_FONDO_URL` y
+  `FONDO_SMOKE_URL` como variables. El archivo no se toca.
+
 ---
 
 ## Dominio

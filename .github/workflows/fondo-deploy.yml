@@ -1,0 +1,148 @@
+# BNG Selección Global — deploy automático del sitio del fondo.
+#
+# QUÉ DEPLOYA
+# El sitio del fondo NO es un deploy de Next: es HTML estático + un worker chico
+# para `/api/fondo*` (el porqué está en la cabecera de scripts/build-fondo.mts).
+# Este job corre EXACTAMENTE el mismo comando que se corre a mano —
+# `npm run fondo:deploy`— para que CI y la máquina del desarrollador no puedan
+# divergir. Todo lo demás (qué se copia, qué se verifica, qué se sube) vive en
+# scripts/build-fondo.mts y workers/fondo-site/wrangler.jsonc, no acá.
+#
+# CUENTA
+# Va a la cuenta de Cloudflare DEL FONDO (emirod1955), separada de la que hostea
+# `main`. Credenciales y puesta a punto: docs/RUNBOOK-fondo-cloudflare.md.
+#
+# SECRETS Y VARIABLES DEL REPO (Settings → Secrets and variables → Actions)
+#   secret CLOUDFLARE_API_TOKEN    obligatorio — permisos Workers Scripts:Edit, D1:Edit
+#   secret CLOUDFLARE_ACCOUNT_ID   obligatorio — d991d6df… (la cuenta del fondo)
+#   var    SEO_INDEXABLE           "1" el día del lanzamiento; vacío = robots.txt bloquea todo
+#   var    NEXT_PUBLIC_FONDO_URL   dominio propio cuando se ate; vacío = el default de lib/sitios.ts
+#   var    NEXT_PUBLIC_SITE_URL    idem para el institucional (destino de los links que salen)
+#   var    FONDO_SMOKE_URL         URL contra la que se verifica el deploy
+#
+# Las tres variables de dominio/indexación son flags de BUILD: se hornean en el
+# HTML. Cambiarlas exige volver a correr este workflow, no alcanza con tocarlas.
+
+name: fondo · deploy
+
+on:
+  push:
+    branches:
+      - feat/institucional
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".claude/**"
+      - "prompts/**"
+      - "scripts/dev-tests/**"
+  workflow_dispatch:
+
+# Un deploy a la vez. Si llegan dos pushes seguidos, el primero se cancela: lo
+# que importa es que el sitio termine en el último commit, no que se publiquen
+# todos los intermedios.
+concurrency:
+  group: fondo-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 = el mismo del Dockerfile del home server.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Sin esto, la falta del secret se manifiesta recién al final como un error
+      # de autenticación de wrangler, después de gastar el build entero.
+      - name: Verificar credenciales
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          faltan=""
+          [ -n "$TOKEN" ]   || faltan="$faltan CLOUDFLARE_API_TOKEN"
+          [ -n "$ACCOUNT" ] || faltan="$faltan CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan secrets del repo:$faltan — ver docs/RUNBOOK-fondo-cloudflare.md"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # `npm run fondo:deploy` = build + wrangler deploy. El build corre en una
+      # COPIA del repo (por qué: cabecera del script); en el runner la copia va al
+      # temp del job, en el mismo filesystem, así que el clonado de node_modules
+      # es por hardlinks y cuesta segundos.
+      #
+      # Las tres vars de build van sin default a propósito: si no están
+      # configuradas llegan vacías y lib/sitios.ts cae en sus valores canónicos.
+      # Duplicar los defaults acá sería una segunda fuente de verdad.
+      - name: Build + deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FONDO_BUILD_DIR: ${{ runner.temp }}/bng-fondo-build
+          SEO_INDEXABLE: ${{ vars.SEO_INDEXABLE }}
+          NEXT_PUBLIC_FONDO_URL: ${{ vars.NEXT_PUBLIC_FONDO_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: npm run fondo:deploy
+
+      # El build ya verifica lo suyo (que no falte un chunk, que los PDFs estén),
+      # pero eso mira el directorio local. Esto mira lo que quedó SERVIDO: que la
+      # página responda, que sea la del fondo y que el worker esté hablando con la
+      # D1. El propagado del borde tarda un instante, de ahí los reintentos.
+      - name: Verificar el sitio publicado
+        env:
+          URL: ${{ vars.FONDO_SMOKE_URL || 'https://bng-fondo-site.emirod1955.workers.dev' }}
+        run: |
+          codigo=000
+          for intento in 1 2 3 4 5; do
+            codigo=$(curl -sS -o /tmp/fondo.html -w '%{http_code}' -H 'Cache-Control: no-cache' "$URL/" || echo 000)
+            if [ "$codigo" = "200" ]; then
+              break
+            fi
+            echo "· intento $intento: HTTP $codigo — reintentando en 6s"
+            sleep 6
+          done
+          if [ "$codigo" != "200" ]; then
+            echo "::error::$URL/ respondió HTTP $codigo"
+            exit 1
+          fi
+          if ! grep -qi 'Selecci' /tmp/fondo.html; then
+            echo "::error::$URL/ respondió 200 pero el HTML no es el del fondo"
+            exit 1
+          fi
+          api=$(curl -sS -o /tmp/fondo-api.json -w '%{http_code}' "$URL/api/fondo" || echo 000)
+          if [ "$api" != "200" ]; then
+            echo "::error::$URL/api/fondo respondió HTTP $api — el worker o la D1 están mal"
+            exit 1
+          fi
+          echo "✔ $URL — página y /api/fondo OK"
+
+      # `env` es por step, no se hereda: las variables se repiten acá a propósito.
+      - name: Resumen
+        if: always()
+        env:
+          URL: ${{ vars.FONDO_SMOKE_URL || 'https://bng-fondo-site.emirod1955.workers.dev' }}
+          SEO_INDEXABLE: ${{ vars.SEO_INDEXABLE }}
+          FONDO_URL: ${{ vars.NEXT_PUBLIC_FONDO_URL }}
+        run: |
+          {
+            echo "### BNG Selección Global"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| URL | $URL |"
+            echo "| commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| dominio horneado | ${FONDO_URL:-default de lib/sitios.ts} |"
+            if [ "$SEO_INDEXABLE" = "1" ]; then
+              echo "| indexable | sí |"
+            else
+              echo "| indexable | **no** — robots.txt bloquea todo |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
