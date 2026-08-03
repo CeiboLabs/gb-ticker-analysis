@@ -160,7 +160,14 @@ export function FondoNav({ casa }: { casa: string }) {
           background: var(--gold-deep); transform: scaleX(0); transform-origin: left center;
           transition: transform 220ms ease;
         }
-        .fnav-link[data-active="1"] { color: var(--navy); font-weight: 600; }
+        /* El activo NO cambia de peso a propósito: el negrita ensancha el enlace
+           entre 2 y 6 px (medido) y corre a todos los que le siguen, así que la
+           barra se reacomoda sola mientras uno scrollea. El estado lo cargan el
+           color —gris #797D99 a navy, un salto grande— y el filete oro, que es
+           absoluto y no ocupa lugar. Es la misma regla del navbar de la casa:
+           un solo peso para toda la fila, la página actual se marca por color y
+           por subrayado (Navbar.tsx, .nav-trigger). */
+        .fnav-link[data-active="1"] { color: var(--navy); }
         .fnav-link[data-active="1"]::after { transform: scaleX(1); }
         .fnav-cta { flex: none; padding-top: 8px; padding-bottom: 8px; font-size: 13.5px; }
         @media (max-width: 860px) { .fnav-cta { display: none; } }

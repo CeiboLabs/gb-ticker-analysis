@@ -64,7 +64,12 @@ type Encuadre = { pan: { x: number; y: number }; dy: number; k: number };
 const SIN_ENCUADRE: Encuadre = { pan: { x: 0, y: 0 }, dy: 0, k: 1 };
 
 declare global {
-  interface Window { __ffacEncuadre?: Encuadre }
+  interface Window {
+    __ffacEncuadre?: Encuadre;
+    /** Suelta el listener de resize del script inline — lo llama React al
+     *  montar, cuando pasa a manejar el encuadre él. Ver `scriptEncuadre`. */
+    __ffacSuelta?: () => void;
+  }
 }
 
 /**
@@ -181,14 +186,39 @@ function calcularEncuadre(HORIZ: number[][], VW: number, VH: number): Encuadre |
  * salto de ~330px en mobile. El resultado queda en window para que el primer
  * render de React arranque de ahí y no lo pise.
  *
+ * ⚠️ Y SE QUEDA ESCUCHANDO EL RESIZE hasta que React monte. No es de más: el
+ * encuadre depende del viewport (el padding del hero y el `top` del wordmark
+ * son vh), y en el teléfono el viewport CAMBIA durante la carga —Safari de iOS
+ * hace el primer layout con la barra desplegada y lo rehace con el viewport
+ * grande—. Entre esos dos layouts pasan ~200ms; la hidratación en un teléfono
+ * llega segundos después. Sin este listener nadie reencuadra en el medio, la
+ * corrección se acumula, y la aplica de golpe el primer `encuadrar()` de React
+ * —que llega tardísimo y sin relación con nada que el usuario haya hecho—: eso
+ * es el salto del mosaico que se veía en el iPhone. Medido en ese cruce
+ * (844↔750): dy 13.5px y escala 1.41→1.46, con la línea dorada quedando hasta
+ * 19px fuera de un hueco que mide 23.
+ *
  * El HTML que devuelve es 100% estático —números del propio módulo y el código
  * de `calcularEncuadre`—: no entra nada de afuera, no hay superficie de XSS.
  */
 function scriptEncuadre(horizonte: number[][], vw: number, vh: number) {
-  return `(function(){try{var f=${calcularEncuadre.toString()};var r=f(${JSON.stringify(horizonte)},${vw},${vh});`
-    + `if(!r)return;window.__ffacEncuadre=r;`
+  return `(function(){try{`
+    + `var f=${calcularEncuadre.toString()};`
+    + `var raf=0;`
+    + `var aplicar=function(){raf=0;`
+    + `var r=f(${JSON.stringify(horizonte)},${vw},${vh});if(!r)return;window.__ffacEncuadre=r;`
     + `var s=document.querySelector(".ffac-stage svg");if(s)s.setAttribute("viewBox",r.pan.x+" "+r.pan.y+" "+${vw}+" "+${vh});`
-    + `var d=document.querySelector(".ffac-stage-fit");if(d)d.style.transform="translateY("+r.dy+"px) scale("+r.k+")";`
+    + `var d=document.querySelector(".ffac-stage-fit");if(d)d.style.transform="translateY("+r.dy+"px) scale("+r.k+")";};`
+    // Un solo recálculo por frame: al retraerse la barra del navegador el
+    // resize llega en ráfaga.
+    + `var pedir=function(){if(!raf)raf=requestAnimationFrame(aplicar)};`
+    + `addEventListener("resize",pedir);`
+    // React lo llama al montar: de ahí en adelante el transform lo escribe él y
+    // no puede haber dos manos sobre el mismo nodo.
+    + `window.__ffacSuelta=function(){removeEventListener("resize",pedir);if(raf)cancelAnimationFrame(raf);raf=0;};`
+    // El primer encuadre va ÚLTIMO a propósito: si llegara a fallar, el catch
+    // se lo come y queremos que el listener ya esté puesto igual.
+    + `aplicar();`
     + `}catch(e){}})()`;
 }
 
@@ -250,14 +280,43 @@ export function FondoHero({ casa }: { casa: string }) {
   // Re-encuadra ante cualquier cambio de tamaño del hero (viewport, rotación,
   // barra del navegador en mobile) y cuando terminan de cargar las fuentes —el
   // serif del titular puede cambiar la altura del hero, y con ella el recorte.
+  //
+  // La regla que ordena todo esto: el encuadre no puede quedar VIEJO nunca. No
+  // porque una línea corrida se note —se nota poco—, sino porque la corrección
+  // se acumula y el siguiente disparo la aplica entera de una: el salto del
+  // mosaico en el teléfono era eso, no un reencuadre de más.
   useIsoLayoutEffect(() => {
+    // Hasta este render el encuadre lo venía manteniendo el script inline (ver
+    // scriptEncuadre). De acá en adelante lo escribe React: que suelte el suyo.
+    window.__ffacSuelta?.();
     encuadrar();
     const hero = heroRef.current;
     if (!hero) return;
+    // ⚠️ border-box, NO el de contenido (que es lo que observa por defecto).
+    // En mobile el alto del hero se mueve sólo por su padding —`calc(--nav-h +
+    // clamp(120px, 30vh, 240px))`—, y el padding no entra en la caja de
+    // contenido: el observer por default es CIEGO justo al cambio que importa.
+    // Medido con los dos a la vez sobre cinco cambios de alto de viewport: el
+    // de contenido se disparó una sola vez (la llamada inicial) y el de borde,
+    // las cinco.
     const ro = new ResizeObserver(() => encuadrar());
-    ro.observe(hero);
+    ro.observe(hero, { box: "border-box" });
+    // Y el viewport aparte, porque no todo cambio de encuadre pasa por el
+    // tamaño del hero: el wordmark se sitúa con `top: clamp(150px, 26vh,
+    // 240px)` y cambiar de POSICIÓN no es cambiar de tamaño — no hay
+    // ResizeObserver que se entere. En los teléfonos grandes el hero ya tiene
+    // los 30vh clampeados en 240 y es justamente el wordmark el que se mueve.
+    let raf = 0;
+    const alResize = () => {
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; encuadrar(); });
+    };
+    window.addEventListener("resize", alResize);
     document.fonts?.ready.then(() => encuadrar());
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", alResize);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [encuadrar]);
 
   // ── Luz ──────────────────────────────────────────────────────────────────
@@ -311,6 +370,11 @@ export function FondoHero({ casa }: { casa: string }) {
         ? requestAnimationFrame(paso) : 0;
     };
     const mover = (e: PointerEvent) => {
+      // Con el hero fuera de cuadro la bola ya no se ve, pero ahora la capa
+      // sigue montada (ver el comentario de .ffac-fuera en los estilos): sin
+      // esta guarda seguiríamos escribiéndole transform a algo invisible y
+      // ensuciando su capa por nada. Antes lo tapaba el display:none.
+      if (hero.classList.contains("ffac-fuera")) return;
       const r = hero.getBoundingClientRect();
       destinoX = e.clientX - r.left - r.width / 2;
       destinoY = e.clientY - r.top - r.height / 2;
@@ -445,10 +509,26 @@ export function FondoHero({ casa }: { casa: string }) {
         }
         .ffac-luz.on, .ffac-foco.on { opacity: 1; }
 
-        /* Fuera de pantalla no hay luz que valga: se van las capas enteras, no
-           sólo la animación — así el compositor tampoco carga con ellas. */
+        /* Fuera de pantalla no hay luz que valga: las capas dejan de pintarse y
+           la banda —lo único que cuesta por frame— se pausa.
+
+           ⚠️ ACÁ NO VA display:none, por más que sea lo que uno escribiría.
+           Medido en Safari (safaridriver, wheel frame a frame): sacar las dos
+           capas del árbol cuesta un frame de ~55ms, porque WebKit rehace el
+           layout del hero y reconstruye su árbol de capas de una. Y ese frame
+           cae SIEMPRE en el peor momento posible: el hero mide exactamente lo
+           que hay que scrollear para que termine de salir, que es el mismo
+           píxel en el que la barra de secciones llega al tope y se pega. Con
+           Lenis el scroll lo mueve el main thread, así que esos 55ms no se ven
+           como un salto de la luz —que ya no está— sino como un tranque de la
+           PÁGINA justo cuando la barra empieza a acompañar el scroll.
+
+           visibility + animation-play-state compran lo mismo —ni se pintan ni
+           animan— pero son cambios de pintado y de compositor, sin layout: el
+           frame del cruce baja de 55ms a 17. */
         .ffac-hero.ffac-fuera .ffac-luz,
-        .ffac-hero.ffac-fuera .ffac-foco { display: none; }
+        .ffac-hero.ffac-fuera .ffac-foco { visibility: hidden; }
+        .ffac-hero.ffac-fuera .ffac-luz-banda { animation-play-state: paused; }
 
         /* En touch no hay puntero que seguir. El efecto ya no se suscribía a
            nada, pero la capa se seguía componiendo: un degradado de varios MB
