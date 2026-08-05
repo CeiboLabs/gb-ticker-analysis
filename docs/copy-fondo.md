@@ -95,7 +95,7 @@ Sale del snapshot real (`fund_holdings`). Sin snapshot divulgable muestra el
 estado vacío, que es el que se ve hoy:
 
 **Título vacío:** La composición de la cartera se publica próximamente.
-**Bajada:** Un asesor nuestro te explica la composición del Fondo en detalle.
+**Bajada:** Un asesor nuestro te explicará la composición de la estrategia en detalle.
 
 **Nota (con datos):** Datos aproximados, a título ilustrativo: los pesos están redondeados y la composición varía con el mercado y con las decisiones de gestión. Composición al {fecha}; las ponderaciones pueden haber variado desde esa fecha.
 
@@ -147,7 +147,7 @@ pie no lleva fecha de corte y el bloque no envejece.
 
 **Título:** Una cartera global requiere un proceso de inversión robusto.
 
-**Texto:** Buscar esta diversificación por tu cuenta es posible. La diferencia está en todo lo que BNG Selección Global resuelve por vos — y en quién lo hace.
+**Texto:** Obtener esta diversificación por tu cuenta es posible. La diferencia está en todo lo que BNG Selección Global resuelve por vos — y en quién lo hace.
 
 | Por tu cuenta | Con BNG Selección Global |
 |---------------|--------------------------|
@@ -164,7 +164,7 @@ pie no lleva fecha de corte y el bloque no envejece.
 
 **Título:** Detrás de la estrategia, seis décadas de historia.
 
-**Texto:** La gestión de la cartera está a cargo de Bengochea Inversiones —sociedad de bolsa uruguaya desde 1967—, con Adrián Moreira, CFA, al frente de la gestión del fondo.
+**Texto:** La gestión de la cartera está a cargo de Bengochea Inversiones —sociedad de bolsa uruguaya desde 1967—, con Adrián Moreira, CFA, al frente de la gestión de la estrategia.
 
 | Cifra | Descripción |
 |-------|-------------|
@@ -230,11 +230,11 @@ pie no lleva fecha de corte y el bloque no envejece.
 
 **Aclaración (pre-lanzamiento):** El primer valor cuota del Fondo está pendiente de publicación.
 
-**Aclaración (año calendario, vacío):** El primer año calendario se publica cuando el Fondo cierre su primer ejercicio.
+**Aclaración (año calendario, vacío):** El primer año calendario se publicará cuando la estrategia cierre su primer ejercicio.
 
 **Aviso al pie del módulo:** Los rendimientos pasados no garantizan resultados futuros. Cifras netas de la comisión del Fondo, expresadas en USD, la moneda del fondo. La volatilidad y el retorno anualizado se calculan sobre la serie diaria de valor cuota.
 
-**Aviso (benchmark, sólo cuando está en pantalla):** El benchmark es un compuesto de referencia (60% MSCI ACWI · 40% Bloomberg Global Aggregate): no es un objetivo de rentabilidad ni una garantía. La serie del benchmark está reconstruida con ETFs que replican esos índices (ACWI, AGG y BWX), a precios ajustados por dividendos y con rebalanceo diario. Es una aproximación a los índices originales, no su valor oficial.
+**Aviso (benchmark, sólo cuando está en pantalla):** El benchmark es un compuesto de referencia (60% MSCI ACWI · 40% Bloomberg Global Aggregate): no es un objetivo de rentabilidad ni una garantía. La serie del benchmark está reconstruida con ETFs que replican esos índices (ACWI, AGG), a precios ajustados por dividendos y con rebalanceo diario. Es una aproximación a los índices originales, no su valor oficial.
 
 ---
 
@@ -278,7 +278,7 @@ pie no lleva fecha de corte y el bloque no envejece.
 
 **Frase destacada:** Estar invertido en el mundo, sin vivir pendiente del mercado.
 
-**Busca:** Exposición global y diversificación en un solo vehículo, sin armar la cartera instrumento por instrumento.
+**Busca:** Exposición global y diversificación en un solo vehículo, sin necesidad de armar la cartera instrumento por instrumento.
 
 **Proyecta:** A mediano y largo plazo, acompañando un ciclo completo de mercado en lugar de su día a día.
 
@@ -381,19 +381,19 @@ pie no lleva fecha de corte y el bloque no envejece.
 **Texto:** Si tu pregunta no está acá, escribinos. La mejor respuesta sigue siendo una conversación.
 
 **¿Qué es BNG Selección Global?**
-Es un fondo de inversión uruguayo —«Fondo BNG Selección Global, Fondo de Inversión»—, abierto y de plazo ilimitado, con una estrategia de crecimiento balanceado: construye una cartera con exposición a renta variable y renta fija a nivel global, invirtiendo principalmente a través de ETFs y fondos gestionados por terceros, y de forma directa en deuda de Estados soberanos y de organismos internacionales de crédito.
+Es un fondo de inversión domiciliado en Uruguay —«Fondo BNG Selección Global, Fondo de Inversión»—, aprobado por el BCU, abierto y de plazo ilimitado. El mismo utiliza una estrategia de crecimiento balanceado: el portafolio cuenta con exposición a renta variable, renta fija y activos alternativos a nivel global, invirtiendo principalmente a través de ETFs y Fondos Mutuos.
 
 **¿Para qué perfil de inversor está pensado?**
-Para quien busca una cartera diversificada y global en un solo vehículo, con un horizonte de mediano a largo plazo, sin tener que seleccionar y rebalancear instrumentos por su cuenta. En una conversación con un asesor se evalúa si encaja con tus objetivos.
+Para un perfil de riesgo moderado, quien busca exposición a crecimiento de capital pero con menor volatilidad que invirtiendo 100% en renta variable.
 
 **¿Cómo se accede a BNG Selección Global?**
-El Fondo lo administra Valores Administradora de Fondos de Inversión y Fideicomisos S.A. y la gestión de la cartera está a cargo de Gastón Bengochea y Compañía Corredor de Bolsa S.A. El primer paso es contactar a un asesor nuestro, que te explica el producto y acompaña la suscripción. Suscribir cuotapartes implica la adhesión al Reglamento de Gestión, así que conviene leerlo antes: se descarga en la sección Documentos de esta página.
+El primer paso es contactar a un asesor nuestro, que te explicará el producto y acompañará en la suscripción.
 
 **¿Cómo se suscribe y cómo se rescata?**
-El mínimo de suscripción es de USD 100 por titular, sin monto máximo, y las suscripciones se procesan en forma diaria. Los rescates se solicitan en cualquier momento por medios digitales, se procesan los martes y viernes hábiles y se pagan en dólares dentro de los 4 días hábiles siguientes, salvo causas ajenas a la Sociedad Administradora —huelgas, feriados bancarios o demoras de los custodios—. No hay comisión de rescate. El Reglamento prevé además que el rescate pueda suspenderse por hasta tres meses como medida de defensa del patrimonio del Fondo, por ejemplo si no pudiera determinarse razonablemente el valor cuota. Los horarios de corte y el detalle del procedimiento están en el Reglamento de Gestión.
+El mínimo de suscripción es de USD 100 por titular, sin monto máximo, y las suscripciones se procesan en forma diaria. Los rescates se solicitan en cualquier momento por medios digitales, se procesan los martes y viernes hábiles y se pagan en dólares dentro de los 4 días hábiles siguientes. Los horarios de corte y el detalle del procedimiento están en el Reglamento de Gestión.
 
 **¿Qué costos tiene?**
-La comisión del Fondo es de hasta 1,5% anual, IVA incluido, sobre su patrimonio neto descontado de provisiones: se devenga a diario y se cobra al Fondo, por lo que el valor cuota ya se publica neta de ella. Incluye lo que corresponde a la Sociedad Administradora, al Gestor y a la distribución de las cuotapartes — no se suma el tarifario de la sociedad de bolsa. No hay comisión de rescate. No es el único costo: como el Fondo invierte principalmente a través de ETFs y fondos de terceros, esos vehículos cobran su propia comisión de administración, ya descontada en el precio de cada uno, que se suma a la del Fondo. El Fondo soporta además los gastos propios de su funcionamiento, y los tributos que gravan los rendimientos son de cargo del inversor. La Sociedad Administradora puede modificar las comisiones avisando con 15 días de anticipación, plazo durante el cual se puede rescatar; y si el Fondo se liquidara, percibiría por esa tarea una comisión de 5% por única vez. El detalle está en el Reglamento de Gestión.
+La comisión del Fondo es de hasta 1,5% anual, IVA incluido, sobre su patrimonio neto descontado de provisiones: se devenga a diario y se cobra al Fondo, por lo que el valor cuota ya se publica neta de ella.
 
 **¿Quién administra y quién controla el fondo?**
 El Fondo lo administra Valores Administradora de Fondos de Inversión y Fideicomisos S.A., sociedad autorizada por el Banco Central del Uruguay, y la gestión de la cartera está a cargo de Gastón Bengochea y Compañía Corredor de Bolsa S.A. El Banco Central aprobó el reglamento de gestión, inscribió al Fondo en el Registro del Mercado de Valores y autorizó la contratación de Ernst & Young Uy S.A.S. —firma inscripta en el Registro de Auditores Externos del Banco Central— como auditor externo del Fondo.
@@ -465,7 +465,7 @@ Esta página tiene fines exclusivamente informativos y no constituye asesoramien
 
 **Nombre:** 60% MSCI ACWI · 40% Bloomberg Global Aggregate
 **Tickers Bloomberg:** ACWI · LEGATRUU
-**Proxies de la serie:** ACWI (60%) · AGG (18%) · BWX (22%)
+**Proxies de la serie:** ACWI (60%) · AGG (40%)
 
 Confirmado con el equipo el 28-jul-2026. La serie se reconstruye con ETFs porque
 los niveles de los índices son datos licenciados; el detalle está en

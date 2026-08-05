@@ -40,7 +40,7 @@ export const metadata: Metadata = fondoMetadata({
 // el argumento en vez de reafirmarlo.
 const ESTRATEGIA: { icon: ReactNode; title: string; body: string }[] = [
   { icon: <Scales />, title: "Cartera balanceada", body: "Combina acciones, bonos y activos alternativos en un mismo vehículo, buscando un equilibrio entre crecimiento y estabilidad según el contexto de mercado." },
-  { icon: <Waveform />, title: "Gestión activa", body: "La asignación entre renta variable y renta fija no es fija: se ajusta de forma activa según la coyuntura macroeconómica y con un proceso de inversión profesional." },
+  { icon: <Waveform />, title: "Gestión activa", body: "La asignación entre renta variable y renta fija no es estática: se ajusta de forma activa según la coyuntura macroeconómica y con un proceso de inversión profesional." },
   { icon: <Shield />, title: "Diversificación amplia", body: "El riesgo se diversifica no solo por clase de activo, sino también de forma geográfica — no depende de un solo instrumento ni del desempeño de un país o industria puntual." },
 ];
 
@@ -55,7 +55,7 @@ const ESTRATEGIA: { icon: ReactNode; title: string; body: string }[] = [
 // confirmado del producto (un solo vehículo · horizonte de ciclo completo), así
 // que cualifica sin prometer ni inventar nada.
 const PERFIL: { verbo: string; desc: string }[] = [
-  { verbo: "Busca", desc: "Exposición global y diversificación en un solo vehículo, sin armar la cartera instrumento por instrumento." },
+  { verbo: "Busca", desc: "Exposición global y diversificación en un solo vehículo, sin necesidad de armar la cartera instrumento por instrumento." },
   { verbo: "Proyecta", desc: "A mediano y largo plazo, acompañando un ciclo completo de mercado en lugar de su día a día." },
 ];
 
@@ -109,7 +109,7 @@ export default async function FondoPage() {
               {/* Mecanismo, no el claim de Resumen otra vez: ahí el argumento es
                   "decenas de instrumentos → un solo vehículo" y acá es cómo se
                   combinan. Por eso el titular no repite "vehículo". */}
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Muchos activos, una sola cartera.</h2>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Una estrategia, un solo vehículo.</h2>
               {/* El "principalmente a través de ETFs y fondos" no es un detalle
                   de implementación que pueda esperar a los paneles de Cartera:
                   es la estructura del vehículo (Reglamento 3.1, "invertido
@@ -175,7 +175,7 @@ export default async function FondoPage() {
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>Una cartera global requiere un proceso de inversión robusto.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Buscar esta diversificación por tu cuenta es posible. La diferencia está en todo lo
+                Obtener esta diversificación por tu cuenta es posible. La diferencia está en todo lo
                 que BNG Selección Global resuelve por vos — y en quién lo hace.
               </p>
             </div>
@@ -200,7 +200,7 @@ export default async function FondoPage() {
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "36em" }}>
                 La gestión de la cartera está a cargo de Bengochea Inversiones
                 —sociedad de bolsa uruguaya desde 1967—, con Adrián Moreira, CFA, al frente
-                de la gestión del fondo.
+                de la gestión de la estrategia.
               </p>
             </div>
           </Reveal>
@@ -335,7 +335,7 @@ export default async function FondoPage() {
           <div className="split-label">
             <div className="eyebrow-sm">Preguntas frecuentes</div>
             <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Lo que conviene saber de BNG Selección Global.</h2>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>Información útil sobre BNG Selección Global.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 Si tu pregunta no está acá, escribinos. La mejor respuesta sigue siendo una conversación.
               </p>

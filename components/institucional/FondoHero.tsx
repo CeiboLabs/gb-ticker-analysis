@@ -259,12 +259,12 @@ const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayout
 // eso, no un espacio duro: entre dos `inline-block` la oportunidad de corte
 // existe igual, con `&nbsp;` o sin él (probado, el nbsp no cambia nada).
 //
-// Atar "con exposición" es lo que permite APAGAR `text-wrap: balance` en el
+// Atar "con diversificación" es lo que permite APAGAR `text-wrap: balance` en el
 // teléfono sin que el titular corte en preposición, que era justo lo que el
 // balance estaba evitando. Ver el porqué en la regla de .fh-h1, abajo.
 const GRUPOS = [
   ["Una"], ["estrategia"], ["balanceada"], ["y"], ["gestionada"],
-  ["profesionalmente,"], ["con", "exposición"], ["global."],
+  ["profesionalmente,"], ["con", "diversificación"], ["global."],
 ];
 // El índice del escalonado es el de PALABRA, no el de grupo: la coreografía
 // entra palabra por palabra aunque dos viajen atadas. Se calcula una sola vez.
@@ -709,7 +709,7 @@ export function FondoHero({ casa }: { casa: string }) {
 
         /* text-wrap: balance reparte las palabras entre las líneas en vez de
            llenar cada una hasta el borde: sin esto el titular corta en
-           preposición ("profesionalmente, con" / "exposición global") y deja
+           preposición ("profesionalmente, con" / "diversificación global") y deja
            una línea huérfana en el medio. Se apaga en el teléfono — ver la regla
            en el bloque de ≤920px, que explica por qué. */
         .ffac-hero .fh-h1 {
@@ -772,7 +772,7 @@ export function FondoHero({ casa }: { casa: string }) {
              En desktop se puede dejar porque ahí el hero tiene min-height: su
              alto no depende del titular y un intermedio no mueve nada.
              El corte bueno no se pierde: lo sostiene la atadura de
-             "con exposición" (ver GRUPOS), que es lo único que el balance
+             "con diversificación" (ver GRUPOS), que es lo único que el balance
              estaba comprando en este ancho. */
           .ffac-hero .fh-h1 { text-wrap: wrap; }
         }

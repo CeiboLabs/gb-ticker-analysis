@@ -9,17 +9,19 @@
 // (total return) — que es lo que miden los índices originales.
 //
 //   Renta variable (60%)  ACWI  iShares MSCI ACWI ETF        → réplica directa del índice
-//   Renta fija     (40%)  AGG   iShares Core US Aggregate    → 45% del tramo
-//                         BWX   SPDR Bloomberg Global
-//                               Treasury ex-US (SIN cobertura)→ 55% del tramo
+//   Renta fija     (40%)  AGG   iShares Core US Aggregate    → todo el tramo
+//
+// ⚠️ Los pesos NO se declaran acá: salen de BENCHMARK_PROXY (lib/fondo.ts), que
+// es donde está el porqué de esta composición y qué se perdió al llegar a ella
+// (hasta el 5-ago-2026 el tramo de renta fija se partía 45/55 entre AGG y BWX).
+// El cuadro de arriba es un resumen de lectura: si difiere del módulo, manda el
+// módulo.
 //
 // El tramo de renta fija es el aproximado: NO existe un ETF accesible que siga
 // al Global Aggregate SIN cobertura de moneda en USD (los que hay —BNDX, BNDW,
 // AGGU— están cubiertos, y la cobertura es justamente lo que diferencia a
-// LEGATRUU de su gemelo cubierto). Se arma entonces con dos piezas de la misma
-// familia Bloomberg: el agregado de EE.UU. y el tesoro global ex-EE.UU. sin
-// cobertura, en 45/55 — la partición por moneda del Global Aggregate real
-// (~45% USD, ~55% resto). Es una APROXIMACIÓN, y la página lo dice al pie.
+// LEGATRUU de su gemelo cubierto). Con AGG solo, además, el tramo queda 100% en
+// deuda de EE.UU. y en dólares. Es una APROXIMACIÓN, y la página lo dice al pie.
 //
 // Rebalanceo DIARIO a pesos constantes (60/40 sobre los retornos del día): es la
 // convención simple y auditable para un compuesto de referencia; contra un

@@ -489,6 +489,83 @@ function verificarDocs(): string[] {
   return problemas;
 }
 
+// ── Variante para el hosting cPanel ──────────────────────────────────────────
+//
+// El sitio se publica en el hosting del cliente (Apache + PHP, sin Node). Cambia
+// sólo la cáscara: los mismos archivos estáticos, pero lo que en Cloudflare vivía
+// en `_headers` y `_redirects` acá va en un `.htaccess`, y los tres endpoints de
+// datos los sirve `deploy/cpanel/api.php`, que consulta al worker (ver el
+// comentario largo de ese archivo).
+
+const SALIDA_CPANEL = path.join(REPO, "dist", "fondo-cpanel");
+
+function htaccess(): string {
+  const l: string[] = [
+    "# Generado por scripts/build-fondo.mts — no editar a mano.",
+    "# Reemplaza a _headers y _redirects, que son formato de Cloudflare.",
+    "",
+    "Options -Indexes",
+    "ErrorDocument 404 /404.html",
+    "",
+    "<IfModule mod_rewrite.c>",
+    "  RewriteEngine On",
+    "",
+    "  # Los tres endpoints de datos, al proxy PHP.",
+    "  RewriteRule ^api/fondo(/.*)?$ api.php [L,QSA]",
+    "",
+    "  # El path físico de la página colapsa a la raíz: una sola URL por página.",
+    "  RewriteRule ^bng-seleccion-global/?$ / [R=307,L]",
+    "",
+    "  # HTTPS y sin www — el canonical horneado en el HTML es el apex.",
+    "  # ⚠️ Si AutoSSL todavía no emitió el certificado, comentar estas tres líneas:",
+    "  # forzar HTTPS antes de tener certificado deja el sitio con advertencia.",
+    "  RewriteCond %{HTTPS} !=on [OR]",
+    "  RewriteCond %{HTTP_HOST} ^www\\. [NC]",
+    `  RewriteRule ^ ${SITIO_FONDO_URL}%{REQUEST_URI} [R=301,L]`,
+    "</IfModule>",
+    "",
+    "<IfModule mod_headers.c>",
+  ];
+
+  for (const { key, value } of headersSeguridad({ dev: false })) {
+    l.push(`  Header always set ${key} "${value.replace(/"/g, '\\"')}"`);
+  }
+
+  l.push(
+    "",
+    "  # Los assets de Next llevan hash de contenido en el nombre: inmutables.",
+    "  # El HTML, en cambio, revalida siempre — si no, un deploy nuevo no se ve.",
+    '  SetEnvIf Request_URI "^/_next/static/" FONDO_INMUTABLE=1',
+    '  Header always set Cache-Control "public, max-age=31536000, immutable" env=FONDO_INMUTABLE',
+    '  Header always set Cache-Control "public, max-age=0, must-revalidate" "expr=%{ENV:FONDO_INMUTABLE} != \'1\' && %{CONTENT_TYPE} =~ m#^text/html#"',
+    "</IfModule>",
+    "",
+    "<IfModule mod_deflate.c>",
+    "  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml \\",
+    "    application/javascript application/json application/xml image/svg+xml",
+    "</IfModule>",
+    "",
+  );
+  return l.join("\n");
+}
+
+function armarCpanel(): number {
+  fs.rmSync(SALIDA_CPANEL, { recursive: true, force: true });
+  fs.cpSync(SALIDA, SALIDA_CPANEL, { recursive: true });
+
+  // Formato de Cloudflare: en Apache no hacen nada y sólo quedarían expuestos.
+  for (const f of ["_headers", "_redirects"]) {
+    fs.rmSync(path.join(SALIDA_CPANEL, f), { force: true });
+  }
+
+  fs.writeFileSync(path.join(SALIDA_CPANEL, ".htaccess"), htaccess());
+  fs.copyFileSync(
+    path.join(REPO, "deploy", "cpanel", "api.php"),
+    path.join(SALIDA_CPANEL, "api.php"),
+  );
+  return pesar(SALIDA_CPANEL).archivos;
+}
+
 function pesar(dir: string): { archivos: number; bytes: number } {
   let archivos = 0;
   let bytes = 0;
@@ -546,6 +623,10 @@ const { archivos, bytes } = pesar(SALIDA);
 console.log(`\n✔ ${SALIDA}`);
 console.log(`  ${archivos} archivos · ${(bytes / 1024 / 1024).toFixed(2)} MB`);
 console.log(`  ${assets.length} assets referenciados por la página`);
+
+const nCpanel = armarCpanel();
+console.log(`\n✔ ${SALIDA_CPANEL}`);
+console.log(`  ${nCpanel} archivos · .htaccess + api.php, listo para subir a public_html`);
 console.log(
   `  documentos en el deploy: ${DOCS_ESTATICOS.map((d) => d.tipo).join(", ") || "ninguno"}`,
 );

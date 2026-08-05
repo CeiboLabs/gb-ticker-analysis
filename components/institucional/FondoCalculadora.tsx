@@ -47,20 +47,33 @@ const FEE = { annualPct: 0.015 } as const;
 // como se llamaba hasta el 28-jul-2026. Es una palabra y mueve bastante la
 // lectura. Ofrecido al usuario el 3-ago-2026.
 //
-// El default arranca en 6, el extremo BAJO: es el número que la página muestra
-// sin que nadie toque nada, así que conviene que sea el menos prometedor de la
-// banda. No lo subas.
-//
 // Reglas que siguen en pie: no presentarlo como rendimiento del Fondo y no
 // sacar el "lo elegís vos" del copy de la sección.
 const RATE_RANGE = { min: 6, max: 8, step: 0.25 } as const;
 
+// Punto de partida del simulador — pedido del cliente (5-ago-2026, vía el
+// usuario, con captura): 200 K iniciales, 30 K de aporte ANUAL, 7 % y 30 años.
+// Antes eran 10 K / 500 mensuales / 6 % / 20 años.
+//
+// Dos cosas que cambiaron de criterio y conviene que queden dichas, para que
+// nadie las "corrija" de vuelta creyendo que son un descuido:
+//
+//  · La tasa arranca en 7, el MEDIO de la banda 6–8. Hasta el 3-ago el default
+//    era 6 —el extremo bajo, deliberadamente el menos prometedor de los que la
+//    página muestra sin que nadie toque nada—. 7 es una decisión de quien
+//    decide, no un olvido; el aviso de que la tasa la elige el lector y no es
+//    una proyección del Fondo sigue puesto (ver el copy de la sección y el pie
+//    del simulador).
+//  · El aporte arranca en ANUAL. La conversión al togglear a mensual es exacta
+//    (÷12 = 2.500), así que nadie cae en un monto redondeado raro.
+const DEFAULTS = {
+  initial: 200_000,
+  aporte: 30_000,
+  freq: "anual",
+  rate: 7,
+  years: 30,
+} as const;
+
 export function FondoCalculadora() {
-  return (
-    <CalculadoraSim
-      defaults={{ initial: 10_000, years: 20, rate: 6 }}
-      fees={FEE}
-      rateRange={RATE_RANGE}
-    />
-  );
+  return <CalculadoraSim defaults={DEFAULTS} fees={FEE} rateRange={RATE_RANGE} />;
 }

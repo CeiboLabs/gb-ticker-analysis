@@ -97,17 +97,20 @@ const PARTES: Parte[] = [
     // debería decir cuál.
     rol: "Asesor legal",
     nombre: "Estudio Rocca",
-    // ⚠️ SIN LOGO A PROPÓSITO (revisión legal del 3-ago-2026). El archivo que
-    // había acá —/logos/estudio-rocca.png— era un DERIVADO hecho por nosotros:
-    // el estudio sólo publica su versión en blanco (para fondo oscuro) y se le
-    // había pasado la letra a tinta dejando el escudo dorado. Publicar la marca
-    // MODIFICADA de un estudio jurídico es peor que no publicar ninguna, y peor
-    // todavía que usar la oficial sin permiso: al problema de autorización le
-    // suma el de integridad de marca.
+    // Derivado del logo que publica el estudio (sólo tienen versión blanca,
+    // para fondo oscuro): se pasó la letra a tinta y el escudo dorado quedó
+    // como está. Reemplazar por su positivo oficial cuando lo manden.
     //
-    // La celda cae al nombre en tipografía del sitio, que es el hueco visible
-    // que el componente ya sabe dibujar. Vuelve el logo cuando manden su
-    // positivo oficial Y el OK escrito para publicarlo.
+    // ⚠️ NO VOLVER A SACARLO por ser un derivado. Se quitó una vez (3-ago-2026,
+    // razonando que publicar una marca modificada es peor que no publicarla) y
+    // el usuario lo repuso: la versión a tinta es el positivo evidente del
+    // archivo blanco —misma tipografía, mismo escudo, mismo dorado—, no un
+    // rediseño, y la fila queda igual bajo el pendiente de OK escrito que rige
+    // para las otras tres marcas de la tira.
+    logo: "/logos/estudio-rocca.png",
+    // 44 y no 34: el escudo sobresale por arriba de la caja, así que la
+    // palabra queda más chica que en los otros tres a igual altura de imagen.
+    alto: 44,
   },
 ];
 
@@ -139,10 +142,10 @@ export function FondoPartes() {
             </span>
             <span className="partes-rol">{p.rol}</span>
             {/* Sin logo, el nombre YA ocupa el slot de arriba: repetirlo acá
-                deja la celda diciendo "Estudio Rocca / Asesor legal / Estudio
-                Rocca", que no lee como un hueco a la espera de un archivo sino
-                como un error. El hueco se sigue notando —es la única celda sin
-                marca—, que es todo lo que la nota de arriba pedía. */}
+                deja la celda diciendo "Nombre / Rol / Nombre", que no lee como
+                un hueco a la espera de un archivo sino como un error. Hoy las
+                cuatro filas tienen logo; esto queda para la del custodio,
+                que va a entrar sin archivo. */}
             {p.logo && <span className="partes-nombre">{p.nombre}</span>}
           </div>
         ))}

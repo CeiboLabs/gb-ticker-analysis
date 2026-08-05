@@ -19,21 +19,41 @@ const ITEMS: { q: string; a: string }[] = [
     // (3.1) dice que el Fondo invierte "predominantemente en cuotaspartes o
     // participaciones de fondos de inversión, fondos mutuos, o fondos de
     // inversión estructurados como ETFs": es un hecho estructural, no un detalle
-    // de implementación, y es lo que sostiene la segunda capa de comisiones que
-    // se explica en "¿Qué costos tiene?". Sin esto, el titular de la página
-    // ("Acciones + Bonos + Activos alternativos") se lee como tenencia directa.
-    a: "Es un fondo de inversión uruguayo —«Fondo BNG Selección Global, Fondo de Inversión»—, abierto y de plazo ilimitado, con una estrategia de crecimiento balanceado: construye una cartera con exposición a renta variable y renta fija a nivel global, invirtiendo principalmente a través de ETFs y fondos gestionados por terceros, y de forma directa en deuda de Estados soberanos y de organismos internacionales de crédito.",
+    // de implementación. Sin esto, el titular de la página ("Acciones + Bonos +
+    // Activos alternativos") se lee como tenencia directa. Sobrevivió a la
+    // reescritura del cliente ("invirtiendo principalmente a través de ETFs y
+    // Fondos Mutuos"): no lo saques.
+    //
+    // Redacción del cliente (5-ago-2026). Lo que se fue respecto de la anterior:
+    // la deuda directa de soberanos y organismos internacionales (Activo
+    // Elegible B). Entró en cambio "aprobado por el BCU" y la tercera clase
+    // (alternativos), que antes no figuraba en esta respuesta.
+    a: "Es un fondo de inversión domiciliado en Uruguay —«Fondo BNG Selección Global, Fondo de Inversión»—, aprobado por el BCU, abierto y de plazo ilimitado. El mismo utiliza una estrategia de crecimiento balanceado: el portafolio cuenta con exposición a renta variable, renta fija y activos alternativos a nivel global, invirtiendo principalmente a través de ETFs y Fondos Mutuos.",
   },
   {
     q: "¿Para qué perfil de inversor está pensado?",
-    a: "Para quien busca una cartera diversificada y global en un solo vehículo, con un horizonte de mediano a largo plazo, sin tener que seleccionar y rebalancear instrumentos por su cuenta. En una conversación con un asesor se evalúa si encaja con tus objetivos.",
+    // Redacción del cliente (5-ago-2026). Define el perfil por RIESGO —moderado,
+    // menos volátil que 100% renta variable— donde antes se definía por
+    // comportamiento (un solo vehículo, horizonte largo, sin rebalancear). La
+    // comparación de volatilidad es una afirmación del equipo del fondo sobre su
+    // propio producto; el que la puso es quien lo gestiona.
+    a: "Para un perfil de riesgo moderado, quien busca exposición a crecimiento de capital pero con menor volatilidad que invirtiendo 100% en renta variable.",
   },
   {
     q: "¿Cómo se accede a BNG Selección Global?",
-    // La contraparte de la suscripción es la Sociedad Administradora, no la
-    // sociedad de bolsa: suscribir implica adhesión de pleno derecho al
-    // Reglamento (cláusula 8.3, art. 17 de la Ley N° 16.774).
-    a: "El Fondo lo administra Valores Administradora de Fondos de Inversión y Fideicomisos S.A. y la gestión de la cartera está a cargo de Gastón Bengochea y Compañía Corredor de Bolsa S.A. El primer paso es contactar a un asesor nuestro, que te explica el producto y acompaña la suscripción. Suscribir cuotapartes implica la adhesión al Reglamento de Gestión, así que conviene leerlo antes: se descarga en la sección Documentos de esta página.",
+    // Redacción del cliente (5-ago-2026): queda sólo el paso comercial.
+    //
+    // Los dos hechos que se fueron de acá NO desaparecieron de la página, y por
+    // eso el recorte se pudo aplicar:
+    //   · quién administra y quién gestiona → sigue completo en "¿Quién
+    //     administra y quién controla el fondo?", tres preguntas más abajo;
+    //   · la adhesión al Reglamento (cláusula 8.3, art. 17 de la Ley N° 16.774)
+    //     → sigue en «Información legal», al pie ("La suscripción de cuotapartes
+    //     implica la adhesión al Reglamento de Gestión, cuya lectura previa se
+    //     recomienda").
+    // Si alguna de esas dos piezas se cae de su lugar actual, esta respuesta
+    // vuelve a ser el único lugar donde el dato existía: revisar antes de tocar.
+    a: "El primer paso es contactar a un asesor nuestro, que te explicará el producto y acompañará en la suscripción.",
   },
   {
     q: "¿Cómo se suscribe y cómo se rescata?",
@@ -43,42 +63,60 @@ const ITEMS: { q: string; a: string }[] = [
     // valuación, cuenta de destino): eso es término del contrato y vive en el
     // Reglamento, que la página publica.
     //
-    // ⚠️ LOS DOS LÍMITES A LA LIQUIDEZ VAN ACÁ, pegados a la promesa que
-    // califican, y no sólo en el bloque legal del pie:
+    // ⚠️ ACÁ VIVÍAN LOS DOS LÍMITES A LA LIQUIDEZ, y los sacó el cliente en la
+    // pasada del 5-ago-2026. Lo que decía la respuesta y de dónde salía:
     //   · 9.5 — el plazo de 4 días cede ante "causas no imputables a la Sociedad
     //     Administradora (tales como huelgas, feriados bancarios, o demoras o
-    //     incumplimientos de Custodios y/o terceros)";
+    //     incumplimientos de Custodios y/o terceros)". Este NO quedó en ningún
+    //     otro lado de la página: hoy el plazo de 4 días hábiles se afirma sin
+    //     su salvedad. Es la pérdida real de este recorte.
     //   · 9.8 — el rescate se puede SUSPENDER hasta 3 meses como medida de
-    //     defensa del patrimonio común (art. 20 de la Ley N° 16.774).
-    // El factor de riesgo 4 del Reglamento agrega que los propios ETFs y fondos
-    // subyacentes pueden suspender sus rescates en condiciones de estrés. Un
-    // producto que se presenta como líquido tiene que decir dónde termina esa
-    // liquidez.
-    a: "El mínimo de suscripción es de USD 100 por titular, sin monto máximo, y las suscripciones se procesan en forma diaria. Los rescates se solicitan en cualquier momento por medios digitales, se procesan los martes y viernes hábiles y se pagan en dólares dentro de los 4 días hábiles siguientes, salvo causas ajenas a la Sociedad Administradora —huelgas, feriados bancarios o demoras de los custodios—. No hay comisión de rescate. El Reglamento prevé además que el rescate pueda suspenderse por hasta tres meses como medida de defensa del patrimonio del Fondo, por ejemplo si no pudiera determinarse razonablemente el valor cuota. Los horarios de corte y el detalle del procedimiento están en el Reglamento de Gestión.",
+    //     defensa del patrimonio común (art. 20 de la Ley N° 16.774). Éste sí
+    //     sigue en la página, textual, en «Información legal» al pie.
+    // También se fue "No hay comisión de rescate" (literal (k)), que es un dato
+    // favorable al inversor y sigue disponible en el Reglamento.
+    //
+    // El principio que lo sostenía —un producto que se presenta como líquido
+    // tiene que decir dónde termina esa liquidez— sigue siendo el correcto y por
+    // eso queda escrito. Pero es una objeción ya planteada y resuelta por quien
+    // decide: no la revuelvas por tu cuenta.
+    a: "El mínimo de suscripción es de USD 100 por titular, sin monto máximo, y las suscripciones se procesan en forma diaria. Los rescates se solicitan en cualquier momento por medios digitales, se procesan los martes y viernes hábiles y se pagan en dólares dentro de los 4 días hábiles siguientes. Los horarios de corte y el detalle del procedimiento están en el Reglamento de Gestión.",
   },
   {
     q: "¿Qué costos tiene?",
-    // Cláusulas 12.1, 12.2 y 12.3. La comisión se cobra AL FONDO, así que el
-    // valor cuota ya nace neta de ella. Y NO es el único costo: por eso se dice
-    // que existen gastos y tributos, pero NO se transcribe acá el tope del 2%
-    // anual ni la excepción del primer año. Son términos del contrato y están en
-    // el Reglamento; sacados de contexto, un techo que probablemente nunca se
-    // use se lee como si fuera el costo real.
+    // Cláusula 12.1: "como máximo", "descontado de provisiones", "incluyendo el
+    // Impuesto al Valor Agregado" — los tres calificativos son del texto, no
+    // glosa. La comisión se cobra AL FONDO, así que el valor cuota ya nace neta
+    // de ella (por eso la calculadora la descuenta una sola vez: netear de nuevo
+    // sobre la serie real la contaría dos veces, ver FondoCalculadora).
     //
-    // ⚠️ LA SEGUNDA CAPA DE COMISIONES NO SE OMITE. El propio Reglamento la
-    // enumera como factor de riesgo 7 ("costos adicionales por comisiones de
-    // administración en DOS NIVELES: el del Fondo y el de los vehículos
-    // subyacentes") y la cláusula 3.1 dice que el Fondo invierte
-    // "predominantemente" a través de ellos: no es un costo marginal, es
-    // estructural. Sin esta línea, el "no se suma el tarifario de la sociedad de
-    // bolsa" que sigue cierra la respuesta con un "1,5% y nada más" que es falso.
+    // ⚠️ EL RECORTE MÁS SENSIBLE DE LA PASADA DEL CLIENTE (5-ago-2026). La
+    // respuesta quedó en la comisión del Fondo y nada más. Lo que se fue:
     //
-    // También van acá los dos hechos que cambian el número que el lector acaba
-    // de leer: que la comisión es MODIFICABLE (12.1 y 14.2, con 15 días de
-    // preaviso y ventana de rescate) y la comisión de liquidación de 5.2. Ese
-    // último es el único costo del Reglamento que no aparecía en ningún lado de
-    // la página.
-    a: "La comisión del Fondo es de hasta 1,5% anual, IVA incluido, sobre su patrimonio neto descontado de provisiones: se devenga a diario y se cobra al Fondo, por lo que el valor cuota ya se publica neta de ella. Incluye lo que corresponde a la Sociedad Administradora, al Gestor y a la distribución de las cuotapartes — no se suma el tarifario de la sociedad de bolsa. No hay comisión de rescate. No es el único costo: como el Fondo invierte principalmente a través de ETFs y fondos de terceros, esos vehículos cobran su propia comisión de administración, ya descontada en el precio de cada uno, que se suma a la del Fondo. El Fondo soporta además los gastos propios de su funcionamiento, y los tributos que gravan los rendimientos son de cargo del inversor. La Sociedad Administradora puede modificar las comisiones avisando con 15 días de anticipación, plazo durante el cual se puede rescatar; y si el Fondo se liquidara, percibiría por esa tarea una comisión de 5% por única vez. El detalle está en el Reglamento de Gestión.",
+    //   · LA SEGUNDA CAPA DE COMISIONES. El propio Reglamento la enumera como
+    //     factor de riesgo 7 ("costos adicionales por comisiones de
+    //     administración en DOS NIVELES: el del Fondo y el de los vehículos
+    //     subyacentes") y la cláusula 3.1 dice que el Fondo invierte
+    //     "predominantemente" a través de ellos: no es un costo marginal, es
+    //     estructural. La respuesta de hoy contesta "¿Qué costos tiene?" con un
+    //     número —1,5%— que no es el costo total de estar invertido.
+    //   · los gastos de funcionamiento (12.2) y los tributos a cargo del
+    //     inversor (12.3);
+    //   · que la comisión es MODIFICABLE con 15 días de preaviso y ventana de
+    //     rescate (12.1 y 14.2);
+    //   · la comisión de liquidación de 5% por única vez (5.2);
+    //   · "no se suma el tarifario de la sociedad de bolsa" y "no hay comisión
+    //     de rescate", que eran los dos datos favorables de la respuesta.
+    //
+    // Ninguno de esos quedó en otra parte de la página: el único que se puede
+    // reconstruir es el segundo nivel de comisiones, y de forma indirecta, por
+    // la estructura declarada en "¿Qué es BNG Selección Global?" y en Estrategia.
+    //
+    // La objeción está planteada y resuelta por quien decide. Queda escrita para
+    // que quien la vuelva a levantar sepa que ya se discutió — NO la reviertas
+    // por iniciativa propia. Si el día de mañana hay que reponer una sola línea,
+    // la que más pesa es la de los dos niveles de comisión.
+    a: "La comisión del Fondo es de hasta 1,5% anual, IVA incluido, sobre su patrimonio neto descontado de provisiones: se devenga a diario y se cobra al Fondo, por lo que el valor cuota ya se publica neta de ella.",
   },
   {
     q: "¿Quién administra y quién controla el fondo?",
@@ -104,7 +142,7 @@ const ITEMS: { q: string; a: string }[] = [
     // acotada. (Detalle no menor: publicar "renta fija de grado especulativo
     // 0%-50%" sin el contexto del documento entero define al fondo por su peor
     // escenario permitido.)
-    a: "Que combina renta variable y renta fija en una misma cartera, con un complemento táctico de activos alternativos. La asignación no es fija: se ajusta de forma activa según el contexto de mercado, dentro de los límites que fija el Reglamento de Gestión.",
+    a: "Que combina renta variable y renta fija en una misma cartera, con un complemento táctico de activos alternativos. La asignación no es estática: se ajusta de forma activa según el contexto de mercado, dentro de los límites que fija el Reglamento de Gestión.",
   },
   {
     q: "¿Dónde puedo obtener más información?",

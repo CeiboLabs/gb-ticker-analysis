@@ -67,9 +67,9 @@ const CLASE_ORDER: ClaseDibujable[] = ["RV", "RF", "ALT"];
 const RESIDUAL_FILL = "#E3E4E7";
 // Etiqueta genérica del dato. El snapshot puede traer algo mejor ("Otras 24
 // posiciones", si el cliente pasa el conteo): en ese caso se respeta el nombre
-// cargado. "Otros" a secas se reemplaza — lee a sobras, y lo que este bloque
-// muestra es el resto de la cartera.
-const RESIDUAL_LABEL = "Resto de la cartera";
+// cargado. Si viene "Otros" a secas, se deja "Otros" — el cliente lo pidió así
+// (3-ago-2026): "Resto de la cartera" era largo y sonaba a que faltaba algo.
+const RESIDUAL_LABEL = "Otros";
 const RESIDUAL_GENERICO = /^otros?$/i;
 
 // Rampa de sombra por clase: oscuro (mayor peso) → claro (menor), interpolada
@@ -606,7 +606,7 @@ export function FondoTenencias() {
             {state.kind === "loading" ? "Cargando la composición de la cartera…" : "La composición de la cartera se publica próximamente."}
           </p>
           <p className="ten-empty-sub">
-            Un asesor nuestro te explica la composición del Fondo en detalle.
+            Un asesor nuestro te explicará la composición de la estrategia en detalle.
           </p>
         </div>
       )}

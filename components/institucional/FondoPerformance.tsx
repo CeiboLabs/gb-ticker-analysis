@@ -513,7 +513,7 @@ export function FondoPerformance() {
             <p className="perf-foot">
               {state.kind === "loading"
                 ? "Cargando…"
-                : "El primer año calendario se publica cuando el Fondo cierre su primer ejercicio."}
+                : "El primer año calendario se publicará cuando la estrategia cierre su primer ejercicio."}
             </p>
           )}
         </section>

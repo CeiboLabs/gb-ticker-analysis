@@ -218,7 +218,17 @@ export function CalculadoraSim({
   fees,
   rateRange,
 }: {
-  defaults?: Partial<{ initial: number; monthly: number; rate: number; years: number }>;
+  // `aporte` va SIEMPRE en la unidad de `freq`: con freq "anual" son USD por
+  // año, no por mes. Los dos viajan juntos por eso — fijar el monto sin la
+  // frecuencia (o al revés) deja un default que simula otro flujo del que se
+  // quiso.
+  defaults?: Partial<{
+    initial: number;
+    aporte: number;
+    freq: "mensual" | "anual";
+    rate: number;
+    years: number;
+  }>;
   // Costo opcional del fondo (lo pasa la página del fondo). Cuando se provee, la
   // proyección se muestra neta de la comisión del Fondo:
   //   annualPct  tasa anual máxima (p.ej. 0,015 = 1,5 %), IVA incluido
@@ -236,8 +246,8 @@ export function CalculadoraSim({
   const rateStep = rateRange?.step ?? 0.5;
 
   const [initial, setInitial] = useState(defaults.initial ?? 200000);
-  const [aporte, setAporte] = useState(defaults.monthly ?? 500);
-  const [freq, setFreq] = useState<"mensual" | "anual">("mensual");
+  const [freq, setFreq] = useState<"mensual" | "anual">(defaults.freq ?? "mensual");
+  const [aporte, setAporte] = useState(defaults.aporte ?? (defaults.freq === "anual" ? 6000 : 500));
   // Se acota al rango: un default fuera de banda dejaría el valor simulado y el
   // del slider desacoplados (el <input range> clampea, el estado no).
   const [rate, setRate] = useState(Math.min(Math.max(defaults.rate ?? 8, rateMin), rateMax));
@@ -533,22 +543,14 @@ export function CalculadoraSim({
         Esta simulación es informativa y no constituye asesoramiento financiero ni una proyección de
         rendimiento de ningún producto. El rendimiento anual promedio lo elegís vos; los cálculos
         asumen interés compuesto mensual con tasa constante.
-        {/* La enumeración de lo que NO está descontado importa tanto como la
-            comisión que sí lo está: el Fondo invierte principalmente a través de
-            ETFs y fondos de terceros, y esos vehículos cobran su propia comisión
-            de administración (Reglamento, factor de riesgo 7: "costos
-            adicionales por comisiones de administración en dos niveles"). Sin
-            nombrarla, "netas de la comisión del Fondo" se lee como "netas de
-            todo costo". */}
-        {fees && (
-          <>
-            {" "}Las cifras se muestran netas de la comisión del Fondo (hasta{" "}
-            {(fees.annualPct * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })} % anual, IVA
-            incluido, sobre su patrimonio neto descontado de provisiones), y no contemplan las
-            comisiones de los ETFs y fondos subyacentes, los demás gastos del Fondo ni los tributos
-            aplicables.
-          </>
-        )}
+        {/* Acá NO se enumeran los costos (pedido del cliente, 3-ago): nombrar la
+            comisión del Fondo y lo que queda fuera —comisiones de los ETFs y
+            fondos subyacentes, demás gastos, tributos— hacía leer la simulación
+            como si el producto tuviera costos escondidos. El cálculo sigue
+            descontando la comisión (ver `fees` arriba), así que la cifra que se
+            muestra es la conservadora; simplemente no se afirma nada sobre
+            costos en esta nota. La comisión sí está declarada en su propia
+            sección de la página. */}
       </p>
 
       <style>{`

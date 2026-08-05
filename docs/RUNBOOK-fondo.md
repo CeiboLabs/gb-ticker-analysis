@@ -239,17 +239,37 @@ lo que miden los índices originales) y rebalanceo diario:
 | Pata | Peso | ETF | Por qué |
 |---|---|---|---|
 | Renta variable | 60% | `ACWI` (iShares MSCI ACWI) | réplica directa del índice |
-| Renta fija | 18% | `AGG` (iShares Core U.S. Aggregate) | 45% del tramo = parte USD del Global Agg |
-| Renta fija | 22% | `BWX` (SPDR Bloomberg Intl. Treasury, **sin cobertura**) | 55% del tramo = parte no-USD |
+| Renta fija | 40% | `AGG` (iShares Core U.S. Aggregate) | todo el tramo |
 
 El tramo de renta fija es el aproximado: **no existe** un ETF accesible que siga
 al Global Aggregate sin cobertura de moneda (BNDX/BNDW/AGGU están cubiertos, y la
-cobertura es justo lo que separa a LEGATRUU de su gemelo cubierto). Los pesos
-45/55 imitan la partición por moneda del índice real.
+cobertura es justo lo que separa a LEGATRUU de su gemelo cubierto).
 
-Contraste contra los índices reales (años calendario): 2022 −17,3% (real ≈ −17/−18%),
-2023 +15,5% (≈ +15,5%), 2024 +9,1% (≈ +9,8%). La aproximación es buena, pero **no
-es el valor oficial** — y el pie de la página lo dice (`BENCHMARK_PROXY.nota`).
+> **Cambio del 5-ago-2026.** Hasta esa fecha el tramo se partía 45/55 entre `AGG`
+> y `BWX` (SPDR Bloomberg Intl. Treasury, sin cobertura), imitando la partición
+> por moneda del índice real (~45% USD / ~55% resto). Se pasó a AGG solo porque
+> la pasada de contenido del cliente dejó la nota al pie de la página nombrando
+> sólo ACWI y AGG, y una nota que enumera dos ETFs sobre una serie hecha con tres
+> describe mal el cálculo. Se eligió alinear el cálculo al texto.
+>
+> **Qué cuesta:** sin `BWX`, el 40% de renta fija queda 100% en deuda de EE.UU. y
+> en dólares — se va justo lo que hace *global* al Global Aggregate. Y no es
+> neutro en el número: sobre la ventana de 5 años, el compuesto pasó de **30,03%
+> acumulado / 5,39% anualizado** a **38,81% / 6,78%** (el dólar fuerte de esos
+> años castigó a la deuda no-USD). O sea que el benchmark contra el que se va a
+> medir el Fondo quedó ~1,4 puntos anuales más alto.
+>
+> Para revertirlo: reponer `BWX` en `BENCHMARK_PROXY` (lib/fondo.ts) con los
+> pesos `0.4 * 0.45` / `0.4 * 0.55`, correr de nuevo el script y actualizar la
+> nota de la página.
+
+**Al cambiar los pesos hay que regenerar la serie:** `BENCHMARK_PROXY` sólo
+gobierna cálculos nuevos, no las filas ya cargadas en `fund_benchmark`. Correr
+`npx tsx scripts/fondo-benchmark-proxy.ts` y reemplazar el seed, o el gráfico
+sigue mostrando la serie vieja.
+
+La aproximación es buena, pero **no es el valor oficial** — y el pie de la página
+lo dice (`BENCHMARK_PROXY.nota`).
 
 ### Generar / refrescar la serie
 ```bash

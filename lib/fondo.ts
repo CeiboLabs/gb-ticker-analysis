@@ -98,7 +98,7 @@ export const FONDO = {
         // Reglamento 3.3.1: "instrumentada principalmente a través de ETFs de
         // gestión pasiva referenciados a índices bursátiles de amplia
         // diversificación, complementados con Fondos Mutuos de gestión activa".
-        desc: "Exposición a acciones de mercados desarrollados y emergentes, principalmente a través de ETFs de gestión pasiva sobre índices amplios, complementados con fondos mutuos de gestión activa.",
+        desc: "Exposición a acciones de mercados desarrollados y emergentes, tanto a través de ETFs de gestión pasiva sobre índices amplios como de fondos mutuos de gestión activa.",
       },
       {
         clave: "Bonos",
@@ -106,7 +106,7 @@ export const FONDO = {
         // La deuda DIRECTA elegible es sólo la de Estados soberanos y organismos
         // internacionales de crédito (Activo Elegible B). El crédito corporativo
         // entra únicamente vía ETFs y fondos mutuos.
-        desc: "Deuda de Estados soberanos y organismos internacionales, que el Fondo puede tener de forma directa, y crédito global a través de ETFs y fondos. Aporta estabilidad y modera la volatilidad del portafolio.",
+        desc: "Deuda soberana y corporativa, a la que la estrategia puede acceder tanto de forma directa como a través de ETFs y fondos mutuos. Aporta estabilidad y modera la volatilidad del portafolio.",
       },
       {
         clave: "Activos alternativos",
@@ -149,10 +149,29 @@ export const BENCHMARK = {
 //
 // El tramo de renta fija es el aproximado: no existe un ETF accesible que siga
 // al Global Aggregate SIN cobertura de moneda (BNDX/BNDW/AGGU están cubiertos,
-// y la cobertura es justo lo que separa a LEGATRUU de su gemelo cubierto). Se
-// arma con dos piezas de la misma familia Bloomberg —agregado de EE.UU. y
-// tesoro global ex-EE.UU. sin cobertura— en la proporción por moneda del Global
-// Aggregate real (~45% USD / ~55% resto).
+// y la cobertura es justo lo que separa a LEGATRUU de su gemelo cubierto).
+//
+// ⚠️ DECISIÓN DEL 5-AGO-2026: ese tramo pasó a ser AGG solo. Hasta acá se armaba
+// con dos piezas de la misma familia Bloomberg —AGG (agregado de EE.UU.) y BWX
+// (tesoro global ex-EE.UU., sin cobertura)— en la proporción por moneda del
+// Global Aggregate real (~45% USD / ~55% resto), que es la que más se le parece.
+// El cliente pidió que la nota al pie de la página nombrara sólo ACWI y AGG
+// (pasada de contenido del 5-ago), y sacar BWX del texto sin sacarlo del cálculo
+// dejaba la nota describiendo una serie que no era la que se grafica. Entre
+// alinear el texto al cálculo o el cálculo al texto, se eligió lo segundo.
+//
+// EL COSTO, EXPLÍCITO: AGG es agregado de EE.UU. en dólares. Sin BWX, el 40% de
+// renta fija deja de tener exposición a deuda soberana fuera de EE.UU. y a
+// monedas distintas del dólar, que es justamente lo que hace "global" al
+// Bloomberg Global Aggregate. La serie sigue siendo una aproximación razonable
+// en dirección y magnitud, pero aproxima peor que antes — y el que peor aproxima
+// es el tramo que el nombre del benchmark promete. `BENCHMARK.nombre` sigue
+// diciendo "40% Bloomberg Global Aggregate" porque el benchmark del mandato no
+// cambió: lo que cambió es con qué lo reconstruimos.
+//
+// ⚠️ Cambiar estos pesos NO recalcula la serie ya cargada en `fund_benchmark`:
+// hay que volver a correr scripts/fondo-benchmark-proxy.ts y reemplazar las
+// filas, o el gráfico sigue mostrando la serie vieja (la de tres componentes).
 //
 // Los pesos de acá son ABSOLUTOS sobre el compuesto (suman 1): el script los usa
 // tal cual (Σ peso × retorno del día). Fuente única: la usan
@@ -160,13 +179,12 @@ export const BENCHMARK = {
 export const BENCHMARK_PROXY = {
   componentes: [
     { symbol: "ACWI", nombre: "iShares MSCI ACWI ETF", peso: 0.6 },
-    { symbol: "AGG", nombre: "iShares Core U.S. Aggregate Bond ETF", peso: 0.4 * 0.45 },
-    { symbol: "BWX", nombre: "SPDR Bloomberg International Treasury Bond ETF", peso: 0.4 * 0.55 },
+    { symbol: "AGG", nombre: "iShares Core U.S. Aggregate Bond ETF", peso: 0.4 },
   ],
   // Texto que se publica al pie del módulo de performance. Decir cómo está
   // hecha la serie es obligatorio: no son los índices, son sus réplicas.
   nota:
-    "La serie del benchmark está reconstruida con ETFs que replican esos índices (ACWI, AGG y BWX), " +
+    "La serie del benchmark está reconstruida con ETFs que replican esos índices (ACWI, AGG), " +
     "a precios ajustados por dividendos y con rebalanceo diario. Es una aproximación a los índices " +
     "originales, no su valor oficial.",
 } as const;
