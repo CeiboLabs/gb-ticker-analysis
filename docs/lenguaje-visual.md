@@ -51,10 +51,11 @@ son **`.site`**.
 ```
 Navy (estructura)     #0f2249  navy-700 #1a3163  navy-500 #2C3194 (azul interactivo)
                       navy-300 #6B70B8  navy-150 #C6C8E0  navy-050 #ECEDF6
-Oro (acento)          #EBD288 (marca)  gold-deep #A07C28 (sobre claro)  gold-soft #F2E3B0 (sobre navy)
+Oro (acento)          #EBD288 (marca)  gold-deep #A07C28 (filetes/íconos sobre claro)
+                      gold-ink #856721 (oro como TEXTO)  gold-soft #F2E3B0 (sobre navy)
 Papel / marfil        ivory #F8F9FF  ivory-warm #F2F0E8  paper #FBFBFE
 Tinta editorial       ink #0E1130  ink-2 #3A3E5C  ink-3 #6E7290  ink-4 #9FA2C0
-Tinta .site           site-ink #16193A  -2 #4A4E6B  -3 #797D99
+Tinta .site           site-ink #16193A  -2 #4A4E6B  -3 #676B89
 Hairlines             rule #D9DAE8 (editorial)  site-border #E7E8F2 (.site)  rule fuerte = ink
 Datos financieros     pos #1F6B45 (verde bosque)  neg #8E2A2A (oxblood)  neu #5C5F7A (pizarra)
 ```
@@ -69,6 +70,12 @@ Datos financieros     pos #1F6B45 (verde bosque)  neg #8E2A2A (oxblood)  neu #5C
    número de proceso, una palabra del lede, subrayado de nav activo, un wash al 5% alpha,
    un glow radial sutil. Si pintás un área grande de oro, rompés el sistema. Tonos por
    fondo: `gold-deep` sobre claro, `gold-soft` sobre navy.
+   **Y un tono por función:** `gold-deep` es para el TRAZO (filetes, íconos, bordes,
+   superficies), `gold-ink` para el TEXTO. El primero da 3,9:1 sobre blanco y no llega al
+   4,5:1 de WCAG AA, que es el umbral de cualquier palabra por debajo de 18,66px bold; el
+   segundo es el mismo tono (hsl 42°, 60%) más oscuro y da 5,3:1. Al trazo no le aplica ese
+   umbral, así que el acento de marca no se toca. Sobre navy no hay problema: `gold-soft`
+   pasa en los dos usos.
 3. **El oro nunca señaliza un dato.** El verde/rojo cargan la señal financiera; el oro es
    identidad institucional. `HOLD` usa pizarra `--neu`, **no** ámbar de semáforo.
 4. **Color de datos consciente de la superficie.** `--pos/--neg` profundos sobre papel;
@@ -80,6 +87,17 @@ Datos financieros     pos #1F6B45 (verde bosque)  neg #8E2A2A (oxblood)  neu #5C
 6. **El "foco" dorado superior-derecho** es un motivo recurrente de iluminación:
    `radial-gradient(... at ~80% 10%, rgba(201,168,76,0.10–0.14), transparent 55%)` sobre
    cada superficie navy (hero, media-box, paneles). Una fuente de luz cálida coherente.
+7. **El piso de contraste se verifica contra la superficie más oscura, no contra blanco.**
+   El cuerpo alterna `band` blanca y `band-muted #F4F5FB`, y encima de la muted todavía
+   puede haber un wash dorado o azul al 4–5% (paneles de Cartera, celdas de comparación):
+   el fondo real termina en `#F1F1F4`. Un tono de texto calibrado contra blanco reprueba
+   ahí. `site-ink-3` fue `#797D99` hasta el 6-ago-2026 y era el 98% de las faltas de
+   contraste de la página del fondo — 4,03:1 sobre blanco, 3,70:1 sobre la muted— porque
+   casi todo lo que pinta (notas, rótulos, metadatos) es de 11–15px. Los valores de hoy
+   dejan `site-ink-3` en 4,78:1 y `gold-ink` en 4,70:1 contra ese piso.
+   Herramienta: axe-core (`node_modules/axe-core`) sobre el dev con puppeteer-core.
+   Ojo con lo que axe marca **incomplete** y no falla: fondos con gradiente o
+   pseudo-elemento los saltea, así que ahí hay que medir el píxel pintado a mano.
 
 ---
 

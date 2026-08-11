@@ -1,7 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Navbar } from "@/components/institucional/Navbar";
-import { FooterInstitucional } from "@/components/institucional/FooterInstitucional";
 
 export const metadata: Metadata = {
   title: "Página no encontrada — Gastón Bengochea & Cía.",
@@ -12,13 +10,40 @@ export const metadata: Metadata = {
  * 404 global (captura cualquier URL sin ruta). Sobrio y mínimo: número liviano,
  * una línea, y el camino de vuelta. Entrada en CSS puro (estado final visible)
  * para que se lea con JS apagado y con reduced-motion.
+ *
+ * ⚠️ ESTA PÁGINA NO MONTA EL NAVBAR NI EL PIE DE LA CASA, Y ES A PROPÓSITO.
+ *
+ * El `not-found` RAÍZ entra en el grafo de cliente de TODAS las rutas de la app
+ * —cualquier ruta puede caer acá en runtime—, así que lo que importe se descarga
+ * en todas. Con el mega-panel adentro eso eran 47,9 KB de JS (más su copy
+ * entero: "Agendá una reunión", "Las personas de la mesa"…) que el sitio del
+ * fondo bajaba en cada visita y ejecutaba en un 0,4 %: es el mapa de OTRO sitio,
+ * y su propia cáscara (app/(fondo)/layout.tsx) dice que no lo monta.
+ * Medido en docs/rendimiento-fondo.md §4.
+ *
+ * Lo que queda es lo que un 404 necesita: identidad y una salida. La marca
+ * linkea a la home y el cuerpo ya ofrece los dos caminos. Un mega-panel de
+ * navegación en una página de error es justamente donde menos sirve.
+ *
+ * Si algún día hace falta un 404 CON la cáscara institucional para los
+ * `notFound()` que se lanzan dentro de ese sitio (los de `estaOculta`, por
+ * ejemplo), va en `app/(institucional)/not-found.tsx` — ahí sólo lo carga ese
+ * subárbol y no vuelve a colarse en el bundle del fondo.
  */
 export default function NotFound() {
   return (
     <>
-      <Navbar />
-
       <main className="site band-navy nf-root">
+        {/* ⚠️ LA MARCA VA EN TEXTO, NO EN IMAGEN, Y TAMPOCO ES CASUALIDAD.
+            Este subárbol se renderiza en el SERVER y viaja en el payload RSC de
+            TODAS las rutas (es el límite de error del segmento raíz). React
+            levanta los recursos de lo que renderiza, así que un elemento de
+            imagen acá le agrega un `<link rel="preload" as="image">` al head de
+            cada página del sitio — verificado: con el logo puesto, la página del
+            fondo precargaba y bajaba logo-bengochea-light.svg sin mostrarlo
+            nunca. Un 404 no puede cobrarle un asset a las páginas que sí existen. */}
+        <Link href="/" className="nf-marca">Gastón Bengochea &amp; Cía.</Link>
+
         <div className="nf-box">
           <div className="nf-code" aria-hidden>404</div>
           <h1 className="nf-head">No encontramos esta página.</h1>
@@ -30,10 +55,9 @@ export default function NotFound() {
         </div>
       </main>
 
-      <FooterInstitucional />
-
       <style>{`
         .nf-root {
+          position: relative;
           min-height: 100dvh;
           display: flex;
           align-items: center;
@@ -42,6 +66,22 @@ export default function NotFound() {
           background: var(--navy);
           padding: calc(var(--nav-h) + clamp(48px, 8vh, 96px)) 24px clamp(64px, 10vh, 112px);
         }
+        /* La marca hace de barra: es lo único que queda del navbar y alcanza
+           —identifica la casa y es el camino de vuelta—. Absoluta contra el
+           propio main, que ya reserva el alto de la barra en su padding. */
+        .nf-marca {
+          position: absolute;
+          top: clamp(20px, 3vh, 34px);
+          left: clamp(20px, 4vw, 48px);
+          font-family: var(--site-font);
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.72);
+          transition: color 160ms ease;
+        }
+        .nf-marca:hover { color: #FFFFFF; }
         .nf-box {
           max-width: 34em;
           animation: nf-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;

@@ -74,10 +74,18 @@ sitio lo lee por `/api/fondo`. Detalle de diseño en
 
 ## Qué muestra la sección Performance según el estado de los datos
 
-| `fund_nav` | Qué se ve |
-| --- | --- |
-| con filas | El módulo completo: cotización, gráfico (fondo + benchmark), rentabilidad acumulada y por año calendario, indicadores de riesgo. |
-| vacía | La sección está, en **andamiaje**: cotización y tablas en «—», y el marco del gráfico con el aviso de **«Próximamente»** en el lugar de la curva. |
+El gráfico tiene un **selector de serie** a la izquierda (11-ago-2026): elige qué
+se dibuja en la misma caja. Lo que cambia con el estado de los datos es qué
+opciones ofrece y cuál viene elegida de fábrica.
+
+| `fund_nav` | Opciones del selector | Cuál por defecto | Qué se ve |
+| --- | --- | --- | --- |
+| con filas | Valor cuota · Base 100 · Backtest | **Valor cuota** | El módulo completo: cotización, curva del fondo (+ benchmark en Base 100), tablas e indicadores. |
+| vacía | Valor cuota · Backtest | **Backtest** | Cotización y tablas del Fondo en «—». En «Backtest», la simulación; en «Valor cuota», el aviso de **«Próximamente»** en el medio del marco. |
+| vacía y sin el JSON del backtest | Valor cuota | Valor cuota | Igual que antes del 10-ago-2026: el aviso ocupando el marco entero. Es el fallback si el asset no carga. |
+
+«Base 100» sólo aparece con serie del fondo: es una vista de ESA serie, no tiene
+sentido sin ella.
 
 ⚠️ **El Fondo empieza a operar ANTES de que su valor cuota llegue a la página**
 — una o dos semanas antes (confirmado por el cliente, 3-ago-2026). O sea que
@@ -229,6 +237,35 @@ Compuesto confirmado con el equipo (2026-07-28). Tickers Bloomberg de los
 índices: `ACWI` y `LEGATRUU`. La definición vive en `BENCHMARK` (`lib/fondo.ts`)
 y la serie, en `fund_benchmark`.
 
+### Se nombra siempre que esté en pantalla (11-ago-2026)
+Toda línea de comparación se identifica: el nombre completo del compuesto va al
+pie del módulo, junto a `BENCHMARK.aviso` —índice no gestionado, sin costos, no
+invertible, y el Fondo es de gestión activa y no lo replica—. Es la convención
+transversal a los tres regímenes que regulan esto (Form N-1A pide el índice
+nombrado en prospecto e informe al accionista; el Q&A de ESMA lo exige en el
+KIID cuando el fondo se mide contra un índice; GIPS obliga a describirlo, y si
+no hay benchmark, a decir por qué; FINRA 2210 pide identificarlo y declarar las
+diferencias materiales), y es lo que hace cualquier ficha: el peer más cercano,
+el American Funds Global Balanced, publica el mismo 60/40 ACWI/Global Aggregate
+con nombre completo en datos clave, leyenda y notas.
+
+Hasta el 11-ago el párrafo existía pero colgaba de `hasBench`, que es
+`live && …`: en pre-lanzamiento —cuando la única curva de la página es una
+referencia— no se renderizaba. Ahora entra también con el backtest en pantalla.
+**Lo que NO se movió es `BENCHMARK_PROXY.nota`**: describe cómo reconstruimos
+con ETFs la serie de `fund_benchmark`, y la del backtest no la reconstruimos
+nosotros. Sigue atada a la serie del Fondo.
+
+En el gráfico la línea subordinada se llama **«Benchmark»** en las tres vistas
+(`BENCHMARK.corto`), backtest incluido: es una sola caja que cambia de serie, y
+un rótulo propio por vista —hasta el 11-ago decía «Referencia 60/40»— hace que
+la misma línea parezca otra cosa según el selector. La composición no se pierde:
+vive en la nota pegada a la tabla, que es donde se lee.
+
+No hay fila «Benchmark» en la ficha técnica, y es a propósito: esa tabla tiene
+fuente única declarada —cada fila señalable en un literal del Reglamento de
+Gestión— y el compuesto no sale de ahí, sino del gestor.
+
 ### Cómo está armada la serie HOY (proxy ETF)
 Los niveles de MSCI ACWI y del Bloomberg Global Aggregate son **datos
 licenciados**: no hay fuente pública que los sirva (se verificaron Yahoo y Twelve
@@ -336,6 +373,83 @@ dato y conviene revisar la nota de `BENCHMARK_PROXY` en `lib/fondo.ts`.
 tabla compara los dos sobre el mismo período y el gráfico no abre un eje de cinco
 años para dibujar dos puntos de fondo. La historia larga se conserva en la tabla;
 sólo se recorta al servir.
+
+## Backtest de la estrategia (10-ago-2026)
+
+Una de las series que dibuja el gráfico del módulo de performance: la estrategia
+de hoy aplicada hacia atrás sobre precios históricos, en base 100, contra el
+mismo 60/40 de referencia. Pedido del responsable del fondo, con el encuadre que
+él mismo dictó: *«esto es lo que hubiera resultado, sólo de forma ilustrativa»*.
+
+**Convive con el valor cuota, no lo reemplaza** (decisión del 11-ago-2026): es
+UN gráfico con un selector de serie a la izquierda, no dos gráficos. Mientras no
+haya valor cuota el selector abre en «Backtest»; el día que lo haya, abre en
+«Valor cuota» y el backtest queda como la otra opción.
+
+**No es una vuelta atrás de la decisión del 3-ago** (el modo «sólo benchmark»
+que se sacó, más arriba). Lo que hace admisible a este bloque son cuatro reglas,
+documentadas en `components/institucional/FondoBacktest.tsx`, y hay que
+preservar las cuatro:
+
+1. eje en **índice base 100**, nunca en USD ni en «valor cuota» — ése fue el
+   error exacto de la reversión anterior;
+2. línea en tono subordinado, **nunca** el navy con sombra del valor cuota;
+3. la palabra **«simulada» dentro de la leyenda del gráfico** — es lo único del
+   encuadre que sobrevive a una captura de pantalla;
+4. la frase de encuadre en **cuerpo de lectura**, nunca en un pie de 12px, y
+   **entre el selector de serie y el marco**: aparece y desaparece con la opción
+   elegida, que es lo que la ata a la serie que se está mirando ahora que la
+   misma caja muestra dos. (Estuvo adentro del marco el 10-ago y se sacó al día
+   siguiente: leía como una caja dentro de otra y empujaba la curva.)
+
+### Actualizar la serie
+El cliente manda un Excel con dos hojas (`Resumen`, `Serie Diaria`; columnas
+`Fecha`, `Portafolio`, `BM_6040`).
+
+```bash
+npx tsx scripts/fondo-backtest.mts ~/Downloads/backtest_Portafolio_<período>.xlsx
+```
+
+Escribe `public/fondo/backtest-estrategia.json` (columnar, ~33 KB; Apache lo
+sirve comprimido a ~8). Valida la forma de la serie —orden, duplicados, huecos
+de más de 5 días, base 100— y **corta el build si algo no cierra**. Después
+imprime la tabla año a año: contrastarla a mano contra la hoja `Resumen`, que es
+lo único que el script no puede verificar.
+
+La página lo pide por `fetch` en diferido y sólo en pre-lanzamiento, así que
+`scripts/build-fondo.mts` lo copia **a mano** al deploy: el barrido de assets
+sale del HTML y de los CSS, y esto no aparece en ninguno de los dos. Hay guarda
+—`verificarBacktest()`— que corta el build si el archivo no llegó o si ningún
+chunk pide esa ruta (o sea, si alguien renombró `BACKTEST_URL`).
+
+### Pendientes antes de publicarlo
+- ⚠️ **¿La serie es neta de la comisión del Fondo?** (hasta 1,5% anual, IVA
+  incluido). El Excel no lo dice. Si fuera bruta, no es homogénea contra el
+  valor cuota futuro —que sí es neto— y hay que decirlo en el aviso al pie.
+  Mientras no esté confirmado, la página **no afirma ni una cosa ni la otra**.
+- ⚠️ **¿La columna `BM_6040` es el benchmark del mandato?** Desde el 11-ago la
+  página la nombra —«el benchmark es el compuesto 60/40 del Fondo (60% MSCI
+  ACWI · 40% Bloomberg Global Aggregate)»—, pero el Excel no dice de qué está
+  hecha. El punto a chequear es el tramo de acciones: la definición del
+  benchmark pasó de MSCI **World** a **ACWI** recién en jul-2026, así que un
+  Excel anterior podría estar corriendo contra World. Si fuera así hay que
+  corregir el **nombre** (nota de `FondoBacktest` y pie de `FondoPerformance`),
+  no el cálculo.
+- ⚠️ **Revisión legal.** Es rendimiento simulado de un fondo autorizado por el
+  BCU que todavía no comenzó a operar. Que lo mire quien hizo la revisión del
+  3-ago antes de que salga a producción.
+- La serie del archivo de agosto termina el **1-jul-2026**, no «hasta hoy». El
+  «en lo que va del año» queda con ese corte, y así está rotulado.
+
+### El día del lanzamiento
+**No hay que tocar nada.** Con la primera fila en `fund_nav`, el selector suma
+«Base 100», pasa a abrir en «Valor cuota» y el aviso de «Próximamente» deja de
+renderizarse solo. El backtest queda como la otra opción del selector, que es
+para lo que se pidió el control.
+
+Lo único que conviene revisar ese día es si la simulación sigue aportando algo
+al lado de una serie real, y que la respuesta de la FAQ y el copy de la sección
+sigan siendo ciertos con las dos series en pantalla.
 
 ## Staging en el home server (preview)
 

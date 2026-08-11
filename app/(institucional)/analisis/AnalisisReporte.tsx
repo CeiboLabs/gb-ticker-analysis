@@ -14,7 +14,7 @@ import { MarketStatus } from "@/components/MarketStatus";
 import { NewsletterSignup } from "@/components/institucional/NewsletterSignup";
 import { PREVIEW_CREATED_AT, PREVIEW_REPORT, PREVIEW_STOCK } from "./previewReport";
 import { useLogoBrightness } from "@/lib/useLogoBrightness";
-import { FollowCell, SeguidosStrip } from "@/components/analyze/Seguimiento";
+import { FollowButton, SeguidosStrip } from "@/components/analyze/Seguimiento";
 import { CierreSegunLector } from "@/components/analyze/Cierre";
 
 // "gate" no es un error: el server rechazó GENERAR (no leer) porque falta el
@@ -405,10 +405,9 @@ function AnalisisReporteInner() {
           masthead rellenándose in situ, sin saltar a otro shell. */}
       {(status === "loading" || ((status === "partial" || status === "done" || status === "gate") && !!data)) && (
         <>
-          {/* Lo que se movió en las acciones que la persona sigue, arriba de todo.
-              Se auto-oculta si no sigue ninguna (o si es anónima), así que para
-              la mayoría de las visitas no existe. */}
-          <SeguidosStrip tickerActual={ticker} onSelect={selectTicker} />
+          {/* La tira de seguidos ya NO va acá: montada como primer hijo de main
+              caía debajo del navbar fijo y no se veía nunca. Ahora la dibuja el
+              masthead, arriba del buscador. Ver el comentario de SeguidosStrip. */}
           <AnalyzeMasthead
             data={viewData}
             ticker={ticker}
@@ -579,6 +578,12 @@ function AnalyzeMasthead({
   return (
     <header id="masthead" className="analyze-masthead">
       <div className="site-wrap">
+        {/* Volver a una acción que ya seguís. Comparte el bloque de navegación
+            con el buscador —buscar una nueva y volver a las de siempre son la
+            misma tarea— y se auto-oculta si no sigue ninguna (o si es anónima),
+            así que para la mayoría de las visitas no existe. */}
+        <SeguidosStrip tickerActual={ticker} onSelect={onSelectTicker} />
+
         {/* Saltar de acción sin volver a la landing. Hasta acá el único disparador
             de onSelectTicker eran los comparables del Quick ref. La variante es
             "footer" (no "header"): esa está pintada para barra oscura —borde
@@ -660,6 +665,12 @@ function AnalyzeMasthead({
             <MarketStatus tone="light" />
 
             <div className="am-actions">
+              {/* Seguir la ACCIÓN, colgando de su identidad y con el mismo
+                  vestido que sus dos vecinos. Primero de la fila porque es el
+                  único que actúa sobre la empresa: los otros dos actúan sobre
+                  este documento. Sólo con informe real — seguir un esqueleto no
+                  significa nada. */}
+              {!gated && hasReport && <FollowButton key={ticker} ticker={ticker} />}
               {/* Sin reporte no hay nada que exportar: en el teaser el botón
                   sobra y prometería un PDF vacío. */}
               {!gated && !loading && (
@@ -697,13 +708,11 @@ function AnalyzeMasthead({
                 (el informe se genera hoy) sin inventar la hora de algo que todavía
                 no corrió. */}
             <div className="cell"><div className="label">Generado</div><div className="value">{status === "done" ? data.lastUpdated : data.lastUpdatedDate}</div></div>
-            {/* Seguimiento como CELDA de la ficha, no como botón de marketing.
-                Es metadato del documento —quién lo sigue— y va acá porque la
-                celda de al lado ya declara CUÁNDO se generó: esa fecha es el
-                argumento ("esto tiene fecha de vencimiento, avisame cuando
-                venza"). Sólo con informe real: seguir un esqueleto no significa
-                nada. */}
-            {!gated && hasReport && <FollowCell key={ticker} ticker={ticker} />}
+            {/* CINCO celdas, ni una más: .hairline-row es `repeat(5, 1fr)` y
+                cualquier sexta cae sola a una segunda fila, sin borde derecho y
+                más alta que las de arriba. Acá vivía el control de seguimiento y
+                ése era el efecto. Si algún día hay un sexto metadato, cambiar
+                antes la grilla — y que sea metadato DEL DOCUMENTO, no un control. */}
           </div>
         </div>
 
@@ -885,6 +894,13 @@ function AnalyzeMasthead({
           #masthead .am-mast { grid-template-columns: repeat(2, 1fr) !important; }
           #masthead .am-mast > .cell { border-right: 1px solid var(--rule) !important; }
           #masthead .am-mast > .cell:nth-child(2n) { border-right: 0 !important; }
+          /* Cinco celdas en dos columnas dejan a la última —Generado— sola en su
+             fila, y su borde derecho seguía bajando contra un hueco vacío: una
+             vertical colgando de la nada. Ocupa el ancho entero y se le quita. */
+          #masthead .am-mast > .cell:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+            border-right: 0 !important;
+          }
         }
         /* La banda de tesis (veredicto · argumento · quick ref) entra al aparecer:
            en la generación fresca monta cuando llega el stockData, y al salir del
@@ -1803,7 +1819,7 @@ function VerdictHistoryBlock({ ticker }: { ticker: string }) {
       <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
         {hist.runs.map((r) => (
           <div key={r.since} style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
-            <span style={{ color: "rgba(255,255,255,0.6)", minWidth: 62 }}>{fmtDateEs(new Date(r.since).toISOString())}</span>
+            <span style={{ color: "rgba(255,255,255,0.6)", minWidth: 62 }}>{fmtFechaMs(r.since)}</span>
             <span style={{ color: "var(--ivory)", letterSpacing: "0.06em", minWidth: 42 }}>{r.rating}</span>
             <span style={{ color: "rgba(255,255,255,0.72)" }}>
               {r.priceAt != null ? `USD ${fmtNum(r.priceAt)}` : "—"}
@@ -1830,6 +1846,21 @@ function fmtDateEs(iso: string): string {
   const mes = MESES_ES[parseInt(m[2], 10) - 1];
   if (!mes) return iso;
   return `${parseInt(m[3], 10)} ${mes} ${m[1]}`;
+}
+
+// Fecha a partir de un timestamp en ms (lo que guarda verdict_log). No alcanza
+// con `fmtDateEs(new Date(ms).toISOString())`: eso entrega la marca ENTERA
+// —"2026-07-21T01:54:41.101Z"—, el regex de fmtDateEs no matchea y devolvía el
+// ISO crudo, que es lo que se veía en el archivo del veredicto. Las partes se
+// leen en hora local (el resto del informe estampa en es-UY con getters locales,
+// ver fmtStampDate en el adaptador); recortar el ISO en UTC corría un día para
+// atrás toda calificación sellada después de las 21:00 de Uruguay.
+function fmtFechaMs(ms: number): string {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return "—";
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return fmtDateEs(`${d.getFullYear()}-${mm}-${dd}`);
 }
 
 function classifyGrade(grade: string): "buy" | "hold" | "sell" {

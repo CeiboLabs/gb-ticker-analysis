@@ -1,12 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GDOTS, GMAP_W, GMAP_H } from "./worldDotsGlobal";
 import { GDOTS_CC } from "./worldDotsCountries";
+import { css } from "@/lib/css";
 
 // Exposición geográfica del fondo — choropleth sobre el mapa de puntos del
 // sitio: cada punto de tierra se tiñe con intensidad de navy según el peso de
 // su región. Reusa GDOTS para mantener la estética del resto de la web.
+//
+// ── POR QUÉ CANVAS Y NO SVG ───────────────────────────────────────────────
+// Hasta el 5-ago-2026 esto eran 2.554 elementos <circle> en el DOM. Medido
+// (docs/rendimiento-fondo.md §3): 117 KB del HTML —el 31% del documento—, 2.554
+// nodos para hidratar, y cada recálculo de estilo COMPLETO de la página pasaba
+// de 9,9 ms a 31,2 ms por tenerlos ahí (3,2×). Sacarlos dio −132 ms de LCP y
+// −68 ms de TBT en un teléfono a 4G.
+//
+// O sea: la misma conclusión a la que ya había llegado <FondoMundo />, que
+// dibuja este mismo mapa de puntos en el Resumen y cuyo comentario dice
+// "Canvas (no SVG) por costo de pintado". Este bloque tomaba la decisión
+// contraria sobre el mismo dibujo, y a mayor escala.
+//
+// Lo que se pierde: con JS apagado el mapa no se dibuja. Es aceptable y ya era
+// el trato de FondoMundo — el dato entero (las cinco regiones con su peso) vive
+// en la leyenda <ol> de al lado, que es HTML, y en el aria-label. El mapa
+// ilustra la leyenda, no al revés.
 //
 // Los pesos son la ASIGNACIÓN OBJETIVO de la estrategia (dato del equipo,
 // 3-ago-2026): son los que el mandato busca sostener, no una foto de la cartera
@@ -95,28 +113,124 @@ const COLOR_BY_REGION: Record<string, string> = Object.fromEntries(
   REGIONES.map((r) => [r.key, regionColor(r.peso)]),
 );
 
-// Precómputo: clasifico cada punto por región y armo los <circle> UNA sola vez,
-// agrupados por región. Rendimiento: el hover anima la opacidad de 5 grupos
-// (no de ~1500 círculos) y los puntos llevan pointer-events:none, así moverse
-// sobre el mapa no dispara hit-testing nodo por nodo. Los elementos son
-// estables entre renders → React no los reconstruye al cambiar el hover.
-const GROUP_CIRCLES: Record<string, ReturnType<typeof makeCircle>[]> = {};
-function makeCircle(x: number, y: number, i: number) {
-  return <circle key={i} cx={x} cy={y} r={2.6} />;
+// Precómputo: clasifico cada punto por región UNA sola vez y guardo las
+// coordenadas planas (x0,y0,x1,y1,…) por grupo. Float32Array porque es lo que se
+// recorre en cada redibujado y no cambia nunca.
+//
+// El orden de los grupos ES el orden de dibujado: "sin exposición" primero
+// (queda abajo y sostiene la silueta del mundo), después las regiones.
+type Grupo = { key: string; color: string; pts: Float32Array };
+
+const GRUPOS: Grupo[] = (() => {
+  const acc: Record<string, number[]> = { [SIN_EXPOSICION]: [] };
+  for (const r of REGIONES) acc[r.key] = [];
+  GDOTS.forEach(([x, y], i) => {
+    // Si worldDotsCountries quedara desalineado con GDOTS, el punto cae en "sin
+    // exposición" y se ve: degrada a un mapa incompleto, no a una página en
+    // blanco. La verificación dura la hace el generador, que aborta si upstream
+    // cambió (scripts/gen-dotmap-countries.mjs).
+    const reg = PAIS_A_REGION[GDOTS_CC[i]] ?? SIN_EXPOSICION;
+    acc[reg].push(x, y);
+  });
+  return [
+    { key: SIN_EXPOSICION, color: COLOR_SIN, pts: new Float32Array(acc[SIN_EXPOSICION]) },
+    ...REGIONES.filter((r) => !r.sinMapa).map((r) => ({
+      key: r.key, color: COLOR_BY_REGION[r.key], pts: new Float32Array(acc[r.key]),
+    })),
+  ];
+})();
+
+const RADIO = 2.6;          // en unidades del mapa (el r de los <circle> de antes)
+const DUR = 240;            // ms — el mismo que tenía la transition del CSS
+const ease = (t: number) => 1 - (1 - t) * (1 - t);
+
+/** Opacidad de cada grupo según qué región está enfocada. Espeja exactamente lo
+ *  que hacían los `style={{ opacity }}` de los <g>. */
+function alfaDe(g: Grupo, hover: string | null): number {
+  if (g.key === SIN_EXPOSICION) return hover ? 0.5 : 1;
+  return hover && hover !== g.key ? 0.16 : 1;
 }
-for (const r of REGIONES) GROUP_CIRCLES[r.key] = [];
-GROUP_CIRCLES[SIN_EXPOSICION] = [];
-GDOTS.forEach(([x, y], i) => {
-  // Si worldDotsCountries quedara desalineado con GDOTS, el punto cae en "sin
-  // exposición" y se ve: degrada a un mapa incompleto, no a una página en
-  // blanco. La verificación dura la hace el generador, que aborta si upstream
-  // cambió (scripts/gen-dotmap-countries.mjs).
-  const reg = PAIS_A_REGION[GDOTS_CC[i]] ?? SIN_EXPOSICION;
-  GROUP_CIRCLES[reg].push(makeCircle(x, y, i));
-});
 
 export function FondoGeografia() {
   const [hover, setHover] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Opacidad VIGENTE de cada grupo. Vive en un ref y no en estado: la anima un
+  // rAF a 60 fps y pasarla por React sería un render por frame.
+  const alfas = useRef<number[]>(GRUPOS.map((g) => alfaDe(g, null)));
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let raf = 0;
+
+    const pintar = () => {
+      // Resolución del respaldo = tamaño en pantalla × DPR (topeado en 2, como
+      // FondoMundo). El ALTO sale de la proporción del mapa, no de una medida
+      // del DOM: así el canvas no puede quedar de otra forma que 1100×397 y no
+      // hay salto de layout posible.
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const ancho = Math.max(1, Math.round(canvas.clientWidth));
+      const w = Math.round(ancho * dpr);
+      const h = Math.round((w * GMAP_H) / GMAP_W);
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      const s = w / GMAP_W;                    // px de respaldo por unidad de mapa
+      const r = Math.max(0.5, RADIO * s);
+      ctx.clearRect(0, 0, w, h);
+      for (let i = 0; i < GRUPOS.length; i++) {
+        const g = GRUPOS[i];
+        const a = alfas.current[i];
+        if (a <= 0.001) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = g.color;
+        // UN solo path por grupo y un solo fill: 2.554 arcos en ~1 ms. Dibujar
+        // cada punto con su propio beginPath/fill cuesta un orden más.
+        ctx.beginPath();
+        const p = g.pts;
+        for (let k = 0; k < p.length; k += 2) {
+          const x = p[k] * s, y = p[k + 1] * s;
+          ctx.moveTo(x + r, y);               // sin esto los arcos se encadenan
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+        }
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    // Transición de opacidad al enfocar una región. Reemplaza a la
+    // `transition: opacity 240ms` que tenían los <g>; con reduce-motion salta
+    // al estado final, igual que hacía el media query.
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const desde = alfas.current.slice();
+    const hasta = GRUPOS.map((g) => alfaDe(g, hover));
+    if (reduce || desde.every((v, i) => Math.abs(v - hasta[i]) < 0.001)) {
+      alfas.current = hasta;
+      pintar();
+    } else {
+      const t0 = performance.now();
+      const paso = (t: number) => {
+        const k = Math.min(1, (t - t0) / DUR);
+        const e = ease(k);
+        alfas.current = desde.map((v, i) => v + (hasta[i] - v) * e);
+        pintar();
+        raf = k < 1 ? requestAnimationFrame(paso) : 0;
+      };
+      raf = requestAnimationFrame(paso);
+    }
+
+    // Redibujar al cambiar de ancho (o de pantalla, que cambia el DPR).
+    const ro = new ResizeObserver(() => pintar());
+    ro.observe(canvas);
+    return () => {
+      ro.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [hover]);
 
   return (
     <div className="geo-wrap">
@@ -127,28 +241,19 @@ export function FondoGeografia() {
 
       <div className="geo-stage">
         <div className="geo-map">
-          <svg
-            viewBox={`0 0 ${GMAP_W} ${GMAP_H}`}
-            className="geo-svg"
+          {/* width/height son la PROPORCIÓN del mapa y ya vienen en el HTML del
+              server: con `height: auto` el navegador reserva la caja exacta
+              antes de que corra un solo byte de JS. El efecto los reescribe a
+              la resolución del dispositivo, que es la misma proporción — así el
+              canvas no puede provocar un salto de layout. */}
+          <canvas
+            ref={canvasRef}
+            width={GMAP_W}
+            height={GMAP_H}
+            className="geo-canvas"
             role="img"
             aria-label={`Mapa de asignación objetivo por región: ${REGIONES.map((r) => `${r.label} ${r.peso}%`).join(", ")}.`}
-          >
-            {/* Los países sin exposición van primero y no se apagan del todo al
-                enfocar una región: sostienen la silueta del mundo. */}
-            <g className="geo-grp" fill={COLOR_SIN} style={{ opacity: hover ? 0.5 : 1 }}>
-              {GROUP_CIRCLES[SIN_EXPOSICION]}
-            </g>
-            {REGIONES.filter((r) => !r.sinMapa).map((r) => (
-              <g
-                key={r.key}
-                className="geo-grp"
-                fill={COLOR_BY_REGION[r.key]}
-                style={{ opacity: hover && hover !== r.key ? 0.16 : 1 }}
-              >
-                {GROUP_CIRCLES[r.key]}
-              </g>
-            ))}
-          </svg>
+          />
         </div>
 
         <ol className="geo-leg">
@@ -218,7 +323,7 @@ export function FondoGeografia() {
         marca los países sin exposición directa, y Otros / Efectivo no se representa en el mapa.
       </p>
 
-      <style>{`
+      <style>{css`
         .geo-wrap { margin-top: 64px; }
 
         .geo-bar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -229,12 +334,16 @@ export function FondoGeografia() {
           margin-top: 22px; display: grid; grid-template-columns: 1fr 320px; gap: 44px; align-items: center;
         }
         .geo-map { min-width: 0; }
-        /* Aísla el paint del mapa: el repintado de los 2.5k puntos no invalida
-           el resto de la página (sin tocar el tamaño, así no hay salto de layout). */
-        .geo-svg { width: 100%; height: auto; display: block; contain: layout paint; }
-        .geo-svg circle { pointer-events: none; }
-        .geo-grp { transition: opacity 240ms ease; }
-        @media (prefers-reduced-motion: reduce) { .geo-grp { transition: none; } }
+        /* height:auto sobre los atributos width/height del canvas: la caja
+           sale de la proporción del mapa y queda reservada desde el HTML.
+           (Sin acentos graves en estos comentarios: cierran el template literal
+           de estilos y dejan la página en 500. Ver page.tsx.)
+           El redibujado no puede invalidar nada de afuera (contain: paint), y no
+           se toca el tamaño, así que no hay salto de layout.
+           La opacidad por región ya no es una transition de CSS: la anima el
+           propio redibujado (ver alfaDe/DUR arriba), que es lo que permite tener
+           un solo nodo en vez de 2.554. */
+        .geo-canvas { width: 100%; height: auto; display: block; contain: paint; pointer-events: none; }
 
         .geo-leg { list-style: none; margin: 0; padding: 0; }
         .geo-leg li {

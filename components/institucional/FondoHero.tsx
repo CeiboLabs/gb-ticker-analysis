@@ -9,6 +9,7 @@ import {
   Fachada, fachadaMascara, FACHADA_HORIZONTE, FACHADA_HORIZONTE_LEN, FACHADA_VIEWBOX,
 } from "@/components/institucional/Fachada";
 import { scrollWindow } from "@/components/scroll";
+import { css } from "@/lib/css";
 
 // Hero del fondo — versión FACHADA full-bleed. El header entero es el mosaico de
 // paneles embutidos <Fachada /> (extraído a su propio componente, reusado como
@@ -517,7 +518,7 @@ export function FondoHero({ casa }: { casa: string }) {
         </div>
       </motion.div>
 
-      <style>{`
+      <style>{css`
         .ffac-hero {
           /* La curva única de la casa (docs/lenguaje-visual.md). */
           --ffac-ease: cubic-bezier(0.16, 1, 0.3, 1);

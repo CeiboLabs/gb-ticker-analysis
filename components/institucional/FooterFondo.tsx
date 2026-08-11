@@ -1,4 +1,5 @@
 import { REDES } from "@/components/institucional/redes";
+import { css } from "@/lib/css";
 
 /**
  * Pie del SITIO DEL FONDO (ver `lib/sitios.ts`) — "la placa de cierre".
@@ -141,7 +142,7 @@ export function FooterFondo() {
         </div>
       </div>
 
-      <style>{`
+      <style>{css`
         .ffoot-in { padding-bottom: 36px; }
 
         /* La línea fuerte del pie —"regla de dos pesos": ésta manda, las
@@ -203,7 +204,13 @@ export function FooterFondo() {
           padding-top: 26px; border-top: 1px solid rgba(255,255,255,0.16);
           display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap;
         }
-        .ffoot-credito { margin: 0; opacity: 0.7; }
+        /* El crédito baja de tono por COLOR, no por opacity. Con la opacidad al
+           70% el navy se filtraba por debajo del texto y de su link: el
+           rgba(255,255,255,0.62) que .band-navy le da a .t-small terminaba
+           componiendo #778298 sobre el navy —4,03:1, por debajo del 4,5:1 de
+           AA— y el link se apagaba con él. Bajando el alfa del propio color el
+           texto queda en 5,65:1 y el link conserva el suyo. */
+        .ffoot-credito { margin: 0; color: rgba(255,255,255,0.55); }
 
         /* La identidad se lleva su propia fila y las dos columnas de links se
            reparten la de abajo: a tres columnas, la nota del gestor entra en

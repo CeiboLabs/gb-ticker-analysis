@@ -87,8 +87,9 @@ const ITEMS: { q: string; a: string }[] = [
     // Cláusula 12.1: "como máximo", "descontado de provisiones", "incluyendo el
     // Impuesto al Valor Agregado" — los tres calificativos son del texto, no
     // glosa. La comisión se cobra AL FONDO, así que el valor cuota ya nace neta
-    // de ella (por eso la calculadora la descuenta una sola vez: netear de nuevo
-    // sobre la serie real la contaría dos veces, ver FondoCalculadora).
+    // de ella. (Desde el 6-ago-2026 la calculadora NO la descuenta: asume que la
+    // tasa que pone el lector ya es neta y lo declara en su pie. Ver
+    // FondoCalculadora.)
     //
     // ⚠️ EL RECORTE MÁS SENSIBLE DE LA PASADA DEL CLIENTE (5-ago-2026). La
     // respuesta quedó en la comisión del Fondo y nada más. Lo que se fue:

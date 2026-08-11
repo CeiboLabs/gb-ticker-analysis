@@ -16,6 +16,16 @@
 // recién cuando la persona ya demostró que le importa — y entonces no interrumpe:
 // contesta.
 //
+// LA SEGUNDA REGLA: segmentar por comportamiento está bien; DECIRLE A LA PERSONA
+// QUE LA SEGMENTAMOS es lo que asecha. La versión anterior le devolvía la cuenta
+// en el titular ("venís siguiendo 26 análisis") y eso convertía un
+// reconocimiento en un expediente: el número no le servía al lector, servía para
+// justificar nuestra oferta, y esa asimetría es la definición de sentirse
+// vigilado. El umbral sigue existiendo y sigue decidiendo qué se muestra — pero
+// es silencioso. Si alguna vez un número tiene que aparecer, aparece como
+// herramienta del lector (la tira de seguidos, que él usa para navegar), nunca
+// como prueba a favor nuestro.
+//
 // Y AL CLIENTE, JAMÁS UNA APERTURA. Ya la tiene. Ofrecérsela es la señal más
 // clara de que el sitio no sabe quién es. Va a su asesor, que es además la ruta
 // que puede terminar en una orden esta semana en vez de una apertura en meses.
@@ -51,7 +61,7 @@ export function CierreSegunLector({ ticker }: { ticker: string }) {
   if (!lector || lector.estado === "anonimo") return null;
 
   if (lector.estado === "cliente") return <CierreCliente ticker={ticker} nombre={lector.nombre} />;
-  if (lector.estado === "recurrente") return <CierreRecurrente lector={lector} />;
+  if (lector.estado === "recurrente") return <CierreRecurrente ticker={ticker} />;
   return <CierreConocido ticker={ticker} />;
 }
 
@@ -84,34 +94,47 @@ function CierreConocido({ ticker }: { ticker: string }) {
 }
 
 /* ── Recurrente: ya demostró que le importa ────────────────────── */
-// Recién ACÁ aparece la conversación de cuenta, y citando su propio
-// comportamiento: no es un aviso genérico, es una respuesta a lo que hizo.
-function CierreRecurrente({ lector }: { lector: Lector }) {
-  const cuantas = lector.siguiendo > 0
-    ? `${lector.siguiendo} ${lector.siguiendo === 1 ? "acción" : "acciones"}`
-    : `${lector.analisis} ${lector.analisis === 1 ? "análisis" : "análisis"}`;
-
+// Recién ACÁ aparece la apertura de cuenta, y es el único lugar del sitio donde
+// va: al anónimo nunca, al cliente jamás (ya la tiene).
+//
+// EL MOTIVO QUE SE LE DA NO ES SU HISTORIAL: es el límite del documento que acaba
+// de leer. Ese límite es real —el informe se escribe igual para todos y no conoce
+// a nadie— y es el mismo que nos mantiene del lado del research general. Sirve
+// mejor que la cuenta de informes leídos porque es cierto, porque el lector ya lo
+// viene sintiendo, y porque abre diciendo lo que el sitio NO sabe de él, que es
+// exactamente lo contrario de recitarle lo que sí.
+//
+// Y LA INVITACIÓN NO PUEDE COLGAR DEL VEREDICTO. "AAPL es BUY, abrí una cuenta y
+// compralo" es promoción de un valor extranjero no inscripto en el RMV: se cae de
+// research general a oferta pública. Por eso el pedido va a nivel CARTERA y sin
+// nombrar la acción. El ticker sólo aparece arriba, describiendo qué puede y qué
+// no puede decir el informe.
+//
+// TAMPOCO VA "sin costo" acá. Colgado de una apertura hace pensar en costos justo
+// en el peor momento, y la casa cobra comisiones: es una promesa que no queremos
+// suelta al lado del botón.
+function CierreRecurrente({ ticker }: { ticker: string }) {
   return (
     <section className="cr-root band-navy">
       <div className="site-wrap cr-wrap">
         <div className="cr-side">
-          <div className="eyebrow-sm">Ya que estás en esto</div>
+          <div className="eyebrow-sm">La parte que falta</div>
         </div>
         <div>
           <h2 className="cr-t">
-            Venís siguiendo {cuantas}. Vale una <em>conversación</em>.
+            Este informe no conoce tu <em>cartera</em>.
           </h2>
           <p className="cr-b">
-            Leer análisis es una cosa; armar una cartera es otra. Un asesor de la casa puede mirar
-            tu situación —lo que ya tenés, en qué plazo, cuánto riesgo te sirve— y decirte si algo de
-            esto encaja. Sin costo, y sin que tengas que operar nada.
+            Está escrito igual para todo el mundo: no sabe qué tenés, en qué plazo invertís ni
+            cuánto riesgo te sirve. Puede decirte cómo viene {ticker}; no puede decirte si tiene
+            lugar en lo tuyo. Esa parte la mira una persona.
           </p>
           <p className="cr-b" style={{ marginTop: 14 }}>
-            Somos sociedad de bolsa uruguaya, miembros de la Bolsa de Valores de Montevideo desde
-            1967, y no exigimos mínimos para abrir cuenta.
+            Abrí una cuenta en Bengochea Inversiones y empecemos a armar tu cartera con un asesor de
+            la casa: alguien que ve el conjunto y no una acción por vez.
           </p>
           <div className="cr-acciones">
-            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Agendar una reunión</Link>
+            <Link href="/contacto" className="ui-btn ui-btn-on-navy">Abrir una cuenta</Link>
             <Link href="/analisis/record" className="ui-btn ui-btn-on-navy-ghost">Ver nuestro récord</Link>
           </div>
         </div>

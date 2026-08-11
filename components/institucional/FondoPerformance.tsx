@@ -4,8 +4,11 @@ import { useMemo, useState } from "react";
 import type { FundNavPoint, ReturnKey } from "@/lib/fondo";
 import { BENCHMARK, BENCHMARK_PROXY, MONEDA } from "@/lib/fondo";
 import { useFondo, fmtNav, fmtIndex, fmtPct, fmtAum, fmtFechaCorta } from "@/lib/useFondo";
+import { useBacktest, periodosBacktest, ventanaVista, BACKTEST_TODO } from "@/lib/fondoBacktest";
 import { FondoChart } from "@/components/institucional/FondoChart";
+import { BacktestCaption, BacktestTabla } from "@/components/institucional/FondoBacktest";
 import { PeriodSlider } from "@/components/institucional/PeriodSlider";
+import { css } from "@/lib/css";
 
 // Módulo de performance: selector de períodos + gráfico del valor cuota +
 // rendimientos acumulados, por año calendario y estadísticas derivadas de la
@@ -14,7 +17,9 @@ import { PeriodSlider } from "@/components/institucional/PeriodSlider";
 // cifras. Cuando llegue el feed, todo se puebla solo.
 
 type PeriodId = "1M" | "3M" | "YTD" | "1A" | "SI";
-type ChartView = "cuota" | "base100";
+// Qué serie dibuja el gráfico. Las dos primeras son el Fondo (misma serie, dos
+// unidades); "backtest" es otra serie entera — la simulación de la estrategia.
+type ChartView = "cuota" | "base100" | "backtest";
 const PERIODS: { id: PeriodId; label: string }[] = [
   { id: "1M", label: "1M" },
   { id: "3M", label: "3M" },
@@ -83,8 +88,28 @@ function rebase100(rows: FundNavPoint[]): FundNavPoint[] {
 // sube de 1.000 a 1.300 con el eje en USD se lee como el track record del
 // fondo, por más que cuatro avisos digan lo contrario. El benchmark vuelve al
 // gráfico cuando haya serie propia contra la cual compararlo, que es el único
-// trabajo que tiene que hacer. Hasta entonces, el marco del gráfico muestra el
-// aviso de «Próximamente» (ver el estado vacío, más abajo).
+// trabajo que tiene que hacer.
+//
+// EL GRÁFICO PASÓ A TENER SELECTOR DE SERIE (11-ago-2026), a pedido del
+// responsable del fondo. Una sola caja, y a la izquierda un selector que elige
+// QUÉ se dibuja: el valor cuota del Fondo o el backtest de la estrategia —la
+// cartera de hoy aplicada hacia atrás, en base 100—. Con «Valor cuota» elegido
+// y sin serie publicada, el marco muestra el aviso de «Próximamente» en el
+// medio, como siempre; el aviso no se fue a ningún lado, ahora vive donde
+// corresponde: en la serie que todavía no existe, no arriba de todo el módulo.
+//
+// El backtest NO es una vuelta atrás de la decisión del 3-ago — es lo contrario,
+// y la diferencia está en las cuatro reglas que documenta FondoBacktest.tsx:
+// eje en índice y nunca en USD, tono subordinado y nunca el navy con sombra del
+// valor cuota, la palabra «simulada» dentro de la leyenda, y el encuadre en
+// cuerpo de lectura ENTRE el selector y el marco. Esa última es más importante
+// que antes: la misma caja muestra ahora dos series distintas según el selector,
+// y lo que ata el encuadre a la que se está mirando es que aparezca y
+// desaparezca con ella.
+//
+// ⚠️ Las dos series CONVIVEN también en régimen: el día que entre el valor
+// cuota, el backtest no se borra — queda como la otra opción del selector, que
+// es justamente para lo que se pidió el control.
 
 // Sparkline del AUM (mini-área) para el header: la tendencia del tamaño del
 // fondo de un vistazo, sin ejes ni interacción (la cifra exacta vive al lado).
@@ -121,7 +146,16 @@ function AumSparkline({ values }: { values: number[] }) {
 export function FondoPerformance() {
   const state = useFondo();
   const [period, setPeriod] = useState<PeriodId>("SI");
-  const [view, setView] = useState<ChartView>("cuota");
+  // Qué serie muestra el gráfico. `null` = el visitante todavía no eligió, y
+  // manda el default de más abajo. Se guarda la ELECCIÓN y no el modo efectivo
+  // para que el default pueda depender de datos que llegan después (si el Fondo
+  // está vivo o no lo sabemos recién cuando responde /api/fondo), sin un efecto
+  // que pise lo que el visitante ya tocó.
+  const [view, setView] = useState<ChartView | null>(null);
+  // Período del backtest — vive aparte del período del Fondo: son escalas
+  // distintas (años calendario contra 1M/3M/YTD/1A/Máx) y al ir y volver entre
+  // las dos series cada una conserva la suya.
+  const [vistaBt, setVistaBt] = useState<string>(BACKTEST_TODO);
 
   const data = state.kind === "ready" ? state.data : null;
   const live = !!(data && data.status === "live" && data.series.length > 1);
@@ -137,18 +171,80 @@ export function FondoPerformance() {
     () => (live && data && data.benchmark.length > 0 ? windowFor(data.benchmark, period) : []),
     [live, data, period],
   );
-  // Datos que entran al gráfico de rendimiento según el modo del slider:
-  //   "cuota":   valor cuota real del fondo, una línea, eje en USD.
-  //   "base100": fondo + benchmark reescalados a 100 en el primer punto del
-  //              período (origen común para leer la evolución relativa); el eje
-  //              pasa a índice. El benchmark sólo aparece en este modo.
-  // Sin serie del fondo no se arma gráfico: el marco muestra el aviso.
+  // Backtest de la estrategia. Se pide cuando el Fondo NO tiene serie propia
+  // —ahí es lo que el gráfico muestra por defecto, así que el asset viaja en
+  // paralelo con /api/fondo en vez de esperarlo— o cuando el visitante lo elige
+  // explícitamente. En régimen, quien nunca toque el selector no baja los 33 KB.
+  const backtest = useBacktest(!live || view === "backtest");
+  const btData = backtest.kind === "ready" ? backtest.data : null;
+
+  // MODO EFECTIVO. Tres reglas, en este orden:
+  //   · sin elección del visitante, el default es la simulación mientras el
+  //     Fondo no publique valor cuota, y el valor cuota apenas lo publique —que
+  //     es literalmente «el backtest mientras no esté la cuota»;
+  //   · si el asset del backtest falló, ese modo no existe: se cae a la cuota
+  //     (con su aviso), que es el estado que la página tenía antes de todo esto.
+  //     Mientras CARGA no se cae — si no, el selector saltaría solo;
+  //   · "base100" no significa nada sin serie del fondo: sin ella, cuota.
+  const vista: ChartView = (() => {
+    const elegida = view ?? (live ? "cuota" : "backtest");
+    if (elegida === "backtest") return backtest.kind === "error" ? "cuota" : "backtest";
+    if (elegida === "base100" && !live) return "cuota";
+    return elegida;
+  })();
+
+  // Datos que entran al gráfico según el modo:
+  //   "cuota":    valor cuota real del fondo, una línea, eje en USD.
+  //   "base100":  fondo + benchmark reescalados a 100 en el primer punto del
+  //               período (origen común para leer la evolución relativa); el eje
+  //               pasa a índice. El benchmark sólo aparece en este modo.
+  //   "backtest": la simulación + el benchmark, ya en base 100.
+  //
+  // Es UN solo <FondoChart> que cambia de props, no tres gráficos alternándose:
+  // así el gesto de medir, el encuadre del eje y el alto de la caja son los
+  // mismos se mire lo que se mire.
   const chart = useMemo(() => {
-    if (view === "base100") {
-      return { series: rebase100(series), benchmark: rebase100(benchSeries), format: fmtIndex };
+    if (vista === "backtest" && btData) {
+      const w = ventanaVista(btData, vistaBt);
+      return {
+        series: w.estrategia,
+        benchmark: w.referencia,
+        format: fmtIndex,
+        unidad: "Índice · base 100",
+        // «(simulada)» viaja en la leyenda a propósito: es lo único del encuadre
+        // que sobrevive a una captura de pantalla del gráfico.
+        etiqueta: "Estrategia (simulada)",
+        // El MISMO rótulo que en las otras vistas, y no un «Referencia 60/40»
+        // propio del backtest: es la misma caja cambiando de serie, así que la
+        // línea subordinada tiene que llamarse igual se mire lo que se mire —
+        // el par Fondo/Benchmark de cualquier ficha. La composición y los
+        // índices van en la nota pegada a la tabla, que es donde se leen.
+        etiquetaBench: BENCHMARK.corto,
+        // Nunca "fund": el navy con sombra proyectada es del valor cuota.
+        linea: "sim" as const,
+      };
     }
-    return { series, benchmark: [] as FundNavPoint[], format: fmtNav };
-  }, [view, series, benchSeries]);
+    if (vista === "base100") {
+      return {
+        series: rebase100(series),
+        benchmark: rebase100(benchSeries),
+        format: fmtIndex,
+        unidad: "Índice · base 100",
+        etiqueta: "BNG Selección Global",
+        etiquetaBench: BENCHMARK.corto,
+        linea: "fund" as const,
+      };
+    }
+    return {
+      series,
+      benchmark: [] as FundNavPoint[],
+      format: fmtNav,
+      unidad: MONEDA,
+      etiqueta: "BNG Selección Global",
+      etiquetaBench: BENCHMARK.corto,
+      linea: "fund" as const,
+    };
+  }, [vista, btData, vistaBt, series, benchSeries]);
   // Valores de AUM (historia completa) para el sparkline del header: la
   // tendencia del tamaño del fondo desde el inicio. No se ata al período — es un
   // resumen del dato, no un gráfico interactivo (el AUM es tamaño, no rendimiento).
@@ -220,6 +316,14 @@ export function FondoPerformance() {
   const estadoVacio: "cargando" | "error" | "prelanzamiento" =
     state.kind === "loading" ? "cargando" : state.kind === "error" ? "error" : "prelanzamiento";
 
+  // Opciones del selector de serie. "Base 100" sólo tiene sentido con serie del
+  // fondo (es una vista de ESA serie); el backtest desaparece si su asset falló.
+  const VISTAS: { id: ChartView; label: string }[] = [
+    { id: "cuota", label: "Valor cuota" },
+    ...(live ? [{ id: "base100" as const, label: "Base 100" }] : []),
+    ...(backtest.kind === "error" ? [] : [{ id: "backtest" as const, label: "Backtest" }]),
+  ];
+
   return (
     <div className="perf">
       {/* Cotización al día — único lugar de la página con el dato vivo. */}
@@ -271,45 +375,67 @@ export function FondoPerformance() {
         </div>
       </div>
 
+      {/* Selector de SERIE a la izquierda, de PERÍODO a la derecha. El de la
+          izquierda es el mismo control-firma de la casa (PeriodSlider) y no un
+          toggle propio: hasta acá había un `.perf-view` de dos celdas hecho a
+          mano, que con la tercera opción habría que haber generalizado igual. */}
       <div className="perf-bar">
-        {live ? (
-          <div className="perf-view" data-active={view} role="tablist" aria-label="Modo del gráfico">
-            <span className="perf-view-thumb" aria-hidden />
-            <button
-              role="tab"
-              aria-selected={view === "cuota"}
-              className="perf-view-btn"
-              onClick={() => setView("cuota")}
-            >
-              Valor cuota
-            </button>
-            <button
-              role="tab"
-              aria-selected={view === "base100"}
-              className="perf-view-btn"
-              onClick={() => setView("base100")}
-            >
-              Base 100
-            </button>
-          </div>
+        <PeriodSlider
+          periods={VISTAS}
+          value={vista}
+          onChange={setView}
+          ariaLabel="Serie del gráfico"
+        />
+        {/* El período depende de qué serie se esté mirando: el Fondo se mide en
+            ventanas móviles (1M/3M/YTD/1A/Máx) y el backtest en años calendario.
+            Sin serie del fondo el selector del Fondo va apagado, como antes. */}
+        {vista === "backtest" && btData ? (
+          <PeriodSlider
+            periods={periodosBacktest(btData)}
+            value={vistaBt}
+            onChange={setVistaBt}
+            dense
+            ariaLabel="Período de la simulación"
+          />
         ) : (
-          // Sin serie del fondo el toggle no tiene entre qué elegir: en su lugar
-          // va el rótulo de lo que el marco de abajo va a mostrar.
-          <span className="perf-bar-label">Evolución del valor cuota</span>
+          <PeriodSlider periods={PERIODS} value={period} onChange={setPeriod} disabled={!live} />
         )}
-        <PeriodSlider periods={PERIODS} value={period} onChange={setPeriod} disabled={!live} />
       </div>
 
+      {/* El encuadre de la simulación va ENTRE el selector y el marco, no
+          adentro: adentro quedaba una caja dentro de otra y empujaba la curva
+          hacia abajo. Acá el orden de lectura hace el mismo trabajo —elegís
+          «Backtest», leés qué es eso, mirás la curva— y queda atado a la opción
+          elegida, que es lo que hay que preservar ahora que el mismo marco
+          muestra dos series distintas. */}
+      {vista === "backtest" && btData && <BacktestCaption />}
+
       <div className="perf-chart-frame">
-        {live ? (
+        {vista === "backtest" ? (
+          btData ? (
+            <FondoChart
+              series={chart.series}
+              benchmark={chart.benchmark}
+              formatValue={chart.format}
+              unitLabel={chart.unidad}
+              seriesLabel={chart.etiqueta}
+              benchLabel={chart.etiquetaBench}
+              lineKind={chart.linea}
+            />
+          ) : (
+            <div className="perf-empty">
+              <p className="perf-empty-title">Cargando la simulación…</p>
+            </div>
+          )
+        ) : live ? (
           <FondoChart
             series={chart.series}
             benchmark={chart.benchmark}
             formatValue={chart.format}
-            unitLabel={view === "base100" ? "Índice · base 100" : MONEDA}
-            seriesLabel="BNG Selección Global"
-            benchLabel={BENCHMARK.corto}
-            lineKind="fund"
+            unitLabel={chart.unidad}
+            seriesLabel={chart.etiqueta}
+            benchLabel={chart.etiquetaBench}
+            lineKind={chart.linea}
           />
         ) : (
           // El aviso ocupa el LUGAR del gráfico —centrado, con el mismo alto que
@@ -350,6 +476,11 @@ export function FondoPerformance() {
           </div>
         )}
       </div>
+
+      {/* La tabla año a año de la simulación, debajo del marco. Sólo con el
+          backtest en pantalla: son cifras de otra serie y no pueden quedar
+          colgadas bajo el gráfico del valor cuota. */}
+      {vista === "backtest" && btData && <BacktestTabla data={btData} />}
 
       <div className="perf-data">
         {/* Rentabilidad acumulada — fondo vs benchmark, períodos en columnas. */}
@@ -537,11 +668,56 @@ export function FondoPerformance() {
         </section>
       </div>
 
+      {/* Nivel 2 del aviso: el bloque largo, UNA sola vez y al pie del módulo
+          (la nota corta con los supuestos va pegada a la tabla del backtest).
+          Va primero porque en pre-lanzamiento la simulación es lo único con
+          cifras en pantalla: el párrafo del Fondo, abajo, habla de tablas que
+          hoy están todas en «—».
+
+          ⚠️ PENDIENTE ANTES DE PUBLICAR: confirmar con el cliente si la serie
+          del backtest es neta de la comisión del Fondo (hasta 1,5% anual, IVA
+          incluido). El Excel de origen no lo dice. Si fuera bruta, la
+          comparación contra un valor cuota futuro —que sí es neto— no es
+          homogénea y hay que decirlo acá. No se afirma ni una cosa ni la otra
+          mientras no esté confirmado. */}
+      {vista === "backtest" && btData && (
+        <p className="perf-disclaimer">
+          {/* «a título ilustrativo» es la frase textual del audio del responsable
+              del fondo. Abría el encuadre de arriba del gráfico hasta que él
+              mismo pidió sacarla de ahí (11-ago-2026); baja acá para que la
+              palabra no desaparezca de la página, que es lo que él había pedido
+              enfatizar. */}
+          {/* Este párrafo repetía casi entero el encuadre de arriba del gráfico
+              —«aplicada hacia atrás sobre precios de mercado», «ningún inversor
+              obtuvo esos rendimientos», «no operó»— y cerraba con un «no
+              garantizan resultados futuros» que el párrafo de abajo ya dice.
+              Queda SÓLO lo que no está dicho en ningún otro lado: la frase del
+              cliente y el hecho que sostiene todo lo demás — la fecha de
+              autorización, que es lo que prueba que el Fondo no pudo haber
+              operado en ese período. Lo demás no es que sobre: es que ya está
+              en pantalla, tres centímetros más arriba. */}
+          <strong>Sobre la simulación histórica.</strong> Se publica a título ilustrativo. El
+          Fondo fue autorizado por el Banco Central del Uruguay el 7 de julio de 2026: todo el
+          período simulado es anterior a su existencia.
+        </p>
+      )}
+
       <p className="perf-disclaimer">
-        Los rendimientos pasados no garantizan resultados futuros. Cifras netas de la comisión del Fondo,
-        expresadas en {MONEDA}, la moneda del fondo. La volatilidad y el retorno anualizado se calculan
-        sobre la serie diaria de valor cuota.
-        {live && view === "base100" &&
+        {/* «del Fondo» explícito: con el backtest en pantalla, un «cifras netas
+            de la comisión» suelto se leería como que cubre también a la
+            simulación, que es justo lo que no está confirmado. */}
+        {/* UNA sola vez en la página. El párrafo del backtest cerraba con su
+            propia versión («los resultados simulados no garantizan…») y quedaban
+            las dos frases a cuatro renglones de distancia. En vez de repetirla,
+            esta se ensancha para cubrir también la simulación cuando es la que
+            está en pantalla — un resultado simulado no es, estrictamente, un
+            «rendimiento pasado», así que nombrarlo hace falta. */}
+        {vista === "backtest"
+          ? "Los rendimientos pasados y los resultados simulados no garantizan resultados futuros."
+          : "Los rendimientos pasados no garantizan resultados futuros."}{" "}
+        Cifras del Fondo netas de su comisión, expresadas en {MONEDA}, la moneda del fondo. La
+        volatilidad y el retorno anualizado se calculan sobre la serie diaria de valor cuota.
+        {vista === "base100" &&
           (benchSeries.length > 0 ? (
             <> En la vista base 100, el fondo y su benchmark parten de 100 al inicio del período para
             comparar la evolución de ambas series.</>
@@ -552,15 +728,34 @@ export function FondoPerformance() {
             el gráfico y las tablas lo rotulaban sólo como "Benchmark". Que no
             surja del Reglamento es cierto, pero es razonamiento nuestro: no le
             cambia nada a quien mira la curva.
-            Sin fondo el benchmark no está en pantalla: explicar acá cómo se
-            construye una serie que nadie ve sólo agrega letra chica. */}
-        {(hasBench || benchSeries.length > 0) && (
-          <> El benchmark es un compuesto de referencia ({BENCHMARK.nombre}): no es un objetivo de
-          rentabilidad ni una garantía. {BENCHMARK_PROXY.nota}</>
-        )}
+
+            IDENTIDAD DEL BENCHMARK: va siempre que haya una línea de comparación
+            en pantalla, y eso INCLUYE al backtest —su línea subordinada es el
+            mismo compuesto—. Antes esto estaba atado a `hasBench`, que es
+            `live && …`: en pre-lanzamiento la única curva de la página era una
+            referencia que no se nombraba en ningún lado. La convención (Form
+            N-1A, KIID, GIPS, FINRA 2210) y la práctica de las fichas es la
+            misma: el índice contra el que se compara se identifica.
+
+            LA NOTA DEL PROXY, EN CAMBIO, SIGUE ATADA A LA SERIE DEL FONDO. No es
+            un olvido: describe cómo reconstruimos ESA serie con ETFs, y la del
+            backtest no está reconstruida por nosotros —la calcula el gestor
+            dentro de su propia simulación—. Pegarle esa nota sería describir una
+            construcción que no es la que se está mirando. */}
+        {vista === "backtest" ? (
+          // Con el backtest en pantalla, la composición del compuesto ya está en
+          // la nota de SU tabla, pegada al dato. Repetirla acá dejaba «60% MSCI
+          // ACWI · 40% Bloomberg Global Aggregate» dos veces en la misma
+          // pantalla. Queda sólo el aviso, que es lo que aquella nota no dice —
+          // y que se explica solo: nombra a los índices y al benchmark.
+          <> {BENCHMARK.aviso}</>
+        ) : hasBench || benchSeries.length > 0 ? (
+          <> El benchmark es un compuesto de referencia ({BENCHMARK.nombre}). {BENCHMARK.aviso}{" "}
+          {BENCHMARK_PROXY.nota}</>
+        ) : null}
       </p>
 
-      <style>{`
+      <style>{css`
         .perf-quote {
           display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
           flex-wrap: wrap; margin-bottom: 24px; padding-bottom: 20px;
@@ -627,39 +822,16 @@ export function FondoPerformance() {
           display: flex; align-items: center; justify-content: space-between; gap: 16px;
           flex-wrap: wrap; margin-bottom: 18px;
         }
-        .perf-bar-label {
-          font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-          color: var(--site-ink-3);
-        }
-        /* El selector de períodos (píldora + thumb) es el componente compartido
-           PeriodSlider — sus estilos (.pslider*) viven en globals.css. */
-
-        /* Toggle del modo del gráfico (valor cuota ↔ base 100). Mismo pill firma
-           que el selector de períodos; dos celdas iguales vía grid para que el
-           thumb al 50% calce con etiquetas de distinto largo. */
-        .perf-view {
-          position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px;
-          background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
-        }
-        .perf-view-thumb {
-          position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
-          background: var(--navy); border-radius: 999px;
-          box-shadow: 0 6px 16px -6px rgba(15,34,73,0.6);
-          transition: transform 260ms cubic-bezier(0.34, 1.2, 0.4, 1);
-        }
-        .perf-view[data-active="base100"] .perf-view-thumb { transform: translateX(100%); }
-        .perf-view-btn {
-          position: relative; z-index: 1; text-align: center; white-space: nowrap;
-          border: 0; background: none; cursor: pointer;
-          font-size: 13px; font-weight: 600; color: var(--site-ink-3);
-          padding: 6px 18px; border-radius: 999px; transition: color 220ms ease;
-        }
-        .perf-view-btn[aria-selected="true"] { color: #fff; }
-        .perf-view-btn:not([aria-selected="true"]):hover { color: var(--navy); }
-        /* Mismo criterio táctil que el selector de períodos (.pslider-btn). */
-        @media (pointer: coarse) {
-          .perf-view-btn { padding-top: 12px; padding-bottom: 12px; }
-        }
+        /* Los DOS selectores de la barra —serie a la izquierda, período a la
+           derecha— son el mismo componente compartido PeriodSlider, y sus
+           estilos (.pslider*) viven en globals.css.
+           ⚠️ SIN BACKTICKS EN ESTE COMENTARIO: el bloque entero es un template
+           literal (css tagged template) y un backtick suelto lo termina acá,
+           dejando el resto del archivo como código roto.
+           Acá vivía además un .perf-view propio, de dos celdas fijas, para el
+           toggle valor cuota ↔ base 100. Se sacó al sumarle la tercera opción
+           (backtest): era una copia del control-firma con otro padding, y el
+           componente compartido ya resuelve N opciones con el mismo thumb. */
 
         /* Relleno igual al de la banda: el marco deja de ser una tarjeta blanca
            flotando y queda como un contorno en torno al gráfico. El canvas de
@@ -691,9 +863,13 @@ export function FondoPerformance() {
            (.eyebrow-sm): mayúsculas, 0.14em de tracking. El filete de abajo es
            el hairline que la casa usa para abrir un bloque de dato; acá, corto y
            centrado, apoya la palabra sin encajonarla. */
+        /* El rótulo va en el oro de TEXTO y el filete en el oro de marca: a
+           11,5px --gold-deep no llega al 4,5:1 sobre la banda muted (3,57:1),
+           pero en el borde de 1,5px el mínimo aplicable es otro y el acento
+           tiene que seguir siendo el de la página. */
         .perf-empty-eyebrow {
           font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-          color: var(--gold-deep); padding-bottom: 12px; margin-bottom: 4px;
+          color: var(--gold-ink); padding-bottom: 12px; margin-bottom: 4px;
           border-bottom: 1.5px solid var(--gold-deep);
         }
         .perf-empty-sub {

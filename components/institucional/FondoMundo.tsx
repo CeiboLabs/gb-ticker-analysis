@@ -83,5 +83,12 @@ export function FondoMundo() {
     return () => ro.disconnect();
   }, []);
 
-  return <canvas ref={canvasRef} className="fmapa" aria-hidden />;
+  // width/height NO son el tamaño de dibujo —lo reescribe draw() con el tamaño
+  // real por DPR— sino el tamaño INTRÍNSECO que el elemento tiene mientras no
+  // haya corrido nada de JS. Sin ellos el canvas vale lo que dice el estándar
+  // (300×150) hasta que el efecto lo mide, y al corregirse mueve la caja: era el
+  // único layout shift de la página (CLS 0,0068 en el teléfono, medido sobre 5
+  // cargas; con estos atributos da 0,00000). Ver docs/rendimiento-fondo.md §6.2.
+  // El valor es la caja de diseño del slot en desktop; sólo importa su relación.
+  return <canvas ref={canvasRef} width={820} height={620} className="fmapa" aria-hidden />;
 }

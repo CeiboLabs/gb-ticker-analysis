@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { ParallaxLayer } from "@/components/scroll";
@@ -25,12 +25,45 @@ const CROSSFADE = 0.7;
 function LoopVideo({ src, poster, reduce }: { src: string; poster: string; reduce: boolean | null }) {
   const aRef = useRef<HTMLVideoElement>(null);
   const bRef = useRef<HTMLVideoElement>(null);
+  const [cargar, setCargar] = useState(false);
+
+  // La grilla de industrias vive bien abajo del fold, pero los clips se
+  // descargaban en la carga inicial: `preload="auto"` + `autoPlay` no esperan a
+  // que el elemento se vea. Eran 3,3 MB (los cuatro clips) que pagaba hasta el
+  // que rebotaba en el hero sin scrollear nunca. Con el observer, hasta que la
+  // tarjeta no se acerca al viewport sólo se muestra el poster.
+  //
+  // El poster SÍ sigue siendo eager: es el contenido visible de la tarjeta y
+  // pesa dos órdenes de magnitud menos que el clip.
+  // Sin IntersectionObserver el clip no carga nunca y la tarjeta se queda en el
+  // poster: degradación aceptable, y de todos modos el sitio ya lo exige en
+  // otros lados (los `whileInView` de framer-motion). Por eso no hay fallback.
+  useEffect(() => {
+    const a = aRef.current;
+    if (!a) return;
+    const io = new IntersectionObserver(
+      (entradas) => {
+        if (!entradas.some((e) => e.isIntersecting)) return;
+        setCargar(true);
+        io.disconnect();
+      },
+      // Margen generoso: el clip empieza a bajar antes de entrar en pantalla,
+      // así llega reproduciéndose y no se ve el cambio poster → video.
+      { rootMargin: "400px 0px" },
+    );
+    io.observe(a);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (reduce) return;
+    if (reduce || !cargar) return;
     const a = aRef.current;
     const b = bRef.current;
     if (!a || !b) return;
+
+    // Los <source> se acaban de montar: sin load() el elemento no los mira.
+    a.load();
+    b.load();
 
     let active: "a" | "b" = "a";
     let swapping = false;
@@ -65,7 +98,7 @@ function LoopVideo({ src, poster, reduce }: { src: string; poster: string; reduc
       b.removeEventListener("timeupdate", onTime);
       if (swapTimer) clearTimeout(swapTimer);
     };
-  }, [reduce]);
+  }, [reduce, cargar]);
 
   const common = {
     className: "ind-video",
@@ -77,13 +110,19 @@ function LoopVideo({ src, poster, reduce }: { src: string; poster: string; reduc
 
   return (
     <>
-      <video ref={aRef} {...common} preload="auto" style={{ opacity: 1 }} {...(reduce ? {} : { autoPlay: true })}>
-        <source src={src} type="video/mp4" />
+      <video
+        ref={aRef}
+        {...common}
+        preload={cargar ? "auto" : "none"}
+        style={{ opacity: 1 }}
+        {...(reduce ? {} : { autoPlay: true })}
+      >
+        {cargar && <source src={src} type="video/mp4" />}
       </video>
       {/* La capa B recién se reproduce en el primer crossfade (~fin del clip):
           con metadata alcanza y evita descargar los 4 clips dos veces. */}
-      <video ref={bRef} {...common} preload="metadata" style={{ opacity: 0 }}>
-        <source src={src} type="video/mp4" />
+      <video ref={bRef} {...common} preload={cargar ? "metadata" : "none"} style={{ opacity: 0 }}>
+        {cargar && <source src={src} type="video/mp4" />}
       </video>
     </>
   );

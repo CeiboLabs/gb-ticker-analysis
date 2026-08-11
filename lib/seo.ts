@@ -96,6 +96,18 @@ export function pageMetadata(m: PageMeta): Metadata {
  *   · `og:site_name` es el del fondo: al compartir un link, el sitio que se
  *     nombra es el del producto, no el de la casa.
  */
+/**
+ * Nombre con el que la card OG del fondo se sirve en su dominio.
+ *
+ * Next genera esa imagen desde `app/(fondo)/bng-seleccion-global/opengraph-image.tsx`
+ * bajo una ruta con hash (`/bng-seleccion-global/opengraph-image-1wynds?…`), que
+ * en el deploy estático no existe: ahí la página vive en la raíz y el hash cambia
+ * con cada build. `scripts/build-fondo.mts` copia el PNG generado a este nombre
+ * fijo, y por eso acá se declara la URL a mano en vez de dejar que la resuelva la
+ * convención de archivo.
+ */
+export const OG_FONDO = "/opengraph-image.png";
+
 export function fondoMetadata(m: {
   title: string;
   description: string;
@@ -103,6 +115,13 @@ export function fondoMetadata(m: {
   path?: string;
 }): Metadata {
   const url = `${SITIO_FONDO_URL}${m.path && m.path !== "/" ? m.path : "/"}`;
+  // ABSOLUTA al origen del fondo, por la misma razón que el canonical: el
+  // `metadataBase` del root layout apunta al sitio institucional, así que dejar
+  // que Next la resuelva publicaba `og:image` en gbengochea.com.uy — un dominio
+  // donde el archivo no existe. Verificado en el build del 6-ago-2026: salía
+  // `https://gbengochea.com.uy/bng-seleccion-global/opengraph-image-1wynds?…`.
+  const imagen = `${SITIO_FONDO_URL}${OG_FONDO}`;
+  const images = [{ url: imagen, width: 1200, height: 630, alt: m.title }];
   return {
     title: m.title,
     description: m.description,
@@ -114,11 +133,13 @@ export function fondoMetadata(m: {
       locale: LOCALE,
       title: m.title,
       description: m.description,
+      images,
     },
     twitter: {
       card: "summary_large_image",
       title: m.title,
       description: m.description,
+      images,
     },
   };
 }

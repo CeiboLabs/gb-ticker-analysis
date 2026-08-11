@@ -14,6 +14,13 @@ interface PeriodSliderProps<T extends string> {
   onChange: (id: T) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  /**
+   * Aprieta el padding horizontal en pantallas chicas. Para filas de MÁS de
+   * cinco opciones —el selector del backtest lleva un chip por año más «Todo»—,
+   * que con el padding normal se salen de un teléfono de 320. Es opt-in para no
+   * angostar de rebote los selectores de cinco, donde no hace falta.
+   */
+  dense?: boolean;
 }
 
 export function PeriodSlider<T extends string>({
@@ -22,6 +29,7 @@ export function PeriodSlider<T extends string>({
   onChange,
   disabled = false,
   ariaLabel = "Período",
+  dense = false,
 }: PeriodSliderProps<T>) {
   const activeIndex = Math.max(
     0,
@@ -32,6 +40,7 @@ export function PeriodSlider<T extends string>({
       className="pslider"
       role="tablist"
       aria-label={ariaLabel}
+      data-dense={dense ? "1" : undefined}
       style={{ ["--pslider-count" as string]: periods.length }}
     >
       {/* Deshabilitado NO lleva thumb. Los botones se apagan con opacity, pero

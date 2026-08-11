@@ -12,6 +12,7 @@
 //    correlación) sin un solo número.
 
 import { FONDO } from "@/lib/fondo";
+import { css } from "@/lib/css";
 
 // El punto de cierre es lo último que se dibuja y lo primero que se recorta: el
 // viewBox tiene que contener cx + r (2.6) y no sólo la línea. Por eso las tres
@@ -87,7 +88,7 @@ export function FondoCartera() {
 
       <p className="cart-nota">{nota}</p>
 
-      <style>{`
+      <style>{css`
         .cart { margin-top: 48px; }
 
         /* Un solo bloque, tres paneles, costuras internas. */
@@ -110,8 +111,16 @@ export function FondoCartera() {
           font-size: 11px; font-weight: 700; letter-spacing: 0.13em;
           text-transform: uppercase;
         }
-        .cart-panel-acc .cart-rol { color: var(--navy-300); }
-        .cart-panel-bon .cart-rol { color: var(--gold-deep); }
+        /* Los tres rótulos son 11px sobre el wash de su panel, y ese wash le
+           come contraste al fondo blanco: --navy-300 pelado da 4,53:1 sobre
+           blanco pero 4,26:1 sobre el #F7F8F9 que compone acá, por debajo del
+           4,5:1 de AA. Este tono es el mismo indigo un escalón más oscuro
+           (4,86:1) — la línea y el punto del gráfico de arriba siguen en
+           --navy-300, que ahí no es texto. */
+        .cart-panel-acc .cart-rol { color: #6166B3; }
+        /* Oro de TEXTO: mismo caso sobre el wash dorado, donde --gold-deep
+           queda en 3,5:1. */
+        .cart-panel-bon .cart-rol { color: var(--gold-ink); }
         .cart-panel-alt .cart-rol { color: #6b7280; }
 
         .cart-clave {

@@ -1,3 +1,4 @@
+import { css } from "@/lib/css";
 // "Qué lo distingue" — beat de DIFERENCIACIÓN del fondo. Cualitativo y de
 // ENFOQUE, nunca de resultados: el fondo no tiene track record y la casa es
 // regulada por el BCU, así que no se promete outperformance ni se nombra a
@@ -6,6 +7,16 @@
 // hechos ya confirmados del producto (una posición, gestión activa del peso,
 // selección de fondos de terceros, asesoría de la casa). Ver "Claims verificables".
 
+// Rótulos de las dos columnas. En una constante y no escritos dos veces porque
+// se pintan DOS VECES cada uno: como encabezado de la grilla en desktop
+// (.dif-head) y como etiqueta dentro de cada celda en mobile (.dif-tag), que es
+// donde la grilla colapsa a una columna. Son el mismo contenido en dos
+// breakpoints, así que duplicar el literal los dejaba divergir en la primera
+// corrección de copy — que es exactamente lo que pasó al aplicar la pasada del
+// 6-ago-2026 ("Por tu cuenta" → "Invirtiendo por tu cuenta").
+const COL_A = "Invirtiendo por tu cuenta";
+const COL_B = "Con BNG Selección Global";
+
 const PARES: [string, string][] = [
   ["Elegir y comprar decenas de instrumentos", "Un solo vehículo, una sola decisión"],
   // "se monitorea a diario" era una afirmación sobre la operativa interna que no
@@ -13,8 +24,8 @@ const PARES: [string, string][] = [
   // Inversiones que revisa el proceso y la selección de activos al menos cada
   // dos meses, con decisiones vinculantes para el Gestor: más verificable y más
   // fuerte que "a diario".
-  ["Rebalancear cuando el mercado se mueve", "La asignación entre clases se ajusta de forma activa, con un Comité de Inversiones que la revisa al menos cada dos meses"],
-  ["Investigar y seguir cada activo por tu cuenta", "Investigación propia y de terceros para tomar las mejores decisiones de inversión"],
+  ["Rebalancear cuando hay movimientos de mercado", "La asignación entre clases se ajusta de forma activa, con un Comité de Inversiones que la revisa al menos cada dos meses"],
+  ["Investigar y seguir cada activo", "Investigación propia y de terceros para tomar las mejores decisiones de inversión"],
   ["Decidir por tu cuenta", "Gestión profesional, a cargo de una institución regulada por el BCU"],
 ];
 
@@ -37,24 +48,24 @@ export function FondoDiferencia() {
   return (
     <div className="dif">
       <div className="dif-heads" aria-hidden>
-        <span className="dif-head dif-head-a">Por tu cuenta</span>
-        <span className="dif-head dif-head-b">Con BNG Selección Global</span>
+        <span className="dif-head dif-head-a">{COL_A}</span>
+        <span className="dif-head dif-head-b">{COL_B}</span>
       </div>
 
       {PARES.map(([a, b], i) => (
         <div key={i} className="dif-fila">
           <div className="dif-cell dif-cell-a">
             <Dash />
-            <div className="dif-body"><span className="dif-tag">Por tu cuenta</span><span>{a}</span></div>
+            <div className="dif-body"><span className="dif-tag">{COL_A}</span><span>{a}</span></div>
           </div>
           <div className="dif-cell dif-cell-b">
             <Check />
-            <div className="dif-body"><span className="dif-tag">Con BNG Selección Global</span><span>{b}</span></div>
+            <div className="dif-body"><span className="dif-tag">{COL_B}</span><span>{b}</span></div>
           </div>
         </div>
       ))}
 
-      <style>{`
+      <style>{css`
         .dif { margin-top: 48px; border-top: 1px solid var(--site-border); }
         .dif-heads { display: grid; grid-template-columns: 1fr 1fr; }
         .dif-head {
@@ -93,7 +104,8 @@ export function FondoDiferencia() {
             font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
             text-transform: uppercase; color: var(--site-ink-3);
           }
-          .dif-cell-b .dif-tag { color: var(--gold-deep); }
+          /* Oro de TEXTO — 10,5px sobre el wash dorado de la celda. */
+          .dif-cell-b .dif-tag { color: var(--gold-ink); }
         }
       `}</style>
     </div>

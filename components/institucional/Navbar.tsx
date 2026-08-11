@@ -160,6 +160,33 @@ const ARIAL = 'Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif';
 const isItemActive = (pathname: string, href: string) =>
   pathname === href || (href !== "/" && pathname.startsWith(href));
 
+/**
+ * Los links del navbar NO prefetchean, a propósito. `prefetch={false}`.
+ *
+ * El navbar está en el viewport de TODAS las páginas, así que Next prefetcheaba
+ * el payload de cada sección apenas cargaba cualquier página. Para las rutas
+ * ESTÁTICAS eso no se queda en el RSC: React emite `<link rel="preload"
+ * as="image">` por las imágenes del payload, y el hero de esas páginas se
+ * descargaba entero sin que nadie las abriera. Medido el 2026-08-05: **788 KB en
+ * cada página** (`/hero/contacto.jpg` 435 KB + `/hero/equipo-mesa.jpg` 353 KB),
+ * que es lo que hacía que `/calculadora` —una página sin una sola foto— pesara
+ * más de 1 MB de imágenes.
+ *
+ * Y escalaba solo: hoy sólo aparecen esos dos porque `/nosotros`, `/historia`,
+ * `/servicios`, `/educacion` y `/prensa` están bloqueadas (404, sin imágenes,
+ * ver lib/paginasOcultas.ts). Al publicarlas, sus cinco heroes de `.hero-split`
+ * se sumaban al lastre: ~2 MB por página.
+ *
+ * Lo que se paga a cambio: al clickear, la navegación pide el RSC en el momento
+ * (~50 KB) en vez de tenerlo listo. Para un sitio institucional servido desde un
+ * origen cercano, el canje conviene — y el ahorro es en CADA carga, mientras que
+ * el costo es sólo en el click.
+ *
+ * Si algún día se quiere prefetch de vuelta, el camino no es borrar esto sino
+ * que los heroes dejen de ser `<img>` pesados en el HTML inicial de esas rutas.
+ */
+const SIN_PREFETCH = { prefetch: false } as const;
+
 // Flecha de línea para los CTAs del destacado.
 function Arrow() {
   return (
@@ -201,8 +228,14 @@ function FeaturedCard({ f }: { f: Featured }) {
     return (
       <div className="nav-feat-tile nav-feat-dossier">
         <div className="nav-feat-dossier-media" aria-hidden>
+          {/* Variante propia del navbar, NO la del hero de /informes: acá la
+              carpeta se dibuja a 155×211 CSS px (fijo en todo ancho — el
+              mega-panel es desktop-only), así que con 2× de DPR alcanza.
+              El original de 1100×1498 son 1.193 KB que se bajaban en CADA
+              página del sitio, panel cerrado incluido; esta pesa 11 KB.
+              /informes sigue usando el grande, que ahí se dibuja a 550×682. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/informes-carpeta.png" alt="" />
+          <img src="/informes-carpeta-nav.webp" alt="" width={310} height={422} decoding="async" />
         </div>
         <div className="nav-feat-dossier-body">
           <div className="nav-feat-doc-eb">{f.eyebrow}</div>
@@ -403,7 +436,8 @@ export function Navbar() {
                 <path d="M3 9L9 3M9 3H4M9 3V8" />
               </svg>
             </a>
-            <Link href="/contacto" className="nav-cta" style={{ fontFamily: ARIAL }}>
+            {/* prefetch={false}: ver la nota de SIN_PREFETCH abajo. */}
+            <Link href="/contacto" className="nav-cta" style={{ fontFamily: ARIAL }} prefetch={false}>
               Contacto
             </Link>
           </Glass>
@@ -475,6 +509,7 @@ export function Navbar() {
                       color: active ? "var(--navy)" : "var(--ink)",
                       borderBottom: "1px solid var(--site-border, #E7E8F2)",
                     }}
+                    {...(it.otroSitio ? {} : SIN_PREFETCH)}
                   >
                     {it.label}
                   </Tag>
@@ -524,6 +559,7 @@ export function Navbar() {
             href="/contacto"
             className="ui-btn ui-btn-primary mt-4"
             style={{ justifyContent: "center" }}
+            {...SIN_PREFETCH}
           >
             Agendá una reunión
           </Link>
@@ -580,6 +616,9 @@ export function Navbar() {
                           data-active={active ? "1" : "0"}
                           tabIndex={isOpen ? 0 : -1}
                           onKeyDown={escClose}
+                          // Sólo si es <Link>: a un <a> nativo `prefetch` le
+                          // quedaría como atributo DOM inválido (ver SIN_PREFETCH).
+                          {...(it.otroSitio ? {} : SIN_PREFETCH)}
                         >
                           <span className="nav-item-t" style={{ fontFamily: ARIAL }}>{it.label}</span>
                           <span className="nav-item-d" style={{ fontFamily: ARIAL }}>{it.desc}</span>
@@ -610,7 +649,7 @@ export function Navbar() {
                         <FeaturedCard f={f} />
                       </a>
                     ) : (
-                      <Link href={f.href} className="nav-feat-link" tabIndex={isOpen ? 0 : -1} onKeyDown={escClose}>
+                      <Link href={f.href} className="nav-feat-link" tabIndex={isOpen ? 0 : -1} onKeyDown={escClose} {...SIN_PREFETCH}>
                         <FeaturedCard f={f} />
                       </Link>
                     )}

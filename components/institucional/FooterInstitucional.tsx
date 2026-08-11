@@ -104,7 +104,12 @@ export function FooterInstitucional() {
                       ) : l.otroSitio ? (
                         <a href={l.href} className="footer-link">{l.label}</a>
                       ) : (
-                        <Link href={l.href} className="footer-link">{l.label}</Link>
+                        // Sin prefetch, por lo mismo que el navbar: el footer
+                        // está en todas las páginas y al entrar en viewport
+                        // prefetcheaba cada sección — y con las rutas estáticas
+                        // eso arrastra el preload de sus heroes. Ver la nota de
+                        // SIN_PREFETCH en Navbar.tsx.
+                        <Link href={l.href} className="footer-link" prefetch={false}>{l.label}</Link>
                       )}
                     </li>
                   ))}
@@ -116,11 +121,11 @@ export function FooterInstitucional() {
 
         {/* CTAs grandes con flecha (estilo Marex) */}
         <div className="footer-cta">
-          <Link href="/contacto" className="footer-big-link">
+          <Link href="/contacto" className="footer-big-link" prefetch={false}>
             <span>Agendá una reunión</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </Link>
-          <Link href="/analisis" className="footer-big-link">
+          <Link href="/analisis" className="footer-big-link" prefetch={false}>
             <span>Analizá una acción</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </Link>

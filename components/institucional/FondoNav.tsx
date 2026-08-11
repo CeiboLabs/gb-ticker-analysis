@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { css } from "@/lib/css";
 
 // Barra de secciones del SITIO DEL FONDO — sticky al tope, con anclas a las
 // secciones de la página y scrollspy (patrón de las fichas de producto de
@@ -109,7 +110,7 @@ export function FondoNav({ casa }: { casa: string }) {
         <a href={`${casa}/contacto`} className="ui-btn ui-btn-primary fnav-cta">Hablar con un asesor</a>
       </div>
 
-      <style>{`
+      <style>{css`
         .fnav {
           position: sticky; top: 0; z-index: 60;
           background: rgba(255,255,255,0.92);

@@ -1,5 +1,7 @@
 "use client";
 
+import { css } from "@/lib/css";
+
 // Indicador de riesgo estilo SRI (escala 1–7), igual que la ficha de un fondo
 // europeo.
 //
@@ -33,7 +35,7 @@ export function FondoRiesgo() {
         rendimiento potencial del fondo.
       </p>
 
-      <style>{`
+      <style>{css`
         .riesgo-scale { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
         .riesgo-step {
           height: 56px; display: flex; align-items: center; justify-content: center;

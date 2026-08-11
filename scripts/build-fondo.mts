@@ -65,7 +65,7 @@ function cargarEnvLocal() {
 cargarEnvLocal();
 
 const { SITIO_CASA_URL, SITIO_FONDO_URL, RUTA_FONDO } = await import("../lib/sitios");
-const { SEO_INDEXABLE } = await import("../lib/seo");
+const { SEO_INDEXABLE, OG_FONDO } = await import("../lib/seo");
 const { headersSeguridad } = await import("../lib/headersSeguridad");
 const { DOCS_ESTATICOS } = await import("../lib/fondoDocsEstaticos");
 
@@ -298,12 +298,20 @@ function headersFile(): string {
 
 function redirectsFile(): string {
   // El path físico de la página colapsa a la raíz, igual que hace next.config.ts
-  // en el dominio del fondo. 307 y no 308 por lo mismo que allá: el dominio
-  // todavía se está definiendo y un permanente queda clavado en el browser.
+  // en el dominio del fondo.
+  //
+  // 308 (permanente) desde 2026-08-06. Antes era 307 porque el dominio todavía
+  // se estaba definiendo y un permanente queda clavado en el browser; ya está
+  // definido y publicado. El permanente es además el que corresponde por SEO:
+  // es la señal con la que Google CONSOLIDA las dos URLs en una —el temporal le
+  // dice lo contrario, que la de origen puede volver a ser válida—, y acá el
+  // colapso es definitivo por diseño (el canonical horneado en el HTML es la
+  // raíz). 308 y no 301 para preservar el método, que es lo que corresponde en
+  // el formato de Cloudflare; el equivalente de Apache va en htaccess().
   return [
     "# Generado por scripts/build-fondo.mts — no editar a mano.",
-    `${RUTA_FONDO} / 307`,
-    `${RUTA_FONDO}/ / 307`,
+    `${RUTA_FONDO} / 308`,
+    `${RUTA_FONDO}/ / 308`,
     "",
   ].join("\n");
 }
@@ -314,8 +322,19 @@ function redirectsFile(): string {
  * El `<link rel="manifest">` lo emite el layout raíz, así que el archivo TIENE
  * que existir o queda un 404 en cada carga. No se copia el de la app
  * (`app/manifest.ts`): ése se llama "Gastón Bengochea & Cía." y en este dominio
- * el sitio es el del fondo — instalarlo mostraría el nombre de la casa. Mismos
- * íconos y mismo navy, que son de la casa y acá también corresponden.
+ * el sitio es el del fondo — instalarlo mostraría el nombre de la casa. Mismo
+ * navy y mismo ícono, que son de la casa y acá también corresponden.
+ *
+ * ⚠️ EL ÍCONO DE 180 NO SE LISTA ACÁ, y el motivo es medible: Chrome baja los
+ * íconos del manifest en la carga normal, con prioridad alta, y ése pesa 15,3 KB
+ * — más que el HTML comprimido de la página entera. Probado quitándolo de un
+ * lado y del otro: sacarlo del manifest elimina el pedido; sacar el
+ * `<link rel="apple-touch-icon">` del HTML no lo elimina, o sea que el que lo
+ * dispara es este archivo. Ver docs/rendimiento-fondo.md §6.4.
+ *
+ * No se pierde el ícono grande donde se usa: en iOS lo toma el apple-touch-icon
+ * del HTML, que sigue declarado. Lo único que queda con el de 96 es el instalable
+ * de Android, y este sitio no lo es — no hay service worker.
  */
 function manifestJson(): string {
   return `${JSON.stringify(
@@ -329,10 +348,7 @@ function manifestJson(): string {
       display: "standalone",
       background_color: "#ffffff",
       theme_color: "#0f2249",
-      icons: [
-        { src: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-        { src: "/apple-icon-180x180.png", sizes: "180x180", type: "image/png" },
-      ],
+      icons: [{ src: "/favicon-96x96.png", sizes: "96x96", type: "image/png" }],
     },
     null,
     2,
@@ -347,6 +363,89 @@ function manifestJson(): string {
 function copiarFavicon() {
   const body = path.join(COPIA, ".next", "server", "app", "favicon.ico.body");
   if (fs.existsSync(body)) fs.copyFileSync(body, path.join(SALIDA, "favicon.ico"));
+}
+
+/**
+ * La card OG del fondo, por el mismo mecanismo `.body` que el favicon.
+ *
+ * `app/(fondo)/bng-seleccion-global/opengraph-image.tsx` es una metadata route:
+ * Next la resuelve en build —no tiene datos dinámicos— y deja el PNG en
+ * `.next/server/app/<ruta>/opengraph-image-<hash>.body`. Ese hash CAMBIA de build
+ * en build, así que no se puede cablear: se busca por prefijo y se copia al
+ * nombre fijo que `fondoMetadata()` publica en `og:image` (lib/seo.ts · OG_FONDO).
+ *
+ * Corta el build si no lo encuentra, y es a propósito: el HTML ya salió
+ * prometiendo esa URL, así que un faltante no degrada —deja la card rota en cada
+ * link compartido—, y es exactamente la regresión silenciosa que tuvo el sitio
+ * hasta agosto de 2026 (se publicó sin ninguna imagen OG y no lo dijo nadie).
+ */
+/**
+ * Backtest de la estrategia — el JSON que dibuja el gráfico mientras el Fondo no
+ * publique valor cuota (lib/fondoBacktest.ts · FondoBacktest.tsx).
+ *
+ * Va copiado A MANO porque el barrido de assets no lo puede ver: sale del HTML y
+ * de los CSS —o sea, de lo que la página renderiza— y esto se pide por `fetch`
+ * en tiempo de ejecución. Es exactamente el caso que anticipa el comentario de
+ * «Recolección de assets»: un asset que aparece recién después del render
+ * inicial hay que sumarlo acá.
+ *
+ * La ruta está escrita dos veces —acá y en BACKTEST_URL— a propósito: importar
+ * lib/fondoBacktest.ts arrastraría React a este script. La guarda de abajo se
+ * encarga de que las dos no se separen.
+ */
+const BACKTEST = "/fondo/backtest-estrategia.json";
+
+function copiarBacktest() {
+  const fuente = path.join(REPO, "public", BACKTEST.slice(1));
+  if (!fs.existsSync(fuente)) {
+    console.error(
+      `\n✘ Falta ${path.relative(REPO, fuente)}.\n` +
+        "  Lo genera scripts/fondo-backtest.mts a partir del Excel del cliente:\n" +
+        "    npx tsx scripts/fondo-backtest.mts <archivo.xlsx>\n" +
+        "  Sin él, el módulo de performance cae al aviso de «Próximamente» sin gráfico.\n",
+    );
+    process.exit(1);
+  }
+  copiar(BACKTEST, fuente);
+}
+
+/**
+ * Que el archivo esté copiado no alcanza: si alguien renombra BACKTEST_URL en
+ * lib/fondoBacktest.ts, el deploy seguiría llevando el JSON en la ruta vieja y
+ * la página pediría la nueva — 404, y el bloque simplemente no aparece. Nadie se
+ * entera, porque el fallback de ese bloque es el aviso de siempre. Así que se
+ * exige que la ruta esté ADEMÁS en el bundle que se copió.
+ */
+function verificarBacktest(): string | null {
+  if (!fs.existsSync(path.join(SALIDA, BACKTEST))) return `${BACKTEST} no llegó al deploy`;
+  const chunks = path.join(SALIDA, "_next", "static", "chunks");
+  const pedido = fs.existsSync(chunks)
+    && fs.readdirSync(chunks, { recursive: true, encoding: "utf8" }).some((f) => {
+      const p = path.join(chunks, f);
+      return fs.statSync(p).isFile()
+        && path.extname(p) === ".js"
+        && fs.readFileSync(p, "utf8").includes(BACKTEST);
+    });
+  return pedido ? null : `ningún chunk pide ${BACKTEST} — ¿cambió BACKTEST_URL en lib/fondoBacktest.ts?`;
+}
+
+function copiarOg() {
+  const dir = path.join(COPIA, ".next", "server", "app", RUTA);
+  const archivo = fs.existsSync(dir)
+    ? fs.readdirSync(dir).find((f) => f.startsWith("opengraph-image") && f.endsWith(".body"))
+    : undefined;
+
+  if (!archivo) {
+    console.error(
+      `\n✘ No se encontró la card OG generada en ${dir}.\n` +
+        "  La espera app/(fondo)/bng-seleccion-global/opengraph-image.tsx y la publica\n" +
+        `  fondoMetadata() como ${OG_FONDO}: sin el archivo, todo link compartido queda\n` +
+        "  con la tarjeta rota. Revisá que esa metadata route siga prerenderizándose.\n",
+    );
+    process.exit(1);
+  }
+
+  fs.copyFileSync(path.join(dir, archivo), path.join(SALIDA, OG_FONDO));
 }
 
 function notFoundHtml(): string {
@@ -411,6 +510,8 @@ function armar() {
   }
 
   copiarFavicon();
+  copiarOg();
+  copiarBacktest();
   fs.writeFileSync(path.join(SALIDA, "manifest.webmanifest"), manifestJson());
   fs.writeFileSync(path.join(SALIDA, "robots.txt"), robotsTxt());
   fs.writeFileSync(path.join(SALIDA, "sitemap.xml"), sitemapXml());
@@ -514,7 +615,10 @@ function htaccess(): string {
     "  RewriteRule ^api/fondo(/.*)?$ api.php [L,QSA]",
     "",
     "  # El path físico de la página colapsa a la raíz: una sola URL por página.",
-    "  RewriteRule ^bng-seleccion-global/?$ / [R=307,L]",
+    "  # 301 (permanente): es la señal con la que Google consolida las dos URLs en",
+    "  # una. Un temporal le dice lo contrario —que la de origen puede volver a ser",
+    "  # válida— y deja las dos compitiendo en el índice. Ver docs/SEO-fondo.md.",
+    "  RewriteRule ^bng-seleccion-global/?$ / [R=301,L]",
     "",
     "  # HTTPS y sin www — el canonical horneado en el HTML es el apex.",
     "  # ⚠️ Si AutoSSL todavía no emitió el certificado, comentar estas tres líneas:",
@@ -540,9 +644,24 @@ function htaccess(): string {
     '  Header always set Cache-Control "public, max-age=0, must-revalidate" "expr=%{ENV:FONDO_INMUTABLE} != \'1\' && %{CONTENT_TYPE} =~ m#^text/html#"',
     "</IfModule>",
     "",
-    "<IfModule mod_deflate.c>",
-    "  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml \\",
+    "  # Compresión. Brotli primero: sobre este payload —HTML de ~370 KB más los",
+    "  # chunks de Next— rinde bastante mejor que gzip sobre el mismo contenido.",
+    "  #",
+    "  # ⚠️ Los dos bloques son EXCLUYENTES a propósito. `AddOutputFilterByType`",
+    "  # encadena filtros: si mod_brotli y mod_deflate estuvieran los dos activos",
+    "  # sobre el mismo tipo, la respuesta saldría comprimida dos veces y ningún",
+    "  # navegador podría leerla. De ahí el `<IfModule !mod_brotli.c>` — y de ahí",
+    "  # también que esto sea seguro aunque el hosting no tenga Brotli compilado:",
+    "  # sin el módulo, el primer bloque es inerte y queda gzip como hasta ahora.",
+    "<IfModule mod_brotli.c>",
+    "  AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css text/xml \\",
     "    application/javascript application/json application/xml image/svg+xml",
+    "</IfModule>",
+    "<IfModule !mod_brotli.c>",
+    "  <IfModule mod_deflate.c>",
+    "    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml \\",
+    "      application/javascript application/json application/xml image/svg+xml",
+    "  </IfModule>",
     "</IfModule>",
     "",
   );
@@ -608,6 +727,12 @@ if (faltantes.length) {
   console.error("\n✘ Quedaron referencias sin archivo en el deploy:");
   for (const f of faltantes) console.error(`   ${f}`);
   console.error("\n  La página cargaría con módulos muertos. Revisá el barrido de assets.\n");
+  process.exit(1);
+}
+
+const backtestRoto = verificarBacktest();
+if (backtestRoto) {
+  console.error(`\n✘ Backtest de la estrategia: ${backtestRoto}\n`);
   process.exit(1);
 }
 

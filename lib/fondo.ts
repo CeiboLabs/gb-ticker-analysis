@@ -139,6 +139,21 @@ export const BENCHMARK = {
   // equipo nombra puertas adentro y lo que habría que pedirle al administrador.
   tickers: "ACWI · LEGATRUU",
   pesos: { rv: 0.6, rf: 0.4 },
+  // Cláusula que acompaña a TODA comparación contra un índice. Nombrarlo no
+  // alcanza: la convención de la industria —y el literal de FINRA 2210 para
+  // comparaciones, del que sale el boilerplate que repiten todas las fichas— es
+  // decir además en qué el índice NO es comparable con el producto. Las tres
+  // diferencias materiales acá son costos (el índice no los tiene y la cuota es
+  // neta), invertibilidad, y que la gestión es activa: el compuesto es una vara,
+  // no algo que la cartera replique.
+  //
+  // Fuente única a propósito: el módulo de performance lo usa tanto para la
+  // serie del Fondo como para la referencia del backtest, y dos redacciones de
+  // la misma advertencia en la misma página es una que después se contradice.
+  aviso:
+    "Los índices no son gestionados, no tienen costos y no se puede invertir directamente en ellos. " +
+    "El Fondo es de gestión activa: el benchmark es un punto de comparación, no un objetivo de " +
+    "rentabilidad ni una garantía, y la cartera no replica su composición.",
 } as const;
 
 // Cómo se construye HOY la serie del benchmark, mientras no tengamos los

@@ -1,5 +1,7 @@
 "use client";
 
+import { css } from "@/lib/css";
+
 /**
  * Lectura del tramo medido: un renglón único que flota CENTRADO sobre la banda
  * mientras se arrastra. Antes los números vivían en una tira DEBAJO del
@@ -56,7 +58,7 @@ export function DragRangeHint({ hidden }: {
       <span className="drag-hint" data-hidden={hidden || undefined} aria-hidden>
         Arrastrá para medir<span className="drag-hint-opt"> un tramo</span>
       </span>
-      <style>{`
+      <style>{css`
         /* Centrado arriba, no en una esquina: las esquinas son de los ejes —a la
            izquierda el hint se montaba sobre la primera marca de la escala de
            revenue, que no siempre está y no siempre mide lo mismo—, y el centro
@@ -115,7 +117,7 @@ export function DragRangeCard({
         )}
       </div>
 
-      <style>{`
+      <style>{css`
         /* Fondo pleno y hairline, sin sombra ni radio: es una anotación de dato
            sobre el gráfico, no una tarjeta flotante (docs/lenguaje-visual.md). */
         .drag-read {

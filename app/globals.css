@@ -24,6 +24,20 @@
   --gold:         #EBD288;
   --gold-deep:    #A07C28;
   --gold-soft:    #F2E3B0;
+  /* Oro para TEXTO sobre claro. Mismo tono y saturación que --gold-deep
+     (hsl 42°, 60%), sólo más oscuro: --gold-deep da 3,88:1 sobre blanco y
+     3,57:1 sobre --surface-muted, así que cualquier palabra suya por debajo de
+     18,66px bold reprueba el 4,5:1 de WCAG AA (y con él la auditoría de
+     contraste de Lighthouse).
+     El piso NO es la banda muted pelada: donde hay oro como texto suele haber
+     también un wash dorado detrás (los paneles de Cartera, las celdas «Con BNG»
+     de Qué lo distingue), y muted + wash compone #F1F1F4. Contra ese fondo éste
+     da 4,70:1 — y 5,30:1 sobre blanco.
+     ⚠️ Es SÓLO para texto. Los filetes, íconos de línea, bordes y superficies
+     doradas siguen en --gold-deep: ahí el mínimo aplicable es 3:1 (WCAG 1.4.11,
+     y sólo si el elemento carga información), y oscurecerlos apaga el acento de
+     marca que define el lenguaje visual. */
+  --gold-ink:     #856721;
 
   /* Ink ramp — texto sobre marfil */
   --ink:          #0E1130;
@@ -81,6 +95,7 @@
   --color-gold:         var(--gold);
   --color-gold-deep:    var(--gold-deep);
   --color-gold-soft:    var(--gold-soft);
+  --color-gold-ink:     var(--gold-ink);
 
   --color-ink:          var(--ink);
   --color-ink-2:        var(--ink-2);
@@ -145,8 +160,19 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Familias ── */
 
+/* LA CURSIVA EN SERIF PIDE `--font-serif-i`, no `--font-serif`.
+   Newsreader se declara en dos llamadas a `next/font` (ver app/layout.tsx): la
+   normal con preload y la itálica sin él, porque sus 64,5 KB no entran en ningún
+   primer pintado. Hoy las dos emiten sus caras bajo la misma familia, así que la
+   cursiva resolvería igual con cualquiera de las dos variables — pero ese nombre
+   lo elige `next/font` y no es contrato. Pedir la itálica por su variable deja la
+   intención escrita y es lo que evita terminar en oblicua SINTÉTICA (la normal
+   inclinada por el navegador, que se parece lo bastante como para pasar
+   inadvertida) si algún día las familias se separan.
+   Los lugares son: `.serif-i` y `.dek` acá, `.panel-h2 em` más abajo,
+   `.rpm-h em` (ReportPreviewMini) y `.inf-cita p` (ArticuloInforme). */
 .serif    { font-family: var(--font-serif), "Newsreader", Georgia, serif; letter-spacing: -0.01em; }
-.serif-i  { font-family: var(--font-serif), "Newsreader", Georgia, serif; font-style: italic; font-weight: 300; }
+.serif-i  { font-family: var(--font-serif-i), "Newsreader", Georgia, serif; font-style: italic; font-weight: 300; }
 .sans     { font-family: var(--font-sans), "IBM Plex Sans", system-ui, sans-serif; }
 .mono     { font-family: var(--font-mono), "IBM Plex Mono", ui-monospace, monospace; font-feature-settings: "tnum" 1, "zero" 1; }
 .num      { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
@@ -159,7 +185,7 @@ a { color: inherit; text-decoration: none; }
 .display-4 { font-family: var(--font-serif), serif; font-weight: 400; font-size: clamp(22px, 2.4vw, 28px); line-height: 1.2; letter-spacing: -0.01em; }
 
 .lede      { font-family: var(--font-serif), serif; font-weight: 300; font-size: clamp(18px, 1.6vw, 22px); line-height: 1.5; color: var(--ink-2); }
-.dek       { font-family: var(--font-serif), serif; font-weight: 300; font-style: italic; font-size: 18px; line-height: 1.5; color: var(--ink-2); }
+.dek       { font-family: var(--font-serif-i), serif; font-weight: 300; font-style: italic; font-size: 18px; line-height: 1.5; color: var(--ink-2); }
 
 .body-lead  { font-family: var(--font-sans), sans-serif; font-weight: 300; font-size: 20px; line-height: 1.55; color: var(--ink); }
 .body-base  { font-family: var(--font-sans), sans-serif; font-weight: 400; font-size: 16px; line-height: 1.65; color: var(--ink-2); }
@@ -425,7 +451,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink);
   margin: 8px 0 0;
 }
-.panel-h2 em { font-style: italic; font-weight: 300; color: var(--gold-deep); }
+.panel-h2 em { font-family: var(--font-serif-i), serif; font-style: italic; font-weight: 300; color: var(--gold-deep); }
 
 .meta-row {
   font-family: var(--font-mono), monospace;
@@ -734,7 +760,17 @@ a { color: inherit; text-decoration: none; }
   --surface-muted: #F4F5FB;
   --site-ink:      #16193A;
   --site-ink-2:    #4A4E6B;
-  --site-ink-3:    #797D99;
+  /* Tercer escalón de la tinta: notas al pie, rótulos, metadatos. Fue #797D99
+     hasta el 6-ago-2026 y ahí estaba el 98% de las faltas de contraste de la
+     página del fondo: 4,03:1 sobre --surface y 3,70:1 sobre --surface-muted,
+     las dos por debajo del 4,5:1 que WCAG AA pide para texto normal. Casi todo
+     lo que pinta este token es chico (11–15px), así que la excepción de texto
+     grande no lo salva en ningún lado.
+     Este valor conserva el tono (hsl 232°, gris azulado) y sube a 5,20:1 sobre
+     blanco y 4,78:1 sobre la banda muted. El margen sobre la muted es
+     deliberado: es la superficie más oscura de la página y define el piso.
+     ⚠️ Si lo tocás, verificá contra #F4F5FB, no contra blanco. */
+  --site-ink-3:    #676B89;
   --site-border:   #E7E8F2;
   --site-border-2: #D7D9E8;
 
@@ -1107,6 +1143,19 @@ a { color: inherit; text-decoration: none; }
    de 44 de las guías táctiles. El thumb se estira solo (top/bottom: 3px). */
 @media (pointer: coarse) {
   .pslider-btn { padding-top: 12px; padding-bottom: 12px; }
+}
+/* Variante apretada (prop `dense`) — para filas de MÁS de cinco opciones, como
+   el selector del backtest, que lleva un chip por año calendario más «Todo».
+   Medido a 320 de viewport: seis chips con el padding normal miden 351px y la
+   columna útil es de 280, o sea que la píldora se salía 71px de la página.
+   Sólo se achica el eje horizontal — el alto táctil de 44px lo sigue dando la
+   regla de (pointer: coarse) de acá arriba, que toca top/bottom. */
+@media (max-width: 480px) {
+  .pslider[data-dense="1"] .pslider-btn {
+    padding-left: 7px;
+    padding-right: 7px;
+    font-size: 12px;
+  }
 }
 
 /* ── Inputs ── */
@@ -1700,7 +1749,8 @@ a.ui-list-row:hover { padding-left: 14px; }
   --surface-muted: #F4F5FB;
   --site-ink:      #16193A;
   --site-ink-2:    #4A4E6B;
-  --site-ink-3:    #797D99;
+  /* Espejo del valor de .site — ver el comentario largo allá. */
+  --site-ink-3:    #676B89;
   --site-border:   #E7E8F2;
   --site-border-2: #D7D9E8;
   --r-card: 14px; --r-btn: 6px; --r-input: 8px; --r-pill: 999px;

@@ -189,6 +189,21 @@ export function checkNewsletterLimit(ip: string | null): Promise<Gate> {
   return checkDurable(`newsletter:${ip ?? "noip"}`, NEWSLETTER_HOURLY_MAX, HOUR_MS);
 }
 
+// Seguimiento de acciones: 60 escrituras/h por IP, durable y en su PROPIO
+// balde. Antes compartía el del newsletter (5/h) y eso estaba mal por dos
+// motivos distintos:
+//   · No es un alta: `visto` se escribe en CADA vista de un informe seguido, así
+//     que un lector normal con tres acciones seguidas agotaba el cupo navegando.
+//     Al agotarlo, seguir y dejar de seguir empezaban a fallar en silencio.
+//   · Compartir balde con el newsletter significa que unos pocos POST a /follow
+//     bloqueaban el alta al newsletter desde la misma IP — y al revés.
+// 60/h sigue siendo un techo real (el endpoint además exige cookie de lead), pero
+// deja de castigar a la oficina entera detrás de un NAT compartido.
+const FOLLOW_HOURLY_MAX = parseInt(process.env.RATE_LIMIT_FOLLOW_MAX ?? "60", 10);
+export function checkFollowLimit(ip: string | null): Promise<Gate> {
+  return checkDurable(`follow:${ip ?? "noip"}`, effectiveMax(ip ?? "noip", FOLLOW_HOURLY_MAX), HOUR_MS);
+}
+
 // GLOBAL daily cap on fresh analyses across every IP. One shared durable
 // counter (key "gdfresh:all") incremented once per fresh analysis, regardless
 // of source IP. When it trips, EVERY caller gets 503 until midnight Uruguay —

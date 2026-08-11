@@ -3,6 +3,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { useFondo, fmtFechaCorta } from "@/lib/useFondo";
 import type { HoldingItem } from "@/lib/fondo";
+import { css } from "@/lib/css";
 
 // Mayores tenencias del fondo — una vista a ancho completo con un control
 // deslizante para alternar entre Treemap (bloques sólidos por clase) y Donut
@@ -13,85 +14,80 @@ import type { HoldingItem } from "@/lib/fondo";
 // un snapshot lo bastante viejo para divulgar— se muestra el estado vacío
 // honesto. El color NO viaja en el dato: se deriva acá por clase + rank.
 //
-// ⚠️ EL GRÁFICO DIBUJA EL 100% DE LA CARTERA, residual incluido (31-jul-2026;
-// revierte la normalización sobre lo divulgado del 30-jul). Treemap y donut son
-// encodings PARTE-TODO: el marco y el círculo afirman "esto es la cartera
-// entera". Repartir el marco sólo entre las tenencias nombradas dejaba cada área
-// mintiendo —con un residual del 40%, una celda rotulada 10% ocupaba el 16,7%
-// del marco— y el error iba para el lado caro: mostraba la cartera MÁS
-// concentrada de lo que es, justo debajo de una sección que promete
-// diversificación y de un bloque de Estrategia que dice "no depende de un solo
-// instrumento". Con el residual dibujado la imagen pasa a confirmar esa tesis en
-// vez de contradecirla: mayores tenencias nombradas + una cola larga.
+// ⚠️ EL GRÁFICO DIBUJA SÓLO LAS TENENCIAS DIVULGADAS, y el marco entero es ese
+// tramo (pedido del usuario, 10-ago-2026; revierte el residual dibujado del
+// 31-jul). Las áreas quedan relativas ENTRE SÍ — una tenencia del 10% ocupa el
+// 16,7% del marco cuando lo divulgado suma 60.
 //
-// Además la nota al pie YA declaraba el alcance por escrito, así que normalizar
-// no ahorraba la pregunta "¿y el otro 40%?" — sólo dejaba el dibujo mal. Y la
-// nota no sobrevive un recorte: este bloque termina en decks y capturas, donde
-// la geometría viaja sola.
+// Tres cosas sostienen que el dibujo siga siendo honesto, y ninguna es opcional:
 //
-// Es la misma doctrina que el resto de la sección ya aplica: <FondoCartera />
-// muestra las tres clases SIN porcentajes ("son paneles, no una barra de
-// proporción") porque los pesos reales son activos, y <FondoGeografia /> estuvo
-// fuera de la página entera hasta tener pesos del equipo en vez de inventados.
-// No se dibuja una proporción que no es la proporción.
+// 1. LAS CIFRAS NO SE NORMALIZAN NUNCA. Cada celda muestra su peso real en el
+//    Fondo (10%, 7,5%…), no su fracción del marco. Normalizarlas para que
+//    cierren en 100 sería afirmar que una tenencia del 10% pesa 16,7%, que es
+//    falso: el área es relativa, la cifra no. Y como cada cifra es peso sobre el
+//    Fondo, la suma queda al alcance de cualquiera que la haga.
+// 2. EL ALCANCE VIAJA CON LA IMAGEN, Y VIAJA COMO CONTEO. El rótulo dice "Las 8
+//    mayores tenencias", no "60% de la cartera" (pedido del usuario, 10-ago:
+//    ser más cautelosos, no afirmar una cifra de cobertura). Es la convención de
+//    los factsheets —"Top 10 holdings"— y dice lo mismo sin comprometer un
+//    número que se mueve todos los días: "las 8 mayores" ya afirma que hay más.
+//    Va en la BARRA DE TÍTULO y no sólo en la nota al pie porque este bloque
+//    termina en decks y capturas: un recorte se lleva el gráfico con su rótulo,
+//    la nota al pie no sobrevive.
+//    ⚠️ Y por eso el punto 1 deja de ser una preferencia y pasa a ser lo único
+//    que le queda al lector para dimensionar el tramo. Si algún día se
+//    normalizan las cifras SIN reponer el porcentaje de cobertura, el bloque se
+//    queda sin ninguna manera de saber cuánta cartera hay acá adentro.
+// 3. EL RESIDUAL SIGUE EN EL DATO. El panel valida Σ = 10.000 bps
+//    (HoldingsSchema), así que el snapshot trae igual su fila "OTROS":
+//    buildCells simplemente no la convierte en celda. De ahí sale `total` (hoy
+//    60), que es el divisor del donut y del treemap. NO se muestra: sólo decide
+//    si el gráfico es parcial y hay que rotularlo como tal. Si algún día se
+//    publica la cartera completa, `total` llega a 100 y los avisos de alcance se
+//    caen solos, sin tocar nada más.
+//
+// El costo asumido: treemap y donut son encodings PARTE-TODO, así que un marco
+// lleno empuja a leer "esto es la cartera", y con el resto afuera el dibujo la
+// muestra más concentrada de lo que es. La decisión se toma con eso sobre la
+// mesa —el cuadro queda para lo que esta sección tiene para mostrar, y no para
+// un bloque gris sin nombre que se comía dos quintos— y lo que la sostiene es el
+// punto 2. Si el rótulo de alcance se cae, esto vuelve a estar mal.
 
 // Las mismas tres clases de <FondoCartera /> y de la ficha técnica. El gris de
 // ALT es el mismo slate del panel "Activos alternativos": no es un "otros"
 // residual, es la tercera clase del balanceado.
 //
-// 'OTROS' NO es una cuarta clase (ver HoldingItem en lib/fondo.ts): es el
-// residual de la divulgación. Se dibuja con su área verdadera pero fuera de las
-// rampas de clase —gris claro liso—, y va SIEMPRE último. El principio:
-// área y color son canales distintos. El área sostiene la verdad; el color
-// dirige la atención, y toda la saturación queda del lado de las tenencias
-// nombradas, que son lo que esta sección tiene para mostrar.
-type Clase = "RV" | "RF" | "ALT" | "OTROS";
-type Cell = { name: string; short: string; clase: Clase; peso: number; color: string; hover: string; ink: string };
+// 'OTROS' no está acá porque no es una clase de activo (ver HoldingItem en
+// lib/fondo.ts): es el residual de la divulgación, y el gráfico no lo dibuja.
+type Clase = "RV" | "RF" | "ALT";
+type Cell = { name: string; short: string; clase: Clase; peso: number; color: string; hover: string };
 
 const CLASE_LABEL: Record<Clase, string> = {
   RV: "Renta variable", RF: "Renta fija", ALT: "Alternativos",
-  // Nunca se usa como rótulo de clase: el residual tiene su propia etiqueta.
-  OTROS: "",
 };
-// Clases con rampa de color, en orden de dibujo. El residual se agrega aparte:
-// no tiene rampa porque no tiene rank dentro de una clase — no es una clase.
-type ClaseDibujable = Exclude<Clase, "OTROS">;
-const CLASE_ORDER: ClaseDibujable[] = ["RV", "RF", "ALT"];
-
-// Tono del residual: gris claro LISO, fuera de las tres rampas y sin textura
-// (pedido del usuario, 31-jul; antes llevaba un tramado diagonal). Claro a
-// propósito —entre bloques saturados lee como espacio, no como una tenencia
-// gigante llamada "Otros"—, pero un paso por debajo del papel (--paper #FBFBFE)
-// para que no se lea como un agujero de render. Casi neutro: el azulado de la
-// primera versión lo acercaba a la rampa de alternativos.
-const RESIDUAL_FILL = "#E3E4E7";
-// Etiqueta genérica del dato. El snapshot puede traer algo mejor ("Otras 24
-// posiciones", si el cliente pasa el conteo): en ese caso se respeta el nombre
-// cargado. Si viene "Otros" a secas, se deja "Otros" — el cliente lo pidió así
-// (3-ago-2026): "Resto de la cartera" era largo y sonaba a que faltaba algo.
-const RESIDUAL_LABEL = "Otros";
-const RESIDUAL_GENERICO = /^otros?$/i;
+// Orden de dibujo dentro del squarify, antes de reordenar por peso.
+const CLASE_ORDER: Clase[] = ["RV", "RF", "ALT"];
 
 // Rampa de sombra por clase: oscuro (mayor peso) → claro (menor), interpolada
 // por rank dentro de la clase para soportar cualquier número de tenencias.
-const CLASE_RAMP: Record<ClaseDibujable, [string, string]> = {
+const CLASE_RAMP: Record<Clase, [string, string]> = {
   RV: ["#0f2249", "#5E63B8"],
   RF: ["#7C5E1A", "#D9BE6E"],
   ALT: ["#6E7689", "#B4BACA"],
 };
 
-// Tinta de la etiqueta. Las celdas nombradas van SIEMPRE en blanco (pedido del
-// usuario, 2-ago): la tinta es lo que las hace leer como un solo sistema, y una
-// etiqueta en navy en medio de la grilla se lee como otra cosa, no como la misma
-// pieza más clara. Antes se elegía por luminancia real de la celda (inkFor), y
-// con la cartera de hoy eso dejaba una sola celda en navy —la más clara de la
-// rampa de RF— justo la que rompía la lectura.
+// Tinta de la etiqueta. Las celdas van SIEMPRE en blanco (pedido del usuario,
+// 2-ago): la tinta es lo que las hace leer como un solo sistema, y una etiqueta
+// en navy en medio de la grilla se lee como otra cosa, no como la misma pieza
+// más clara. Antes se elegía por luminancia real de la celda (inkFor), y con la
+// cartera de hoy eso dejaba una sola celda en navy —la más clara de la rampa de
+// RF— justo la que rompía la lectura.
 // La contracara es de contraste: sobre el extremo claro del oro (#D9BE6E) el
 // blanco da 1,8:1. Si molesta, la palanca correcta es bajar ese extremo de la
 // rampa —no volver a la tinta navy—, ver CLASE_RAMP.
-const INK_NOMBRADA = "#fff";
-// El residual es la excepción: gris casi papel, ahí el blanco no existiría.
-const INK_RESIDUAL = "#16213f";
+// Es constante para todas las celdas, así que vive en el CSS (.ten-tm-label) y
+// no como variable inline por celda.
+const INK = "#fff";
 
 // ── Color de hover ────────────────────────────────────────────────────────
 // El hover ACLARA la celda, y hasta acá lo hacía con `filter: brightness()`.
@@ -112,14 +108,9 @@ const brillo = (hex: string, f: number) =>
   `#${[1, 3, 5]
     .map((i) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).toString(16).padStart(2, "0"))
     .join("")}`;
-// El paso general está calibrado para bloques oscuros. Sobre el gris del
-// residual (#E3E4E7) satura y termina en #FEFFFF, o sea MÁS CLARO que el papel
-// (#F8F9FF) — y como el residual toca el borde del marco, la celda se fundía con
-// la página justo cuando el cursor pide lo contrario. El margen es angosto (base
-// L*90,6 → papel L*98,0, 7,4 puntos), así que ahí el levante cae a mitad de
-// camino: sube lo suficiente para leerse y queda un escalón por debajo del papel.
+// El paso está calibrado para bloques oscuros, que es lo único que hay en el
+// marco: todas las celdas salen de las tres rampas de clase.
 const HOVER_F = 1.12;
-const HOVER_F_RESIDUAL = 1.05;
 
 // Los pesos reales llegan en medios puntos (2,5% / 7,5%): redondear a entero
 // mostraría "2%" y "8%" y la suma de las clases no cerraría en 100.
@@ -134,10 +125,10 @@ function lerpHex(a: string, b: string, t: number): string {
 }
 
 // Mapea las tenencias del snapshot a celdas con color derivado. weightBps → %.
-// Devuelve el ORDEN DEFINITIVO —nombradas por peso descendente, residual al
-// final—, que es el que consumen el donut, la leyenda y el squarify. El residual
-// no se ordena por peso: con 40% entraría primero y el gráfico abriría por lo
-// único que no tiene nombre.
+// Las filas "OTROS" del snapshot NO entran (ver el bloque de arriba): el filtro
+// por CLASE_ORDER las deja afuera solo, sin un caso especial.
+// Devuelve el ORDEN DEFINITIVO —por peso descendente—, que es el que consumen el
+// donut, la leyenda y el squarify.
 function buildCells(items: HoldingItem[]): Cell[] {
   const out: Cell[] = [];
   for (const clase of CLASE_ORDER) {
@@ -155,23 +146,10 @@ function buildCells(items: HoldingItem[]): Cell[] {
         peso: it.weightBps / 100,
         color,
         hover: brillo(color, HOVER_F),
-        ink: INK_NOMBRADA,
       });
     });
   }
   out.sort(byPeso);
-
-  // El residual va en UNA sola línea aunque el snapshot lo trajera partido.
-  const resto = items.filter((it) => it.assetClass === "OTROS");
-  const peso = resto.reduce((a, it) => a + it.weightBps, 0) / 100;
-  if (peso > 0) {
-    const propio = resto.length === 1 && !RESIDUAL_GENERICO.test(resto[0].name.trim());
-    const name = propio ? resto[0].name : RESIDUAL_LABEL;
-    out.push({
-      name, short: name, clase: "OTROS", peso,
-      color: RESIDUAL_FILL, hover: brillo(RESIDUAL_FILL, HOVER_F_RESIDUAL), ink: INK_RESIDUAL,
-    });
-  }
   return out;
 }
 
@@ -187,17 +165,15 @@ function buildCells(items: HoldingItem[]): Cell[] {
 // última en una astilla de 63px (muda). A 2,22:1 la peor relación de aspecto baja
 // de 2,76 a 1,50 y entran las 17 etiquetas. Medido sobre la cartera real.
 const TM_WIDE = { w: 1040, h: 468 };
-// El retrato se estiró de 840 a 930 al darle banda propia al residual (ver
-// squarifyConBanda): las nombradas pasaron a repartirse sólo el 60% de arriba, y
-// en un marco de 840 esa región quedaba casi cuadrada — con celdas cuadradas la
-// etiqueta entra en dos renglones y nada más, así que "MFS Contrarian Value" y
-// "Vontobel Credit Opps." volvían a cortarse con puntos suspensivos, justo lo que
-// el techo de tres renglones había resuelto. Estirando el marco la región de las
-// nombradas vuelve a ser apaisada-alta y los nombres cierran enteros.
-// 930 es el CENTRO de la meseta que funciona: barridas de 850 a 1250 en nueve
-// anchos de teléfono (320→600), corta a 865 y a 1000, limpio de 880 a 975. En un
-// teléfono de 390 el marco queda en 350×542 (antes 350×490).
-const TM_TALL = { w: 600, h: 930 };
+// El retrato vuelve de 930 a 840 al sacar el residual del dibujo. Los 930 eran
+// compensación por la banda que se le reservaba abajo: las tenencias se
+// repartían sólo el 60% de arriba y en un marco de 840 esa región quedaba casi
+// cuadrada, con celdas donde el nombre no cerraba en dos renglones ("MFS
+// Contrarian Value", "Vontobel Credit Opps." se cortaban con puntos
+// suspensivos). Ahora las celdas se reparten el marco entero, así que estirarlo
+// deja de hacer falta y de hecho molesta: a 930 el bloque se come casi dos
+// pantallas de teléfono.
+const TM_TALL = { w: 600, h: 840 };
 
 type Rect = { x: number; y: number; w: number; h: number };
 type Placed = Cell & { rect: Rect };
@@ -256,45 +232,6 @@ function squarify(items: Cell[], frame: Rect): Placed[] {
   }
   if (row.length) layout(row, Math.min(rect.w, rect.h));
   return out;
-}
-
-// El residual NO entra al squarify: se le reserva una banda propia contra el
-// borde de salida del marco —columna a la derecha en apaisado, franja abajo en
-// retrato— y las tenencias nombradas se squarifican en lo que queda.
-//
-// El área no se toca: la banda mide exactamente peso/total del marco, así que
-// sigue siendo el mismo trozo de la cartera (el gráfico sigue siendo parte-todo).
-// Lo único que se fija es la FORMA, y es una decisión de lectura: el residual es
-// la cola de la cartera, no una tenencia, y una banda al borde lo dice sola —
-// nombradas de un lado, resto del otro. Repartido por el squarify quedaba
-// mezclado entre las nombradas; en retrato encima caía en la esquina inferior
-// derecha con dos celdas nombradas al costado, y la misma cifra leía como una
-// tenencia más.
-//
-// En apaisado esto NO cambia el dibujo de hoy: con el residual en 40% el squarify
-// ya venía dejando exactamente 40% de ancho × 100% de alto (medido). La
-// diferencia es que ahora está garantizado y no depende del peso que traiga el
-// snapshot: si mañana el residual baja a 25%, la columna sigue siendo columna.
-function squarifyConBanda(cells: Cell[], frame: { w: number; h: number }): Placed[] {
-  const marco: Rect = { x: 0, y: 0, ...frame };
-  const residual = cells.find((c) => c.clase === "OTROS");
-  const nombradas = cells.filter((c) => c.clase !== "OTROS");
-  const total = cells.reduce((a, b) => a + b.peso, 0);
-  if (!residual || total <= 0) return squarify(cells, marco);
-
-  const frac = residual.peso / total;
-  // Apaisado corta a lo ancho (columna); retrato corta a lo alto (franja).
-  const columna = frame.w >= frame.h;
-  const banda: Rect = columna
-    ? { x: frame.w * (1 - frac), y: 0, w: frame.w * frac, h: frame.h }
-    : { x: 0, y: frame.h * (1 - frac), w: frame.w, h: frame.h * frac };
-  const resto: Rect = columna
-    ? { x: 0, y: 0, w: frame.w * (1 - frac), h: frame.h }
-    : { x: 0, y: 0, w: frame.w, h: frame.h * (1 - frac) };
-
-  // El residual va ÚLTIMO, como en buildCells: es el orden que consume el
-  // escalonado de la entrada (animationDelay por índice).
-  return [...squarify(nombradas, resto), { ...residual, rect: banda }];
 }
 
 // El marco del treemap es una tarjeta redondeada, y hasta acá el redondeo lo
@@ -358,7 +295,6 @@ function TreemapGrid({ placed, frame, variant, scale }: {
           <div
             key={p.name}
             className="ten-tm-cell"
-            data-res={p.clase === "OTROS" ? "1" : "0"}
             title={`${p.name} · ${fmt(p.peso)}`}
             style={{
               left: `${(p.rect.x / frame.w) * 100}%`,
@@ -383,7 +319,6 @@ function TreemapGrid({ placed, frame, variant, scale }: {
               // de :hover del stylesheet no le puede ganar a un estilo inline.
               ["--bg"]: p.color,
               ["--hov"]: p.hover,
-              ["--ink"]: p.ink,
               animationDelay: `${i * 38}ms`,
             } as CSSProperties}
           >
@@ -399,13 +334,9 @@ function TreemapGrid({ placed, frame, variant, scale }: {
               <div className="ten-tm-label" style={{ ["--fs"]: fs, ["--lines"]: lines } as CSSProperties}>
                 {nivel !== "pct" && (
                   <>
-                    {/* El residual no lleva eyebrow: no es una clase de activo,
-                        y la celda se identifica sola con su nombre y su peso. */}
-                    {p.clase !== "OTROS" && (
-                      <span className="ten-tm-eyebrow">
-                        {nivel === "full" ? CLASE_LABEL[p.clase] : p.clase}
-                      </span>
-                    )}
+                    <span className="ten-tm-eyebrow">
+                      {nivel === "full" ? CLASE_LABEL[p.clase] : p.clase}
+                    </span>
                     <span className="ten-tm-name">{p.short}</span>
                   </>
                 )}
@@ -485,19 +416,15 @@ function Pie({ orden, total, hover, setHover }: {
         {orden.map((d, i) => (
           <li
             key={d.name}
-            data-res={d.clase === "OTROS" ? "1" : "0"}
             data-on={hover === d.name ? "1" : "0"}
             data-dim={hover && hover !== d.name ? "1" : "0"}
             onMouseEnter={() => setHover(d.name)}
             onMouseLeave={() => setHover(null)}
           >
-            {/* El residual no se numera ni se etiqueta por clase: no es la
-                novena mayor tenencia ni una clase de activo. Las dos celdas van
-                igual —vacías— para que la grilla no se descuadre en su fila. */}
-            <span className="ten-leg-rank">{d.clase === "OTROS" ? "" : String(i + 1).padStart(2, "0")}</span>
+            <span className="ten-leg-rank">{String(i + 1).padStart(2, "0")}</span>
             <span className="ten-leg-dot" style={{ background: d.color }} />
             <span className="ten-leg-name">{d.name}</span>
-            {d.clase === "OTROS" ? <span /> : <span className="ten-leg-class" data-c={d.clase}>{d.clase}</span>}
+            <span className="ten-leg-class" data-c={d.clase}>{d.clase}</span>
             <span className="ten-leg-pct">{fmt(d.peso)}</span>
           </li>
         ))}
@@ -514,30 +441,35 @@ export function FondoTenencias() {
   const [vista, setVista] = useState<Vista>("treemap");
   const [hover, setHover] = useState<string | null>(null);
 
-  // buildCells emite el residual y devuelve el ORDEN DEFINITIVO. No reordenar
-  // acá: un sort por peso subiría el residual al primer puesto y el gráfico
-  // abriría por lo único que no tiene nombre.
-  // `total` es el divisor del donut (360°) y del treemap (el marco): con el
-  // residual cargado vale 100, o sea que el marco ES la cartera.
+  // buildCells devuelve el ORDEN DEFINITIVO (por peso descendente): no
+  // reordenar acá. `total` es el divisor del donut (360°) y del treemap (el
+  // marco), y como el residual no se dibuja vale lo que sumen las tenencias
+  // divulgadas —hoy, 60—. O sea: el marco ES ese tramo, y ese mismo número es el
+  // que se rotula arriba y se explica al pie.
   const cells = useMemo(() => (holdings ? buildCells(holdings.items) : []), [holdings]);
   const total = useMemo(() => cells.reduce((a, b) => a + b.peso, 0), [cells]);
-  const nombradas = useMemo(() => cells.filter((c) => c.clase !== "OTROS"), [cells]);
-  const residual = cells.length > nombradas.length;
-  // Red de seguridad. El panel valida Σ = 10.000 bps (HoldingsSchema), pero el
-  // sitio no puede asumirlo: un snapshot SIN residual que tampoco cierre en 100
-  // vuelve a repartir el marco entre lo que haya, y ahí las áreas sí son
-  // relativas. Sólo en ese caso se declara el alcance al pie. Si el residual
-  // está —o si algún día se publica la cartera completa— la nota se cae sola.
-  const incompleto = !residual && total > 0 && total < 99.95;
-  const placedWide = useMemo(() => squarifyConBanda(cells, TM_WIDE), [cells]);
-  const placedTall = useMemo(() => squarifyConBanda(cells, TM_TALL), [cells]);
+  // Si el gráfico cubre una parte de la cartera hay que decirlo, y en los dos
+  // niveles. Se DECIDE con `total`, pero `total` no se muestra (ver punto 2
+  // arriba): lo que se dice es cuántas tenencias son. Es el caso normal hoy; el
+  // día que se publique la cartera completa esto da false y los dos avisos se
+  // caen solos, sin tocar nada.
+  const parcial = total > 0 && total < 99.95;
+  const placedWide = useMemo(() => squarify(cells, { x: 0, y: 0, ...TM_WIDE }), [cells]);
+  const placedTall = useMemo(() => squarify(cells, { x: 0, y: 0, ...TM_TALL }), [cells]);
 
   const hasData = !!holdings && cells.length > 0 && total > 0;
 
   return (
     <div className="ten-wrap">
       <div className="ten-bar">
-        <span className="ten-bar-label">Mayores tenencias</span>
+        {/* Nivel 1 del aviso de alcance: el conteo va adentro del propio título
+            —"Las 8 mayores tenencias"—, así entra en cualquier recorte que se
+            lleve el gráfico (punto 2 del bloque de arriba) y no necesita una
+            línea aparte que en el teléfono habría que acomodar. El nivel 2
+            —largo— está en .ten-foot. */}
+        <span className="ten-bar-label">
+          {hasData && parcial ? `Las ${cells.length} mayores tenencias` : "Mayores tenencias"}
+        </span>
         {hasData && (
           <div className="ten-toggle" data-active={vista} role="tablist" aria-label="Tipo de gráfico">
             <span className="ten-toggle-thumb" aria-hidden />
@@ -549,14 +481,17 @@ export function FondoTenencias() {
 
       {hasData ? (
         <>
-          {/* Acá iba la barra de split por clase de activo, y sigue afuera: el
-              residual tiene área pero no clase, así que la barra sólo podría
+          {/* Acá iba la barra de split por clase de activo, y sigue afuera: sólo
+              se conoce la clase del tramo divulgado, así que la barra podría
               sumar 60% y dejar un hueco, o normalizar y decir "Renta variable
               54,2%", que no es la asignación del Fondo sino la del pedazo que se
-              publica. La clase de cada tenencia vive igual en el eyebrow de su
-              celda y en el chip de su fila de la leyenda. Vuelve el día que el
-              cliente pase el split por clase del tramo restante — es el pedido
-              más barato que desbloquea la mejor pieza de esta sección. */}
+              publica. Una barra de proporción no tiene el escape que sí tiene el
+              treemap —ahí cada celda lleva su cifra real al lado del área—: la
+              barra es sólo geometría, y la geometría normalizada acá sería el
+              dato equivocado. La clase de cada tenencia vive igual en el eyebrow
+              de su celda y en el chip de su fila de la leyenda. Vuelve el día
+              que el cliente pase el split por clase del tramo restante — es el
+              pedido más barato que desbloquea la mejor pieza de esta sección. */}
           <div className="ten-stage" key={vista}>
             {vista === "treemap" ? <Treemap placedWide={placedWide} placedTall={placedTall} /> : <Pie orden={cells} total={total} hover={hover} setHover={setHover} />}
           </div>
@@ -567,11 +502,14 @@ export function FondoTenencias() {
               + información permanente en la Administradora), y explicar acá el
               régimen de información completo es traer el contrato a una nota al
               pie de un gráfico. */}
-          {/* Con el residual dibujado esta nota vuelve a hacer UNA sola cosa:
-              fechar el dato. El alcance del gráfico ya no hay que aclararlo —el
-              gráfico es la cartera entera— y lo que antes vivía acá abajo pasó
-              a la línea de arriba. La salvedad de `incompleto` es para el
-              snapshot mal cerrado, que no debería llegar nunca.
+          {/* Nivel 2 del aviso de alcance (el nivel 1 es el rótulo de la barra):
+              acá se dice largo lo que arriba entra en cuatro palabras. Repite el
+              conteo y agrega lo que no se puede omitir — que las áreas son
+              relativas entre sí y que cada porcentaje sigue siendo el peso sobre
+              el total del Fondo. Esa segunda mitad es la que deja el tramo
+              dimensionable sin declarar la cobertura (ver punto 2 arriba): no
+              es adorno, es lo que reemplaza al "60% de la cartera" que acá decía
+              hasta el 10-ago.
 
               ⚠️ ABRE CON EL ALCANCE DEL DATO (pedido del usuario, 3-ago-2026):
               antes de fechar el snapshot hay que decir que los pesos son
@@ -591,10 +529,10 @@ export function FondoTenencias() {
           <p className="ten-foot">
             Datos aproximados, a título ilustrativo: los pesos están redondeados y la composición
             varía con el mercado y con las decisiones de gestión.{" "}
-            {incompleto && (
+            {parcial && (
               <>
-                El gráfico muestra las {cells.length} mayores tenencias, que representan el {fmt(total)} de la
-                cartera; sus proporciones son relativas entre sí.{" "}
+                El gráfico muestra las {cells.length} mayores tenencias de la cartera: sus áreas son
+                proporcionales entre sí y cada porcentaje es el peso sobre el total del Fondo.{" "}
               </>
             )}
             Composición al {fmtFechaCorta(holdings!.asOf)}; las ponderaciones pueden haber variado desde esa fecha.
@@ -611,7 +549,7 @@ export function FondoTenencias() {
         </div>
       )}
 
-      <style>{`
+      <style>{css`
         .ten-wrap { margin-top: 60px; }
 
         /* ── Barra: título + toggle ── */
@@ -619,6 +557,12 @@ export function FondoTenencias() {
         .ten-bar-label {
           font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--site-ink-3);
         }
+        /* El alcance del gráfico vive DENTRO de este rótulo ("Las 8 mayores
+           tenencias"), sin chip aparte. Se probó con la cobertura como segunda
+           parte en un tono más bajo y no sobrevivía al teléfono: el rótulo
+           entero pedía 345px y a 390 —el ancho más común— quedaban 5px de aire,
+           así que había que bajarla a su propio renglón con una media query.
+           Dicho como conteo entra en el título y el problema no existe. */
         .ten-toggle {
           position: relative; display: inline-flex; padding: 3px;
           background: var(--surface-muted, #f3f4f8); border: 1px solid var(--site-border); border-radius: 999px;
@@ -675,11 +619,15 @@ export function FondoTenencias() {
         /* El navy es la red de seguridad de las costuras (y el fondo sobre el que
            entran las celdas escalonadas), pero NO puede vivir en el contenedor:
            ahí queda justo detrás del arco de las celdas de esquina y se cuela por
-           su antialias. En la esquina clara —el residual, gris casi papel— eso
-           pintaba un sucio oscuro sobre la curva y la hacía leer bastante más
-           pesada que el mismo hairline en los tramos rectos (medido: 10 puntos de
-           L* por debajo). Atribuido apagando un sospechoso por vez: sacar el navy
-           lo borraba; sacar la sombra o el recorte no cambiaba nada.
+           su antialias. Se diagnosticó con el residual todavía dibujado, que era
+           la celda más clara del marco (gris casi papel): ahí el navy pintaba un
+           sucio oscuro sobre la curva y la hacía leer bastante más pesada que el
+           mismo hairline en los tramos rectos (medido: 10 puntos de L* por
+           debajo). Atribuido apagando un sospechoso por vez: sacar el navy lo
+           borraba; sacar la sombra o el recorte no cambiaba nada. El residual ya
+           no se dibuja y hoy la esquina más clara es el extremo del oro, así que
+           el sucio es menos visible — pero el mecanismo es el mismo y esto se
+           queda: es el mismo que muerde con las capas propias (ver brillo()).
            Con radio MAYOR que el del marco el fondo se retira de las esquinas
            —~1,7px de aire a 45°, más que la banda de antialias en cualquier
            densidad— y sigue pegado al filo en los tramos rectos, que es donde
@@ -712,12 +660,11 @@ export function FondoTenencias() {
            inferior. El color aclarado ya viene calculado en --hov. El borde es
            blanco al 10% sobre el fondo, así que se aclara solo con él. */
         .ten-tm-cell:hover { background: var(--hov); }
-        /* --ink lo fija la celda: blanco en todas las nombradas, navy sólo en el
-           residual (ver INK_NOMBRADA / INK_RESIDUAL). El eyebrow y el peso se
-           atenúan con opacity, no con un rgba blanco fijo, para que sigan a la
-           tinta que toque. */
+        /* La tinta es la misma en todas las celdas (ver INK). El eyebrow y el
+           peso se atenúan con opacity y no con un rgba blanco fijo, así siguen a
+           la tinta si algún día deja de ser blanca. */
         .ten-tm-label {
-          padding: calc(var(--fs) * 0.66) calc(var(--fs) * 0.62); color: var(--ink, #fff); line-height: 1.16;
+          padding: calc(var(--fs) * 0.66) calc(var(--fs) * 0.62); color: ${INK}; line-height: 1.16;
           display: flex; flex-direction: column; gap: calc(var(--fs) * 0.18);
           max-width: 100%; box-sizing: border-box; min-width: 0;
         }
@@ -732,15 +679,6 @@ export function FondoTenencias() {
           overflow: hidden; overflow-wrap: break-word; max-width: 100%;
         }
         .ten-tm-pct { font-size: calc(var(--fs) * 0.82); font-variant-numeric: tabular-nums; opacity: 0.82; }
-
-        /* Residual: área verdadera, croma cero, fondo LISO. Entre bloques
-           saturados el gris claro lee como espacio y no compite por la atención,
-           que es donde tienen que quedar las tenencias nombradas. Lo único que
-           cambia además del color es el borde: el hairline blanco al 10% de las
-           demás celdas es invisible sobre un fondo claro. */
-        .ten-tm-cell[data-res="1"] { border-color: rgba(15,34,73,0.10); }
-        /* El paso de hover a medida del residual ya no vive acá: viene resuelto
-           en --hov (HOVER_F_RESIDUAL), con el porqué al lado de la constante. */
 
         /* ── Donut ── */
         .ten-pie { display: grid; grid-template-columns: auto 1fr; gap: 52px; align-items: center; padding: 6px; }
@@ -775,8 +713,8 @@ export function FondoTenencias() {
         .ten-leg li[data-dim="1"] { opacity: 0.4; }
         .ten-leg li[data-on="1"] { background: var(--navy-050, #ECEDF6); }
         .ten-leg-rank { font-size: 11px; font-weight: 600; color: var(--site-ink-3); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; min-width: 16px; }
-        /* Hairline interno: el bloque residual es casi tan claro como el papel y
-           su punto se perdería sin un borde. */
+        /* Hairline interno: los extremos claros de las rampas (el oro sobre todo)
+           se pierden contra el papel sin un borde. */
         .ten-leg-dot { width: 11px; height: 11px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(15,34,73,0.10); }
         .ten-leg-name { color: var(--site-ink-2); line-height: 1.3; }
         .ten-leg-class { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; line-height: 1; }
@@ -784,21 +722,6 @@ export function FondoTenencias() {
         .ten-leg-class[data-c="RF"] { color: #8A6A1E; background: rgba(160,124,40,0.12); }
         .ten-leg-class[data-c="ALT"] { color: #5b6172; background: rgba(154,160,180,0.18); }
         .ten-leg-pct { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 34px; text-align: right; }
-
-        /* Fila del residual: se lee como cierre de la lista, no como la novena
-           tenencia. Sin número de orden, sin chip de clase, nombre en el tono
-           bajo y el peso un grado más liviano — el 40% sigue siendo el número
-           más grande de la columna y no hay que disimularlo, sólo no darle la
-           jerarquía de una posición. El punto toma el mismo gris del wedge; se
-           lo ve porque .ten-leg-dot ya trae un hairline interno. */
-        /* Se probó cruzarla a las dos columnas para que leyera como cierre de la
-           lista: el 1fr del nombre estira y deja el 40% a media pantalla del
-           rótulo, desalineado de los otros porcentajes. En una lista de cifras
-           esa columna alineada vale más que la idea, así que la fila queda del
-           ancho de una celda y su 40% cae bajo los demás. */
-        .ten-leg li[data-res="1"] { border-bottom-color: transparent; }
-        .ten-leg li[data-res="1"] .ten-leg-name { color: var(--site-ink-3); }
-        .ten-leg li[data-res="1"] .ten-leg-pct { font-weight: 500; color: var(--site-ink-2); }
 
         .ten-foot { margin: 24px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--site-ink-3); max-width: var(--medida-legal); }
 

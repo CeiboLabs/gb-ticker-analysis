@@ -1,5 +1,6 @@
 import { Reveal } from "@/components/motion";
 import { ArrowRight } from "@/components/institucional/icons";
+import { css } from "@/lib/css";
 
 // Partes intervinientes del Fondo — la ficha de contrapartes que en la plaza
 // uruguaya acompaña a la documentación. Va al pie de Documentos, que es donde
@@ -163,7 +164,7 @@ export function FondoPartes() {
         Autorización del Banco Central e información legal <ArrowRight />
       </a>
 
-      <style>{`
+      <style>{css`
         .partes { margin-top: 72px; }
         .partes-title { margin-bottom: 24px; }
 

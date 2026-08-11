@@ -1,4 +1,5 @@
 import { ArrowRight } from "@/components/institucional/icons";
+import { css } from "@/lib/css";
 
 // "La casa" — beat de CREDIBILIDAD del fondo. En pre-lanzamiento no hay track
 // record propio, así que la prueba no son rendimientos sino la casa que lo
@@ -128,7 +129,7 @@ export function FondoCasa({ casa }: { casa: string }) {
         </div>
       </div>
 
-      <style>{`
+      <style>{css`
         /* Pie de la casa: firma del gestor a la izquierda, accesos a la derecha */
         .casa-foot {
           display: flex;

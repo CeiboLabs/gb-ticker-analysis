@@ -179,7 +179,9 @@ export function ReportPreviewMini() {
           font-weight: 400; font-size: 18px; line-height: 1.2; letter-spacing: -0.012em;
           color: var(--ink); margin: 8px 0 12px;
         }
-        .rpm-h em { font-style: italic; font-weight: 300; color: var(--gold-deep); }
+        /* La cursiva en serif pide su propia variable. Ver el comentario de
+           .serif-i en app/globals.css. */
+        .rpm-h em { font-family: var(--font-serif-i), Georgia, serif; font-style: italic; font-weight: 300; color: var(--gold-deep); }
         .rpm-prose {
           font-family: var(--font-serif), Georgia, serif;
           font-size: 13px; line-height: 1.55; color: var(--ink-2);

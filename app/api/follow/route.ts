@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
 import { leadCookieName, verifyLeadToken } from "@/lib/leadGate";
-import { checkNewsletterLimit, clientIpFrom } from "@/lib/rateLimiter";
+import { checkFollowLimit, clientIpFrom } from "@/lib/rateLimiter";
 import { dejarDeSeguir, listarSeguidos, marcarVisto, seguir, sigue } from "@/lib/followStore";
 import { esCliente, marcarCliente } from "@/lib/leadProfile";
 
@@ -74,22 +74,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 403, headers: noStore });
   }
 
-  // Mismo cap por IP que el alta al newsletter: escribe en D1 con identidad
-  // barata de obtener, así que conviene un techo.
-  const gate = await checkNewsletterLimit(clientIpFrom(req));
+  const db = getMetricsDb();
+  const email = await identidad(req);
+  if (!db) return NextResponse.json({ error: "service unavailable" }, { status: 503, headers: noStore });
+  // 401 y no 403: la respuesta correcta del cliente es pedir el correo, no
+  // avisar que algo falló.
+  //
+  // Va ANTES del rate limit a propósito, al revés de lo habitual: verificar la
+  // cookie es un JWT sin tocar la base, y si no se hiciera primero, cualquier
+  // anónimo podría quemarle el cupo horario a los lectores identificados que
+  // salen por la misma IP (una oficina detrás de un NAT es exactamente eso).
+  if (!email) return NextResponse.json({ error: "sin_identidad" }, { status: 401, headers: noStore });
+
+  // Balde propio, no el del newsletter: acá `visto` escribe en cada vista de un
+  // informe seguido, así que el cupo de un alta (5/h) se agotaba navegando y
+  // dejaba los botones mudos. Ver checkFollowLimit en lib/rateLimiter.ts.
+  const gate = await checkFollowLimit(clientIpFrom(req));
   if (!gate.allowed) {
     return NextResponse.json(
       { error: "Demasiados intentos. Probá de nuevo más tarde." },
       { status: 429, headers: { ...noStore, "Retry-After": String(gate.retryAfter) } },
     );
   }
-
-  const db = getMetricsDb();
-  const email = await identidad(req);
-  if (!db) return NextResponse.json({ error: "service unavailable" }, { status: 503, headers: noStore });
-  // 401 y no 403: la respuesta correcta del cliente es pedir el correo, no
-  // avisar que algo falló.
-  if (!email) return NextResponse.json({ error: "sin_identidad" }, { status: 401, headers: noStore });
 
   let body: unknown;
   try { body = await req.json(); } catch {

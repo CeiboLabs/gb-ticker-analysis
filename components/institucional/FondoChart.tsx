@@ -6,6 +6,7 @@ import { fmtNav, fmtFechaCorta } from "@/lib/useFondo";
 import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
 import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
+import { css } from "@/lib/css";
 import {
   attachDragRange,
   chronological,
@@ -98,13 +99,13 @@ export function FondoChart({
   benchLabel?: string;
   /**
    * Qué ES la serie protagonista. En pre-lanzamiento el Fondo todavía no tiene
-   * valor cuota, así que la ÚNICA línea del gráfico es la del benchmark: entra
-   * por `series` (es la que se mide con el gesto de arrastre) pero no puede
-   * vestirse de fondo. Con "bench" va en tono subordinado y sin sombra
-   * proyectada —el navy pleno con sombra es del fondo y de nadie más—, y la
-   * leyenda la nombra siempre.
+   * valor cuota, así que la línea principal puede no ser la suya: el benchmark
+   * ("bench") o el backtest de la estrategia ("sim"). Entra igual por `series`
+   * —es la que se mide con el gesto de arrastre— pero no puede vestirse de
+   * fondo: va en tono subordinado y sin sombra proyectada, porque el navy pleno
+   * con sombra es del valor cuota y de nadie más. La leyenda la nombra siempre.
    */
-  lineKind?: "fund" | "bench";
+  lineKind?: "fund" | "bench" | "sim";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Tramo medido con el gesto de arrastre, en dos lugares y por dos motivos:
@@ -261,11 +262,12 @@ export function FondoChart({
         benchSeries.setData(benchPoints);
       }
 
-      // Tono de la protagonista: navy pleno si es el fondo; si la única línea es
-      // el benchmark, el gris de referencia oscurecido a --site-ink-2 (el
-      // #9FA2C0 de la línea subordinada, solo sobre blanco, no se lee).
-      const soloBench = lineKind === "bench";
-      const mainColor = soloBench ? PALETTE.ink2 : PALETTE.navy;
+      // Tono de la protagonista: navy pleno SÓLO si es el valor cuota del
+      // fondo. Cualquier otra serie (benchmark suelto, backtest) va en el gris
+      // de referencia oscurecido a --site-ink-2 — el #9FA2C0 de la línea
+      // subordinada, solo sobre blanco, no se lee.
+      const esFondo = lineKind === "fund";
+      const mainColor = esFondo ? PALETTE.navy : PALETTE.ink2;
 
       const lineSeries = chart.addSeries(LineSeries, {
         color: mainColor,
@@ -294,7 +296,7 @@ export function FondoChart({
       // La curva deja caer su sombra (zOrder bottom: la línea sigue nítida y el
       // benchmark, que se dibuja aparte, conserva su tono). La sombra es un
       // recurso de jerarquía: sólo la lleva el fondo.
-      if (!soloBench) {
+      if (esFondo) {
         const shadow = new LineShadowPrimitive({ color: PALETTE.shadow });
         lineSeries.attachPrimitive(shadow);
         shadow.setPoints(points.map((p) => ({ time: p.time as unknown as string, value: p.value })));
@@ -378,16 +380,16 @@ export function FondoChart({
 
   return (
     <div className="fondo-chart">
-      {(benchmark.length > 0 || lineKind === "bench" || unitLabel) && (
+      {(benchmark.length > 0 || lineKind !== "fund" || unitLabel) && (
         <div className="fondo-chart-legend">
           {/* Con una sola línea la leyenda normalmente sobra —se sabe qué es—,
               salvo justo cuando esa línea NO es el fondo: ahí es obligatoria. */}
-          {(benchmark.length > 0 || lineKind === "bench") && (
+          {(benchmark.length > 0 || lineKind !== "fund") && (
             <>
               <span className="fondo-chart-leg">
                 <span
                   className="fondo-chart-leg-line"
-                  data-kind={lineKind === "bench" ? "bench-solo" : "fund"}
+                  data-kind={lineKind === "fund" ? "fund" : "bench-solo"}
                 />
                 {seriesLabel}
               </span>
@@ -438,7 +440,7 @@ export function FondoChart({
         <DragRangeCard ref={cardRef} reading={measure} />
       </div>
 
-      <style>{`
+      <style>{css`
         /* El alto vive acá y no en un style inline para que el teléfono lo pueda
            bajar: la caja de la serie tiene que leerse horizontal (ver el
            comentario de createChart). El ResizeObserver replica el valor en el
@@ -461,8 +463,9 @@ export function FondoChart({
         .fondo-chart-leg-line[data-kind="bench"] {
           border-top: 2px dashed #9FA2C0;
         }
-        /* Benchmark como única línea del gráfico (pre-lanzamiento): continua,
-           en el tono subordinado — espeja PALETTE.ink2 del trazo. */
+        /* Protagonista que NO es el valor cuota (pre-lanzamiento: benchmark
+           suelto o backtest): continua, en el tono subordinado — espeja
+           PALETTE.ink2 del trazo. */
         .fondo-chart-leg-line[data-kind="bench-solo"] {
           border-top: 2px solid var(--site-ink-2);
         }

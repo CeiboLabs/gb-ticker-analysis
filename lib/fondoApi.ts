@@ -30,7 +30,27 @@ import { isFondoDocTipo, type FondoDocTipo } from "@/lib/panelSchemas";
  */
 export async function respuestaFondo(db: D1Database | null): Promise<Response> {
   const snapshot = await getFundSnapshot(db);
-  return Response.json(snapshot, {
+
+  // En PRE-LANZAMIENTO la serie del benchmark no viaja. Son ~1.200 cierres
+  // diarios —62,8 KB de los 63 que pesaba esta respuesta— y no hay nada que los
+  // dibuje: el gráfico sólo monta con `live === true` (ver FondoPerformance,
+  // donde el modo "sólo benchmark" se sacó por decisión del cliente el
+  // 3-ago-2026). Se bajaban, se parseaban y se descartaban en cada visita, y
+  // encima con prioridad alta, porque es un fetch del primer render.
+  // Ver docs/rendimiento-fondo.md §6.1.
+  //
+  // Se recortan sólo los PUNTOS. Los agregados derivados (benchReturns,
+  // benchCalendar) son cinco filas y quedan: son lo que la tabla comparativa
+  // necesita el día que haya serie propia, y no pesan.
+  //
+  // ⚠️ Si alguna vez vuelve a graficarse el benchmark solo, esto es lo que hay
+  // que sacar — no busques el bug en el componente.
+  const publicable =
+    snapshot.status === "pre-launch" && snapshot.benchmark.length > 0
+      ? { ...snapshot, benchmark: [] }
+      : snapshot;
+
+  return Response.json(publicable, {
     // Cierre diario: cacheable unos minutos en el borde (s-maxage) sin quedar
     // viejo. Pero el NAVEGADOR revalida siempre (max-age=0).
     //

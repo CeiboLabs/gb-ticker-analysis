@@ -1,4 +1,5 @@
 import { GDOTS, GMAP_W, GMAP_H, gproject } from "./worldDotsGlobal";
+import { css } from "@/lib/css";
 
 // Mapa editorial ESTÁTICO de alcance global: tierra firme punteada, hub en
 // Montevideo y arcos finos hacia los principales centros financieros del mundo.
@@ -81,7 +82,7 @@ export function FondoMapa() {
         MONTEVIDEO
       </text>
 
-      <style>{`
+      <style>{css`
         .fmapa { width: 100%; height: auto; display: block; }
       `}</style>
     </svg>

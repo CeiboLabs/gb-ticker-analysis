@@ -13,18 +13,29 @@ import { CalculadoraSim } from "@/components/institucional/Calculadora";
 // se publica. La tasa vuelve a ser editable, arranca en un valor neutro y en
 // ningún lado se presenta como rendimiento esperado del Fondo.
 //
-// COMISIÓN — Reglamento cláusula 12 y literal (s) del resumen: se cobra AL
-// FONDO (mensualmente, devengada a diario, hasta 1,5 % anual del patrimonio
-// neto, IVA incluido), así que el valor cuota ya nace neto de ella. Acá se
-// descuenta porque la tasa que pone el lector es un rendimiento BRUTO de
-// mercado. ⚠️ El día que esta calculadora vuelva a leer la serie real del
-// fondo, netear la comisión otra vez la contaría DOS VECES.
+// COMISIÓN — hasta el 6-ago-2026 esta página pasaba `fees={{annualPct: 0.015}}`
+// y el simulador prorrateaba la comisión mes a mes sobre el saldo. YA NO: la
+// tasa del slider se asume neta de comisiones y el pie del simulador lo declara.
 //
-// Tampoco es el único costo: la cláusula 12.2 permite trasladar gastos al Fondo
-// con tope anual del 2 % de los activos (sin tope durante el primer año de
+// El motivo es replicabilidad, no cosmética: el cliente probó de varias formas
+// y no llegaba al número (6-ago-2026, vía el usuario). Descontar el 1,5 %
+// adentro del cálculo significaba mostrar "7 %" y devolver el resultado de un
+// 5,63 % efectivo neto, sin puente visible. El detalle completo —y la otra
+// mitad del desvío, que era `rate/12`— está en el useMemo de Calculadora.tsx.
+//
+// Lo que el marco legal sigue diciendo, para que nadie lo pierda de vista:
+// Reglamento cláusula 12 y literal (s) del resumen — la comisión se cobra AL
+// FONDO (mensualmente, devengada a diario, hasta 1,5 % anual del patrimonio
+// neto, IVA incluido), así que el valor cuota ya nace neta de ella. Y no es el
+// único costo: la cláusula 12.2 permite trasladar gastos al Fondo con tope
+// anual del 2 % de los activos (sin tope durante el primer año de
 // funcionamiento) y la 12.3 pone a cargo del cuotapartista los tributos sobre
-// los rendimientos. El pie del simulador lo dice.
-const FEE = { annualPct: 0.015 } as const;
+// los rendimientos. Nada de eso entra en la simulación por diseño; está en la
+// sección de costos y en el FAQ.
+//
+// ⚠️ Si algún día el simulador vuelve a leer la serie real del fondo: esa serie
+// YA es neta de comisión, o sea consistente con el supuesto que declara el pie.
+// Lo que habría que revisar entonces es el rótulo, no la aritmética.
 
 // Banda del rendimiento del simulador en esta página: 6 % a 8 % anual, de a 0,25.
 //
@@ -66,6 +77,15 @@ const RATE_RANGE = { min: 6, max: 8, step: 0.25 } as const;
 //    del simulador).
 //  · El aporte arranca en ANUAL. La conversión al togglear a mensual es exacta
 //    (÷12 = 2.500), así que nadie cae en un monto redondeado raro.
+//
+// ⚠️ PENDIENTE DE CONSULTA AL CLIENTE (6-ago-2026). Con estos mismos defaults,
+// al dejar de descontar la comisión el resultado que ve el lector pasó de
+// 3.258.221 a 4.356.275 —un 34 % más— y el 7 % ahora significa "7 % ya neto",
+// o sea un bruto implícito de ~8,5 %, por encima del techo de la banda 6–8 que
+// el propio cliente fijó. La palanca para bajar la cifra sin tocar el cálculo
+// es el default de la tasa (a 5,5 % efectivo daría 3.169.855, prácticamente el
+// número anterior), pero eso exige correr la banda y es decisión de ellos. Si
+// vuelve la respuesta, se cambia acá.
 const DEFAULTS = {
   initial: 200_000,
   aporte: 30_000,
@@ -75,5 +95,5 @@ const DEFAULTS = {
 } as const;
 
 export function FondoCalculadora() {
-  return <CalculadoraSim defaults={DEFAULTS} fees={FEE} rateRange={RATE_RANGE} />;
+  return <CalculadoraSim defaults={DEFAULTS} rateRange={RATE_RANGE} />;
 }

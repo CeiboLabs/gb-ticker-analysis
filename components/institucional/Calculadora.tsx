@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { css } from "@/lib/css";
 
 function formatUSD(n: number): string {
   // Separadores rioplatenses: 1.234.567
@@ -215,7 +216,6 @@ const SVG_H = 280; // alto renderizado, en px
 // defaults que le hacen sentido a su audiencia.
 export function CalculadoraSim({
   defaults = {},
-  fees,
   rateRange,
 }: {
   // `aporte` va SIEMPRE en la unidad de `freq`: con freq "anual" son USD por
@@ -229,13 +229,6 @@ export function CalculadoraSim({
     rate: number;
     years: number;
   }>;
-  // Costo opcional del fondo (lo pasa la página del fondo). Cuando se provee, la
-  // proyección se muestra neta de la comisión del Fondo:
-  //   annualPct  tasa anual máxima (p.ej. 0,015 = 1,5 %), IVA incluido
-  // Se descuenta porque la tasa del simulador es un rendimiento BRUTO supuesto
-  // por el lector. NO es el único costo del Fondo (ver FondoCalculadora). La
-  // calculadora genérica (/calculadora) no lo pasa y simula sin costos.
-  fees?: { annualPct: number };
   // Recorrido del slider de rendimiento anual promedio. Por defecto abierto
   // (1–20 % de a 0,5), que es lo que corresponde a un simulador genérico de
   // interés compuesto. La página del fondo lo acota a una banda estrecha.
@@ -263,26 +256,47 @@ export function CalculadoraSim({
 
   const data = useMemo<YearData[]>(() => {
     // Simulación mes a mes: el aporte mensual se acredita al cierre de cada
-    // mes; el anual, al cierre de cada año.
+    // mes; el anual, al cierre de cada año (anualidad vencida). El año 0 vale
+    // exactamente lo aportado: no hay carga de entrada.
     //
-    // Costo (sólo si `fees`): la comisión de administración del fondo es el
-    // único costo. Se prorratea mensualmente sobre el valor en cartera
-    // (annualPct / 12) y se descuenta al cierre de cada mes. `invested` sigue
-    // siendo el dinero bruto que puso el cliente, así que `gains` ya refleja el
-    // costo neto y las cifras se muestran netas sin línea aparte. No hay carga
-    // de entrada: el año 0 vale lo aportado.
-    const monthlyFee = fees ? fees.annualPct / 12 : 0;
-
+    // ⚠️ EL CRITERIO DE ESTE CÁLCULO ES QUE EL LECTOR PUEDA REPLICARLO. Pedido
+    // del cliente (6-ago-2026): probó de varias formas y no llegaba al número.
+    // Dos decisiones salen de ahí y no hay que "corregirlas" de vuelta:
+    //
+    //  1. LA TASA ES EFECTIVA ANUAL, y a mensual se pasa por raíz doceava — no
+    //     dividiendo entre 12. Con `rate/12` un 7 % rotulado compone al 7,229 %
+    //     efectivo, así que la cifra nunca cerraba contra la fórmula de valor
+    //     futuro de una planilla y el desvío (+5,1 % a 30 años) no se explicaba
+    //     por ningún lado de la página. Con la raíz, doce meses componen
+    //     exactamente (1 + rate), y el modo anual da idéntico a
+    //     `=VF(tasa; años; -aporte; -inicial)`. El modo mensual queda replicable
+    //     con esa misma tasa mensual, y de paso los dos modos comparten un único
+    //     rendimiento efectivo (con `rate/12` el toggle abría una brecha del
+    //     7,3 % para el mismo flujo; ahora es 2,1 %, sólo por el calendario del
+    //     aporte).
+    //
+    //  2. NO SE DESCUENTA NINGÚN COSTO. Hasta el 6-ago-2026 la página del fondo
+    //     pasaba `fees={{annualPct: 0.015}}` y la comisión se prorrateaba mes a
+    //     mes. Era defendible —la tasa del slider era un rendimiento BRUTO de
+    //     mercado— pero irreplicable: el lector veía "7 %" y un resultado que
+    //     correspondía a 5,63 % efectivo neto, sin forma de deducir el puente.
+    //     Ahora la tasa se asume NETA DE COMISIONES y así lo dice el pie del
+    //     simulador. El supuesto se declara en el texto en vez de esconderse en
+    //     la aritmética.
+    //
+    // Consecuencia que conviene tener presente: la cifra que se muestra subió
+    // ~34 % respecto de la versión con comisión (3.258.221 → 4.356.275 en el
+    // default del fondo). Ya no es la lectura conservadora — es la que el 7 %
+    // rotulado promete. Ver FondoCalculadora sobre el default de la tasa.
     const result: YearData[] = [
       { year: 0, invested: initial, total: initial, gains: 0 },
     ];
-    const monthlyRate = rate / 100 / 12;
+    const monthlyRate = Math.pow(1 + rate / 100, 1 / 12) - 1;
     let total = initial;
 
     for (let y = 1; y <= years; y++) {
       for (let m = 0; m < 12; m++) {
         total = total * (1 + monthlyRate) + (freq === "mensual" ? aporte : 0);
-        total -= total * monthlyFee;
       }
       if (freq === "anual") total += aporte;
       const invested = initial + aporte * (freq === "mensual" ? y * 12 : y);
@@ -294,7 +308,7 @@ export function CalculadoraSim({
       });
     }
     return result;
-  }, [initial, aporte, freq, rate, years, fees]);
+  }, [initial, aporte, freq, rate, years]);
 
   const final = data[data.length - 1];
   const maxTotal = final.total;
@@ -397,8 +411,13 @@ export function CalculadoraSim({
           ["Total aportado", final.invested, formatUSD, "ink"] as const,
           ["Rendimiento", gainsPct, (n: number) => `${n} %`, "gold"] as const,
         ].map(([cap, value, format, kind]) => {
+          // Oro de TEXTO y no --gold-deep: la cifra se achica sola con el
+          // contenedor (fit=40 contra 29cqw), así que en el teléfono "196 %"
+          // baja a 20px. Ahí ya no es texto grande y --gold-deep, con sus
+          // 3,88:1 sobre blanco, reprueba AA. El tono más profundo sirve en los
+          // dos extremos de la escala.
           const color =
-            kind === "gold" ? "var(--gold-deep)" : kind === "pos" ? "var(--pos)" : "var(--site-ink)";
+            kind === "gold" ? "var(--gold-ink)" : kind === "pos" ? "var(--pos)" : "var(--site-ink)";
           return (
             <div key={cap} className="calc-figure">
               <div className="eyebrow-sm calc-figure-cap">{cap}</div>
@@ -541,19 +560,39 @@ export function CalculadoraSim({
           → --medida-legal): el tope en caracteres, no en em. */}
       <p className="t-small calc-legal">
         Esta simulación es informativa y no constituye asesoramiento financiero ni una proyección de
-        rendimiento de ningún producto. El rendimiento anual promedio lo elegís vos; los cálculos
-        asumen interés compuesto mensual con tasa constante.
-        {/* Acá NO se enumeran los costos (pedido del cliente, 3-ago): nombrar la
-            comisión del Fondo y lo que queda fuera —comisiones de los ETFs y
-            fondos subyacentes, demás gastos, tributos— hacía leer la simulación
-            como si el producto tuviera costos escondidos. El cálculo sigue
-            descontando la comisión (ver `fees` arriba), así que la cifra que se
-            muestra es la conservadora; simplemente no se afirma nada sobre
-            costos en esta nota. La comisión sí está declarada en su propia
-            sección de la página. */}
+        rendimiento de ningún producto. El rendimiento anual promedio lo elegís vos y se asume
+        constante: la simulación no descuenta costos, de modo que la tasa que ingresás se toma como
+        un rendimiento ya neto de comisiones. Es una tasa efectiva anual y los aportes se acreditan
+        al cierre de cada período.
+        {/* Las últimas dos frases NO son relleno legal: son la definición
+            operativa que le falta a quien quiera rehacer la cuenta. "Efectiva
+            anual" descarta dividir entre 12 y "al cierre de cada período"
+            descarta la anualidad adelantada — con las dos, el modo anual sale
+            exacto con la función de valor futuro de cualquier planilla. Ver el
+            bloque del useMemo por qué llegamos acá.
+
+            SOBRE LOS COSTOS, y por qué está redactado así y no de otras dos
+            formas que parecen equivalentes:
+
+            · "se asume neto de comisiones" A SECAS (como quedó el 6-ago) deja
+              ambiguo quién netea: se puede leer como "el resultado que estás
+              viendo ya está neto", o sea que la página lo hizo. Es lo contrario
+              de lo que pasa. Por eso ahora la omisión va PRIMERO y explícita
+              ("no descuenta costos") y el supuesto sobre la tasa va después,
+              como consecuencia.
+            · "no se descuenta la comisión del Fondo" es peor que no decir nada:
+              nombra UNA omisión y se lee como la lista completa. No lo es — el
+              Reglamento tiene una segunda capa de comisiones (las de los ETFs y
+              fondos subyacentes; factor de riesgo 7 la llama estructural), más
+              los gastos de la 12.2 y los tributos de la 12.3.
+
+            Por eso: omisión completa, sin enumerar. Enumerarlas fue vetado por
+            el cliente el 3-ago —hacía leer el producto como si tuviera costos
+            escondidos— y ese veto sigue en pie. La comisión sí está declarada en
+            su propia sección de la página y en el FAQ. */}
       </p>
 
-      <style>{`
+      <style>{css`
         /* Layout general. Dos columnas y colocación explícita: el DOM viene en
            orden lógico (parámetros → resultado → gráfico → hitos) y acá las
            cifras suben a la fila 1, ancho completo. */

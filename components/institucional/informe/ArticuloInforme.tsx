@@ -229,7 +229,9 @@ export function ArticuloInforme({
                   <span className="inf-mas-k">El fondo</span>
                   <span className="inf-mas-d">BNG Selección Global — nosotros, en un solo vehículo.</span>
                 </a>
-                <Link href="/contacto" className="inf-mas-item">
+                {/* Sin prefetch, como el resto de las salidas a /contacto: es
+                    ruta estática y prefetcharla baja su hero de 435 KB. */}
+                <Link href="/contacto" className="inf-mas-item" prefetch={false}>
                   <span className="inf-mas-k">Hablar con un asesor</span>
                   <span className="inf-mas-d">Tu cartera no cabe en un informe general.</span>
                 </Link>
@@ -431,7 +433,9 @@ export function ArticuloInforme({
           max-width: 36em;
         }
         .inf-cita p {
-          font-family: var(--font-serif), Georgia, serif;
+          /* La cursiva en serif pide su propia variable. Ver el comentario de
+             .serif-i en app/globals.css. */
+          font-family: var(--font-serif-i), Georgia, serif;
           font-style: italic;
           font-weight: 300;
           font-size: clamp(18.5px, 1.9vw, 23px);

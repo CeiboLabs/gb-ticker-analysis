@@ -1,3 +1,4 @@
+import { css } from "@/lib/css";
 /**
  * Barra de marca del SITIO DEL FONDO (ver `lib/sitios.ts`).
  *
@@ -45,7 +46,7 @@ export function NavbarFondo({ casa }: { casa: string }) {
         </nav>
       </div>
 
-      <style>{`
+      <style>{css`
         .fbrand {
           position: absolute; top: 0; left: 0; right: 0; z-index: 55;
           height: var(--nav-h);

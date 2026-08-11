@@ -19,14 +19,23 @@ import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FondoTenencias } from "@/components/institucional/FondoTenencias";
 import { FondoGeografia } from "@/components/institucional/FondoGeografia";
 import { fondoMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { organizationFondoLd, websiteFondoLd, investmentFundLd } from "@/lib/jsonld";
 import { estaOculta } from "@/lib/paginasOcultas";
 import { RUTA_FONDO } from "@/lib/sitios";
 import { origenCasaServer } from "@/lib/sitiosServer";
+import { css } from "@/lib/css";
+
+// Una sola definición: la meta description y el `description` del JSON-LD del
+// fondo tienen que ser LA MISMA cadena — que los datos estructurados coincidan
+// con lo que se le muestra al buscador es requisito de Google, y dos literales
+// separados divergen en la primera edición.
+const DESCRIPCION =
+  "BNG Selección Global: estrategia diversificada, con exposición a renta variable y fija a nivel global, domiciliada en Uruguay. Estrategia, performance y documentos.";
 
 export const metadata: Metadata = fondoMetadata({
   title: "BNG Selección Global",
-  description:
-    "BNG Selección Global: estrategia diversificada, con exposición a renta variable y fija a nivel global, domiciliada en Uruguay. Estrategia, performance y documentos.",
+  description: DESCRIPCION,
   // Canonical a la RAÍZ del dominio del fondo: en su sitio, esta página ES la
   // home. `/bng-seleccion-global` es sólo dónde vive el archivo —y por dónde se
   // entra donde hay un solo hostname (dev y home server)—, así que si el
@@ -76,6 +85,14 @@ export default async function FondoPage() {
   // home de la casa y se saldría del sitio del fondo.
   return (
     <main id="top" className="site fondo-page">
+      {/* ── Datos estructurados ────────────────────────────────────────
+          No pinta nada: son tres bloques <script type="application/ld+json">
+          que le dicen a Google QUIÉN gestiona el fondo (identidad verificable
+          de la casa), CÓMO se llama este sitio en el resultado de búsqueda, y
+          QUÉ es el producto. Cada campo sale de algo que la página ya dice
+          visible — ver el comentario largo en lib/jsonld.ts. */}
+      <JsonLd data={[organizationFondoLd(), websiteFondoLd(), investmentFundLd(DESCRIPCION)]} />
+
       {/* ── Header data-rich: claim editorial + cotización viva ───────── */}
       <FondoHero casa={casa} />
 
@@ -92,9 +109,9 @@ export default async function FondoPage() {
             <div className="eyebrow-sm">La estrategia, de un vistazo</div>
             <h2 className="t-h2">El mundo, en un solo vehículo.</h2>
             <p className="t-lead">
-              Obtener esta diversificación por cuenta propia exige decenas de instrumentos y
-              rebalanceos permanentes. BNG Selección Global la ofrece a través de un solo vehículo —
-              balanceado, global y gestionado profesionalmente desde Uruguay.
+              BNG Selección Global le ofrece a través de un solo vehículo, la posibilidad de obtener
+              exposición a activos globales, de forma eficiente y gestionado profesionalmente desde
+              Uruguay.
             </p>
           </Reveal>
         </div>
@@ -145,8 +162,7 @@ export default async function FondoPage() {
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>Cómo está construida.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Se combinan tres clases de activos. Cada una se accede de forma eficiente y
-                diversificada.
+                Se combinan tres clases de activos, de forma eficiente y diversificada.
               </p>
             </div>
           </Reveal>
@@ -175,8 +191,8 @@ export default async function FondoPage() {
             <div>
               <h2 className="t-h2" style={{ maxWidth: "16em" }}>Una cartera global requiere un proceso de inversión robusto.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Obtener esta diversificación por tu cuenta es posible. La diferencia está en todo lo
-                que BNG Selección Global resuelve por vos — y en quién lo hace.
+                El diferencial está en todo lo que BNG Selección Global resuelve por vos — y en
+                quién lo hace.
               </p>
             </div>
           </Reveal>
@@ -219,7 +235,7 @@ export default async function FondoPage() {
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Rendimientos</div>
             <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>El estado de la estrategia, al día.</h2>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>La estrategia, al día.</h2>
               <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
                 Valor cuota, rendimientos acumulados, por año calendario y estadísticas de la serie,
                 con actualización diaria.
@@ -451,7 +467,7 @@ export default async function FondoPage() {
         </div>
       </section>
 
-      <style>{`
+      <style>{css`
         /* Anclas de la nav interna: el tope de cada sección queda por debajo de
            la barra sticky de secciones. Antes acá había que sumarle también el
            --nav-h del navbar FIJO de la casa; en el sitio del fondo ese navbar ya

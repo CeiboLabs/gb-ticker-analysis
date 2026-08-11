@@ -8,8 +8,21 @@
 // cambió es una función que la gente busca en otras plataformas. Que además
 // necesite un correo para funcionar es una consecuencia, no el objetivo. Eso es
 // lo que las separa de un CTA.
+//
+// DÓNDE VA EL CONTROL, y por qué se movió. Vivía como una SEXTA celda de la
+// ficha técnica (Reporte ID · Mesa · Cobertura · Horizonte · Generado), y estaba
+// mal por dos razones:
+//   · La ficha describe el DOCUMENTO. Seguir es una acción sobre la ACCIÓN y un
+//     estado del LECTOR: otra categoría. Por eso se leía pegado con cinta.
+//   · `.hairline-row` es `repeat(5, 1fr)`: la sexta celda caía sola a una
+//     segunda fila, sin borde derecho y más alta que las de arriba.
+// Ahora va en la barra de acciones del masthead, colgando de la identidad de la
+// acción —que es lo que se sigue—, junto a Exportar PDF y Actualizar análisis y
+// con su mismo vestido (.am-btn). Es la convención de la industria: Morningstar
+// lo cuelga del menú de la cabecera del ticker, y Seeking Alpha rehizo lo mismo
+// al mover sus avisos al lado del dato que avisan.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NewsletterSignup } from "@/components/institucional/NewsletterSignup";
 
 type EstadoFollow = {
@@ -32,32 +45,56 @@ export type SeguidoUI = {
   } | null;
 };
 
-const Check = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M20 6L9 17l-5-5" />
+// Marcador de línea, en el mismo dibujo geométrico que los íconos del masthead
+// (viewBox 24, trazo fino, sin relleno). Relleno sólo cuando ya se sigue: ahí el
+// oro marca un ESTADO real, que es el único uso que la guía le concede además de
+// la palabra del titular. En reposo el botón no lleva ni una gota de color.
+const Marcador = ({ activo }: { activo: boolean }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill={activo ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth="1.4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M6 3h12v18l-6-4.5L6 21z" />
   </svg>
 );
 
-async function postFollow(body: Record<string, unknown>): Promise<Response> {
-  return fetch("/api/follow", {
+async function postFollow(body: Record<string, unknown>): Promise<void> {
+  const r = await fetch("/api/follow", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  // El 429 y el 503 son los que antes se tragaba el `.catch(() => {})`: el botón
+  // quedaba mudo y parecía roto. Ahora vuelven como error y el control lo dice.
+  if (!r.ok) {
+    const msg = r.status === 429
+      ? "Demasiados intentos. Probá en unos minutos."
+      : "No se pudo guardar. Probá de nuevo.";
+    throw new Error(msg);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Celda de la ficha técnica
+   Control en la barra de acciones del masthead
    ══════════════════════════════════════════════════════════════ */
 
-export function FollowCell({ ticker }: { ticker: string }) {
+export function FollowButton({ ticker }: { ticker: string }) {
   const [estado, setEstado] = useState<EstadoFollow | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Se pregunta UNA vez, en el momento de seguir: es el único punto donde el dato
   // no interrumpe nada. A un cliente de la casa no se le ofrece abrir una cuenta
   // que ya tiene — su aviso va a su asesor.
   const [soyCliente, setSoyCliente] = useState(false);
+  const raizRef = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -70,7 +107,7 @@ export function FollowCell({ ticker }: { ticker: string }) {
     }
   }, [ticker]);
 
-  // Sin resets al cambiar de ticker: el padre monta esta celda con key={ticker},
+  // Sin resets al cambiar de ticker: el padre monta este control con key={ticker},
   // así que un ticker nuevo es un componente nuevo con estado limpio. Resetear
   // acá además viola la regla de no llamar setState sincrónico en un effect.
   useEffect(() => {
@@ -86,14 +123,34 @@ export function FollowCell({ ticker }: { ticker: string }) {
     }
   }, [estado?.identificado, estado?.siguiendo, ticker]);
 
+  // El panel es un popover en la cabecera: se cierra con Escape y con un click
+  // afuera, como cualquier otro. Antes sólo tenía "Cancelar" porque vivía
+  // incrustado en la ficha técnica y no tapaba nada.
+  useEffect(() => {
+    if (!abierto) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAbierto(false); };
+    const onDown = (e: MouseEvent) => {
+      if (!raizRef.current?.contains(e.target as Node)) setAbierto(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [abierto]);
+
   async function seguir() {
     if (!estado) return;
     if (!estado.identificado) { setAbierto(true); return; }
     setEnviando(true);
+    setError(null);
     try {
       await postFollow({ ticker, accion: "seguir", esCliente: soyCliente });
       await cargar();
       setAbierto(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar.");
     } finally {
       setEnviando(false);
     }
@@ -101,37 +158,42 @@ export function FollowCell({ ticker }: { ticker: string }) {
 
   async function dejar() {
     setEnviando(true);
+    setError(null);
     try {
       await postFollow({ ticker, accion: "dejar" });
       await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar.");
     } finally {
       setEnviando(false);
     }
   }
 
-  // Mientras no sabemos el estado, la celda queda vacía en lugar de parpadear
-  // entre "Seguir" y "Siguiendo".
-  if (!estado) return <div className="cell sg-cell" aria-hidden />;
+  // Mientras no sabemos el estado no se dibuja nada: el botón parpadearía entre
+  // "Seguir" y "Siguiendo". Sin reservar hueco — la barra de acciones es flex y
+  // los otros dos botones no se mueven de lugar al aparecer éste a su izquierda.
+  if (!estado) return null;
+
+  const siguiendo = estado.siguiendo;
 
   return (
-    <div className="cell sg-cell">
-      <div className="label">Seguimiento</div>
-      {estado.siguiendo ? (
-        <div className="sg-on">
-          <span className="sg-on-t"><Check /> Siguiendo</span>
-          <button type="button" className="sg-drop" onClick={dejar} disabled={enviando}>
-            dejar
-          </button>
-        </div>
-      ) : (
-        <button type="button" className="sg-btn" onClick={seguir} disabled={enviando}>
-          <span className="sg-dot" aria-hidden />
-          {enviando ? "…" : `Seguir ${ticker}`}
-        </button>
-      )}
+    <div className="sg-root" ref={raizRef}>
+      <button
+        type="button"
+        className={`am-btn sg-btn${siguiendo ? " is-on" : ""}`}
+        onClick={siguiendo ? dejar : seguir}
+        disabled={enviando}
+        aria-pressed={siguiendo}
+        title={siguiendo ? `Dejar de seguir ${ticker}` : `Seguir ${ticker} y recibir un aviso si cambia la calificación`}
+      >
+        <Marcador activo={siguiendo} />
+        {siguiendo ? "Siguiendo" : "Seguir"}
+      </button>
+
+      {error && <div className="sg-err" role="status">{error}</div>}
 
       {abierto && !estado.identificado && (
-        <div className="sg-panel" role="dialog" aria-label="Seguir esta acción">
+        <div className="sg-panel" role="dialog" aria-label={`Seguir ${ticker}`}>
           <div className="sg-panel-t">Te avisamos cuando cambie.</div>
           <p className="sg-panel-b">
             Si la casa cambia la calificación de {ticker}, o cuando la empresa presente resultados,
@@ -155,32 +217,26 @@ export function FollowCell({ ticker }: { ticker: string }) {
       )}
 
       <style>{`
-        .sg-cell { position: relative; }
-        .sg-btn, .sg-drop, .sg-cerrar {
-          font-family: var(--site-font); cursor: pointer; background: none;
-          line-height: 1.2; padding: 0;
+        .sg-root { position: relative; display: inline-flex; flex-direction: column; align-items: flex-end; }
+        /* El botón hereda .am-btn entero (hairline 1px, radio 3, 12.5px, sin
+           sombra) para que Seguir · Exportar PDF · Actualizar se lean como tres
+           piezas del mismo instrumento. Acá sólo va lo que cambia al estar ON. */
+        .sg-btn.is-on { color: var(--ink); border-color: var(--rule-strong); }
+        #masthead .sg-btn.is-on svg { color: var(--gold-deep); }
+        /* Absoluto y no en flujo: el mensaje es más ancho que el botón y, como
+           hijo de un flex item dentro de .am-actions (justificado a la derecha),
+           ensanchaba .sg-root y corría toda la barra de acciones al aparecer.
+           Un error no debe mover el control que lo produjo. */
+        .sg-err {
+          position: absolute; top: calc(100% + 6px); right: 0;
+          width: max-content; max-width: 22em;
+          font-family: var(--site-font); font-size: 11.5px; line-height: 1.4;
+          color: var(--neg); text-align: right;
         }
-        .sg-btn {
-          display: inline-flex; align-items: center; gap: 7px; margin-top: 4px;
-          font-size: 13px; font-weight: 700; color: var(--navy);
-          border: 1px solid var(--rule-strong); border-radius: 3px; padding: 5px 11px;
-          white-space: nowrap; transition: border-color 0.16s ease;
-        }
-        .sg-btn:hover:not(:disabled) { border-color: var(--navy); }
-        .sg-btn:disabled { opacity: 0.55; cursor: default; }
-        .sg-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--gold-deep); flex: none; }
-        .sg-on { display: flex; align-items: baseline; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
-        .sg-on-t {
-          display: inline-flex; align-items: center; gap: 5px; font-family: var(--site-font);
-          font-size: 13.5px; font-weight: 700; color: var(--pos);
-        }
-        .sg-drop { font-size: 12px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 2px; border: 0; }
-        .sg-drop:hover:not(:disabled) { color: var(--ink); }
-        .sg-drop:disabled { opacity: 0.5; cursor: default; }
 
-        /* Panel anclado a la celda. Absoluto para no empujar la ficha —que es una
-           grilla de hairlines y se descuadra si una celda crece— y alineado a la
-           derecha porque es la última columna. */
+        /* Panel anclado al botón. Absoluto para no empujar la barra de acciones
+           —que comparte fila con el estado de mercado— y alineado a la derecha,
+           que es el borde por el que crece la columna de acciones. */
         .sg-panel {
           position: absolute; top: calc(100% + 8px); right: 0; z-index: 6;
           width: min(340px, calc(100vw - 40px)); box-sizing: border-box;
@@ -206,11 +262,18 @@ export function FollowCell({ ticker }: { ticker: string }) {
         .sg-check input { margin-top: 2px; flex: none; }
         .sg-cerrar {
           margin-top: 12px; font-size: 12px; color: var(--ink-3);
-          border: 0; text-decoration: underline; text-underline-offset: 2px;
+          background: none; border: 0; padding: 0; cursor: pointer;
+          font-family: var(--site-font);
+          text-decoration: underline; text-underline-offset: 2px;
         }
         .sg-cerrar:hover { color: var(--ink); }
+        /* Debajo de 640px la barra de acciones se alinea a la izquierda (ver la
+           regla de .am-actions en el masthead), así que el panel y el error la
+           siguen en vez de colgar de un borde derecho que ya no existe. */
         @media (max-width: 640px) {
+          .sg-root { align-items: flex-start; }
           .sg-panel { right: auto; left: 0; }
+          .sg-err { right: auto; left: 0; text-align: left; }
         }
       `}</style>
     </div>
@@ -222,7 +285,15 @@ export function FollowCell({ ticker }: { ticker: string }) {
    ══════════════════════════════════════════════════════════════ */
 
 /**
- * Tira sobre el informe con lo que se movió en las acciones que la persona sigue.
+ * Fila con lo que se movió en las acciones que la persona sigue.
+ *
+ * VA DENTRO DEL MASTHEAD, arriba del buscador. Antes era una banda full-bleed
+ * montada como primer hijo de `main`: quedaba en `y 0–44` con el navbar fijo
+ * ocupando `0–72`, o sea TAPADA SIEMPRE. Lo único que producía era 44px de aire
+ * inexplicable sobre la cabecera, y el pago de seguir una acción —"AAPL pasó de
+ * BUY a HOLD desde tu última visita"— no lo veía nadie. Acá comparte el bloque
+ * de navegación con el buscador: buscar una acción nueva y volver a las que ya
+ * seguís son la misma tarea.
  *
  * FUNCIONA SIN CORREO: el diff sale de comparar el veredicto que vio con el
  * vigente, las dos cosas en la base. Cuando exista el envío de mails, lee esto
@@ -254,56 +325,57 @@ export function SeguidosStrip({ tickerActual, onSelect }: { tickerActual: string
   const conCambio = seguidos.filter((s) => s.cambio?.cambioVerdicto && s.ticker !== tickerActual);
 
   return (
-    <div className="sgs-root">
-      <div className="site-wrap sgs-wrap">
-        <span className="sgs-lbl">Seguís</span>
-        <div className="sgs-list">
-          {seguidos.map((s) => {
-            const cambio = s.cambio?.cambioVerdicto && s.ticker !== tickerActual;
-            const activo = s.ticker === tickerActual;
-            return (
-              <button
-                key={s.ticker}
-                type="button"
-                className={`sgs-tk${activo ? " is-activo" : ""}${cambio ? " is-cambio" : ""}`}
-                onClick={() => onSelect(s.ticker)}
-                title={
-                  cambio
-                    ? `Cambió de ${s.cambio?.verdictoAntes} a ${s.cambio?.verdictoAhora} desde tu última visita`
-                    : undefined
-                }
-              >
-                {s.ticker}
-                {cambio && <span className="sgs-punto" aria-hidden />}
-              </button>
-            );
-          })}
-        </div>
-        {conCambio.length > 0 && (
-          <span className="sgs-aviso">
-            {conCambio.length === 1
-              ? `${conCambio[0].ticker} pasó de ${conCambio[0].cambio?.verdictoAntes} a ${conCambio[0].cambio?.verdictoAhora}`
-              : `${conCambio.length} cambiaron de calificación desde tu última visita`}
-          </span>
-        )}
+    <div className="sgs-row">
+      <span className="sgs-lbl">Seguís</span>
+      <div className="sgs-list">
+        {seguidos.map((s) => {
+          const cambio = s.cambio?.cambioVerdicto && s.ticker !== tickerActual;
+          const activo = s.ticker === tickerActual;
+          return (
+            <button
+              key={s.ticker}
+              type="button"
+              className={`sgs-tk${activo ? " is-activo" : ""}${cambio ? " is-cambio" : ""}`}
+              onClick={() => onSelect(s.ticker)}
+              title={
+                cambio
+                  ? `Cambió de ${s.cambio?.verdictoAntes} a ${s.cambio?.verdictoAhora} desde tu última visita`
+                  : undefined
+              }
+            >
+              {s.ticker}
+              {cambio && <span className="sgs-punto" aria-hidden />}
+            </button>
+          );
+        })}
       </div>
+      {conCambio.length > 0 && (
+        <span className="sgs-aviso">
+          {conCambio.length === 1
+            ? `${conCambio[0].ticker} pasó de ${conCambio[0].cambio?.verdictoAntes} a ${conCambio[0].cambio?.verdictoAhora}`
+            : `${conCambio.length} cambiaron de calificación desde tu última visita`}
+        </span>
+      )}
 
       <style>{`
-        .sgs-root { background: var(--surface-muted); border-bottom: 1px solid var(--rule); }
-        .sgs-wrap {
-          display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-          padding-top: 10px; padding-bottom: 10px;
+        /* Sin banda ni fondo propio: es una fila del masthead, no un app bar. La
+           hairline que separa el bloque de navegación de la identidad ya la pone
+           .am-search abajo — meter otra acá dejaría dos reglas seguidas. */
+        .sgs-row {
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+          margin-bottom: 14px;
         }
         .sgs-lbl {
-          font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+          font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em;
           text-transform: uppercase; color: var(--ink-3); flex: none;
         }
         .sgs-list { display: flex; gap: 6px; flex-wrap: wrap; }
         .sgs-tk {
           position: relative; font-family: var(--font-mono); font-size: 11.5px;
           letter-spacing: 0.04em; padding: 3px 8px; border: 1px solid var(--rule-strong);
-          border-radius: 3px; background: var(--surface); color: var(--ink-2);
+          border-radius: 3px; background: var(--paper); color: var(--ink-2);
           cursor: pointer; white-space: nowrap; line-height: 1.3;
+          transition: border-color .16s ease, color .16s ease;
         }
         .sgs-tk:hover { border-color: var(--navy); color: var(--navy); }
         .sgs-tk.is-activo { border-color: var(--ink); color: var(--ink); font-weight: 600; }
@@ -313,7 +385,7 @@ export function SeguidosStrip({ tickerActual, onSelect }: { tickerActual: string
         .sgs-punto {
           position: absolute; top: -3px; right: -3px; width: 6px; height: 6px;
           border-radius: 999px; background: var(--gold-deep);
-          box-shadow: 0 0 0 2px var(--surface-muted);
+          box-shadow: 0 0 0 2px var(--paper);
         }
         .sgs-aviso { font-family: var(--site-font); font-size: 12.5px; color: var(--ink-2); }
       `}</style>

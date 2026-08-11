@@ -63,15 +63,43 @@ Comandos ffmpeg (desde la carpeta donde tengas el original `fuente.mp4`):
 
 ```bash
 # MP4 (H.264) optimizado para web, sin audio
-ffmpeg -i fuente.mp4 -an -vf "scale=1920:-2" -c:v libx264 -crf 26 -preset slow \
-  -movflags +faststart hero-home.mp4
+ffmpeg -i fuente.mp4 -an -vf "scale=1920:-2" -c:v libx264 -crf 34 -preset slow \
+  -profile:v high -pix_fmt yuv420p -movflags +faststart hero-home.mp4
 
-# WebM (VP9), más liviano
-ffmpeg -i fuente.mp4 -an -vf "scale=1920:-2" -c:v libvpx-vp9 -crf 34 -b:v 0 hero-home.webm
+# WebM (VP9) — DOS PASADAS con bitrate objetivo, no CRF (ver abajo)
+ffmpeg -i fuente.mp4 -an -c:v libvpx-vp9 -b:v 1900k -pass 1 -row-mt 1 -cpu-used 3 -f null /dev/null
+ffmpeg -i fuente.mp4 -an -c:v libvpx-vp9 -b:v 1900k -pass 2 -row-mt 1 -cpu-used 1 hero-home.webm
 
 # Poster: tomar el primer frame
 ffmpeg -i fuente.mp4 -vframes 1 -q:v 3 hero-home-poster.jpg
 ```
+
+### Por qué estos números (medido 2026-08-05, montaje actual)
+
+La receta anterior (`-crf 26` para H.264 y `-crf 34 -b:v 0` para VP9) daba
+**12,7 MB de mp4 y 11,3 MB de webm** — muy por encima del "< 4–6 MB" que pide
+este mismo documento, y el webm es el que efectivamente descargan Chrome y
+Firefox. Medido contra el master, con SSIM:
+
+| encoding | peso | SSIM |
+|---|---|---|
+| webm viejo (VP9 CRF, 1 pasada) | 11,26 MB | 0,925 |
+| **webm nuevo (VP9 2-pass 1900k)** | **4,44 MB** | 0,916 |
+| mp4 viejo (H.264 CRF 26) | 12,74 MB | — (es la referencia) |
+| **mp4 nuevo (H.264 CRF 34 slow)** | **4,36 MB** | **0,935** |
+
+Dos cosas que valen para la próxima vez:
+
+- **VP9 en modo CRF no rinde con este material** (aéreas con mucho detalle en
+  movimiento): a CRF 36 daba 12,5 MB y a CRF 40 todavía 10,7 MB. Con dos pasadas
+  y bitrate objetivo baja a 4,4 MB con prácticamente la misma calidad. Para VP9,
+  2-pass es el camino.
+- **El mp4 nuevo a 4,36 MB tiene MÁS calidad (0,935) que el webm viejo de 11,26 MB
+  (0,925)**: el webm estaba mal encodeado, gastaba el triple para menos.
+
+Al reencodear, verificar que el frame count y la duración no cambien (586 frames
+/ 19,533 s): el loop empalma **cuadro a cuadro** con su propio inicio y un frame
+de más o de menos se ve como un salto.
 
 ## Contenido sugerido
 

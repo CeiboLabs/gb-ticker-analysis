@@ -88,7 +88,13 @@ export function HeroInstitucional() {
             </motion.p>
 
             <motion.div style={{ display: "flex", gap: 14, marginTop: 36, flexWrap: "wrap", alignItems: "center" }} {...rise(0.85)}>
-              <Link href="/contacto" className="ui-btn ui-btn-on-navy" style={{ borderRadius: 999 }}>
+              {/* Sin prefetch: este CTA está en viewport desde el primer píxel
+                  de la home, y prefetchear /contacto —que es una ruta estática—
+                  arrastra el preload de su hero (`/hero/contacto.jpg`, 435 KB)
+                  en CADA carga de la página más visitada del sitio. Se paga un
+                  fetch del RSC al clickear. Ver la nota de SIN_PREFETCH en
+                  Navbar.tsx. */}
+              <Link href="/contacto" className="ui-btn ui-btn-on-navy" style={{ borderRadius: 999 }} prefetch={false}>
                 Agendá una reunión
               </Link>
             </motion.div>
