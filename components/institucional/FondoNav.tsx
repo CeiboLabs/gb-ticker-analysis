@@ -24,20 +24,29 @@ import { css } from "@/lib/css";
 // del DOM — requisito del scrollspy de abajo: la lista debe ser una subsecuencia
 // creciente de las secciones para que el activo avance de forma monótona.
 // No están todas a propósito: Diferencia y Perfil son conectores narrativos
-// cortos y se omiten del menú; al pasarlas, el activo se queda en la sección
-// previa (Cartera / Calculadora), lo cual es aceptable.
-// Flujo: promesa → cómo invierte → de qué se compone → quién la gestiona
-// (credibilidad) → estado/proyección → documentos → objeciones.
+// cortos y se omiten del menú.
+// Flujo: promesa → cómo invierte → de qué se compone → cómo le fue → quién la
+// gestiona (credibilidad) → proyección → documentos → objeciones.
+// El orden tiene que espejar el del DOM: el scrollspy recorre esta lista.
+//
+// `desde` = sección donde la pestaña EMPIEZA a estar activa, cuando además de la
+// suya cubre un conector que no tiene entrada propia. Sin esto el activo de un
+// conector se queda en la pestaña previa, y eso rotula mal: «Qué lo distingue»
+// va entre Performance y La casa, así que sin `desde` se lee bajo "Performance"
+// —una sección de argumentación anunciada como rendimientos—. Argumenta hacia
+// adelante ("y en quién lo hace"), así que pertenece a "Nosotros". El ancla del
+// clic sigue siendo `id`.
+// Perfil queda bajo "Calculadora" a propósito: es el cierre de esa lectura.
 const LINKS = [
   { id: "resumen", label: "Resumen" },
   { id: "estrategia", label: "Estrategia" },
   { id: "cartera", label: "Cartera" },
-  { id: "casa", label: "Nosotros" },
   { id: "performance", label: "Performance" },
+  { id: "casa", label: "Nosotros", desde: "diferencia" },
   { id: "calculadora", label: "Calculadora" },
   { id: "documentos", label: "Documentos" },
   { id: "faq", label: "Preguntas" },
-] as const;
+] as const satisfies ReadonlyArray<{ id: string; label: string; desde?: string }>;
 
 // Línea de lectura del scrollspy, en px desde el tope del viewport: apenas por
 // debajo de esta barra (≈50 px de alto). Tiene que quedar POR DEBAJO del
@@ -73,9 +82,10 @@ export function FondoNav({ casa }: { casa: string }) {
       cancelAnimationFrame(raf.current);
       raf.current = requestAnimationFrame(() => {
         let current = "";
-        for (const { id } of LINKS) {
-          const el = document.getElementById(id);
-          if (el && el.getBoundingClientRect().top <= LINEA_LECTURA) current = id;
+        for (const l of LINKS) {
+          // Se mide `desde` (el arranque del tramo), pero se activa `id`.
+          const el = document.getElementById("desde" in l ? l.desde : l.id);
+          if (el && el.getBoundingClientRect().top <= LINEA_LECTURA) current = l.id;
         }
         setActive(current);
       });

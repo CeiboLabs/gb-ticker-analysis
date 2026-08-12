@@ -195,6 +195,17 @@ export function FondoChart({
           borderColor: PALETTE.rule,
           timeVisible: false,
           secondsVisible: false,
+          // SIN esto, en el teléfono la ventana «Máx» del backtest se ve
+          // RECORTADA por delante. La librería tiene un ancho mínimo por punto
+          // (minBarSpacing, 0.5px por defecto) y fitContent no lo puede pisar:
+          // con 328px de plot entran 656 puntos, y la simulación son ~1.000
+          // cierres diarios, así que el encuadre se comía el primer año y medio
+          // —arrancaba en 2024 con los chips diciendo 2022— sin ninguna señal de
+          // que faltaba serie. Bajándolo, fitContent comprime hasta donde haga
+          // falta y la ventana entra entera en cualquier ancho. No afecta a las
+          // ventanas cortas: ahí el espaciado que calcula fitContent es mucho
+          // mayor que este piso.
+          minBarSpacing: 0.02,
         },
         handleScroll: false,
         handleScale: {

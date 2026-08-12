@@ -180,11 +180,39 @@ export default async function FondoPage() {
         </div>
       </section>
 
+      {/* ── Performance ───────────────────────────────────────────────
+           Va inmediatamente después de Cartera —o sea, debajo de la exposición
+           geográfica—: el lector que acaba de ver EN QUÉ está invertido pregunta
+           CÓMO le fue, y hacerlo esperar hasta después de Diferenciación y La
+           casa es hacerlo scrollear dos secciones de argumentación para llegar
+           al dato.
+
+           En pre-lanzamiento la sección se muestra igual, con el módulo
+           entero en andamiaje y el gráfico reemplazado por su aviso de
+           «Próximamente» (ver FondoPerformance). El lead de acá tiene que
+           funcionar en los dos estados: enumera lo que el módulo publica sin
+           afirmar que ya está publicado. ──────────────────────────────── */}
+      <section id="performance" className="band-muted site-section">
+        <div className="site-wrap">
+          <Reveal as="div" className="split-label">
+            <div className="eyebrow-sm">Rendimientos</div>
+            <div>
+              <h2 className="t-h2" style={{ maxWidth: "16em" }}>La estrategia, al día.</h2>
+              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
+                Valor cuota, rendimientos acumulados, por año calendario y estadísticas de la serie,
+                con actualización diaria.
+              </p>
+            </div>
+          </Reveal>
+          <div style={{ marginTop: 48 }}><FondoPerformance /></div>
+        </div>
+      </section>
+
       {/* ── Diferenciación · por qué este enfoque y no armarlo solo.
            Va ANTES de La casa: su argumento ("y en quién lo hace" + la última
            fila "el respaldo de una casa regulada por el BCU") prepara la entrada
            de La casa, en vez de apuntar hacia atrás. ──── */}
-      <section id="diferencia" className="band-muted site-section">
+      <section id="diferencia" className="band site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">Qué lo distingue</div>
@@ -201,7 +229,7 @@ export default async function FondoPage() {
       </section>
 
       {/* ── La casa · credibilidad (sustituye el track record ausente) ── */}
-      <section id="casa" className="band site-section">
+      <section id="casa" className="band-muted site-section">
         <div className="site-wrap">
           <Reveal as="div" className="split-label">
             <div className="eyebrow-sm">La Institución</div>
@@ -221,28 +249,6 @@ export default async function FondoPage() {
             </div>
           </Reveal>
           <div style={{ marginTop: 48 }}><FondoCasa casa={casa} /></div>
-        </div>
-      </section>
-
-      {/* ── Performance ───────────────────────────────────────────────
-           En pre-lanzamiento la sección se muestra igual, con el módulo
-           entero en andamiaje y el gráfico reemplazado por su aviso de
-           «Próximamente» (ver FondoPerformance). El lead de acá tiene que
-           funcionar en los dos estados: enumera lo que el módulo publica sin
-           afirmar que ya está publicado. ──────────────────────────────── */}
-      <section id="performance" className="band-muted site-section">
-        <div className="site-wrap">
-          <Reveal as="div" className="split-label">
-            <div className="eyebrow-sm">Rendimientos</div>
-            <div>
-              <h2 className="t-h2" style={{ maxWidth: "16em" }}>La estrategia, al día.</h2>
-              <p className="t-lead" style={{ marginTop: 20, maxWidth: "34em" }}>
-                Valor cuota, rendimientos acumulados, por año calendario y estadísticas de la serie,
-                con actualización diaria.
-              </p>
-            </div>
-          </Reveal>
-          <div style={{ marginTop: 48 }}><FondoPerformance /></div>
         </div>
       </section>
 
