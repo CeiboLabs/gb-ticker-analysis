@@ -179,7 +179,7 @@ export function rebase100(rows: FundNavPoint[]): FundNavPoint[] {
 }
 
 /** Id de la vista «toda la serie» en el selector del backtest. */
-export const BACKTEST_TODO = "todo";
+export const BACKTEST_MAX = "max";
 
 /** ¿El último año de la serie está a medio correr? */
 export const ultimoAnioParcial = (data: Backtest) => !data.hasta.endsWith("-12-31");
@@ -199,22 +199,24 @@ export function rotuloAnio(data: Backtest, anio: number): string {
   return anio === ultimo && ultimoAnioParcial(data) ? "YTD" : String(anio);
 }
 
-/** Opciones del selector de período del backtest: un chip por año + «Todo» al
- *  final, que es el agregado (mismo orden que el del Fondo, donde cierra «Máx»). */
+/** Opciones del selector de período del backtest: un chip por año + «Máx» al
+ *  final, que es el agregado. Mismo rótulo y misma posición que el chip que
+ *  cierra el selector del Fondo: es el mismo control y la misma idea —toda la
+ *  serie disponible—, así que no puede llamarse distinto según la vista. */
 export function periodosBacktest(data: Backtest): { id: string; label: string }[] {
   return [
     ...data.anios.map((a) => ({ id: String(a), label: rotuloAnio(data, a) })),
-    { id: BACKTEST_TODO, label: "Todo" },
+    { id: BACKTEST_MAX, label: "Máx" },
   ];
 }
 
 /**
  * Las dos series ya recortadas y rebasadas para una vista del selector.
- * «Todo» ya viene en base 100 desde el importador; por año se recorta con ancla
+ * «Máx» ya viene en base 100 desde el importador; por año se recorta con ancla
  * en el cierre de diciembre anterior y se rebasa ahí (ver ventanaAnio).
  */
 export function ventanaVista(data: Backtest, vista: string) {
-  if (vista === BACKTEST_TODO) {
+  if (vista === BACKTEST_MAX) {
     return { estrategia: data.estrategia, referencia: data.referencia };
   }
   const anio = Number(vista);

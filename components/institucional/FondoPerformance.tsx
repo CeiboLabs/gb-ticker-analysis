@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { FundNavPoint, ReturnKey } from "@/lib/fondo";
 import { BENCHMARK, BENCHMARK_PROXY, MONEDA } from "@/lib/fondo";
 import { useFondo, fmtNav, fmtIndex, fmtPct, fmtAum, fmtFechaCorta } from "@/lib/useFondo";
-import { useBacktest, periodosBacktest, ventanaVista, BACKTEST_TODO } from "@/lib/fondoBacktest";
+import { useBacktest, periodosBacktest, ventanaVista, BACKTEST_MAX } from "@/lib/fondoBacktest";
 import { FondoChart } from "@/components/institucional/FondoChart";
 import { BacktestCaption, BacktestTabla } from "@/components/institucional/FondoBacktest";
 import { PeriodSlider } from "@/components/institucional/PeriodSlider";
@@ -155,7 +155,7 @@ export function FondoPerformance() {
   // Período del backtest — vive aparte del período del Fondo: son escalas
   // distintas (años calendario contra 1M/3M/YTD/1A/Máx) y al ir y volver entre
   // las dos series cada una conserva la suya.
-  const [vistaBt, setVistaBt] = useState<string>(BACKTEST_TODO);
+  const [vistaBt, setVistaBt] = useState<string>(BACKTEST_MAX);
 
   const data = state.kind === "ready" ? state.data : null;
   const live = !!(data && data.status === "live" && data.series.length > 1);
@@ -394,7 +394,6 @@ export function FondoPerformance() {
             periods={periodosBacktest(btData)}
             value={vistaBt}
             onChange={setVistaBt}
-            dense
             ariaLabel="Período de la simulación"
           />
         ) : (
@@ -821,6 +820,16 @@ export function FondoPerformance() {
         .perf-bar {
           display: flex; align-items: center; justify-content: space-between; gap: 16px;
           flex-wrap: wrap; margin-bottom: 18px;
+        }
+        /* En el teléfono los dos selectores ya venían apilándose por el wrap del
+           flex, pero cada uno se quedaba con su ancho natural: dos píldoras de
+           largo distinto pegadas a la izquierda, con la columna medio vacía a la
+           derecha, mientras los chips iban apretados adentro. Apilar explícito
+           en una columna los estira a lo ancho de la banda —que es lo que hace
+           un segmented control en un teléfono— y los chips se reparten ese
+           ancho en vez de encogerse. */
+        @media (max-width: 560px) {
+          .perf-bar { display: grid; grid-template-columns: 1fr; gap: 12px; }
         }
         /* Los DOS selectores de la barra —serie a la izquierda, período a la
            derecha— son el mismo componente compartido PeriodSlider, y sus

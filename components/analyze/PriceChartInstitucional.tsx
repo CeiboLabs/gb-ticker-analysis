@@ -418,7 +418,7 @@ export function PriceChartInstitucional({
     let observerInstance: ResizeObserver | null = null;
     let detachPointer: (() => void) | null = null;
 
-    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle }) => {
+    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle, TrackingModeExitMode }) => {
       if (destroyed || !containerRef.current) return;
 
       const uyHourMinute = new Intl.DateTimeFormat("es-AR", {
@@ -531,6 +531,14 @@ export function PriceChartInstitucional({
           axisPressedMouseMove: false,
           axisDoubleClickReset: false,
         },
+        // SIN esto, en el teléfono la mira queda colgada al soltar el arrastre —
+        // el mismo bug que en el gráfico del fondo, porque es la misma librería
+        // y el mismo gesto. Su modo de seguimiento para touch (apretar y
+        // sostener 240ms) es lo que dibuja la mira mientras se mide, y por
+        // defecto se apaga recién en el toque SIGUIENTE: al levantar el dedo la
+        // mira queda dibujada y el arrastre siguiente la mueve RELATIVA a donde
+        // quedó, no al dedo. OnTouchEnd la apaga con el dedo.
+        trackingMode: { exitMode: TrackingModeExitMode.OnTouchEnd },
       });
 
       chartInstance = chart;

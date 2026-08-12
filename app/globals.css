@@ -1113,8 +1113,43 @@ a { color: inherit; text-decoration: none; }
    (/bng-seleccion-global) y el precio histórico de /analisis (ver
    components/institucional/PeriodSlider.tsx). Depende de --surface-muted /
    --site-border / --navy / --site-ink-3, presentes bajo .site y .analyze-root. */
+/* Pista: la fila se corre cuando no entra, en vez de apretar el chip. La
+   sombra del thumb es ink overflow y el recorte del scroller SÍ se la come, así
+   que la pista lleva aire arriba y abajo y se lo devuelve con margen negativo:
+   la caja mide lo mismo que la píldora y no mueve nada de lo que la rodea.
+   Sin barra visible — sólo se corre en el teléfono, donde la barra es overlay. */
+.pslider-scroll {
+  overflow-x: auto; overscroll-behavior-x: contain;
+  padding-block: 12px; margin-block: -12px;
+  scrollbar-width: none;
+}
+.pslider-scroll::-webkit-scrollbar { display: none; }
+/* Difuminado del borde por el que sigue la fila (data-antes / data-despues los
+   pone el componente al desplazarse). Sólo del lado que tiene resto: con la
+   fila al principio, apagarle la punta izquierda estaría anunciando algo que no
+   está. El degradé se come el hairline de la píldora en ese borde, que es
+   justamente lo que evita que el corte lea como un tajo. */
+.pslider-scroll[data-antes="1"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 20px);
+  mask-image: linear-gradient(90deg, transparent 0, #000 20px);
+}
+.pslider-scroll[data-despues="1"] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent 100%);
+}
+.pslider-scroll[data-antes="1"][data-despues="1"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+}
+/* --pslider-min es el ancho mínimo del chip: por debajo de eso la píldora deja
+   de ser una píldora. Con `max-content` + `min-width: 100%` la fila toma el
+   ancho de la caja cuando le sobra (los chips se reparten el lugar) y el suyo
+   propio cuando le falta (y ahí la pista se corre). El thumb sigue leyendo
+   `100%` de esta caja, así que en los dos modos mide exactamente una columna. */
 .pslider {
-  position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  position: relative; display: grid; grid-auto-flow: column;
+  grid-auto-columns: minmax(var(--pslider-min, 0px), 1fr);
+  width: max-content; min-width: 100%;
   padding: 3px; background: var(--surface-muted, #f3f4f8);
   border: 1px solid var(--site-border); border-radius: 999px;
 }
@@ -1140,22 +1175,17 @@ a { color: inherit; text-decoration: none; }
 .pslider-btn:not(:disabled):not([data-active="1"]):hover { color: var(--navy); }
 /* Con el dedo el blanco es la yema, no un cursor de 1px: los períodos son el
    control principal del gráfico y a 33px de alto quedaban por debajo del mínimo
-   de 44 de las guías táctiles. El thumb se estira solo (top/bottom: 3px). */
+   de 44 de las guías táctiles. El thumb se estira solo (top/bottom: 3px).
+   Y el alto táctil obliga al mínimo horizontal: a 44,8 de alto un chip de 46
+   —los rótulos de dos caracteres de /analisis— es un CÍRCULO con el radio de
+   999px. 54 deja unos 9px de tramo recto, que es lo que hace que se siga
+   leyendo como píldora; es además el ancho natural de los rótulos del Fondo
+   (1M/3M/YTD/1A/Máx), así que sus cinco chips siguen entrando enteros en una
+   pantalla de 320. Los rótulos más largos —los años del backtest miden 57— ya
+   lo pasan solos: el mínimo no los toca, sólo levanta a los cortos. */
 @media (pointer: coarse) {
+  .pslider { --pslider-min: 54px; }
   .pslider-btn { padding-top: 12px; padding-bottom: 12px; }
-}
-/* Variante apretada (prop `dense`) — para filas de MÁS de cinco opciones, como
-   el selector del backtest, que lleva un chip por año calendario más «Todo».
-   Medido a 320 de viewport: seis chips con el padding normal miden 351px y la
-   columna útil es de 280, o sea que la píldora se salía 71px de la página.
-   Sólo se achica el eje horizontal — el alto táctil de 44px lo sigue dando la
-   regla de (pointer: coarse) de acá arriba, que toca top/bottom. */
-@media (max-width: 480px) {
-  .pslider[data-dense="1"] .pslider-btn {
-    padding-left: 7px;
-    padding-right: 7px;
-    font-size: 12px;
-  }
 }
 
 /* ── Inputs ── */

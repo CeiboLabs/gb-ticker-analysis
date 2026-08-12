@@ -139,7 +139,7 @@ export function FondoChart({
     let observerInstance: ResizeObserver | null = null;
     let detachPointer: (() => void) | null = null;
 
-    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle }) => {
+    import("lightweight-charts").then(({ createChart, LineSeries, CrosshairMode, LineStyle, TrackingModeExitMode }) => {
       if (destroyed || !containerRef.current) return;
 
       const container = containerRef.current;
@@ -203,6 +203,18 @@ export function FondoChart({
           axisPressedMouseMove: false,
           axisDoubleClickReset: false,
         },
+        // SIN esto, en el teléfono la mira queda colgada al soltar el arrastre.
+        // La librería tiene un modo de seguimiento para touch —apretar y
+        // sostener 240ms lo prende, y es lo que dibuja la mira mientras se mide,
+        // porque en un teléfono no hay hover— y por defecto lo apaga recién en
+        // el toque SIGUIENTE (OnNextTap). O sea: al levantar el dedo la mira se
+        // queda dibujada, y el arrastre siguiente la mueve RELATIVA a donde
+        // quedó en vez de al dedo, así que aparece en cualquier lado (medido:
+        // soltando en x=200 quedaba clavada ahí; el arrastre siguiente, soltando
+        // en 260, la dejaba en 327 —el borde del pane—). Con OnTouchEnd el
+        // seguimiento muere con el dedo: el gesto no deja rastro y cada arrastre
+        // arranca de cero.
+        trackingMode: { exitMode: TrackingModeExitMode.OnTouchEnd },
       });
 
       chartInstance = chart;

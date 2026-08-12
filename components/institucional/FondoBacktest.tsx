@@ -10,7 +10,7 @@
 // que un Excel armado antes podría estar corriendo contra World. Si fuera así,
 // cambia el nombre acá y en el pie de FondoPerformance — no el cálculo.
 import { BENCHMARK } from "@/lib/fondo";
-import { rotuloAnio, ultimoAnioParcial, BACKTEST_TODO, type Backtest } from "@/lib/fondoBacktest";
+import { rotuloAnio, ultimoAnioParcial, BACKTEST_MAX, type Backtest } from "@/lib/fondoBacktest";
 import { fmtPct, fmtFechaLarga } from "@/lib/useFondo";
 import { css } from "@/lib/css";
 
@@ -146,7 +146,7 @@ export function BacktestTabla({ data }: { data: Backtest }) {
       referencia: refPorAnio.get(a) ?? null,
     })),
     {
-      id: BACKTEST_TODO,
+      id: BACKTEST_MAX,
       titulo: "Total",
       estrategia: agregados.returns.find((r) => r.key === "SI")?.pct ?? null,
       referencia: agregados.benchReturns.find((r) => r.key === "SI")?.pct ?? null,

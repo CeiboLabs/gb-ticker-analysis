@@ -538,8 +538,11 @@ export default async function FondoPage() {
         .perfil-cta-q { font-size: 15px; color: var(--site-ink-2); }
 
         /* ── Documentos ── */
-        .fondo-doc-row { justify-content: space-between; align-items: center; }
-        .fondo-doc-main { display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
+        /* La canaleta del ícono se declara UNA vez: en el teléfono la fila se
+           vuelve grilla y la necesita otra vez, y dos números iguales escritos
+           en dos lados se despegan al primer ajuste. */
+        .fondo-doc-row { justify-content: space-between; align-items: center; --doc-canaleta: 16px; }
+        .fondo-doc-main { display: flex; gap: var(--doc-canaleta); align-items: flex-start; min-width: 0; }
         /* El ícono se centra en la PRIMERA línea del título: su caja mide
            exactamente una línea de ese cuerpo (1lh sobre --row-title-size) y el
            svg va centrado adentro. Sigue alineado cuando el título envuelve y
@@ -619,8 +622,37 @@ export default async function FondoPage() {
           .fondo-page .cifras-row { grid-template-columns: 1fr; border-left: 0; }
           .fondo-page .cifra { padding: 24px 0; border-right: 0; }
         }
+        /* Apilada, la acción tiene que arrancar en el MISMO eje que el título, la
+           descripción y la ficha del archivo. Con la fila en columna caía al ras
+           del margen —debajo del ícono, 38px a la izquierda de todo el texto— y
+           se leía como un elemento suelto en vez de como la acción de la fila.
+           Lo mismo la etiqueta "Próximamente".
+
+           La fila pasa a ser la grilla que la lectura ya sugiere —canaleta del
+           ícono | contenido— y .fondo-doc-main deja de ser caja (display:
+           contents) para que sus DOS hijos se coloquen en esa misma grilla: el
+           ícono en la canaleta, el texto en la columna. La acción se manda a la
+           columna 2 y hereda el eje sin repetir el ancho del ícono como número
+           mágico ni depender de que el ícono mida siempre lo mismo. */
         @media (max-width: 640px) {
-          .fondo-doc-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+          .fondo-doc-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: start;
+            column-gap: var(--doc-canaleta);
+            row-gap: 14px;
+          }
+          .fondo-doc-main { display: contents; }
+          /* el min-width:0 que traía .fondo-doc-main baja al hijo que ahora es
+             item de la grilla: sin él una palabra larga de la descripción puede
+             empujar la columna más allá de la página, que es el mismo pisotón
+             que evita el minmax(0, 1fr) del track */
+          .fondo-doc-main > * { min-width: 0; }
+          /* start y no el stretch por defecto de la grilla: en el escritorio el
+             flex: none hace que la caja mida lo que la tinta. Estirada a toda la
+             columna no se ve distinta, pero deja un bloque de 300px de ancho
+             donde hay 99 de texto. */
+          .fondo-doc-tag { grid-column: 2; justify-self: start; }
         }
       `}</style>
     </main>

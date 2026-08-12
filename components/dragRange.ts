@@ -308,10 +308,21 @@ export function attachDragRange({
   };
   // Al soltar se borra: la medición es un gesto momentáneo, no deja marca fija
   // en el gráfico (por eso tampoco hace falta un botón de limpiar).
-  const onUp = () => {
+  //
+  // Con el dedo hay que borrar TAMBIÉN la mira de la librería. En un teléfono no
+  // hay hover: la mira que se ve durante el arrastre la prende el "tracking
+  // mode" (apretar y sostener 240ms), y ese modo la deja prendida al levantar el
+  // dedo. El `trackingMode: { exitMode: OnTouchEnd }` de los dos gráficos ya
+  // hace que la librería la apague en su propio `touchend`, pero ese evento no
+  // siempre llega —si el navegador cancela el toque (`pointercancel`) no hay
+  // `touchend` que valga—, así que la apagamos nosotros desde el mismo gesto.
+  // En mouse NO: ahí soltar deja el cursor sobre el gráfico y la mira del hover
+  // tiene que seguir donde está.
+  const onUp = (e: PointerEvent) => {
     if (!down) return;
     down = false;
     anchor = null;
+    if (e.pointerType !== "mouse") chart.clearCrosshairPosition();
     onDragging?.(false);
     applySelection(null);
   };

@@ -34,25 +34,40 @@ function AnimatedValue({
   fit?: number;
 }) {
   const [display, setDisplay] = useState(value);
-  const prev = useRef(value);
+  // Lo que está DIBUJADO ahora, no el destino de la animación anterior. Son
+  // cosas distintas apenas llega un valor nuevo antes de que la anterior
+  // termine —o sea, todo el tiempo mientras se arrastra— y arrancar desde el
+  // destino viejo haría saltar la cifra a un número que nunca se mostró.
+  const dibujado = useRef(value);
 
   useEffect(() => {
-    const from = prev.current;
+    const from = dibujado.current;
     const to = value;
-    prev.current = to;
     const diff = to - from;
     if (diff === 0) return;
 
     const duration = 360;
     const start = performance.now();
+    // ⚠️ UNA SOLA CADENA VIVA. Sin este handle + el cleanup, cada valor nuevo
+    // largaba OTRA cadena de requestAnimationFrame de 360ms sin cortar la
+    // anterior. Arrastrando un slider eso no es un detalle: medido sobre el
+    // sitio publicado, 45 rAF por paso de arrastre (1.674 llamadas para 32
+    // eventos de input, hasta 29 cadenas simultáneas en un mismo frame) contra
+    // la única que corresponde. Cada una llamaba setDisplay con su propia
+    // interpolación, así que además de gastar renders se peleaban por escribir
+    // la misma cifra.
+    let raf = 0;
 
     function tick(now: number) {
       const t = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3);
-      setDisplay(Math.round(from + diff * ease));
-      if (t < 1) requestAnimationFrame(tick);
+      const v = Math.round(from + diff * ease);
+      dibujado.current = v;
+      setDisplay(v);
+      if (t < 1) raf = requestAnimationFrame(tick);
     }
-    requestAnimationFrame(tick);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [value]);
 
   const text = format(display);
@@ -111,6 +126,31 @@ function Slider({
         <span className="calc-slider-val">{displayValue}</span>
       </div>
 
+      {/* ⚠️ NI LA BARRA NI EL THUMB LLEVAN TRANSITION, Y NO ES UN OLVIDO.
+          Hasta el 11-ago-2026 tenían `width 100ms` y `left 100ms`. En un
+          control de manipulación directa eso no suaviza nada: mientras se
+          arrastra, el valor ya viene continuo —un evento por frame—, así que lo
+          único que agrega la transición es que el dibujo salga a perseguir al
+          cursor y nunca lo alcance.
+
+          Y el precio no es igual en todos lados, que es de dónde salió el
+          reporte de "en localhost va fluido y en producción se traba". Mismo
+          HTML, misma CSS, mismo arrastre sobre el sitio publicado, midiendo
+          cada frame la distancia entre dónde está dibujado el thumb y dónde lo
+          pone el valor que el input YA tiene:
+
+            Chrome   ·  mediana  10,9 px   ·  p90   11 px
+            Safari   ·  mediana 124,8 px   ·  p90  264,6 px  (máx 302,5 px)
+            sin transition, en Safari · 0 px en las 63 muestras
+
+          WebKit reinicia mucho más lento una transición interrumpida, y como
+          acá se interrumpe en cada frame del arrastre, la perilla queda hasta
+          300px atrás del cursor. Los frames, en los dos navegadores, iban a
+          17ms — no se perdía ni uno. O sea que el "tranque" nunca fue costo de
+          render: era retraso de dibujo, y por eso no aparecía en ninguna
+          medición de fps. Si algún día se quiere volver a suavizar, que sea
+          sólo para los cambios que NO vienen de un arrastre (teclado, click en
+          la pista); mientras el dedo está apoyado, 1:1 o nada. */}
       <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
         <div style={{ position: "absolute", left: 0, right: 0, height: 6, borderRadius: 999, background: "var(--site-border)" }} />
         <div
@@ -121,7 +161,6 @@ function Slider({
             borderRadius: 999,
             background: "var(--navy)",
             width: `${pct}%`,
-            transition: "width 100ms",
           }}
         />
         <div
@@ -135,7 +174,6 @@ function Slider({
             border: "2px solid var(--navy)",
             boxShadow: "0 2px 6px rgba(3,6,94,0.18)",
             zIndex: 2,
-            transition: "left 100ms",
             pointerEvents: "none",
           }}
         />

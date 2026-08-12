@@ -498,8 +498,38 @@ export default async function InformesPage() {
         .informe-meta { display: inline-flex; align-items: center; gap: 14px; }
         .informe-fecha { font-weight: 600; color: var(--gold-deep); letter-spacing: 0.02em; }
         .informe-cta { pointer-events: none; flex: none; }
+        /* Ícono colgado + cuerpo. La canaleta se declara UNA vez: apilada, la
+           fila se vuelve grilla y la necesita otra vez, y dos números iguales
+           escritos en dos lados se despegan al primer ajuste. */
+        .informe-row { --informe-canaleta: 16px; }
+        .informe-main { display: flex; gap: var(--informe-canaleta); align-items: flex-start; min-width: 0; }
+        /* Apilada, la acción tiene que arrancar en el MISMO eje que la meta y el
+           título. Con la fila en columna caía al ras del margen —debajo del
+           ícono, 38px a la izquierda de todo el texto— y se leía como un
+           elemento suelto en vez de como la acción de la fila.
+
+           La fila pasa a ser la grilla que la lectura ya sugiere —canaleta del
+           ícono | contenido— y .informe-main deja de ser caja (display:
+           contents) para que sus DOS hijos se coloquen en esa misma grilla: el
+           ícono en la canaleta, el cuerpo en la columna. La acción se manda a la
+           columna 2 y hereda el eje sin repetir el ancho del ícono como número
+           mágico. Mismo arreglo que la lista de documentos del fondo. */
         @media (max-width: 640px) {
-          .informe-row { flex-direction: column; align-items: flex-start; gap: 14px; }
+          .informe-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: start;
+            column-gap: var(--informe-canaleta);
+            row-gap: 14px;
+          }
+          .informe-main { display: contents; }
+          /* el min-width:0 del envoltorio baja al hijo que ahora es item de la
+             grilla: sin él un título largo sin espacios puede empujar la columna
+             más allá de la página */
+          .informe-main > * { min-width: 0; }
+          /* start y no el stretch por defecto de la grilla: en el escritorio el
+             flex: none hace que la caja mida lo que la tinta. */
+          .informe-cta { grid-column: 2; justify-self: start; }
         }
         /* Fila del mensual con su video de presentación embebido: cuerpo
            (meta + título + acceso al PDF) a la izquierda, video 16:9 a la

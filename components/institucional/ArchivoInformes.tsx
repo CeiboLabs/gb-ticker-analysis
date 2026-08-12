@@ -116,11 +116,15 @@ export function ArchivoInformes({ informes }: { informes: Informe[] }) {
             // proxy (no salta a gbengochea).
             const inner = (
               <>
-                <span style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                {/* El flex de este envoltorio vivía inline. Pasó a .informe-main
+                    (en la hoja de la página) porque en el teléfono la fila se
+                    reacomoda como grilla y necesita pisar este display —y un
+                    estilo inline no lo puede pisar una media query. */}
+                <span className="informe-main">
                   <span className="list-icon" aria-hidden>
                     {it.categoria === "Mensual" ? <Calendar /> : <Clock />}
                   </span>
-                  <span className="informe-main">
+                  <span className="informe-body">
                     <span className="informe-meta">
                       <span className="t-small informe-fecha">{it.fechaTexto.split(",")[0]}</span>
                       <span className="ui-tag">{it.categoria}</span>

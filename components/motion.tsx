@@ -13,6 +13,25 @@ import { useEffect, useRef, useState, type ReactNode, type ElementType } from "r
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+// ⚠️ REGLA DE ORO DE ESTE ARCHIVO: `initial` tiene que ser IDÉNTICO en el
+// server y en el cliente, pase lo que pase con prefers-reduced-motion.
+//
+// El server no puede conocer la preferencia del usuario, así que siempre
+// renderiza el estado escondido (opacity: 0). Cuando el cliente prefiere menos
+// movimiento y ramificaba ahí —devolviendo el elemento pelado, o `initial:
+// false`, que en framer-motion significa «adoptá el DOM como está»— nadie
+// volvía a tocar ese estilo: React avisa «this won't be patched up» y NO parcha
+// los atributos que no coinciden, así que el opacity: 0 del HTML del server
+// quedaba pegado y la sección era invisible PARA SIEMPRE. Medido el 2026-08-11:
+// 14 bloques muertos en /informes y 19 en la página del fondo.
+//
+// La forma correcta es no tocar `initial` y cambiar sólo QUÉ pasa al montar:
+// con reduced-motion se salta al estado final con `animate` y duración 0, en
+// vez de esperar al viewport. El árbol renderizado es el mismo de los dos
+// lados —no hay desajuste de hidratación— y el salto al estado visible lo hace
+// framer-motion sobre el DOM, que sí pisa lo que vino del server.
+const INSTANTANEO = { duration: 0 } as const;
+
 const TAGS: Record<string, ElementType> = {
   div: motion.div,
   section: motion.section,
@@ -56,10 +75,11 @@ export function Reveal({
     <Comp
       className={className}
       style={style}
-      initial={reduce ? false : { opacity: 0, y }}
+      initial={{ opacity: 0, y }}
+      animate={reduce ? { opacity: 1, y: 0 } : undefined}
       whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once, margin: "-80px" }}
-      transition={{ duration, ease: EASE, delay }}
+      transition={reduce ? INSTANTANEO : { duration, ease: EASE, delay }}
     >
       {children}
     </Comp>
@@ -73,6 +93,17 @@ const containerVariants: Variants = {
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
+};
+// Los gemelos sin movimiento. `hidden` es IDÉNTICO al de arriba —es lo que
+// renderiza el server y no se puede tocar (ver la regla de oro)—; lo único que
+// cambia es que `show` llega de una, sin escalonar y sin duración.
+const containerVariantsInstant: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0, delayChildren: 0 } },
+};
+const itemVariantsInstant: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: INSTANTANEO },
 };
 
 type StaggerProps = {
@@ -88,18 +119,14 @@ export function Stagger({ children, className, style, as = "div", amount = 0.2 }
   const reduce = useReducedMotion();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Comp: any = TAGS[as] ?? motion.div;
-  if (reduce) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Plain = (as ?? "div") as any;
-    return <Plain className={className} style={style}>{children}</Plain>;
-  }
   return (
     <Comp
       className={className}
       style={style}
-      variants={containerVariants}
+      variants={reduce ? containerVariantsInstant : containerVariants}
       initial="hidden"
-      whileInView="show"
+      animate={reduce ? "show" : undefined}
+      whileInView={reduce ? undefined : "show"}
       viewport={{ once: true, amount }}
     >
       {children}
@@ -121,13 +148,10 @@ export function StaggerItem({
   const reduce = useReducedMotion();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Comp: any = TAGS[as] ?? motion.div;
-  if (reduce) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Plain = (as ?? "div") as any;
-    return <Plain className={className} style={style}>{children}</Plain>;
-  }
+  // El item hereda "hidden"/"show" del Stagger que lo contiene por propagación
+  // de variantes: no lleva `initial` ni `animate` propios.
   return (
-    <Comp className={className} style={style} variants={itemVariants}>
+    <Comp className={className} style={style} variants={reduce ? itemVariantsInstant : itemVariants}>
       {children}
     </Comp>
   );

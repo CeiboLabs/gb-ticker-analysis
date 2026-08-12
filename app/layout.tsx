@@ -54,9 +54,16 @@ const newsreaderItalic = Newsreader({
   preload: false,
 });
 
-// IBM Plex Sans y Mono: no las usa NINGUNA página del sitio institucional nuevo
-// ni la del fondo —todo eso vive bajo `.site`, que es Arial—. Quedan para
-// /analisis y /admin, donde sí se usan y donde cargan por descubrimiento del CSS.
+// IBM Plex Sans y Mono: no se precargan; cargan por descubrimiento del CSS allá
+// donde algo las pida. Sans es la de /analisis y /admin.
+//
+// Mono NO es sólo de ahí, aunque acá dijera lo contrario hasta agosto de 2026: el
+// sitio del fondo vive bajo `.site` —que es Arial— pero la caja del gráfico se
+// sale de esa regla a propósito, porque son datos (`.fondo-chart-unit`, y el
+// hint y la lectura del gesto de medir, en components/DragRangeCard.tsx). Esa
+// creencia equivocada fue la que hizo invisible que el deploy del fondo servía
+// los woff2 en 404 durante dos versiones — ver `RE_NEXT_REL_PADRE` en
+// scripts/build-fondo.mts.
 const plexSans = IBM_Plex_Sans({
   variable: "--font-sans",
   subsets: ["latin"],

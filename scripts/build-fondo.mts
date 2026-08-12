@@ -152,6 +152,20 @@ const RE_NEXT = /\/_next\/static\/[A-Za-z0-9._~/-]+/g;
 // lo cargado en segundo grado, y la página quedaba con un ChunkLoadError y el
 // módulo de performance sin dibujar. Se normalizan a la forma absoluta.
 const RE_NEXT_REL = /static\/(?:chunks|media)\/[A-Za-z0-9._~/-]+/g;
+// ⚠️ Y los woff2 NO aparecen en NINGUNA de las dos formas. Los `@font-face` que
+// emite `next/font` viven en un CSS de `/_next/static/chunks/` y apuntan al
+// archivo RELATIVO A ESE CSS —`url(../media/e390…-s.woff2)`—. Con eso, de las 27
+// caras que declara el layout raíz se copiaba UNA: la de Newsreader normal, que
+// se salvaba de rebote porque además va como `<link rel=preload>` en el HTML y
+// ahí sí está absoluta. Las otras 26 quedaban afuera y el deploy servía 404.
+//
+// No rompía nada a la vista —de ahí que pasara el `verificar()` y dos deploys—
+// porque `next/font` declara para cada familia una cara de respaldo con métricas
+// corregidas (`local(Arial)` con `size-adjust`): al fallar el woff2 el navegador
+// baja al respaldo y el texto sale, sólo que en Arial. Lo delató la etiqueta
+// "Arrastrá para medir un tramo" del gráfico, que pide `--font-mono` y en
+// producción salía proporcional en vez de monoespaciada.
+const RE_NEXT_REL_PADRE = /\.\.\/(?:chunks|media)\/[A-Za-z0-9._~/-]+/g;
 // `pdf` está en la lista por los documentos del fondo que viajan en el deploy
 // (lib/fondoDocsEstaticos.ts): el Reglamento y la autorización del BCU se
 // linkean desde el HTML y hay que copiarlos como cualquier otro asset. No barre
@@ -162,6 +176,23 @@ const RE_PUBLIC =
 const TEXTO = new Set([".js", ".css", ".json", ".mjs"]);
 /** De estos archivos también se leen los assets de public (ver arriba). */
 const CON_ASSETS = new Set([".css"]);
+
+/**
+ * Las tres formas en que aparece una referencia —absoluta, relativa a `_next/`
+ * y relativa al CSS que la contiene— llevan a la MISMA ruta con la que se sirve
+ * el archivo. Normalizar acá y no en cada lugar es lo que mantiene alineados al
+ * que copia y al que verifica: la vez pasada se arregló el barrido y se olvidó
+ * el guarda, así que el guarda siguió dando verde sobre un deploy incompleto.
+ */
+function normalizarRef(bruto: string): string {
+  // El payload de RSC va escapado dentro del HTML: las referencias llegan con
+  // comillas y barras invertidas pegadas. El charset del regex ya las corta,
+  // pero un `.js\` residual rompería el existsSync.
+  const limpio = bruto.replace(/\\+$/, "");
+  if (limpio.startsWith("static/")) return `/_next/${limpio}`;
+  if (limpio.startsWith("../")) return `/_next/static/${limpio.slice(3)}`;
+  return limpio;
+}
 
 /** Ruta en disco de una referencia absoluta, o null si no existe como archivo. */
 function fuenteDe(ref: string): string | null {
@@ -183,14 +214,15 @@ function recolectar(html: string): string[] {
   const pendientes: string[] = [];
 
   const encolar = (texto: string, conAssets: boolean) => {
-    const regexes = conAssets ? [RE_NEXT, RE_NEXT_REL, RE_PUBLIC] : [RE_NEXT, RE_NEXT_REL];
+    // La forma relativa al CSS va sólo con `conAssets`, que es justamente el
+    // caso "esto es un CSS": en un chunk de JS un `../chunks/algo.js` es un
+    // specifier del fuente, no una URL, y encolarlo sería ruido.
+    const regexes = conAssets
+      ? [RE_NEXT, RE_NEXT_REL, RE_NEXT_REL_PADRE, RE_PUBLIC]
+      : [RE_NEXT, RE_NEXT_REL];
     for (const re of regexes) {
       for (const bruto of texto.match(re) ?? []) {
-        // El payload de RSC va escapado dentro del HTML: las referencias llegan
-        // con comillas y barras invertidas pegadas. El charset del regex ya las
-        // corta, pero un `.js\` residual rompería el existsSync.
-        const limpio = bruto.replace(/\\+$/, "");
-        const ref = limpio.startsWith("static/") ? `/_next/${limpio}` : limpio;
+        const ref = normalizarRef(bruto);
         if (!vistos.has(ref)) {
           vistos.add(ref);
           pendientes.push(ref);
@@ -543,10 +575,14 @@ function verificar(): string[] {
       }
       if (!TEXTO.has(path.extname(p)) && path.extname(p) !== ".html") continue;
       const texto = fs.readFileSync(p, "utf8");
-      for (const re of [RE_NEXT, RE_NEXT_REL]) {
+      // Mismo criterio que el barrido: la forma relativa al padre sólo en CSS.
+      const regexes =
+        path.extname(p) === ".css"
+          ? [RE_NEXT, RE_NEXT_REL, RE_NEXT_REL_PADRE]
+          : [RE_NEXT, RE_NEXT_REL];
+      for (const re of regexes) {
         for (const bruto of texto.match(re) ?? []) {
-          const limpio = bruto.replace(/\\+$/, "");
-          const ref = limpio.startsWith("static/") ? `/_next/${limpio}` : limpio;
+          const ref = normalizarRef(bruto);
           if (!fs.existsSync(path.join(SALIDA, ref))) faltantes.add(ref);
         }
       }
