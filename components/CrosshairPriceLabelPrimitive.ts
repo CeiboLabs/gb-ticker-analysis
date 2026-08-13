@@ -35,6 +35,11 @@
  * Así el chip va clavado a la mira, sin el frame de atraso ni el repintado
  * completo que costaría pasar por priceAxisViews (que van en el lienzo de atrás
  * y sólo se redibujan con una invalidación mayor).
+ *
+ * ⚠️ Este primitive sigue la Y DEL CURSOR. Si lo que se busca es una etiqueta
+ * por serie pegada al valor de cada línea —lo que hace el gráfico del fondo—, el
+ * que corresponde es CrosshairSeriesLabelsPrimitive, y los dos NO conviven: los
+ * dos dibujan en el mismo lienzo y el segundo lo borra entero.
  */
 import type {
   IChartApiBase,
@@ -45,153 +50,66 @@ import type {
   SeriesAttachedParameter,
   Time,
 } from "lightweight-charts";
-import type { CanvasRenderingTarget2D } from "fancy-canvas";
-
-// Medidas del chip, calcadas de la librería (RendererConstants y
-// PriceAxisRendererOptionsProvider). Los paddings son proporciones del cuerpo de
-// la fuente —a 12px dan los 2,5 y 5 px que documenta el código de la librería—,
-// así que el chip que se dibuja acá acompaña a layout.fontSize igual que el
-// nativo y no hay ningún número mágico que se desincronice.
-const BORDE = 1; // borderSize
-const MECHA = 5; // tickLength — la mechita que apunta al eje
-const RADIO = 2; // esquinas, del lado de afuera del gráfico
-const PAD_V = 2.5 / 12; // paddingTop / paddingBottom
-const PAD_MIRA = 2 / 12; // el extra que agrega la vista de la mira, arriba y abajo
-const PAD_H = 5 / 12; // paddingInner / paddingOuter (= fontSize/12 · tickLength)
-/** Alto del chip en múltiplos del cuerpo: cuerpo + los cuatro paddings = 1,75. */
-const ALTO = 1 + 2 * PAD_V + 2 * PAD_MIRA;
+import {
+  acotar,
+  aRGB,
+  contraste,
+  geometríaY,
+  medirChip,
+  pintarCaja,
+  pintarTexto,
+  type LienzoDestino,
+} from "@/components/chipEjePrecio";
 
 /** CrosshairMode.Hidden. Va como número para no importar nada en runtime: los
  *  gráficos cargan lightweight-charts con import() dinámico y este archivo
  *  entra en el bundle inicial. */
 const MIRA_OCULTA = 2;
 
-/**
- * La librería no mide el texto tal cual: le cambia los dígitos 2-9 por 0 y
- * cachea el ancho por esa forma normalizada, dando por sentado que los dígitos
- * miden todos lo mismo. En una tipografía proporcional NO es cierto —el 1 es más
- * angosto—, así que medir el texto real da un chip hasta 1px distinto del que
- * dibuja ella. Se normaliza igual: el chip tiene que quedar del mismo ancho
- * cuando la mira NO está contra el borde, o se notaría un salto al entrar y
- * salir de la franja. (Medido: sin esto, 55px contra 54px en «175,24».)
- */
-const normalizar = (texto: string) => texto.replace(/[2-9]/g, "0");
-
 interface Lectura {
   /** y de la mira en px de medios, cruda: es la que hay que acotar. */
   y: number;
   /** Texto ya formateado por el MISMO formateador que usa el eje. */
   texto: string;
-  /** El chip cuelga del borde del eje que da al gráfico: en la escala derecha
-   *  crece hacia afuera (izquierda→derecha) y en la izquierda al revés. */
   alignRight: boolean;
-  /** La mechita se PINTA sólo si la escala tiene ticksVisible —que viene
-   *  apagado de fábrica—, pero su largo se reserva siempre: la librería lo suma
-   *  al ancho del chip y al arranque del texto aunque no la dibuje. */
   mecha: boolean;
   fuente: string;
   fondo: string;
   tinta: string;
 }
 
-interface GeoY {
-  yMid: number;
-  yTop: number;
-  yBottom: number;
-}
-
 class EtiquetaMiraRenderer implements IPrimitivePaneRenderer {
   constructor(private readonly _dueño: CrosshairPriceLabelPrimitive) {}
 
-  draw(target: CanvasRenderingTarget2D): void {
+  draw(target: LienzoDestino): void {
     const l = this._dueño.lectura();
     if (l === null) return;
 
-    // Geometría: copia de PriceAxisViewRenderer._calculateGeometry con la y
-    // acotada. El texto se mide en el espacio de bitmap —transform identidad—
-    // igual que la librería: con la fuente declarada en px, el ancho que
-    // devuelve measureText queda en las mismas unidades que el cuerpo, que es
-    // lo que después se multiplica por la densidad.
     const geo = target.useBitmapCoordinateSpace(
       ({ context: ctx, bitmapSize, mediaSize, horizontalPixelRatio: hpr, verticalPixelRatio: vpr }) => {
         if (mediaSize.height <= 0) return null;
 
         ctx.font = l.fuente;
         ctx.textBaseline = "middle";
-        const cuerpo = this._dueño.cuerpo();
-        const anchoTexto = Math.ceil(ctx.measureText(normalizar(l.texto)).width);
-        const padH = cuerpo * PAD_H;
-        const anchoTotal = BORDE + 2 * padH + anchoTexto + MECHA;
-        const altoTotal = cuerpo * ALTO;
+        const medidas = medirChip(ctx, this._dueño.cuerpo(), l.texto, hpr, vpr, mediaSize.width, l.alignRight);
 
-        const altoMecha = Math.max(1, Math.floor(vpr));
-        let altoBitmap = Math.round(altoTotal * vpr);
-        // Mismo ajuste de paridad que la librería: el chip y la mechita tienen
-        // que compartir paridad para que la mechita caiga centrada y nítida.
-        if (altoBitmap % 2 !== altoMecha % 2) altoBitmap += 1;
-        const anchoBitmap = Math.round(anchoTotal * hpr);
-        const mechaBitmap = Math.round(MECHA * hpr);
-
-        const geoY = (yMedia: number): GeoY => {
-          const yMid = Math.round(yMedia * vpr) - Math.floor(vpr * 0.5);
-          const yTop = Math.floor(yMid + altoMecha / 2 - altoBitmap / 2);
-          return { yMid, yTop, yBottom: yTop + altoBitmap };
-        };
-
-        // ACÁ ESTÁ EL ARREGLO, y va sobre la caja YA redondeada a píxeles de
-        // dispositivo, no sobre el centro en px de medios: acotar el centro deja
-        // el chip medio píxel afuera cuando el redondeo cae para el lado
-        // equivocado (medido: contra el borde de abajo entraban 20 de las 21
-        // filas). Se corre la caja entera hasta que entre, que es exactamente lo
-        // que hace la librería con la etiqueta de FECHA contra los costados.
-        const crudo = geoY(l.y); // dónde dibujó la librería
-        let corrimiento = 0;
-        if (crudo.yTop < 0) corrimiento = -crudo.yTop;
-        else if (crudo.yBottom > bitmapSize.height) corrimiento = bitmapSize.height - crudo.yBottom;
-        const nuestro: GeoY = {
-          yMid: crudo.yMid + corrimiento,
-          yTop: crudo.yTop + corrimiento,
-          yBottom: crudo.yBottom + corrimiento,
-        };
+        const crudo = geometríaY(l.y, medidas, vpr); // dónde dibujó la librería
+        const nuestro = acotar(crudo, bitmapSize.height);
 
         // Borrar el chip nativo. Este lienzo es el de arriba del eje y no lleva
         // nada más —la librería lo borra entero al empezar cada pintado y sólo
         // dibuja ahí la etiqueta de la mira—, así que limpiar su franja deja a
         // la vista el lienzo de atrás: las marcas del eje, intactas.
-        ctx.clearRect(0, crudo.yTop - 1, bitmapSize.width, altoBitmap + 2);
+        ctx.clearRect(0, crudo.yTop - 1, bitmapSize.width, medidas.altoBitmap + 2);
 
-        const xInside = l.alignRight ? bitmapSize.width : 0;
-        const xOutside = l.alignRight ? xInside - anchoBitmap : xInside + anchoBitmap;
-        const xMecha = l.alignRight ? xInside - mechaBitmap : xInside + mechaBitmap;
-
-        const radio = RADIO * hpr;
-        const radios: [number, number, number, number] = l.alignRight
-          ? [radio, 0, 0, radio]
-          : [0, radio, radio, 0];
-
-        rectánguloRedondeado(
+        pintarCaja(
           ctx,
-          Math.min(xInside, xOutside),
-          nuestro.yTop,
-          anchoBitmap,
-          altoBitmap,
-          radios,
+          bitmapSize.width,
+          { geo: nuestro, medidas, alignRight: l.alignRight, mecha: l.mecha, fondo: l.fondo, tinta: l.tinta },
+          hpr,
         );
-        ctx.fillStyle = l.fondo;
-        ctx.fill();
 
-        if (l.mecha) {
-          // Acompaña al chip, no a la mira: si el chip se corrió para no
-          // salirse, una mechita clavada en la y cruda quedaría suelta afuera.
-          ctx.fillStyle = l.tinta;
-          ctx.fillRect(xInside, nuestro.yMid, xMecha - xInside, altoMecha);
-        }
-
-        return {
-          yTop: nuestro.yTop / vpr,
-          yBottom: nuestro.yBottom / vpr,
-          xText: l.alignRight ? mediaSize.width - MECHA - padH : MECHA + padH,
-        };
+        return { yTop: nuestro.yTop / vpr, yBottom: nuestro.yBottom / vpr, xText: medidas.xTexto };
       },
     );
 
@@ -199,15 +117,7 @@ class EtiquetaMiraRenderer implements IPrimitivePaneRenderer {
 
     target.useMediaCoordinateSpace(({ context: ctx }) => {
       ctx.font = l.fuente;
-      ctx.textAlign = l.alignRight ? "right" : "left";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = l.tinta;
-      // Corrección óptica de la librería: centrar por la caja real de los
-      // glifos y no por la métrica de la fuente, que en los números deja el
-      // texto un pelo alto. Sobre el texto normalizado, como ella.
-      const m = ctx.measureText(normalizar(l.texto));
-      const corrección = ((m.actualBoundingBoxAscent || 0) - (m.actualBoundingBoxDescent || 0)) / 2;
-      ctx.fillText(l.texto, geo.xText, (geo.yTop + geo.yBottom) / 2 + corrección);
+      pintarTexto(ctx, l.texto, geo.xText, (geo.yTop + geo.yBottom) / 2, l.tinta, l.alignRight);
     });
   }
 }
@@ -293,68 +203,4 @@ export class CrosshairPriceLabelPrimitive implements ISeriesPrimitive<Time> {
       tinta: contraste(fondo.rgb),
     };
   }
-}
-
-/** Rectángulo redondeado con radios por esquina, con la reserva de la librería
- *  para los motores sin roundRect (Safari anterior al 16.4). */
-function rectánguloRedondeado(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  radios: [number, number, number, number],
-): void {
-  ctx.beginPath();
-  if (typeof ctx.roundRect === "function") {
-    ctx.roundRect(x, y, w, h, radios);
-    return;
-  }
-  const [ai, ad, bd, bi] = radios;
-  ctx.moveTo(x + ai, y);
-  ctx.lineTo(x + w - ad, y);
-  if (ad !== 0) ctx.arcTo(x + w, y, x + w, y + ad, ad);
-  ctx.lineTo(x + w, y + h - bd);
-  if (bd !== 0) ctx.arcTo(x + w, y + h, x + w - bd, y + h, bd);
-  ctx.lineTo(x + bi, y + h);
-  if (bi !== 0) ctx.arcTo(x, y + h, x, y + h - bi, bi);
-  ctx.lineTo(x, y + ai);
-  if (ai !== 0) ctx.arcTo(x, y, x + ai, y, ai);
-  ctx.closePath();
-}
-
-/** Color del chip sin alfa, como lo deja generateContrastColors. */
-function aRGB(color: string): { css: string; rgb: [number, number, number] } {
-  const rgb = parseColor(color);
-  return { css: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`, rgb };
-}
-
-function parseColor(color: string): [number, number, number] {
-  if (color.startsWith("#")) {
-    let hex = color.slice(1);
-    if (hex.length === 3 || hex.length === 4) {
-      hex = hex
-        .slice(0, 3)
-        .split("")
-        .map((c) => c + c)
-        .join("");
-    }
-    if (hex.length >= 6) {
-      return [
-        parseInt(hex.slice(0, 2), 16),
-        parseInt(hex.slice(2, 4), 16),
-        parseInt(hex.slice(4, 6), 16),
-      ];
-    }
-  }
-  const nums = color.match(/[\d.]+/g);
-  if (nums && nums.length >= 3) {
-    return [Number(nums[0]), Number(nums[1]), Number(nums[2])];
-  }
-  return [0, 0, 0];
-}
-
-/** Misma fórmula NTSC que la librería para elegir tinta sobre el fondo del chip. */
-function contraste([r, g, b]: [number, number, number]): string {
-  return 0.199 * r + 0.687 * g + 0.114 * b > 160 ? "black" : "white";
 }

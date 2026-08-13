@@ -5,7 +5,7 @@ import type { FundNavPoint } from "@/lib/fondo";
 import { fmtNav, fmtFechaCorta } from "@/lib/useFondo";
 import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
-import { CrosshairPriceLabelPrimitive } from "@/components/CrosshairPriceLabelPrimitive";
+import { CrosshairSeriesLabelsPrimitive } from "@/components/CrosshairSeriesLabelsPrimitive";
 import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
 import { css } from "@/lib/css";
 import {
@@ -45,17 +45,38 @@ const PALETTE = {
   navy: "#0f2249",     // --navy
   ink2: "#4A4E6B",     // --site-ink-2
   paper: "#FBFBFE",    // --paper (texto de etiquetas sobre navy)
-  // Benchmark: coral FT. La línea de referencia se distingue POR TONO, no por
+  // Benchmark: coral. La línea de referencia se distingue POR TONO, no por
   // punteado (ver el bloque de `benchSeries` para el porqué del cambio), y el
   // tono no puede ser el rojo semántico —#8E2A2A, --neg— porque en esta misma
   // sección hay tablas donde el rojo significa "rendimiento negativo": un rojo
   // de dato y un rojo de serie compitiendo enseñan dos lecturas contradictorias.
-  // El coral #C24A3A es el tono que docs/lenguaje-visual.md (regla 4 de color)
+  // El coral FT #C24A3A es el tono que docs/lenguaje-visual.md (regla 4 de color)
   // ya tenía reservado para exactamente esto —charts comparativos, sin tocar el
   // par rojo/verde—, así que la línea entra al sistema en vez de abrirle una
-  // excepción. Da 4,45:1 sobre la banda muted; el gris que reemplaza daba 2,30:1,
-  // por debajo del 3:1 que WCAG le pide a un objeto gráfico.
-  bench: "#C24A3A",    // coral FT — comparativas (docs/lenguaje-visual.md §1.4)
+  // excepción.
+  //
+  // El valor de acá es ese coral ACLARADO un 26% hacia el blanco: el cliente lo
+  // vio "de un rojo muy fuerte" (13-ago-2026) y pidió aclararlo dos veces.
+  //
+  // ⚠️ QUEDÓ EN 2,88:1 SOBRE LA BANDA MUTED, o sea POR DEBAJO del 3:1 que WCAG
+  // le pide a un objeto gráfico que carga información. Es una decisión tomada
+  // con el número sobre la mesa, no un descuido — se avisó en el escalón
+  // anterior (#CC675A daba 3,41:1) y se pidió igual. Referencias para no perder
+  // la escala si alguien lo vuelve a tocar: 22% de blanco da 3,09 (el último que
+  // aprueba), 30% da 2,70, 40% da 2,28 — y 2,30 es exactamente donde estaba el
+  // gris #9FA2C0 que se sacó PORQUE la línea se perdía contra el fondo. O sea
+  // que de acá para abajo el margen es de un escalón, no de varios.
+  //
+  // Si hay que suavizarlo más, la palanca ya no puede ser el color: adelgazar el
+  // trazo (lineWidth 2 → 1) baja el peso visual sin tocar el contraste.
+  bench: "#D2796D",    // coral FT aclarado — comparativas (docs/lenguaje-visual.md §1.4)
+  // Fondo del chip del benchmark en el eje (CrosshairSeriesLabelsPrimitive). Es
+  // el coral SIN aclarar, y la diferencia con `bench` no es un descuido: el chip
+  // lleva el precio en blanco a 12px y un texto tiene piso 4,5:1, no el 3:1 del
+  // trazo. Sobre el coral aclarado el blanco da 3,2:1 —reprueba—; sobre éste,
+  // 4,84:1. Misma familia, así que el chip se sigue leyendo como "el de la
+  // línea coral"; lo que cambia es el piso que tiene que pasar cada uno.
+  benchChip: "#C24A3A",
   // Sombra proyectada de la curva del fondo (ver LineShadowPrimitive). Va SÓLO
   // en la serie protagonista: el benchmark es una referencia reescalada y
   // sombrearlo también pondría a las dos a pelear por el mismo primer plano.
@@ -184,7 +205,21 @@ export function FondoChart({
           mode: CrosshairMode.Normal,
           vertLine: { color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy },
           horzLine: {
-            color: PALETTE.ink4, labelBackgroundColor: PALETTE.navy,
+            // TRANSPARENTE, no `visible: false`, y las dos mitades importan.
+            //
+            // Se apaga porque desde que las etiquetas se pegan a las curvas
+            // (CrosshairSeriesLabelsPrimitive) esta línea no puede señalar nada:
+            // quedaba a la altura del cursor, o sea en un precio que no es el de
+            // ninguna de las dos series, y con su chip ya borrado del eje era una
+            // regla horizontal apuntando al vacío. El punto sobre cada curva y su
+            // chip a la misma altura dicen lo que ella decía, y sin ambigüedad.
+            //
+            // Y se apaga POR COLOR porque `visible: false` se lleva puesto el
+            // ancho del eje: `priceScaleCrosshairLabelVisible` exige `visible &&
+            // labelVisible` para que _optimalWidth reserve un precio formateado,
+            // y sin esa reserva el eje se angosta a sus marcas —enteras— y los
+            // chips, que llevan decimales, salen cortados de costado.
+            color: "transparent", labelBackgroundColor: PALETTE.navy,
             // La escala de precios RESERVA el ancho de esta etiqueta, no el de
             // sus marcas: por eso el eje seguía midiendo 70px después de sacarle
             // los decimales a las marcas —el chip de la mira sí los lleva—. En
@@ -343,12 +378,26 @@ export function FondoChart({
       lineSeries.setData(points);
       lineSeriesRef.current = lineSeries;
 
-      // Etiqueta de precio de la mira acotada al lienzo: sin esto, contra el
-      // borde de arriba o el de abajo el chip se dibuja mitad afuera y sale
-      // cortado —la librería sólo acota la de FECHA—. No cambia nada más: el
-      // chip es el mismo y la opción de arriba (labelVisible) lo sigue
-      // mandando, también en pantalla angosta.
-      lineSeries.attachPrimitive(new CrosshairPriceLabelPrimitive());
+      // Etiquetas de precio pegadas A CADA LÍNEA, en vez del chip nativo que
+      // seguía la y del cursor (pedido del cliente, 13-ago-2026). Con dos series
+      // en pantalla, un solo chip flotando en un precio que no es el de ninguna
+      // de las dos obligaba a estimar a ojo dónde cortaba cada curva; ahora cada
+      // una trae su número, a la altura de su propio punto.
+      //
+      // El del benchmark va en el coral PLENO y no en el aclarado del trazo: son
+      // 12px de texto blanco encima, y sobre el aclarado eso da 3,2:1 (ver
+      // PALETTE.benchChip).
+      //
+      // Va attacheado a la serie principal pero LAS CONOCE A LAS DOS: es un solo
+      // primitive dibujando los dos chips, porque el que dibuja tiene que poder
+      // separarlos cuando las curvas se cruzan y borrar el chip nativo una sola
+      // vez. Dos primitives, uno por serie, se pisarían el lienzo.
+      lineSeries.attachPrimitive(
+        new CrosshairSeriesLabelsPrimitive([
+          { serie: lineSeries, fondo: mainColor },
+          ...(benchSeries ? [{ serie: benchSeries, fondo: PALETTE.benchChip }] : []),
+        ]),
+      );
 
       // La curva deja caer su sombra (zOrder bottom: la línea sigue nítida y el
       // benchmark, que se dibuja aparte, conserva su tono). La sombra es un
@@ -521,7 +570,7 @@ export function FondoChart({
            leyenda tiene que ser la MISMA línea que el gráfico —es lo único que
            ata el rótulo a la curva—, así que los dos valores se mueven juntos. */
         .fondo-chart-leg-line[data-kind="bench"] {
-          border-top: 2px solid #C24A3A;
+          border-top: 2px solid #D2796D;
         }
         /* Protagonista que NO es el valor cuota (pre-lanzamiento: benchmark
            suelto o backtest): continua, en el tono subordinado — espeja
