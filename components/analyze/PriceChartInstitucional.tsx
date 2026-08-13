@@ -6,6 +6,7 @@ import type { ChartRange, ChartRangePayload } from "@/lib/fetchChartRange";
 import { QuarterBarSeries } from "@/components/QuarterBarSeries";
 import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
+import { CrosshairPriceLabelPrimitive } from "@/components/CrosshairPriceLabelPrimitive";
 import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
 import {
   attachDragRange,
@@ -555,6 +556,10 @@ export function PriceChartInstitucional({
           },
         });
         revSeries.setData(effectiveRevenue);
+        // El eje izquierdo dibuja su propio chip de mira, y se corta igual que
+        // el del precio (ver el primitive). Los dos están a la vista al mismo
+        // tiempo: arreglar uno solo se notaría.
+        revSeries.attachPrimitive(new CrosshairPriceLabelPrimitive());
       }
 
       const seen = new Set<string | number>();
@@ -613,6 +618,13 @@ export function PriceChartInstitucional({
       });
       regularSeries.setData(toLwPoints(regularData));
       lineSeriesRef.current = regularSeries;
+
+      // Etiqueta de precio de la mira acotada al lienzo: sin esto, contra el
+      // borde de arriba o el de abajo el chip se dibuja mitad afuera y sale
+      // cortado —la librería sólo acota la de FECHA—. No cambia nada más: el
+      // chip es el mismo y la opción de arriba (labelVisible) lo sigue
+      // mandando, también en pantalla angosta.
+      regularSeries.attachPrimitive(new CrosshairPriceLabelPrimitive());
 
       const extendedOpts = {
         color: ink.ext,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verdictHistory } from "@/lib/verdictHistory";
+import { reboteGetPublico, trustedClientIp } from "@/lib/rateLimiter";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export const dynamic = "force-dynamic";
  * s-maxage evitan repegarle a la base en cada navegación entre acciones.
  */
 export async function GET(req: NextRequest) {
+  const rebote = reboteGetPublico("verdict-history", trustedClientIp(req));
+  if (rebote) return rebote;
   const raw = new URL(req.url).searchParams.get("ticker") ?? "";
   const ticker = raw.trim().toUpperCase();
 

@@ -4,6 +4,7 @@ import { getMetricsDb, getDocsBucket } from "@/lib/metrics";
 import { readInformeRow, readInformeContenido, informeTienePdf } from "@/lib/informesStore";
 import { tieneArticulo } from "@/lib/informeContenido";
 import { PDF_URL_HOSTS } from "@/lib/panelSchemas";
+import { checkDownloadLimit, trustedClientIp } from "@/lib/rateLimiter";
 
 // Proxy same-origin del PDF del informe. Dos orígenes posibles, resueltos por
 // la fila de D1 (que administra el panel de empleados):
@@ -27,7 +28,7 @@ function hostPermitido(url: string): boolean {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: RouteContext<"/informes/[slug]/pdf">,
 ) {
   const { slug } = await ctx.params;
@@ -67,6 +68,28 @@ export async function GET(
   }
 
   const filename = `${slug}.pdf`;
+
+  // Techo de descargas, JUSTO acá y no al entrar: el gate se cobra sólo cuando
+  // de verdad vamos a mover un archivo. Un slug inexistente (404) o uno que ya
+  // tiene artículo (307) no consumen cupo — así un link viejo circulando no le
+  // gasta el presupuesto a nadie, y el contador queda atado al ancho de banda,
+  // que es lo que se está protegiendo.
+  //
+  // Es la ruta de archivo más cara que hay: la rama de abajo re-proxea
+  // gbengochea.com.uy, o sea que cada hit gasta ancho de banda del cliente Y el
+  // nuestro. Hasta hoy no tenía ningún límite.
+  const gate = await checkDownloadLimit("informe-pdf", trustedClientIp(req));
+  if (!gate.allowed) {
+    return new NextResponse(
+      gate.global ? "Descargas momentáneamente saturadas" : "Demasiadas descargas",
+      {
+        // 503 cuando el que se agotó es el techo global: no es culpa de quien
+        // pide, y el status tiene que decir "volvé", no "portate bien".
+        status: gate.global ? 503 : 429,
+        headers: { "Retry-After": String(gate.retryAfter), "Cache-Control": "no-store" },
+      },
+    );
+  }
 
   // Preferido: el PDF subido a R2 (nuestro, versionado por key con timestamp).
   if (r2Key) {

@@ -7,6 +7,7 @@ import { getInforme } from "@/lib/informes";
 import { getContenido } from "@/lib/informeContenido";
 import { fmtPct } from "@/components/institucional/informe/formato";
 import type { ContenidoInforme } from "@/lib/informeContenido/tipos";
+import { reboteGetPublico } from "@/lib/rateLimiter";
 
 // Tarjeta Open Graph de cada informe — lo que se despliega al compartir el link
 // en WhatsApp/LinkedIn/X. Es la pieza que hace que "compartir la web" funcione:
@@ -28,7 +29,12 @@ const NEG = "#E9999A"; // oxblood brillante
 const MUTED = "rgba(255,255,255,0.60)";
 const RULE = "rgba(255,255,255,0.18)";
 
-async function fuentes() {
+// Los tres TTF se leían del disco EN CADA REQUEST. No cambian en la vida del
+// proceso ⇒ se memoizan, cacheando sólo el resultado bueno para que un error de
+// lectura no quede pegado hasta el próximo deploy.
+let fuentesCache: Awaited<ReturnType<typeof leerFuentes>> | null = null;
+
+async function leerFuentes() {
   const dir = join(process.cwd(), "assets", "fonts");
   const [serif, sans, mono] = await Promise.all([
     readFile(join(dir, "Newsreader-Medium.ttf")),
@@ -41,6 +47,16 @@ async function fuentes() {
     { name: "Plex Mono", data: mono, style: "normal" as const, weight: 500 as const },
   ];
 }
+
+async function fuentes() {
+  fuentesCache ??= await leerFuentes();
+  return fuentesCache;
+}
+
+// Cada pedido re-renderiza con Satori y consulta D1. Con esta caché un mismo
+// link reenviado no vuelve a generar la tarjeta, que es de lejos lo que más
+// rinde acá: el reenvío es el caso normal de una tarjeta OG.
+const OG_CACHE = "public, max-age=3600, s-maxage=86400";
 
 async function cargar(slug: string) {
   let contenido: ContenidoInforme | null | undefined;
@@ -70,6 +86,15 @@ async function cargar(slug: string) {
 }
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
+  // Techo GLOBAL, sin reparto por visitante, y no por elección: las rutas de
+  // convención de archivo reciben `{ params }` y nunca el Request, así que acá
+  // no hay headers de donde sacar la IP. Pasar `null` a propósito manda el
+  // pedido al balde compartido del endpoint — el único límite posible en esta
+  // ruta, y aun así mejor que el nada de antes. El reparto fino lo hace la
+  // caché de arriba, que es lo que evita el 99% de las regeneraciones.
+  const rebote = reboteGetPublico("og-informe", null);
+  if (rebote) return rebote;
+
   const { slug } = await params;
   const [{ titular, kicker, movers }, fonts] = await Promise.all([cargar(slug), fuentes()]);
 
@@ -119,6 +144,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         </div>
       </div>
     ),
-    { ...size, fonts },
+    { ...size, fonts, headers: { "Cache-Control": OG_CACHE } },
   );
 }

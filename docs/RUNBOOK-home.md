@@ -76,6 +76,75 @@ WantedBy=multi-user.target
   pero el de por-cuenta (10 fallas/h) sigue firme.
 - No expongas el puerto de Node a internet: sólo el proxy.
 
+## Reverse proxy — el que le devuelve la IP a la app
+
+**El problema, medido el 2026-08-13.** Todos los gates de `lib/rateLimiter.ts`
+se keyean por IP y la IP la resuelve `trustedClientIp()`, que sólo confía en
+`cf-connecting-ip`. Fuera de Cloudflare devuelve `null`, y con `null` no hay
+reparto por visitante: queda en pie sólo el techo global de cada gate. Y no
+alcanza con poner cualquier proxy adelante, porque **Tailscale Funnel no le pasa
+la IP pública del visitante al backend** — es un feature request abierto desde
+julio de 2024 ([tailscale/tailscale#12972](https://github.com/tailscale/tailscale/issues/12972)),
+pedido justamente para poder hacer rate limiting. En modo HTTPS lo único que
+llega es la IP de Tailscale.
+
+**La salida es el forwarder TCP con PROXY protocol**, que mete la IP en la
+cabecera de la conexión en vez de en un header HTTP. Config lista y comentada en
+**`deploy/home/nginx-bng.conf`**. La cadena queda:
+
+```
+internet → funnel (--tls-terminated-tcp=443 --proxy-protocol=1)
+         → nginx :8789 (listen … proxy_protocol, real_ip)
+         → next start :8788
+```
+
+> ⚠️ **Sin verificar contra gestapp.** Está escrito desde la documentación y los
+> flags del `tailscale` 1.102.2, pero cambia la forma en que el sitio se publica.
+> Seguí la checklist entera, en una ventana en la que puedas mirar el resultado.
+
+1. `sudo apt install nginx` y copiar `deploy/home/nginx-bng.conf` a
+   `/etc/nginx/sites-available/bng`, con symlink en `sites-enabled/`.
+   **Las cuatro directivas `limit_*_zone` van en el `http{}` de
+   `/etc/nginx/nginx.conf`, no en el bloque `server`** — nginx no arranca si
+   quedan adentro.
+2. **`sudo nginx -t` — obligatorio.** Es el único lugar donde se valida de
+   verdad: `real_ip` y `limit_req` dependen de cómo esté compilado ESE nginx.
+   No sigas si no da `syntax is ok`.
+3. `sudo systemctl reload nginx`. El sitio todavía se sirve por el funnel viejo:
+   nada cambió para el visitante.
+4. Probar nginx por dentro, sin tocar la publicación:
+   `curl --haproxy-protocol http://127.0.0.1:8789/` tiene que devolver el HTML.
+   (`--haproxy-protocol` es cómo curl manda el preámbulo PROXY; sin él, un 400
+   es la respuesta correcta y esperable.)
+5. Recién ahí, cambiar el modo del funnel:
+   ```
+   tailscale funnel --bg --tls-terminated-tcp=443 --proxy-protocol=1 \
+     tcp://127.0.0.1:8789
+   ```
+6. **Comprobar que la IP llega de verdad**, que es todo el punto del ejercicio:
+   entrar a `https://gestapp.tail75b274.ts.net` desde una red de afuera (datos
+   del celular) y mirar `sudo tail -f /var/log/nginx/bng.access.log`. Tiene que
+   aparecer **la IP pública**. Si aparece `127.0.0.1`, el PROXY protocol no está
+   llegando: **no sigas al paso 7**, porque con `TRUSTED_PROXY=1` y sin IP real
+   el rate limiter agruparía a todo internet en un solo balde.
+7. Con la IP confirmada: agregar `TRUSTED_PROXY=1` al `.env.local` del server y
+   `systemctl --user restart bng-staging-web.service`.
+
+**Volver atrás es una línea** (y conviene tenerla a mano antes de empezar):
+
+```
+tailscale funnel --bg 8788        # vuelve al modo HTTPS directo a Next
+```
+
+Sacá también `TRUSTED_PROXY=1` al revertir: sin el proxy propio ese env vuelve
+`X-Forwarded-For` falsificable, que es peor que no tener IP.
+
+**Qué gana el sitio con esto** (además del reparto por IP en todos los gates):
+concurrencia por IP (`limit_conn`, 20 simultáneas) — el techo que ningún límite
+de ancho de banda por conexión puede dar—, corte de descargas y de login antes
+de despertar a Node, y bloqueo de hotlink sobre `/video/`, que son 13 MB de
+`public/`.
+
 ## Env vars
 
 | Var | Qué hace |
@@ -85,7 +154,11 @@ WantedBy=multi-user.target
 | `PANEL_PEPPER` | Firma contraseñas y cifra secrets TOTP. **Rotarlo invalida todas las credenciales.** Backup en gestor de contraseñas. |
 | `ADMIN_TOKEN` | Gate de `/admin/setup` (bootstrap) y del dashboard de métricas del analizador. |
 | `DATA_DIR` | Dónde viven sqlite + PDFs (default `./data`). |
-| `TRUSTED_PROXY` | `1` = confiar X-Forwarded-For del proxy propio (lockouts por IP). |
+| `TRUSTED_PROXY` | `1` = confiar X-Forwarded-For del proxy propio (lockouts por IP). Ver § «Reverse proxy»: **sólo** con el proxy puesto y la IP confirmada en el log. |
+| `RATE_LIMIT_DOWNLOAD_IP_MAX` | Descargas de PDF por IP por hora (default `60`). Sólo aplica si hay IP. |
+| `RATE_LIMIT_DOWNLOAD_GLOBAL_MAX` | Techo GLOBAL de descargas por hora (default `1000` ≈ 500 MB/h). Es el único que queda en pie sin IP, así que **es el que importa hoy**. |
+| `RATE_LIMIT_NOIP_AUTH_MAX` | Intentos de login por hora cuando no hay IP (default `500`). Alto a propósito: el gate se consume en cada intento, así que un valor bajo deja el panel sin login para todos. |
+| `PUBLIC_LIMIT_NOIP_FACTOR` | Multiplicador del cupo de GETs públicos para el balde compartido sin IP (default `20`). Idem: sin IP, todo el tráfico honesto cae en el mismo balde. |
 | `PANEL_COOKIE_INSECURE` | `1` = cookie sin `Secure` (sólo http de prueba). |
 | `PANEL_PBKDF2_ITERS`, `PANEL_SESSION_TTL_HOURS`, `PANEL_SESSION_IDLE_MINUTES` | Ajustes finos de auth (defaults sanos; en un server propio no hay límite de CPU — se puede subir el costo del hash). |
 | `LEAD_GATE_SECRET` | Firma el token de "esta persona ya dejó su correo" (mín. 16 chars). **Sin esto el gate de /analisis NO se aplica** — fail-open deliberado, con aviso en el error reporter: una env var faltante no puede tumbar el analizador. Rotarlo sólo hace que todos vuelvan a ver el formulario una vez. |

@@ -1,6 +1,8 @@
 import { LenisProvider } from "@/components/LenisProvider";
 import { NavbarFondo } from "@/components/institucional/NavbarFondo";
 import { FooterFondo } from "@/components/institucional/FooterFondo";
+import { MedicionFondo } from "@/components/institucional/MedicionFondo";
+import { ConsentimientoFondo } from "@/components/institucional/ConsentimientoFondo";
 import { origenCasaServer } from "@/lib/sitiosServer";
 
 /**
@@ -38,6 +40,13 @@ export default async function FondoLayout({ children }: { children: React.ReactN
 
   return (
     <LenisProvider>
+      {/* Primero de todo: la medición sólo existe si llega temprano. Vive en la
+          cáscara del FONDO y no en el layout raíz porque es el único de los tres
+          sitios que tiene contenedor — ver lib/medicion.ts. */}
+      <MedicionFondo />
+      {/* Arriba en el DOM aunque flote abajo en pantalla: es un diálogo que pide
+          una decisión, y con el teclado tiene que llegarse antes que al sitio. */}
+      <ConsentimientoFondo />
       <NavbarFondo casa={casa} />
       {children}
       <FooterFondo />

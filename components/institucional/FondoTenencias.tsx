@@ -16,14 +16,14 @@ import { css } from "@/lib/css";
 //
 // ⚠️ EL GRÁFICO DIBUJA SÓLO LAS TENENCIAS DIVULGADAS, y el marco entero es ese
 // tramo (pedido del usuario, 10-ago-2026; revierte el residual dibujado del
-// 31-jul). Las áreas quedan relativas ENTRE SÍ — una tenencia del 10% ocupa el
-// 16,7% del marco cuando lo divulgado suma 60.
+// 31-jul). Las áreas quedan relativas ENTRE SÍ — una tenencia del 7,5% ocupa el
+// 13,6% del marco cuando lo divulgado suma 55.
 //
 // Tres cosas sostienen que el dibujo siga siendo honesto, y ninguna es opcional:
 //
 // 1. LAS CIFRAS NO SE NORMALIZAN NUNCA. Cada celda muestra su peso real en el
-//    Fondo (10%, 7,5%…), no su fracción del marco. Normalizarlas para que
-//    cierren en 100 sería afirmar que una tenencia del 10% pesa 16,7%, que es
+//    Fondo (7,5%, 5%…), no su fracción del marco. Normalizarlas para que
+//    cierren en 100 sería afirmar que una tenencia del 7,5% pesa 13,6%, que es
 //    falso: el área es relativa, la cifra no. Y como cada cifra es peso sobre el
 //    Fondo, la suma queda al alcance de cualquiera que la haga.
 // 2. EL ALCANCE VIAJA CON LA IMAGEN, Y VIAJA COMO CONTEO. El rótulo dice "Las 8
@@ -41,7 +41,7 @@ import { css } from "@/lib/css";
 // 3. EL RESIDUAL SIGUE EN EL DATO. El panel valida Σ = 10.000 bps
 //    (HoldingsSchema), así que el snapshot trae igual su fila "OTROS":
 //    buildCells simplemente no la convierte en celda. De ahí sale `total` (hoy
-//    60), que es el divisor del donut y del treemap. NO se muestra: sólo decide
+//    55), que es el divisor del donut y del treemap. NO se muestra: sólo decide
 //    si el gráfico es parcial y hay que rotularlo como tal. Si algún día se
 //    publica la cartera completa, `total` llega a 100 y los avisos de alcance se
 //    caen solos, sin tocar nada más.
@@ -483,8 +483,8 @@ export function FondoTenencias() {
         <>
           {/* Acá iba la barra de split por clase de activo, y sigue afuera: sólo
               se conoce la clase del tramo divulgado, así que la barra podría
-              sumar 60% y dejar un hueco, o normalizar y decir "Renta variable
-              54,2%", que no es la asignación del Fondo sino la del pedazo que se
+              sumar 55% y dejar un hueco, o normalizar y decir "Renta variable
+              50%", que no es la asignación del Fondo sino la del pedazo que se
               publica. Una barra de proporción no tiene el escape que sí tiene el
               treemap —ahí cada celda lleva su cifra real al lado del área—: la
               barra es sólo geometría, y la geometría normalizada acá sería el

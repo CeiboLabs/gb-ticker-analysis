@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { NextRequest } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
+import { reboteGetPublico, trustedClientIp } from "@/lib/rateLimiter";
 
 // Tarjeta Open Graph POR ACCIÓN — lo que se despliega al pegar el link de un
 // informe en WhatsApp o LinkedIn.
@@ -37,7 +38,12 @@ const TONO: Record<string, string> = {
   AVOID: "#E9999A",
 };
 
-async function fuentes() {
+// Los TTF se leían del disco EN CADA REQUEST. No cambian nunca en la vida del
+// proceso, así que se memoizan; sólo se cachea el resultado bueno, para que un
+// error de lectura no quede pegado hasta el próximo deploy.
+let fuentesCache: Awaited<ReturnType<typeof leerFuentes>> | null = null;
+
+async function leerFuentes() {
   const dir = join(process.cwd(), "assets", "fonts");
   const [sans, mono] = await Promise.all([
     readFile(join(dir, "IBMPlexSans-SemiBold.ttf")),
@@ -49,7 +55,22 @@ async function fuentes() {
   ];
 }
 
+async function fuentes() {
+  fuentesCache ??= await leerFuentes();
+  return fuentesCache;
+}
+
+// La tarjeta se re-renderiza con Satori en cada pedido, y encima lee fuentes y
+// consulta D1: es el multiplicador de CPU más alto del sitio. Con la caché de
+// abajo un mismo link reenviado no la vuelve a generar, y el gate es el techo
+// para el que pide tickers distintos en loop. 1500/h por IP no lo roza ningún
+// crawler honesto — WhatsApp, LinkedIn y Facebook piden la tarjeta una vez.
+const OG_CACHE = "public, max-age=3600, s-maxage=86400";
+
 export async function GET(req: NextRequest) {
+  const rebote = reboteGetPublico("og-analisis", trustedClientIp(req));
+  if (rebote) return rebote;
+
   const raw = new URL(req.url).searchParams.get("ticker") ?? "";
   const ticker = raw.trim().toUpperCase();
   const valido = /^[A-Z0-9.\-]{1,12}$/.test(ticker);
@@ -147,6 +168,6 @@ export async function GET(req: NextRequest) {
         </div>
       </div>
     ),
-    { width: 1200, height: 630, fonts },
+    { width: 1200, height: 630, fonts, headers: { "Cache-Control": OG_CACHE } },
   );
 }

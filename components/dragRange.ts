@@ -75,6 +75,16 @@ export function toSelection(sel: DragRangeSelection | null): RangeSelection | nu
   };
 }
 
+/**
+ * Distancia (manhattan, en px) a la que se decide si el dedo vino a MEDIR o a
+ * scrollear la página. Es el mismo umbral con el que la librería cancela el tap
+ * y decide lo propio, así que las dos decisiones caen en el mismo movimiento.
+ */
+const DECISION_EJE = 5;
+
+/** Qué está haciendo el dedo. En mouse no hay nada que decidir: siempre mide. */
+type Eje = "pendiente" | "medir" | "pagina";
+
 /** Engancha el gesto. Devuelve la función que lo desengancha. */
 export function attachDragRange({
   chart,
@@ -89,6 +99,8 @@ export function attachDragRange({
 }: AttachDragRangeParams): () => void {
   let down = false;
   let anchor: DragRangePoint | null = null;
+  let eje: Eje = "medir";
+  let origen: { x: number; y: number } | null = null;
 
   // El PANE es la caja de la serie, y no arranca en el borde del contenedor:
   // cuando hay un eje izquierdo visible empieza corrido ese ancho. Sin
@@ -286,28 +298,9 @@ export function attachDragRange({
   if (initial) applySelection(initial);
   else primitive.setSelection(null);
 
-  // Apretar → arrastrar → soltar. Sin pointer capture: capturar redirige los
-  // eventos y el canvas dejaría de recibirlos. El move/up van en window para no
-  // perder el gesto si el cursor sale del gráfico.
-  const onDown = (e: PointerEvent) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const p = pointAtX(e.clientX);
-    if (!p) return;
-    down = true;
-    anchor = p;
-    onDragging?.(true);
-    applySelection(null);
-  };
-  const onMove = (e: PointerEvent) => {
-    if (!down || !anchor) return;
-    const p = pointAtX(e.clientX);
-    if (!p) return;
-    // Volver sobre el punto del ancla no deja tramo que medir: se limpia, en vez
-    // de dejar colgado el anterior con su banda y su extremo viejo.
-    applySelection(p.time === anchor.time ? null : { from: anchor, to: p });
-  };
-  // Al soltar se borra: la medición es un gesto momentáneo, no deja marca fija
-  // en el gráfico (por eso tampoco hace falta un botón de limpiar).
+  // Termina el gesto y deja el gráfico como estaba: la medición es momentánea,
+  // no deja marca fija (por eso tampoco hace falta un botón de limpiar). Se usa
+  // al soltar y también cuando el dedo resulta ser de la página (bloqueo de eje).
   //
   // Con el dedo hay que borrar TAMBIÉN la mira de la librería. En un teléfono no
   // hay hover: la mira que se ve durante el arrastre la prende el "tracking
@@ -318,27 +311,123 @@ export function attachDragRange({
   // `touchend` que valga—, así que la apagamos nosotros desde el mismo gesto.
   // En mouse NO: ahí soltar deja el cursor sobre el gráfico y la mira del hover
   // tiene que seguir donde está.
-  const onUp = (e: PointerEvent) => {
-    if (!down) return;
+  const soltar = (esMouse: boolean) => {
     down = false;
     anchor = null;
-    if (e.pointerType !== "mouse") chart.clearCrosshairPosition();
+    origen = null;
+    if (!esMouse) chart.clearCrosshairPosition();
     onDragging?.(false);
     applySelection(null);
   };
 
+  // BLOQUEO DE EJE — sin esto, en el teléfono la medición se muere sola.
+  //
+  // El navegador tiene su propia idea del gesto: con `touch-action: pan-y` (que
+  // es lo que llevan los dos gráficos, para que la página se siga pudiendo
+  // scrollear desde arriba del gráfico) se reserva el derecho a llevarse el
+  // toque para scrollear vertical EN CUALQUIER MOMENTO del arrastre. Cuando lo
+  // hace dispara `pointercancel`, y ahí abajo `pointercancel` termina el gesto:
+  // bastaba un temblor vertical de dos píxeles a mitad de una medición para que
+  // el tramo se borrara solo.
+  //
+  // La librería trae exactamente esta lógica (decide a los 5px de distancia
+  // manhattan y hace preventDefault para que la página no scrollee), pero sólo
+  // la corre si el arrastre le pertenece —si `handleScroll` habilita el arrastre
+  // táctil—, y los dos gráficos lo tienen apagado a propósito: el gráfico no se
+  // desplaza, se mide sobre él. Así que la decisión la tomamos nosotros:
+  //
+  //   · hasta los 5px no se dibuja nada y no se previene nada — todavía no se
+  //     sabe qué quiso hacer el dedo;
+  //   · si el movimiento fue más horizontal que vertical, el gesto es NUESTRO:
+  //     de ahí en adelante se previene el default de cada touchmove, con lo que
+  //     el navegador ya no puede arrancar a scrollear y el arrastre llega entero
+  //     hasta que se levante el dedo, por más que la mano se vaya para arriba o
+  //     para abajo;
+  //   · si fue más vertical, es scroll de la página: se abandona la medición y
+  //     no se previene nada, así el scroll nativo arranca como siempre.
+  //
+  // Se puede prevenir porque la librería registra un touchmove no pasivo sobre
+  // el gráfico justo para que Safari de iOS mantenga los eventos cancelables. Y
+  // el scroll de la página es nativo (Lenis va con syncTouch: false), así que
+  // frenar el default alcanza para que no se mueva.
+  const decidirEje = (x: number, y: number) => {
+    if (eje !== "pendiente" || !origen) return;
+    const dx = Math.abs(x - origen.x);
+    const dy = Math.abs(y - origen.y);
+    if (dx + dy < DECISION_EJE) return;
+    if (dx >= dy) {
+      eje = "medir";
+      return;
+    }
+    eje = "pagina";
+    soltar(false);
+  };
+
+  // Apretar → arrastrar → soltar. Sin pointer capture: capturar redirige los
+  // eventos y el canvas dejaría de recibirlos. El move/up van en window para no
+  // perder el gesto si el cursor sale del gráfico.
+  const onDown = (e: PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const p = pointAtX(e.clientX);
+    if (!p) return;
+    down = true;
+    anchor = p;
+    const táctil = e.pointerType !== "mouse";
+    eje = táctil ? "pendiente" : "medir";
+    origen = táctil ? { x: e.clientX, y: e.clientY } : null;
+    onDragging?.(true);
+    applySelection(null);
+  };
+  const onMove = (e: PointerEvent) => {
+    if (!down || !anchor) return;
+    decidirEje(e.clientX, e.clientY);
+    // Mientras no se sepa de quién es el gesto no se dibuja: un tramo que
+    // aparece y se borra en el primer centímetro de un scroll es peor que
+    // esperar los 5px.
+    if (eje !== "medir") return;
+    const p = pointAtX(e.clientX);
+    if (!p) return;
+    // Volver sobre el punto del ancla no deja tramo que medir: se limpia, en vez
+    // de dejar colgado el anterior con su banda y su extremo viejo.
+    applySelection(p.time === anchor.time ? null : { from: anchor, to: p });
+  };
+
+  // El touchmove va aparte del pointermove —y no pasivo— porque es el único que
+  // puede frenar el scroll. Se decide también acá para no depender de en qué
+  // orden dispare el navegador los dos eventos.
+  const onTouchMove = (e: TouchEvent) => {
+    if (!down) return;
+    // Dos dedos es pinch: es del navegador, no una medición.
+    if (e.touches.length !== 1) {
+      soltar(false);
+      return;
+    }
+    decidirEje(e.touches[0].clientX, e.touches[0].clientY);
+    if (eje === "medir" && e.cancelable) e.preventDefault();
+  };
+  // `pointercancel` sigue enganchado como red: con el eje bloqueado el navegador
+  // ya no debería llevarse el gesto, pero si se lo lleva —o si entra una llamada,
+  // o el sistema roba el toque— el tramo no puede quedar colgado a medio medir.
+  const onUp = (e: PointerEvent) => {
+    if (!down) return;
+    soltar(e.pointerType === "mouse");
+  };
+
   container.addEventListener("pointerdown", onDown);
+  container.addEventListener("touchmove", onTouchMove, { passive: false });
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
   window.addEventListener("pointercancel", onUp);
 
   return () => {
     container.removeEventListener("pointerdown", onDown);
+    container.removeEventListener("touchmove", onTouchMove);
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onUp);
     down = false;
     anchor = null;
+    origen = null;
     // La caja la monta el componente y sobrevive al gráfico (un cambio de
     // período lo recrea): si quedara visible, quedaría flotando sobre una serie
     // que ya no es la que se midió.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { css } from "@/lib/css";
 
 function formatUSD(n: number): string {
@@ -97,6 +97,31 @@ interface SliderProps {
   onChange: (v: number) => void;
 }
 
+// Estado de un arrastre en curso. Vive en un ref porque cambia dentro del
+// gesto y no tiene por qué re-renderizar.
+interface Gesto {
+  /** Distancia entre el dedo y el centro del círculo al apoyar (0 si se apoyó en la barra). */
+  desfase: number;
+  x0: number;
+  y0: number;
+  /** Todavía no se fijó ningún valor: el gesto podría terminar siendo un scroll. */
+  pendiente: boolean;
+  /** El gesto arrancó agarrando el círculo, no la barra. */
+  desdeElCirculo: boolean;
+  /** Valor al apoyar, para devolverlo si el browser se queda con el gesto. */
+  valorInicial: number;
+  /** Quién tiene la captura, para poder devolverla si el gesto resulta ajeno. */
+  captura: { el: HTMLElement; id: number } | null;
+}
+
+/**
+ * Distancia (manhattan, en px) a la que se decide si el dedo vino a mover el
+ * slider o a scrollear la página. Mismo número y mismo criterio que el gesto de
+ * medición de los gráficos (`components/dragRange.ts`), para que las dos
+ * decisiones se sientan iguales en todo el sitio.
+ */
+const DECISION_EJE = 5;
+
 function Slider({
   label,
   labelExtra,
@@ -110,23 +135,210 @@ function Slider({
   onChange,
 }: SliderProps) {
   const pct = ((value - min) / (max - min)) * 100;
+  const pista = useRef<HTMLDivElement>(null);
+  const campo = useRef<HTMLInputElement>(null);
+  const gesto = useRef<Gesto | null>(null);
+  const [agarrado, setAgarrado] = useState(false);
+
+  // Decimales del paso: sin esto, 6 + 3×0,25 devuelve 6.750000000000001 y la
+  // cifra rotulada sale con la basura del binario.
+  const decimales = (String(step).split(".")[1] ?? "").length;
+
+  function valorEn(clientX: number): number {
+    const r = pista.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return value;
+    const pasos = Math.round((((clientX - r.left) / r.width) * (max - min)) / step);
+    return Math.min(max, Math.max(min, Number((min + pasos * step).toFixed(decimales))));
+  }
+
+  function apoyar(e: React.PointerEvent<HTMLElement>, sobreElCirculo: boolean) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const r = pista.current?.getBoundingClientRect();
+    if (!r) return;
+    // Sin esto el foco NO queda en el input: la acción por omisión del
+    // mousedown de compatibilidad —que se dispara después de este handler—
+    // devuelve el foco al body, porque quien recibe el gesto es un span que no
+    // es focusable. Medido: activeElement quedaba en BODY y las flechas del
+    // teclado no ajustaban nada después de tocar el control.
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    gesto.current = {
+      // Agarrando el círculo el arrastre es RELATIVO —se conserva la distancia
+      // entre el dedo y el centro—, así el valor no pega un salto de hasta 22px
+      // en el instante de apoyar, que es justo lo que uno NO quiere del control
+      // que está por ajustar fino.
+      desfase: sobreElCirculo ? e.clientX - (r.left + (pct / 100) * r.width) : 0,
+      x0: e.clientX,
+      y0: e.clientY,
+      pendiente: !sobreElCirculo && e.pointerType === "touch",
+      desdeElCirculo: sobreElCirculo,
+      valorInicial: value,
+      captura: { el: e.currentTarget, id: e.pointerId },
+    };
+    setAgarrado(true);
+    // El foco al input real, para que después de usar el control las flechas del
+    // teclado lo sigan ajustando.
+    //
+    // Con el dedo NO: enfocar por script después de un toque le hace matchear
+    // :focus-visible a Chrome —medido acá, no supuesto— y el aro de foco queda
+    // pegado al soltar, o sea el control parece agarrado cuando ya no lo está.
+    // Y en un teléfono el foco no habilita nada: las flechas no existen, y quien
+    // navegue con teclado o lector de pantalla llega igual por tabulación.
+    if (e.pointerType !== "touch") campo.current?.focus({ preventScroll: true });
+    if (!gesto.current.pendiente && !sobreElCirculo) onChange(valorEn(e.clientX));
+  }
+
+  // Suelta el gesto sin tocar el valor: el dedo era de la página, o entró un
+  // segundo dedo (eso es una pinza y le pertenece al navegador).
+  const abandonar = useCallback(() => {
+    const g = gesto.current;
+    gesto.current = null;
+    setAgarrado(false);
+    if (g?.captura?.el.hasPointerCapture(g.captura.id)) {
+      g.captura.el.releasePointerCapture(g.captura.id);
+    }
+  }, []);
+
+  // De quién es el gesto. Apoyado sobre la BARRA no se sabe hasta que el dedo se
+  // mueva: hasta los 5px no se fija valor ni se previene nada; si el movimiento
+  // fue más horizontal que vertical el gesto es nuestro y desde ahí se le frena
+  // el default a cada touchmove; si fue más vertical, es scroll de la página y
+  // se abandona. Agarrando el círculo no hay nada que decidir (el touch-action
+  // de esa zona ya no le deja al navegador ningún gesto de un dedo).
+  const decidirEje = useCallback(
+    (x: number, y: number): boolean => {
+      const g = gesto.current;
+      if (!g) return false;
+      if (!g.pendiente) return true;
+      const dx = Math.abs(x - g.x0);
+      const dy = Math.abs(y - g.y0);
+      if (dx + dy < DECISION_EJE) return false;
+      if (dx >= dy) {
+        g.pendiente = false;
+        return true;
+      }
+      abandonar();
+      return false;
+    },
+    [abandonar],
+  );
+
+  function mover(e: React.PointerEvent<HTMLElement>) {
+    const g = gesto.current;
+    if (!g) return;
+    if (!decidirEje(e.clientX, e.clientY)) return;
+    onChange(valorEn(e.clientX - g.desfase));
+  }
+
+  // BLOQUEO DE EJE — el mismo que ya lleva el arrastre de los gráficos, y por el
+  // mismo motivo (ver `components/dragRange.ts`): con `touch-action: pan-y` el
+  // navegador NO decide de una vez al empezar el toque, se reserva el derecho de
+  // llevarse el gesto para scrollear en cualquier momento del arrastre. Cuando
+  // lo hace dispara `pointercancel` y el arrastre se muere solo — en los
+  // gráficos alcanzaba un temblor vertical de dos píxeles a mitad de camino, y
+  // eso lo reportó el cliente desde el teléfono (en Chrome de escritorio no
+  // reproduce: fija el eje al arranque).
+  //
+  // Una vez que el gesto es nuestro, cada `touchmove` va con `preventDefault` y
+  // el navegador ya no puede arrancar a scrollear. Va aparte del `pointermove`
+  // porque el de React se registra pasivo y un listener pasivo no puede frenar
+  // nada; y va en el montaje porque Safari de iOS decide al empezar el toque si
+  // los `touchmove` de ese gesto van a ser cancelables — registrarlo después ya
+  // no sirve. El scroll de la página es nativo (Lenis va con syncTouch: false),
+  // así que frenar el default alcanza.
+  useEffect(() => {
+    const el = pista.current;
+    if (!el) return;
+    const enTouchMove = (e: TouchEvent) => {
+      if (!gesto.current) return;
+      if (e.touches.length !== 1) {
+        abandonar(); // dos dedos es una pinza: el zoom es del navegador
+        return;
+      }
+      if (!decidirEje(e.touches[0].clientX, e.touches[0].clientY)) return;
+      if (e.cancelable) e.preventDefault();
+    };
+    el.addEventListener("touchmove", enTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", enTouchMove);
+  }, [abandonar, decidirEje]);
+
+  function soltar(e: React.PointerEvent<HTMLElement>) {
+    const g = gesto.current;
+    gesto.current = null;
+    setAgarrado(false);
+    // Toque seco sobre la barra: no hubo arrastre, pero sí la intención de
+    // llevar el valor ahí.
+    if (g?.pendiente) onChange(valorEn(e.clientX));
+  }
+
+  function cancelar() {
+    const g = gesto.current;
+    gesto.current = null;
+    setAgarrado(false);
+    // El browser se quedó con el gesto para scrollear. Si había arrancado en la
+    // BARRA, la intención era scrollear y el parámetro vuelve a donde estaba;
+    // agarrando el círculo la intención era ajustar, así que se deja donde
+    // quedó. Sin esto, cada intento de scrollear con el dedo apoyado sobre una
+    // barra dejaba el parámetro cambiado de callado.
+    if (g && !g.desdeElCirculo) onChange(g.valorInicial);
+  }
+
+  // Red de seguridad: si la captura se pierde por cualquier otro motivo, el
+  // gesto no queda vivo esperando un pointerup que no va a llegar.
+  function perderCaptura() {
+    if (!gesto.current) return;
+    gesto.current = null;
+    setAgarrado(false);
+  }
 
   return (
     <div className="calc-slider">
-      {/* Encabezado del parámetro: rótulo (+ el toggle de frecuencia, si lo
-          hay) a la izquierda y el valor a la derecha. Envuelve: en el teléfono
-          angosto "Aporte + Mensual/Anual + USD 500" no entra en un renglón y el
-          valor se partía en dos ("USD" / "500"). Al envolver, el valor baja
-          entero y sigue alineado a la derecha por el margin auto. */}
+      {/* Encabezado del parámetro: rótulo (+ el toggle de frecuencia, si lo hay)
+          a la izquierda y el valor a la derecha.
+          ⚠️ EL VALOR NO SE MUEVE NUNCA — ver .calc-slider-head en el CSS. */}
       <div className="calc-slider-head">
         <span className="calc-slider-lab">
           <label className="ui-label" style={{ marginBottom: 0 }}>{label}</label>
-          {labelExtra}
+          {/* El toggle va en su propia caja para poder mandarlo a un renglón
+              aparte cuando la columna es angosta, sin estirar la pastilla. */}
+          {labelExtra ? <span className="calc-slider-extra">{labelExtra}</span> : null}
         </span>
         <span className="calc-slider-val">{displayValue}</span>
       </div>
 
-      {/* ⚠️ NI LA BARRA NI EL THUMB LLEVAN TRANSITION, Y NO ES UN OLVIDO.
+      {/* ⚠️ EL ARRASTRE NO LO MANEJA EL <input type=range>, Y NO ES CAPRICHO.
+          Hasta el 13-ago-2026 el control era el input nativo estirado e
+          invisible por encima de un dibujo hecho a mano. Eso deja el gesto en
+          manos de cada motor, y los motores no se comportan igual:
+
+          · El círculo que se ve NO era el control. Se dibuja centrado en la
+            punta de la pista, o sea que en un extremo la mitad de su cuerpo
+            queda FUERA de la caja del input; y el thumb nativo —invisible, con
+            su propia geometría— se corre hacia adentro media perilla (en iOS son
+            ~28px de ancho). Apretar el círculo en el extremo era apretar al lado
+            del control: "el círculo marca, no acciona".
+          · Barrer el dedo en VERTICAL sobre una barra cambiaba el parámetro.
+            Medido sobre esta misma página en un teléfono de 390px, con el gesto
+            real: los cuatro sliders saltaban al punto donde se apoyaba el dedo
+            (Aporte 48.000 → 60.000, Horizonte 17 → 21 años) y la página
+            scrolleaba igual. O sea que intentar leer la sección te reescribía la
+            simulación sin que la tocaras.
+
+          Ahora el gesto lo maneja la página con eventos de puntero y captura, y
+          el reparto del touch-action es el mismo que hace un slider de iOS:
+
+            · sobre la BARRA        → pan-y pinch-zoom: la página sigue
+              scrolleando con el dedo (son cuatro filas de 44px: volverlas zona
+              muerta se siente como que la página se trabó), y el valor recién se
+              fija cuando el gesto se declara horizontal.
+            · sobre el CÍRCULO      → pinch-zoom: el gesto es del control y el
+              browser no puede robarlo. Un arrastre en diagonal —lo normal con el
+              pulgar— ya no se convierte en scroll a mitad de camino.
+
+          El zoom por pinza queda intacto en los dos: restringir el gesto no
+          puede costarle el zoom a quien lo necesita para leer.
+
+          ⚠️ NI LA BARRA NI EL THUMB LLEVAN TRANSITION, Y NO ES UN OLVIDO.
           Hasta el 11-ago-2026 tenían `width 100ms` y `left 100ms`. En un
           control de manipulación directa eso no suaviza nada: mientras se
           arrastra, el valor ya viene continuo —un evento por frame—, así que lo
@@ -151,38 +363,15 @@ function Slider({
           medición de fps. Si algún día se quiere volver a suavizar, que sea
           sólo para los cambios que NO vienen de un arrastre (teclado, click en
           la pista); mientras el dedo está apoyado, 1:1 o nada. */}
-      <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
-        <div style={{ position: "absolute", left: 0, right: 0, height: 6, borderRadius: 999, background: "var(--site-border)" }} />
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            height: 6,
-            borderRadius: 999,
-            background: "var(--navy)",
-            width: `${pct}%`,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            left: `calc(${pct}% - 10px)`,
-            width: 20,
-            height: 20,
-            borderRadius: "50%",
-            background: "#FFFFFF",
-            border: "2px solid var(--navy)",
-            boxShadow: "0 2px 6px rgba(3,6,94,0.18)",
-            zIndex: 2,
-            pointerEvents: "none",
-          }}
-        />
-        {/* El input real es invisible y se estira por FUERA de la pista: lo que
-            se ve mide 22px de alto —el thumb dibujado— y con el dedo eso queda
-            muy por debajo del mínimo táctil de 44. Los 11px de más por lado los
-            absorbe el padding del propio .calc-slider (16px arriba y abajo), así
-            que ningún slider invade al de al lado. */}
+      <div className="calc-track" ref={pista} data-agarrado={agarrado ? "1" : undefined}>
+        {/* El input real sigue existiendo, invisible y sordo al puntero: es lo
+            que hace que el control se anuncie como slider, se ajuste con las
+            flechas y lo entienda VoiceOver. Va PRIMERO en el DOM para que el
+            anillo de foco pueda pintarse sobre el círculo con un selector de
+            hermano. */}
         <input
+          ref={campo}
+          className="calc-range"
           type="range"
           min={min}
           max={max}
@@ -190,20 +379,32 @@ function Slider({
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
           aria-label={label}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: -11,
-            bottom: -11,
-            width: "100%",
-            opacity: 0,
-            cursor: "grab",
-            // pinch-zoom explícito: restringir el gesto no puede costarle el zoom
-            // a quien lo necesita para leer.
-            touchAction: "pan-y pinch-zoom",
-            zIndex: 3,
-          }}
+        />
+        <span className="calc-rail" />
+        <span className="calc-rail calc-rail-llena" style={{ width: `${pct}%` }} />
+        <span className="calc-thumb" style={{ left: `calc(${pct}% - 10px)` }} />
+        {/* Las dos zonas del gesto. La de la barra se estira 11px por fuera de
+            la pista —lo que se ve mide 22px de alto y con el dedo eso queda muy
+            por debajo del mínimo táctil de 44—; los absorbe el padding del
+            propio .calc-slider, así que ningún slider invade al de al lado. La
+            del círculo lo acompaña y lo desborda, para que agarrarlo en un
+            extremo sea agarrarlo y no errarle por 10px. */}
+        <span
+          className="calc-hit"
+          onPointerDown={(e) => apoyar(e, false)}
+          onPointerMove={mover}
+          onPointerUp={soltar}
+          onPointerCancel={cancelar}
+          onLostPointerCapture={perderCaptura}
+        />
+        <span
+          className="calc-grab"
+          style={{ left: `calc(${pct}% - 22px)` }}
+          onPointerDown={(e) => apoyar(e, true)}
+          onPointerMove={mover}
+          onPointerUp={soltar}
+          onPointerCancel={cancelar}
+          onLostPointerCapture={perderCaptura}
         />
       </div>
 
@@ -646,6 +847,11 @@ export function CalculadoraSim({
         .calc-hitos   { grid-area: 3 / 1 / 4 / -1; margin-top: 56px; border-top: 1px solid var(--site-border); }
         .calc-legal   { grid-area: 4 / 1 / 5 / -1; margin-top: 32px; max-width: var(--medida-legal); }
         .calc-res-cap { display: none; }
+        /* La columna de parámetros es el contenedor de consulta de los
+           encabezados: lo que decide si el toggle entra al lado del rótulo es su
+           ancho, no el del viewport (a 901px de viewport esta columna mide
+           333px, más angosta que un teléfono). */
+        .calc-params { container-type: inline-size; }
         .calc-panel { min-width: 0; }
 
         .calc-figures {
@@ -664,14 +870,80 @@ export function CalculadoraSim({
         .calc-figure-cap { margin-bottom: 12px; }
         .calc-figure-value { font-weight: 400; font-size: 40px; letter-spacing: -0.025em; }
         .calc-slider { padding: 16px 0; border-bottom: 1px solid var(--site-border); }
-        .calc-slider-head {
-          display: flex; align-items: baseline; justify-content: space-between;
-          flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px;
+        /* Pista y gesto. El reparto del touch-action está explicado arriba, en
+           el JSX; acá sólo se aplica. */
+        .calc-track {
+          position: relative; height: 22px; display: flex; align-items: center;
+          /* Nada de acá es texto: sin esto, mantener el dedo apoyado en el
+             teléfono levanta la lupa de selección y el arrastre se pierde. */
+          user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+          -webkit-tap-highlight-color: transparent;
         }
-        .calc-slider-lab { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+        .calc-rail {
+          position: absolute; left: 0; right: 0; height: 6px; border-radius: 999px;
+          background: var(--site-border);
+        }
+        .calc-rail-llena { right: auto; background: var(--navy); }
+        .calc-thumb {
+          position: absolute; width: 20px; height: 20px; border-radius: 50%;
+          background: #fff; border: 2px solid var(--navy);
+          box-shadow: 0 2px 6px rgba(3,6,94,0.18);
+          z-index: 2; pointer-events: none;
+        }
+        /* Que el círculo se vea agarrado. No es adorno: la queja era que "marca,
+           no acciona", y un control de manipulación directa tiene que acusar
+           recibo del dedo. Sin transición, como todo lo que sigue al gesto. */
+        .calc-track[data-agarrado] .calc-thumb,
+        .calc-range:focus-visible ~ .calc-thumb {
+          box-shadow: 0 0 0 6px rgba(3,6,94,0.12), 0 2px 6px rgba(3,6,94,0.18);
+        }
+        @media (hover: hover) {
+          .calc-track:hover .calc-thumb { box-shadow: 0 0 0 4px rgba(3,6,94,0.08), 0 2px 6px rgba(3,6,94,0.18); }
+        }
+        .calc-range {
+          position: absolute; inset: -11px 0; width: 100%; margin: 0;
+          opacity: 0; pointer-events: none;
+        }
+        .calc-hit {
+          position: absolute; inset: -11px; z-index: 3; cursor: pointer;
+          touch-action: pan-y pinch-zoom;
+        }
+        .calc-grab {
+          position: absolute; top: 50%; margin-top: -22px; width: 44px; height: 44px;
+          z-index: 4; cursor: grab; touch-action: pinch-zoom;
+        }
+        .calc-track[data-agarrado] .calc-grab { cursor: grabbing; }
+        /* ⚠️ DOS COLUMNAS DE GRID, NO UN FLEX QUE ENVUELVE, Y ESA ES LA
+           DIFERENCIA. Con flex-wrap el valor era un ítem más de la fila: en
+           cuanto rótulo + toggle + cifra no entraban, la cifra se iba sola al
+           renglón de abajo. Y el umbral lo decidía el LARGO DEL NÚMERO, o sea
+           que saltaba a mitad del arrastre: medido a 390px, "Aporte" con la
+           pastilla mide 226px y la cifra entre 106 ("USD 30.000") y 117 ("USD
+           120.000") contra 350px de columna — entra con cinco cifras y se cae
+           con seis. En un teléfono de 375 se cae ya en la quinta, que es el
+           reporte.
+           Con el grid la cifra tiene columna propia (auto: nunca se parte ni se
+           baja) y la presión la absorbe el rótulo, cuya columna es
+           minmax(0, 1fr) —minmax y no 1fr pelado: 1fr es minmax(auto, 1fr) y una
+           palabra larga desbordaría la página—. */
+        .calc-slider-head {
+          display: grid; grid-template-columns: minmax(0, 1fr) auto;
+          align-items: baseline; gap: 8px 12px; margin-bottom: 12px;
+        }
+        .calc-slider-lab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
         .calc-slider-val {
-          margin-left: auto; white-space: nowrap;
+          justify-self: end; white-space: nowrap;
           font-size: 20px; font-weight: 400; letter-spacing: -0.015em; color: var(--site-ink);
+        }
+        /* Y el toggle, en columna angosta, SIEMPRE en su propio renglón. Dejarlo
+           librado a si entra lo devuelve al mismo problema por otra puerta: la
+           pastilla bajaría recién al pasar de "USD 99.000" a "USD 100.000", o
+           sea saltando durante el arrastre. El umbral sale de la medición de
+           arriba (355px de necesidad) con margen para métricas de fuente
+           distintas; abarca el teléfono y también la columna de parámetros
+           cuando el escritorio queda angosto (333px a 901px de viewport). */
+        @container (max-width: 380px) {
+          .calc-slider-extra { flex-basis: 100%; }
         }
         /* Toggle mensual/anual — mismo patrón que el toggle de "Mayores
            tenencias" (.ten-toggle): pastilla con thumb navy deslizante. */

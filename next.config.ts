@@ -98,6 +98,64 @@ const nextConfig: NextConfig = {
       // El panel de empleados no tiene nada que hacer en un buscador (además
       // del metadata.robots noindex de app/admin/layout.tsx — cinturón y tiradores).
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+
+      // ── Caché de public/ ──────────────────────────────────────────────────
+      // Todo public/ salía con `Cache-Control: public, max-age=0` (medido el
+      // 2026-08-13 sobre hero-home.mp4, informes-carpeta.png y las fotos de
+      // /equipo). Sólo los `/_next/static/*` —que llevan hash en el nombre—
+      // iban `immutable`.
+      //
+      // QUÉ GANA Y QUÉ NO, sin inflarlo: con max-age=0 el navegador igual
+      // guarda el archivo y revalida, así que el 304 ya evitaba re-bajar los
+      // bytes. Lo que esto saca es el VIAJE de ida y vuelta por asset y por
+      // visita —unos veinte en una página de la casa—, y deja los archivos
+      // cacheables por un CDN el día que haya uno. No es un ahorro de ancho de
+      // banda: ése ya estaba.
+      //
+      // Los nombres de public/ NO llevan hash, así que un max-age largo es
+      // exactamente el tiempo que un archivo reemplazado sigue viéndose viejo.
+      // De ahí que cada familia tenga el suyo, y que `stale-while-revalidate`
+      // haga el trabajo fino: sirve al instante y revalida de fondo. Safari no
+      // lo soporta y degrada al max-age, que es un degradado correcto.
+      //
+      // El orden importa: si dos reglas matchean el mismo path y setean la
+      // misma clave, gana la ÚLTIMA. Por eso /documentos va al final.
+      {
+        // 13 MB, y se reencodearon una sola vez en toda la vida del proyecto.
+        source: "/video/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        // Fotos del cliente: se reemplazan de a una y muy de vez en cuando.
+        source: "/:dir(hero|equipo|logos)/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
+      {
+        // Imágenes sueltas en la raíz de public/ (informes-carpeta.png pesa
+        // 1,2 MB; hay 18 archivos ahí).
+        //
+        // ⚠️ `[^/]*` y NO `.*`: el patrón de un parámetro se inserta tal cual
+        // en la expresión, así que un `.*` cruza las barras y esto pasaría a
+        // matchear también `/_next/static/media/…`, degradándole a los assets
+        // con hash su `immutable` de un año a un día. En dev no se ve —ahí Next
+        // sirve todo `no-cache`—, o sea que sería una regresión que sólo
+        // aparece en producción. Anclado a un segmento, sólo toca la raíz.
+        // Sin extensiones de fuente: en public/ no hay ninguna (viven en
+        // /_next/static/media/, justo lo que no hay que tocar).
+        source: "/:file([^/]*\\.(?:png|jpe?g|webp|avif|svg|ico))",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
+      {
+        // Documentos legales: el Reglamento de gestión y la autorización del
+        // BCU. Acá el cacheo agresivo es un riesgo REGULATORIO, no de UX — una
+        // corrección tiene que poder circular. Una hora y revalidación
+        // obligatoria, el mismo criterio que el .htaccess del fondo
+        // (scripts/build-fondo.mts). Ninguna regla de arriba matchea un .pdf,
+        // así que esto no pisa nada: está para que los documentos tengan una
+        // política elegida y no la que sobre por descarte.
+        source: "/documentos/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, must-revalidate" }],
+      },
     ];
   },
 };

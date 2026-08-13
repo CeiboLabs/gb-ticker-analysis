@@ -68,6 +68,14 @@ const { SITIO_CASA_URL, SITIO_FONDO_URL, RUTA_FONDO } = await import("../lib/sit
 const { SEO_INDEXABLE, OG_FONDO } = await import("../lib/seo");
 const { headersSeguridad } = await import("../lib/headersSeguridad");
 const { DOCS_ESTATICOS } = await import("../lib/fondoDocsEstaticos");
+const { GTM_ID } = await import("../lib/medicion");
+const { FONDO_DOC_TIPOS } = await import("../lib/panelSchemas");
+
+// Este script ES el build del fondo, así que la medición va salvo kill-switch. No
+// se puede leer `MEDICION_ACTIVA` de lib/medicion: ese flag mira FONDO_STANDALONE,
+// que existe en el env del `next build` HIJO (línea del spawn) y no acá. Si esto
+// dijera `false`, el HTML saldría con el contenedor y las cabeceras bloqueándolo.
+const MEDICION = process.env.MEDICION_OFF !== "1";
 
 // ── Copia del repo + build ───────────────────────────────────────────────────
 
@@ -318,7 +326,7 @@ function sitemapXml(): string {
 
 function headersFile(): string {
   const lineas = ["# Generado por scripts/build-fondo.mts — no editar a mano.", "/*"];
-  for (const { key, value } of headersSeguridad({ dev: false })) {
+  for (const { key, value } of headersSeguridad({ dev: false, medicion: MEDICION })) {
     lineas.push(`  ${key}: ${value}`);
   }
   // Los assets de Next llevan hash de contenido en el nombre: son inmutables y
@@ -626,6 +634,66 @@ function verificarDocs(): string[] {
   return problemas;
 }
 
+/**
+ * Las dos mitades de la medición tienen que salir del build de acuerdo.
+ *
+ * El modo de falla que esto ataja es el silencioso y el caro: el HTML con el
+ * contenedor horneado y la CSP del `.htaccess` sin habilitar googletagmanager. El
+ * sitio se ve perfecto, no hay error en ningún log nuestro, y lo único que pasa
+ * es que la campaña mide cero — se descubre semanas después, cuando alguien
+ * pregunta por los números. Es exactamente lo que separa a los dos procesos de
+ * este script (ver el comentario de MEDICION), así que se verifica el ARTEFACTO,
+ * no la intención.
+ */
+function verificarMedicion(): string[] {
+  const problemas: string[] = [];
+  const html = fs.readFileSync(path.join(SALIDA, "index.html"), "utf8");
+  const csp =
+    /Header always set Content-Security-Policy "([^"]*)"/.exec(
+      fs.readFileSync(path.join(SALIDA_CPANEL, ".htaccess"), "utf8"),
+    )?.[1] ?? "";
+
+  const enHtml = html.includes(GTM_ID);
+  const enCsp = csp.includes("https://www.googletagmanager.com");
+
+  if (!MEDICION) {
+    // MEDICION_OFF=1: se espera un deploy limpio de las DOS mitades.
+    if (enHtml) problemas.push(`MEDICION_OFF=1 pero el HTML igual trae ${GTM_ID}`);
+    if (enCsp) problemas.push("MEDICION_OFF=1 pero la CSP igual habilita googletagmanager.com");
+    return problemas;
+  }
+  if (!enHtml) {
+    problemas.push(
+      `el HTML no trae ${GTM_ID} — el next build corrió sin FONDO_STANDALONE=1, o MEDICION_ACTIVA quedó en false`,
+    );
+  }
+  if (!enCsp) {
+    problemas.push("la CSP del .htaccess no habilita googletagmanager.com — GTM cargaría bloqueado");
+  }
+  // El `<noscript>` no mide, pero es la mitad del snippet que mandó la agencia:
+  // si falta, el que audite la instalación va a decir que está a medias.
+  if (enHtml && !html.includes(`ns.html?id=${GTM_ID}`)) {
+    problemas.push("falta el <noscript> del snippet de GTM");
+  }
+
+  // ⚠️ LA INVARIANTE DEL CONSENTIMIENTO. Las señales por defecto valen sólo si
+  // están puestas ANTES de que GTM cargue; si quedan después, los tags que ya
+  // dispararon lo hicieron sin restricción y el banner es decorativo. Es un orden
+  // dentro de un string: no hay tipo, ni test, ni error de compilación que lo
+  // proteja — cualquier refactor de `snippetGTM` lo puede invertir sin ruido. Se
+  // verifica sobre el HTML servido, que es el único lugar donde el orden es real.
+  const iDefault = html.indexOf("'consent','default'");
+  const iGtm = html.indexOf("googletagmanager.com/gtm.js");
+  if (enHtml && iDefault === -1) {
+    problemas.push("no está el consent default de Consent Mode — GTM cargaría sin restricción");
+  } else if (enHtml && iDefault > iGtm) {
+    problemas.push(
+      `el consent default va DESPUÉS del loader de GTM (${iDefault} > ${iGtm}) — los primeros tags dispararían sin consentimiento`,
+    );
+  }
+  return problemas;
+}
+
 // ── Variante para el hosting cPanel ──────────────────────────────────────────
 //
 // El sitio se publica en el hosting del cliente (Apache + PHP, sin Node). Cambia
@@ -667,7 +735,7 @@ function htaccess(): string {
     "<IfModule mod_headers.c>",
   ];
 
-  for (const { key, value } of headersSeguridad({ dev: false })) {
+  for (const { key, value } of headersSeguridad({ dev: false, medicion: MEDICION })) {
     l.push(`  Header always set ${key} "${value.replace(/"/g, '\\"')}"`);
   }
 
@@ -678,7 +746,60 @@ function htaccess(): string {
     '  SetEnvIf Request_URI "^/_next/static/" FONDO_INMUTABLE=1',
     '  Header always set Cache-Control "public, max-age=31536000, immutable" env=FONDO_INMUTABLE',
     '  Header always set Cache-Control "public, max-age=0, must-revalidate" "expr=%{ENV:FONDO_INMUTABLE} != \'1\' && %{CONTENT_TYPE} =~ m#^text/html#"',
+    "",
+    "  # Todo lo que NO es /_next/static/ ni HTML salía sin Cache-Control alguno:",
+    "  # los dos PDF legales, las fotos, el JSON del backtest. Sin header, cada",
+    "  # visita los volvía a bajar entero desde el origen — y sin CDN adelante, el",
+    "  # origen es este Apache. Los nombres no llevan hash (los gobierna",
+    "  # lib/fondoDocsEstaticos.ts), así que `immutable` está mal: un Reglamento",
+    "  # corregido tiene que poder reemplazar al viejo. 1h de frescura y después",
+    "  # revalidación por Last-Modified, que resuelve en un 304 de bytes contados.",
+    '  Header always set Cache-Control "public, max-age=3600, must-revalidate" "expr=%{ENV:FONDO_INMUTABLE} != \'1\' && %{CONTENT_TYPE} =~ m#^(application/pdf|image/|application/json)#"',
     "</IfModule>",
+    "",
+    "  # Techo de ancho de banda POR CONEXIÓN sobre los PDF (mod_ratelimit, KiB/s).",
+    "  #",
+    "  # Medido el 2026-08-13 contra el sitio vivo: una sola conexión saca los",
+    "  # 661 KB del Reglamento a 7,4 MB/s, y 25 pedidos seguidos contestaron 200 sin",
+    "  # que nada los frenara. A ese ritmo un `while true` hace ~26 GB/hora contra un",
+    "  # hosting medido que además comparte cuenta con el sitio institucional.",
+    "  #",
+    "  # 400 KiB/s deja el Reglamento en ~1,6 s —imperceptible para el lector— y",
+    "  # recorta 18× el caudal del que descarga en loop.",
+    "  #",
+    "  # ⚠️ SIN `rate-initial-burst`, y eso es lo importante. Con burst, mod_ratelimit",
+    "  # regala los primeros N KiB a velocidad plena EN CADA REQUEST — y como el PDF",
+    "  # acepta `Range`, pedirlo en trozos del tamaño del burst lo baja entero sin",
+    "  # tocar nunca el límite. Medido contra Apache 2.4.66 con este mismo archivo:",
+    "  #",
+    "  #     rate-limit 200 + burst 128 → GET entero 2,66 s · por 6 rangos 0,058 s ✗",
+    "  #     rate-limit 200 sin burst   → GET entero 3,27 s · por 6 rangos 3,18 s ✓",
+    "  #     rate-limit 400 sin burst   → GET entero 1,64 s · por 6 rangos 1,14 s ✓",
+    "  #",
+    "  # O sea: cualquier burst > 0 es un bypass completo para un archivo de este",
+    "  # tamaño, y encima los gestores de descarga y el visor de PDF de Chrome piden",
+    "  # por rangos de fábrica. No volver a agregarlo «para que arranque más rápido».",
+    "  #",
+    "  # ⚠️ Aun así es un badén, no un muro: mod_ratelimit limita CADA conexión por",
+    "  # separado, así que N conexiones en paralelo dan N× el caudal. El muro de",
+    "  # verdad sería un CDN adelante (descartado) o un límite de concurrencia por",
+    "  # IP, que en un cPanel compartido no está a nuestro alcance desde .htaccess.",
+    "<IfModule mod_ratelimit.c>",
+    '  <FilesMatch "\\.pdf$">',
+    "    SetOutputFilter RATE_LIMIT",
+    "    SetEnv rate-limit 400",
+    "  </FilesMatch>",
+    "</IfModule>",
+    "",
+    "  # NO hay hotlink protection sobre /documentos/, y es deliberado.",
+    "  # El Reglamento de gestión y la autorización del BCU son documentos que tienen",
+    "  # que estar públicamente disponibles. Una regla por Referer no distingue entre",
+    "  # «otro sitio embebe mi PDF» y «otro sitio LINKEA a mi PDF»: bloquea las dos.",
+    "  # Que un artículo de prensa, el propio BCU o un asesor no puedan enlazar el",
+    "  # Reglamento es un problema regulatorio, no una mejora de seguridad. Y contra",
+    "  # el scraper no sirve igual, porque el que descarga en loop manda Referer",
+    "  # vacío —que hay que permitir para no romper el acceso directo—. El costo del",
+    "  # hotlink acá se ataca por caché y caudal, que es lo de arriba.",
     "",
     "  # Compresión. Brotli primero: sobre este payload —HTML de ~370 KB más los",
     "  # chunks de Next— rinde bastante mejor que gzip sobre el mismo contenido.",
@@ -704,6 +825,38 @@ function htaccess(): string {
   return l.join("\n");
 }
 
+/**
+ * El proxy PHP, con la lista blanca de tipos de documento reescrita desde
+ * FONDO_DOC_TIPOS (lib/panelSchemas.ts).
+ *
+ * POR QUÉ SE REESCRIBE Y NO SE COPIA TAL CUAL: esa lista es lo que impide que
+ * `/api/fondo/documentos/<cualquier-cosa>` se convierta en una consulta saliente
+ * nueva al worker por cada string inventado (ver el comentario largo en
+ * deploy/cpanel/api.php). Una lista escrita a mano en un archivo PHP que nadie
+ * type-chequea se desincroniza del enum el día que se agregue un tipo — y el
+ * síntoma sería un documento que existe pero devuelve 404 sólo en el sitio del
+ * fondo. Reescribirla acá lo vuelve imposible.
+ *
+ * Si el marcador no está, se corta el build: mejor eso que publicar un proxy con
+ * una lista vieja creyendo que se actualizó.
+ */
+function apiPhp(): string {
+  const fuente = path.join(REPO, "deploy", "cpanel", "api.php");
+  const php = fs.readFileSync(fuente, "utf8");
+  const marcador = /^const TIPOS_DOC = .*; \/\/ __TIPOS_DOC__$/m;
+  if (!marcador.test(php)) {
+    console.error(
+      "\n✘ deploy/cpanel/api.php perdió la línea marcada con `// __TIPOS_DOC__`.\n" +
+      "  Es la lista blanca de tipos de documento y la reescribe este script desde\n" +
+      "  FONDO_DOC_TIPOS. Sin el marcador quedaría la lista del archivo, que puede\n" +
+      "  estar vieja. Restaurá la línea con su comentario final.\n",
+    );
+    process.exit(1);
+  }
+  const lista = FONDO_DOC_TIPOS.map((t) => `'${t}'`).join(", ");
+  return php.replace(marcador, `const TIPOS_DOC = [${lista}]; // __TIPOS_DOC__`);
+}
+
 function armarCpanel(): number {
   fs.rmSync(SALIDA_CPANEL, { recursive: true, force: true });
   fs.cpSync(SALIDA, SALIDA_CPANEL, { recursive: true });
@@ -714,10 +867,7 @@ function armarCpanel(): number {
   }
 
   fs.writeFileSync(path.join(SALIDA_CPANEL, ".htaccess"), htaccess());
-  fs.copyFileSync(
-    path.join(REPO, "deploy", "cpanel", "api.php"),
-    path.join(SALIDA_CPANEL, "api.php"),
-  );
+  fs.writeFileSync(path.join(SALIDA_CPANEL, "api.php"), apiPhp());
   return pesar(SALIDA_CPANEL).archivos;
 }
 
@@ -791,3 +941,13 @@ console.log(`  ${nCpanel} archivos · .htaccess + api.php, listo para subir a pu
 console.log(
   `  documentos en el deploy: ${DOCS_ESTATICOS.map((d) => d.tipo).join(", ") || "ninguno"}`,
 );
+
+// Va DESPUÉS de armarCpanel(): el .htaccess que compara lo escribe esa función.
+const medicionRota = verificarMedicion();
+if (medicionRota.length) {
+  console.error("\n✘ Medición mal instalada:");
+  for (const m of medicionRota) console.error(`   ${m}`);
+  console.error("\n  Revisá lib/medicion.ts. NO subir este build.\n");
+  process.exit(1);
+}
+console.log(`  medición: ${MEDICION ? `${GTM_ID} + CSP habilitada` : "apagada (MEDICION_OFF=1)"}`);

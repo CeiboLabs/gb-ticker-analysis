@@ -1,18 +1,31 @@
--- BNG Selección Global — snapshot de tenencias (detalle por instrumento).
+-- BNG Selección Global — snapshots de tenencias (detalle por instrumento).
 --
--- Dato REAL provisto por el cliente (planilla del 30-jul-2026): 8 tenencias
--- nombradas + el residual. Σ = 10.000 bps (100%).
+-- Dato REAL provisto por el cliente. Cada snapshot es una FOTO A UNA FECHA de la
+-- cartera: 8 tenencias nombradas + el residual, Σ = 10.000 bps (100%).
 --
--- ⚠️ La fecha del snapshot es 5-ago-2026 por pedido del cliente (5-ago; antes
--- estuvo en 4-ago y, antes de eso, en la foto del 28-jul). Es la fecha que la
--- página muestra al pie del gráfico ("Composición al …"), así que tiene que ser
--- la del dato que pasó el cliente y no la del día en que se cargó. Consecuencia
--- del filtro `as_of <= hoy` de readLatestHoldings: el snapshot NO se publica
--- antes de esa fecha; hasta entonces la sección de tenencias no se dibuja.
---   RV 3.250 bps (32,5%) · RF 2.000 bps (20%) · ALT 750 bps (7,5%) · OTROS 4.000 bps (40%)
+-- Hoy el archivo carga DOS composiciones, y la página publica la más nueva:
 --
--- ⚠️ Esta pasada REEMPLAZA la lista de 17 líneas que traía el seed anterior: el
--- cliente pasó a divulgar sólo las mayores tenencias y a cerrar el 100% con un
+--   · 2026-08-05 — la foto de la planilla del 30-jul (antes estuvo cargada como
+--     28-jul y como 4-ago). Queda en la base como histórico.
+--       RV 3.250 (32,5%) · RF 2.000 (20%) · ALT 750 (7,5%) · OTROS 4.000 (40%)
+--   · 2026-08-13 — composición vigente. El cliente pidió bajar de 10% a 7,5% las
+--     dos líneas que estaban en 10% (Jupiter World Equity y Thornburg). Los 500
+--     bps que liberan los absorbe el residual (4.000 → 4.500): el pedido no tocó
+--     las otras seis tenencias, así que el único lugar donde puede caer la
+--     diferencia es el tramo que no se abre por instrumento. Sin eso la suma
+--     cerraría en 9.500 y HoldingsSchema lo rechaza.
+--       RV 2.750 (27,5%) · RF 2.000 (20%) · ALT 750 (7,5%) · OTROS 4.500 (45%)
+--
+-- ⚠️ VA COMO SNAPSHOT NUEVO Y NO PISANDO EL DEL 5-AGO (decisión del 13-ago-2026).
+-- La alternativa era tratarlo como corrección de la foto del 5-ago, y no es lo
+-- mismo: el as_of es la fecha que la página muestra al pie del gráfico
+-- ("Composición al …"), o sea que es una AFIRMACIÓN sobre a qué día corresponde
+-- la cartera —las nueve líneas, no sólo las dos que se movieron—. Pisar el 5-ago
+-- habría dicho que ese día la cartera era otra; cargarlo aparte dice lo que
+-- efectivamente pasa: la cartera cambió y ésta es la foto de hoy. Además deja el
+-- histórico de composiciones intacto, que es lo que hace auditable la sección.
+--
+-- ⚠️ Estos snapshots divulgan sólo las MAYORES tenencias y cierran el 100% con un
 -- "Otros". Ese "Otros" NO es una clase de activo — es el tramo de cartera que no
 -- se abre por instrumento (clase 'OTROS', ver HoldingItem en lib/fondo.ts).
 --
@@ -29,7 +42,7 @@
 --     entre las 8 nombradas mostraba la cartera más concentrada de lo que es.
 --     (Así estuvo el 30-jul; se revirtió el 31 — el porqué largo vive en el
 --     encabezado de components/institucional/FondoTenencias.tsx.)
---   · Se cayó la barra de split por clase: con el 40% sin clasificar no hay
+--   · Se cayó la barra de split por clase: con el 45% sin clasificar no hay
 --     versión que se sostenga. Vuelve si el cliente pasa el split de ese tramo.
 --
 -- Los pesos van en basis points ENTEROS: la cartera se mueve de a medio punto
@@ -41,7 +54,8 @@
 -- as_of <= hoy − HOLDINGS_LAG_DAYS (lib/fondoStore.ts): ese rezago está en 0
 -- mientras el Fondo no opere, así que esta cartera se ve el mismo día.
 -- Cuando vuelva a 30, un snapshot con fecha de hoy NO se publica hasta pasado
--- el mes.
+-- el mes — y ahí la página seguiría mostrando el del 5-ago, que es justamente
+-- para lo que el histórico tiene que estar cargado.
 --
 -- Aplicar (home server):  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-holdings.sql
 -- Aplicar (D1):           npx wrangler d1 execute <base> --file=db/seeds/fondo-holdings.sql
@@ -55,13 +69,14 @@
 -- Fechas superadas. Este mismo snapshot ya estuvo cargado como '2026-07-28' (la
 -- versión commiteada) y como '2026-08-04' (la pasada del 3-ago). Donde alguno de
 -- esos seeds se haya aplicado, esas filas siguen en la base y con status 'live'.
--- Hoy no cambian lo que se ve —readLatestHoldings toma el as_of más alto— pero
--- dejan al panel listando composiciones que ya no existen, y a cualquiera que
--- baje el rezago mirando una cartera vieja. Se borran acá para que re-aplicar el
--- seed deje UNA sola composición, que es lo que este archivo promete.
+-- No cambian lo que se ve —readLatestHoldings toma el as_of más alto— pero dejan
+-- al panel listando composiciones que nunca existieron como tales: son la MISMA
+-- foto redatada tres veces, no tres carteras. Se borran para que el histórico
+-- que queda sea el de verdad (5-ago y 13-ago) y no el rastro de las redataciones.
 DELETE FROM fund_holdings_item     WHERE as_of IN ('2026-07-28', '2026-08-04');
 DELETE FROM fund_holdings_snapshot WHERE as_of IN ('2026-07-28', '2026-08-04');
 
+-- ── 2026-08-05 — histórico ───────────────────────────────────────────────────
 INSERT INTO fund_holdings_snapshot (as_of, status, source, note, ingested_at)
 VALUES ('2026-08-05', 'live', 'admin', 'Mayores tenencias + resto no detallado', unixepoch() * 1000)
 ON CONFLICT(as_of) DO UPDATE SET
@@ -78,12 +93,35 @@ INSERT INTO fund_holdings_item (as_of, ord, name, short, asset_class, weight_bps
   ('2026-08-05', 2, 'Invesco QQQ Trust Series 1',                        'Invesco QQQ',           'RV',     750),
   ('2026-08-05', 3, 'Muzinich Enhancedyield Short-Term Fund',            'Muzinich Short-Term',   'RF',     750),
   ('2026-08-05', 4, 'Man Global Investment Grade Opportunities DYV',     'Man Global IG Opps.',   'RF',     750),
-  -- 'Jupiter Abs. Return' y no 'Jupiter Global Eq. AR': con el residual dibujado
-  -- las celdas nombradas ocupan el 60% del marco y en el treemap en retrato esta
-  -- entra en dos renglones de ~11 caracteres. La abreviatura anterior se cortaba
-  -- en "Jupiter Global Eq…"; ésta conserva justo lo que explica por qué la línea
-  -- es ALT (absolute return) y la distingue del otro Jupiter, que es RV.
+  -- 'Jupiter Abs. Return' y no 'Jupiter Global Eq. AR': en el treemap en retrato
+  -- esta celda entra en dos renglones de ~11 caracteres. La abreviatura anterior
+  -- se cortaba en "Jupiter Global Eq…"; ésta conserva justo lo que explica por
+  -- qué la línea es ALT (absolute return) y la distingue del otro Jupiter, que
+  -- es RV.
   ('2026-08-05', 5, 'Jupiter Merian Global Equity Absolute Return Fund', 'Jupiter Abs. Return',  'ALT',    750),
   ('2026-08-05', 6, 'MFS Meridian Funds — Contrarian Value Fund',        'MFS Contrarian Value',  'RV',     500),
   ('2026-08-05', 7, 'Vontobel Fund — Credit Opportunities',              'Vontobel Credit Opps.', 'RF',     500),
   ('2026-08-05', 8, 'Otros',                                            'Otros',                 'OTROS', 4000);
+
+-- ── 2026-08-13 — composición vigente (la que publica la página) ──────────────
+-- Mismas nueve líneas; cambian los dos pesos que pidió el cliente y el residual
+-- que los absorbe. Seis tenencias quedan empatadas en 7,5%: el treemap sale como
+-- una grilla pareja de 4×2 y el donut con seis porciones iguales — es la forma
+-- honesta de una cartera casi equiponderada, no un error de layout.
+INSERT INTO fund_holdings_snapshot (as_of, status, source, note, ingested_at)
+VALUES ('2026-08-13', 'live', 'admin', 'Mayores tenencias + resto no detallado', unixepoch() * 1000)
+ON CONFLICT(as_of) DO UPDATE SET
+  status = 'live', source = 'admin', note = excluded.note, ingested_at = excluded.ingested_at;
+
+DELETE FROM fund_holdings_item WHERE as_of = '2026-08-13';
+
+INSERT INTO fund_holdings_item (as_of, ord, name, short, asset_class, weight_bps) VALUES
+  ('2026-08-13', 0, 'Jupiter Merian World Equity Fund',                  'Jupiter World Equity',  'RV',     750),
+  ('2026-08-13', 1, 'Thornburg Equity Income Builder Fund',              'Thornburg Eq. Income',  'RV',     750),
+  ('2026-08-13', 2, 'Invesco QQQ Trust Series 1',                        'Invesco QQQ',           'RV',     750),
+  ('2026-08-13', 3, 'Muzinich Enhancedyield Short-Term Fund',            'Muzinich Short-Term',   'RF',     750),
+  ('2026-08-13', 4, 'Man Global Investment Grade Opportunities DYV',     'Man Global IG Opps.',   'RF',     750),
+  ('2026-08-13', 5, 'Jupiter Merian Global Equity Absolute Return Fund', 'Jupiter Abs. Return',  'ALT',     750),
+  ('2026-08-13', 6, 'MFS Meridian Funds — Contrarian Value Fund',        'MFS Contrarian Value',  'RV',     500),
+  ('2026-08-13', 7, 'Vontobel Fund — Credit Opportunities',              'Vontobel Credit Opps.', 'RF',     500),
+  ('2026-08-13', 8, 'Otros',                                            'Otros',                 'OTROS', 4500);

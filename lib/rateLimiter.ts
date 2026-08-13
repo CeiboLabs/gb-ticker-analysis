@@ -221,9 +221,65 @@ export function checkGlobalDailyFreshLimit(): Promise<Gate> {
 // guessing from a "trusted" NAT is still auth guessing. `keyPrefix` separates
 // the buckets per credential (e.g. 'adminfail' for the metrics dashboard token)
 // so spraying one doesn't starve another.
+//
+// SIN IP el gate NO se saltea: cae a un balde compartido (`:noip`). Antes
+// devolvía allowed:true, y como `trustedClientIp` sólo confía en
+// `cf-connecting-ip`, fuera de Cloudflare eso dejaba el lockout entero apagado
+// — justo el escenario del home server, donde Tailscale Funnel ni siquiera
+// expone la IP pública del visitante al backend (tailscale/tailscale#12972).
+//
+// El techo compartido es MUY superior al de por-IP, y el motivo es que este
+// gate se consume en CADA intento, no sólo en los fallidos (ver el comentario
+// de app/api/admin/panel/auth/login/route.ts:77). Con un balde compartido
+// angosto, cualquiera que queme el cupo deja al panel sin login para todos: un
+// DoS de una línea. Por eso el default es ~17× el de por-IP.
+//
+// Y lo que este balde protege no es la contraseña sino la CPU: el gate de POR
+// CUENTA (10 fallas/h, keyed por hash del email) es el que acota el guessing, y
+// ese no depende de la IP, así que sigue entero incluso sin ella. Acá lo que se
+// acota es el PBKDF2 que un anónimo puede hacer quemar por hora.
+const NOIP_AUTH_HOURLY_MAX = parseInt(process.env.RATE_LIMIT_NOIP_AUTH_MAX ?? "500", 10);
 export function checkFailedAuthLimit(ip: string | null, max: number, keyPrefix: string): Promise<Gate> {
-  if (!ip) return Promise.resolve({ allowed: true, retryAfter: 0 });
+  if (!ip) return checkDurable(`${keyPrefix}:noip`, NOIP_AUTH_HOURLY_MAX, HOUR_MS);
   return checkDurable(`${keyPrefix}:${ip}`, max, HOUR_MS);
+}
+
+// Descargas de archivos: los PDF de informes y del fondo, y la media proxeada.
+// Es el único gate con DOS techos a la vez, porque cada uno cubre un agujero
+// que el otro no:
+//
+//   · por IP  — reparte con justicia entre visitantes. Un lector abre dos o
+//               tres PDF; 60/h no lo roza. Sólo existe si hay IP que mirar.
+//   · GLOBAL  — el techo de gasto, y el ÚNICO que queda en pie cuando no hay
+//               IP: hoy, el home server (Funnel, ver arriba).
+//
+// Sin IP no hay reparto posible —no existe con qué distinguir un cliente de
+// otro— y pretenderlo con un balde `:noip` sería teatro: tendría que tener la
+// misma capacidad que el global y se agotaría junto con él. Así que sin IP
+// queda el techo global solo, que es exactamente lo que se puede prometer.
+//
+// Dimensionado por ancho de banda, no por requests: los PDF pesan 300-700 KB,
+// así que 1000/h global es un techo de ~500 MB/h contra los ~26 GB/h que se
+// midieron sin límite alguno. Durable a propósito — son pocas y caras, y un
+// contador en memoria se reinicia con cada deploy.
+const DOWNLOAD_IP_HOURLY_MAX = parseInt(process.env.RATE_LIMIT_DOWNLOAD_IP_MAX ?? "60", 10);
+const DOWNLOAD_GLOBAL_HOURLY_MAX = parseInt(process.env.RATE_LIMIT_DOWNLOAD_GLOBAL_MAX ?? "1000", 10);
+
+export interface DownloadGate extends Gate {
+  /** `true` cuando lo que se agotó es el techo global, no el del visitante.
+   *  El caller responde 503 en vez de 429: no es culpa de quien pide. */
+  global: boolean;
+}
+
+export async function checkDownloadLimit(endpoint: string, ip: string | null): Promise<DownloadGate> {
+  // El global se consulta DESPUÉS: a quien ya rebotó por su propio cupo no se
+  // le cobra presupuesto global.
+  if (ip) {
+    const porIp = await checkDurable(`dl:${endpoint}:${ip}`, effectiveMax(ip, DOWNLOAD_IP_HOURLY_MAX), HOUR_MS);
+    if (!porIp.allowed) return { ...porIp, global: false };
+  }
+  const global = await checkDurable("dl:all", DOWNLOAD_GLOBAL_HOURLY_MAX, HOUR_MS);
+  return { ...global, global: !global.allowed };
 }
 
 // Compat: el gate de admin es el caso particular con prefijo 'adminfail'.
@@ -236,14 +292,45 @@ export function checkAdminFailedAuthLimit(ip: string | null, max: number): Promi
 // keyed by IP, so a noisy caller on /search doesn't deny /chart-range.
 // Allowlisted IPs (corporate NATs) bypass the cap. Deliberately in-memory:
 // these endpoints are cheap and high-volume — see header comment.
+//
+// Sin IP cae a un balde compartido por endpoint en vez de saltear el gate. El
+// factor es alto a propósito: cuando no hay IP, TODO el tráfico honesto entra
+// al mismo balde, así que un techo angosto sería un DoS contra los propios
+// lectores. 20× el cupo individual (30.000/h en los endpoints por defecto,
+// 60.000/h en logo) queda muy por encima del agregado real de este sitio y aun
+// así pone un techo donde antes no había ninguno.
+const PUBLIC_LIMIT_NOIP_FACTOR = parseInt(process.env.PUBLIC_LIMIT_NOIP_FACTOR ?? "20", 10);
+
 export function checkPublicGetLimit(
   endpoint: string,
   ip: string | null,
   max: number,
 ): Gate {
-  if (!ip) return { allowed: true, retryAfter: 0 };
+  if (!ip) return check(`pub:${endpoint}:noip`, max * PUBLIC_LIMIT_NOIP_FACTOR, HOUR_MS);
   if (isIpAllowlisted(ip)) return { allowed: true, retryAfter: 0 };
   return check(`pub:${endpoint}:${ip}`, max, HOUR_MS);
+}
+
+// Azúcar para los route handlers: devuelve el 429 ya armado, o `null` si el
+// pedido pasa. Existe porque el patrón se repite en una docena de rutas y
+// copiado a mano se degrada — la vez que alguien se olvide el `Retry-After`,
+// el cliente no tiene forma de saber cuándo reintentar y se queda martillando.
+//
+// Se le pasa la IP ya resuelta y no el Request, porque hay un caller que NO
+// tiene Request: las rutas de convención de archivo (opengraph-image.tsx)
+// reciben sólo `{ params }` y tienen que poder pedir el balde compartido
+// pasando `null` a propósito.
+export function reboteGetPublico(
+  endpoint: string,
+  ip: string | null,
+  max: number = PUBLIC_LIMIT_DEFAULT,
+): Response | null {
+  const gate = checkPublicGetLimit(endpoint, ip, max);
+  if (gate.allowed) return null;
+  return new Response("rate limited", {
+    status: 429,
+    headers: { "Retry-After": String(gate.retryAfter), "Cache-Control": "no-store" },
+  });
 }
 
 // Convenience: pull the client IP off a Request for CHEAP public GETs and

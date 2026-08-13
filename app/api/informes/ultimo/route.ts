@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMetricsDb } from "@/lib/metrics";
 import { getUltimoInforme, type UltimoInforme } from "@/lib/ultimoInforme";
+import { reboteGetPublico, trustedClientIp } from "@/lib/rateLimiter";
 
 // Último informe publicado, para el destacado de "Research" del navbar. Sólo
 // lectura y sin nada que no sea ya público: es la fila que encabeza /informes.
@@ -14,7 +15,9 @@ export const dynamic = "force-dynamic";
 
 export type UltimoInformePayload = { informe: UltimoInforme | null };
 
-export async function GET() {
+export async function GET(req: Request) {
+  const rebote = reboteGetPublico("informe-ultimo", trustedClientIp(req));
+  if (rebote) return rebote;
   const informe = await getUltimoInforme(getMetricsDb());
   return NextResponse.json({ informe } satisfies UltimoInformePayload, {
     // Publicar desde el panel se ve en el navbar dentro del minuto; mientras

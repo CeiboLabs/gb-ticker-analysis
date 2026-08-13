@@ -5,6 +5,7 @@ import type { FundNavPoint } from "@/lib/fondo";
 import { fmtNav, fmtFechaCorta } from "@/lib/useFondo";
 import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
+import { CrosshairPriceLabelPrimitive } from "@/components/CrosshairPriceLabelPrimitive";
 import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
 import { css } from "@/lib/css";
 import {
@@ -44,7 +45,17 @@ const PALETTE = {
   navy: "#0f2249",     // --navy
   ink2: "#4A4E6B",     // --site-ink-2
   paper: "#FBFBFE",    // --paper (texto de etiquetas sobre navy)
-  bench: "#9FA2C0",    // benchmark: línea secundaria, tono apagado (--site-ink-3/4)
+  // Benchmark: coral FT. La línea de referencia se distingue POR TONO, no por
+  // punteado (ver el bloque de `benchSeries` para el porqué del cambio), y el
+  // tono no puede ser el rojo semántico —#8E2A2A, --neg— porque en esta misma
+  // sección hay tablas donde el rojo significa "rendimiento negativo": un rojo
+  // de dato y un rojo de serie compitiendo enseñan dos lecturas contradictorias.
+  // El coral #C24A3A es el tono que docs/lenguaje-visual.md (regla 4 de color)
+  // ya tenía reservado para exactamente esto —charts comparativos, sin tocar el
+  // par rojo/verde—, así que la línea entra al sistema en vez de abrirle una
+  // excepción. Da 4,45:1 sobre la banda muted; el gris que reemplaza daba 2,30:1,
+  // por debajo del 3:1 que WCAG le pide a un objeto gráfico.
+  bench: "#C24A3A",    // coral FT — comparativas (docs/lenguaje-visual.md §1.4)
   // Sombra proyectada de la curva del fondo (ver LineShadowPrimitive). Va SÓLO
   // en la serie protagonista: el benchmark es una referencia reescalada y
   // sombrearlo también pondría a las dos a pelear por el mismo primer plano.
@@ -265,12 +276,29 @@ export function FondoChart({
       // Benchmark primero (queda por debajo); la línea del fondo se dibuja encima.
       // Se guarda fuera del if: el gesto necesita apagarle el punto mientras
       // haya tramo, igual que a la del fondo.
+      //
+      // CONTINUA, NO PUNTEADA (pedido del cliente, 13-ago-2026: "quedan puntos
+      // apuntando para varios lados"). Es el mismo defecto que ya había obligado
+      // a dejar continua a la serie protagonista, y por el mismo motivo: son
+      // años de cierres diarios en ~700px, así que cada guión abarca varios
+      // puntos y toma la pendiente del tramo que le tocó. En una curva que sube
+      // y baja, los guiones salen con inclinaciones distintas y a distinta
+      // distancia entre sí —el punteado no cae en fase con la señal—, y el ojo
+      // lee eso como render roto, no como convención de "línea de referencia".
+      // El punteado sólo hace su trabajo cuando cada guión cubre un tramo
+      // monótono; a esta densidad no queda ninguno.
+      //
+      // Lo que el punteado aportaba —separar la referencia del protagonista— lo
+      // toma el color (PALETTE.bench). Un trazo continuo en coral separa MEJOR
+      // que uno punteado en gris: el tono se lee a cualquier densidad y a
+      // cualquier tamaño, incluso en la captura de pantalla de un teléfono, y no
+      // depende de que el guión sobreviva al muestreo.
       let benchSeries: LineSeriesApi = null;
       if (benchPoints.length > 0) {
         benchSeries = chart.addSeries(LineSeries, {
           color: PALETTE.bench,
           lineWidth: 2,
-          lineStyle: LineStyle.Dashed,
+          lineStyle: LineStyle.Solid,
           priceScaleId: "right",
           priceLineVisible: false,
           // Sin etiqueta de último valor: si la del fondo no va (vive arriba, en
@@ -287,20 +315,19 @@ export function FondoChart({
 
       // Tono de la protagonista: navy pleno SÓLO si es el valor cuota del
       // fondo. Cualquier otra serie (benchmark suelto, backtest) va en el gris
-      // de referencia oscurecido a --site-ink-2 — el #9FA2C0 de la línea
-      // subordinada, solo sobre blanco, no se lee.
+      // azulado --site-ink-2, un escalón por debajo del navy.
       const esFondo = lineKind === "fund";
       const mainColor = esFondo ? PALETTE.navy : PALETTE.ink2;
 
       const lineSeries = chart.addSeries(LineSeries, {
         color: mainColor,
         lineWidth: 2,
-        // Continua también cuando la protagonista es el benchmark: sobre una
-        // serie diaria de años, el punteado se pulveriza y la curva se lee rota
-        // —parece un defecto de render, no una convención—. El punteado sigue
-        // valiendo para la línea SUBORDINADA (la de abajo), que es corta y donde
-        // sí separa dos curvas superpuestas. Que esta serie no sea el fondo lo
-        // dicen el tono, la falta de sombra y cuatro rótulos de texto.
+        // Continua siempre, también cuando la protagonista no es el valor cuota:
+        // sobre una serie diaria de años el punteado se pulveriza y la curva se
+        // lee rota (el porqué largo está arriba, en benchSeries — desde el
+        // 13-ago-2026 no queda ninguna línea punteada en este gráfico). Que esta
+        // serie no sea el fondo lo dicen el tono, la falta de sombra y cuatro
+        // rótulos de texto.
         priceScaleId: "right",
         priceLineVisible: false,
         // El valor cuota ya está en la tira de arriba — no se repite en el eje.
@@ -315,6 +342,13 @@ export function FondoChart({
       });
       lineSeries.setData(points);
       lineSeriesRef.current = lineSeries;
+
+      // Etiqueta de precio de la mira acotada al lienzo: sin esto, contra el
+      // borde de arriba o el de abajo el chip se dibuja mitad afuera y sale
+      // cortado —la librería sólo acota la de FECHA—. No cambia nada más: el
+      // chip es el mismo y la opción de arriba (labelVisible) lo sigue
+      // mandando, también en pantalla angosta.
+      lineSeries.attachPrimitive(new CrosshairPriceLabelPrimitive());
 
       // La curva deja caer su sombra (zOrder bottom: la línea sigue nítida y el
       // benchmark, que se dibuja aparte, conserva su tono). La sombra es un
@@ -483,8 +517,11 @@ export function FondoChart({
         .fondo-chart-leg-line[data-kind="fund"] {
           border-top: 2px solid var(--navy);
         }
+        /* Espeja el trazo: continuo y en coral (PALETTE.bench). La muestra de la
+           leyenda tiene que ser la MISMA línea que el gráfico —es lo único que
+           ata el rótulo a la curva—, así que los dos valores se mueven juntos. */
         .fondo-chart-leg-line[data-kind="bench"] {
-          border-top: 2px dashed #9FA2C0;
+          border-top: 2px solid #C24A3A;
         }
         /* Protagonista que NO es el valor cuota (pre-lanzamiento: benchmark
            suelto o backtest): continua, en el tono subordinado — espeja

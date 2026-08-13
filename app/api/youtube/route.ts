@@ -10,6 +10,7 @@ import {
 } from "@/lib/youtube";
 import { getMetricsDb } from "@/lib/metrics";
 import { readFlag } from "@/lib/flags";
+import { reboteGetPublico, trustedClientIp } from "@/lib/rateLimiter";
 
 // Videos del canal para el módulo "En video" de /informes. Lee el RSS público del canal
 // (sin API key), elige el destacado (env YOUTUBE_FEATURED_ID > constante > más
@@ -54,7 +55,9 @@ async function oembedVideo(id: string): Promise<YtVideo | null> {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const rebote = reboteGetPublico("youtube", trustedClientIp(req));
+  if (rebote) return rebote;
   if (!(await readFlag(getMetricsDb(), "videos_casa"))) {
     return NextResponse.json({ featured: null, latest: [] }, { headers: CACHE });
   }

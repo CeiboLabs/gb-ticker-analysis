@@ -58,6 +58,9 @@ const SECCIONES = [
   { label: "Documentos", href: "#documentos" },
   { label: "Preguntas frecuentes", href: "#faq" },
   { label: "Información legal", href: "#legal" },
+  // Retirar el consentimiento tiene que ser tan fácil como darlo, y el pie es
+  // donde la convención dice que se lo busca. El control vive en esa sección.
+  { label: "Cookies", href: "#cookies" },
 ];
 
 const MAPS_URL =

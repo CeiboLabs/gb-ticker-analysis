@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { leadCookieName, verifyLeadToken } from "@/lib/leadGate";
 import { getMetricsDb } from "@/lib/metrics";
 import { estadoLector } from "@/lib/leadProfile";
+import { reboteGetPublico, trustedClientIp } from "@/lib/rateLimiter";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export const dynamic = "force-dynamic";
  * no-store: depende de una cookie y no puede quedar en ningún intermedio.
  */
 export async function GET(req: NextRequest) {
+  const rebote = reboteGetPublico("lead-me", trustedClientIp(req));
+  if (rebote) return rebote;
   const lead = await verifyLeadToken(req.cookies.get(leadCookieName())?.value);
   const info = await estadoLector(getMetricsDb(), lead?.email ?? null);
   return NextResponse.json(info, { headers: { "Cache-Control": "no-store" } });

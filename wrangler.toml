@@ -50,7 +50,7 @@ bucket_name = "bengochea-docs"
 # Rate-limit knobs (todos opcionales, defaults seguros). Todo se kea por IP
 # con contadores durables en D1 (tabla rate_limits) — nada de cookies:
 #   RATE_LIMIT_IP_MAX            — 100 análisis/h por IP.
-#   RATE_LIMIT_DAILY_FRESH_MAX   — 150 análisis frescos (cache miss) por
+#   RATE_LIMIT_DAILY_FRESH_MAX   — 50 análisis frescos (cache miss) por
 #                                  IP/día. Cap durísimo sobre el costo
 #                                  OpenAI; cache hits no cuentan. Resetea a
 #                                  medianoche UY.
@@ -58,3 +58,18 @@ bucket_name = "bengochea-docs"
 #                                  separadas. Reciben el multiplicador, NO
 #                                  un bypass.
 #   RATE_LIMIT_ALLOWLIST_MULTIPLIER — 10× los caps para IPs allowlisted.
+#   RATE_LIMIT_DOWNLOAD_IP_MAX   — 60 descargas de PDF/h por IP.
+#   RATE_LIMIT_DOWNLOAD_GLOBAL_MAX — 1000 descargas/h en total (≈500 MB/h).
+#                                  Es el techo que queda en pie cuando no hay
+#                                  IP resoluble.
+#   RATE_LIMIT_NOIP_AUTH_MAX     — 500 intentos de login/h sin IP. Alto a
+#                                  propósito: el gate se consume en CADA
+#                                  intento, así que un valor bajo deja al panel
+#                                  sin login para todos.
+#   PUBLIC_LIMIT_NOIP_FACTOR     — 20× el cupo de GETs públicos para el balde
+#                                  compartido de los pedidos sin IP.
+#
+# ⚠️ Detrás de Cloudflare estos knobs se keyean por IP real (cf-connecting-ip).
+# En cualquier otro hosting `trustedClientIp()` devuelve null salvo que haya un
+# reverse proxy propio con TRUSTED_PROXY=1, y entonces mandan los techos
+# compartidos/globales de arriba. Ver docs/RUNBOOK-home.md § «Reverse proxy».

@@ -18,6 +18,7 @@ import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FondoTenencias } from "@/components/institucional/FondoTenencias";
 import { FondoGeografia } from "@/components/institucional/FondoGeografia";
+import { CambiarConsentimiento } from "@/components/institucional/ConsentimientoFondo";
 import { fondoMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationFondoLd, websiteFondoLd, investmentFundLd } from "@/lib/jsonld";
@@ -468,6 +469,59 @@ export default async function FondoPage() {
                 de Gestión, cuya lectura previa se recomienda: se descarga en la sección Documentos de esta página
                 y está disponible en el sitio de la Sociedad Administradora.
               </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Cookies ──────────────────────────────────────────────────────────
+          Sección PROPIA y no un párrafo más del bloque legal de arriba: ese
+          bloque es texto aprobado en la revisión legal del 3-ago-2026 y sale
+          entero del Reglamento de Gestión y de la Resolución del BCU. Esto es
+          otra cosa —tratamiento de datos personales, Ley 18.331— y mezclarlas
+          haría ilegible las dos.
+
+          Va como ancla de esta página y no como ruta nueva por lo mismo que el
+          resto: el sitio del fondo es UNA página con anclas, y el deploy estático
+          emite un solo HTML. Una /cookies obligaría a enseñarle otra ruta al
+          build para tres párrafos que acá se leen en su contexto.
+
+          ⚠️ Describe PROPÓSITOS, no nombres de cookies. Los tags concretos los
+          publica la agencia desde el contenedor y pueden cambiar sin que este
+          repo se entere: una lista de nombres nacería desactualizada, y una
+          política que miente sobre lo que hace es peor que una genérica. */}
+      <section id="cookies" className="band-muted site-section-sm">
+        <div className="site-wrap">
+          <div className="fondo-legal">
+            <div className="eyebrow-sm fondo-legal-title">Cookies</div>
+            <div className="fondo-disclaimer">
+              <p>
+                Este sitio utiliza cookies propias y de terceros. Las estrictamente necesarias
+                permiten su funcionamiento y el registro de tus preferencias, por lo que se utilizan
+                siempre. Las demás se activan únicamente con tu consentimiento, que podés modificar en
+                cualquier momento desde esta sección.
+              </p>
+              <p>
+                <strong>Estadísticas.</strong> Permiten analizar el uso del sitio con fines
+                estadísticos y en forma agregada. Son provistas por Google (Google Analytics), que
+                actúa como encargado del tratamiento y puede almacenar la información en servidores
+                ubicados fuera del país.
+              </p>
+              <p>
+                <strong>Marketing.</strong> Se utilizan con fines de marketing y para medir el
+                rendimiento de nuestras campañas. Son provistas por Google y Meta.
+              </p>
+              <p>
+                Podés además bloquear o borrar cookies desde la configuración de tu navegador, con
+                independencia de lo que elijas acá. El tratamiento de datos personales se rige por la
+                Ley N° 18.331 y su reglamentación: podés ejercer tus derechos de acceso, rectificación,
+                actualización, inclusión o supresión escribiendo a{" "}
+                <a href="mailto:info@gbengochea.com.uy" className="site-link">
+                  info@gbengochea.com.uy
+                </a>
+                . El responsable del tratamiento es Gastón Bengochea y Compañía Corredor de Bolsa S.A.
+              </p>
+              <CambiarConsentimiento />
             </div>
           </div>
         </div>

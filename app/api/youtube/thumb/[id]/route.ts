@@ -1,10 +1,17 @@
 import { thumbUpstream, isVideoId } from "@/lib/youtube";
+import { reboteGetPublico, trustedClientIp } from "@/lib/rateLimiter";
 
 // Proxy same-origin de las miniaturas de YouTube (i.ytimg.com), para no relajar
 // el CSP img-src 'self'. Intenta maxresdefault y cae a hqdefault (que siempre
 // existe). El id se valida: nunca se arma una URL upstream con input arbitrario.
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Gate de GET público, no el de descargas: una grilla de videos pide una
+  // decena de miniaturas por vista, así que el cupo angosto de los PDF
+  // (60/h) rompería la página. Mismo criterio que /api/logo.
+  const rebote = reboteGetPublico("yt-thumb", trustedClientIp(req));
+  if (rebote) return rebote;
+
   const { id } = await params;
   if (!isVideoId(id)) {
     return new Response("not found", { status: 404 });

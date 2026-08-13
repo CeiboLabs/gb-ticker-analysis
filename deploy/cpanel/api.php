@@ -26,6 +26,32 @@ const TTL_JSON   = 300;   // 5 min, igual que el s-maxage del worker
 const TTL_PDF    = 3600;  // los documentos cambian mucho menos
 const TIMEOUT    = 8;     // segundos; si tarda más, se sirve lo cacheado
 
+// Los cinco tipos de documento, en lista blanca CERRADA.
+//
+// ⚠️ ANTES ERA UN REGEX `[a-z0-9-]{1,40}` que delegaba la validación al worker,
+// y eso convertía este proxy en un amplificador: cada tipo inventado
+// (`/api/fondo/documentos/aaaa`, `aaab`, …) es una clave de caché distinta ⇒
+// cache miss ⇒ una consulta saliente NUEVA al worker, con 8 s de timeout. Y como
+// sólo se cachean los 200, el 404 del worker no queda guardado y el siguiente
+// intento vuelve a salir. O sea: pedidos ilimitados contra el worker de
+// Cloudflare —justo el recurso cuyo agotamiento causó el incidente de prod— y
+// procesos PHP tomados hasta 8 s cada uno, que en un hosting compartido es el
+// cuello de verdad. Con la lista cerrada, un tipo que no existe muere acá.
+//
+// La lista la reescribe `scripts/build-fondo.mts` desde FONDO_DOC_TIPOS
+// (lib/panelSchemas.ts) al armar el deploy, y corta el build si no encuentra el
+// marcador: no puede quedar desincronizada del enum.
+const TIPOS_DOC = ['ficha-tecnica', 'datos-fundamentales', 'reglamento', 'autorizacion-bcu', 'informe-cartera']; // __TIPOS_DOC__
+
+// Rate limit por IP. Acá REMOTE_ADDR SÍ es la IP real del visitante —Apache es
+// el borde, sin CDN delante (verificado 2026-08-13)—, así que a diferencia de la
+// app de Next este límite reparte de verdad. Por eso mismo NO se mira
+// X-Forwarded-For: sin un proxy propio adelante, ese header lo pone el cliente y
+// sería un balde nuevo por pedido.
+const RL_DIR     = CACHE_DIR . '/rl';
+const RL_MAX     = 120;   // pedidos/hora por IP; una carga de la página usa 2
+const RL_VENTANA = 3600;
+
 /** Ruta pedida, normalizada y validada contra la lista blanca de endpoints. */
 function rutaPedida(): ?string {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -33,12 +59,55 @@ function rutaPedida(): ?string {
     if ($path === '/api/fondo' || $path === '/api/fondo/documentos') {
         return $path;
     }
-    // /api/fondo/documentos/<tipo> — el tipo lo valida el worker contra su enum;
-    // acá sólo se acota la forma para no reenviar cualquier cosa.
-    if (preg_match('#^/api/fondo/documentos/[a-z0-9-]{1,40}$#', $path) === 1) {
+    if (preg_match('#^/api/fondo/documentos/([a-z0-9-]{1,40})$#', $path, $m) === 1
+        && in_array($m[1], TIPOS_DOC, true)) {
         return $path;
     }
     return null;
+}
+
+/**
+ * Ventana fija por IP, en disco. Devuelve true si hay que rebotar.
+ *
+ * FAIL-OPEN a propósito: si no se puede abrir o bloquear el archivo, deja pasar.
+ * Un limitador que no puede contar no tiene por qué dejar la página del fondo
+ * sin valor cuota — el techo de verdad contra el gasto lo pone la caché en
+ * disco, esto sólo saca de encima al que martilla.
+ */
+function limiteExcedido(): bool {
+    if (!is_dir(RL_DIR) && !@mkdir(RL_DIR, 0755, true) && !is_dir(RL_DIR)) {
+        return false;
+    }
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    if ($ip === '') return false;
+
+    $fh = @fopen(RL_DIR . '/' . sha1($ip) . '.rl', 'c+');
+    if ($fh === false) return false;
+    if (!flock($fh, LOCK_EX)) { fclose($fh); return false; }
+
+    $ahora = time();
+    [$inicio, $cuenta] = array_pad(explode(':', trim((string) stream_get_contents($fh))), 2, '0');
+    $inicio = (int) $inicio;
+    $cuenta = (int) $cuenta;
+    if ($ahora - $inicio >= RL_VENTANA) { $inicio = $ahora; $cuenta = 0; }
+    $cuenta++;
+
+    ftruncate($fh, 0);
+    rewind($fh);
+    fwrite($fh, $inicio . ':' . $cuenta);
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
+    // Barrido oportunista: un pedido de cada 500 limpia los contadores muertos,
+    // así el directorio no crece sin techo. Sin cron, que acá no hay.
+    if (random_int(1, 500) === 1) {
+        foreach (glob(RL_DIR . '/*.rl') ?: [] as $viejo) {
+            if ((int) @filemtime($viejo) < $ahora - 2 * RL_VENTANA) @unlink($viejo);
+        }
+    }
+
+    return $cuenta > RL_MAX;
 }
 
 function archivoCache(string $ruta): string {
@@ -112,6 +181,18 @@ $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($metodo !== 'GET' && $metodo !== 'HEAD') {
     http_response_code(405);
     header('Allow: GET, HEAD');
+    exit;
+}
+
+// Después del 404/405 a propósito: la ruta inválida es la respuesta más barata
+// que hay y no toca disco; hacerle además una escritura con lock la volvería
+// cara justo en el camino que un atacante puede pedir gratis.
+if (limiteExcedido()) {
+    http_response_code(429);
+    header('Retry-After: ' . RL_VENTANA);
+    header('Cache-Control: no-store');
+    header('Content-Type: application/json');
+    echo '{"error":"rate_limited"}';
     exit;
 }
 
