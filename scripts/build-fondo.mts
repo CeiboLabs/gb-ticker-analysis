@@ -1,20 +1,23 @@
-// BNG Selección Global — armado del SITIO ESTÁTICO que se sube a Cloudflare.
+// BNG Selección Global — armado del SITIO ESTÁTICO que se sube al hosting cPanel.
 //
 // POR QUÉ EL SITIO DEL FONDO NO ES UN DEPLOY DE NEXT
 // La página del fondo no renderiza ni un dato en el server: valor cuota,
-// tenencias y documentos los pide el cliente por `/api/fondo*` (ver
-// lib/useFondo.ts y FondoDocumentos). Lo único que la hacía dinámica era leer el
-// `Host` para decidir si los links a la casa son absolutos o relativos, y en su
-// propio dominio esa respuesta es constante — de ahí el flag FONDO_STANDALONE
-// (lib/sitios.ts).
+// tenencias, geografía y documentos los pide el cliente (ver lib/useFondo.ts y
+// FondoDocumentos). Lo único que la hacía dinámica era leer el `Host` para
+// decidir si los links a la casa son absolutos o relativos, y en su propio
+// dominio esa respuesta es constante — de ahí el flag
+// NEXT_PUBLIC_FONDO_STANDALONE (lib/sitios.ts).
 //
-// O sea que el server de Next no aporta NADA en producción, y hacerlo correr
-// igual se paga caro: en Workers todo HTML pasaría por el worker, con el
-// impuesto del adaptador en cada request. Servido como asset estático, en cambio,
-// Cloudflare responde sin invocar código —"if a requested URL matches a file in
-// the static assets directory, that file will be served — without invoking Worker
-// code"— y esos requests no se facturan. El worker queda sólo para los tres
-// endpoints de datos (workers/fondo-site), que es para lo que sirve un worker.
+// O sea que el server de Next no aporta NADA en producción. Y desde la Fase 2
+// del plan (docs/plan-consolidacion-fondo.md) NO HACE FALTA NINGÚN SERVIDOR DE
+// APLICACIÓN: los datos son archivos estáticos que publica el panel de
+// empleados contra `publicar.php`, y Apache los sirve sin ejecutar nada.
+//
+// Hasta el 17-ago-2026 los tres endpoints de datos los servía un worker de
+// Cloudflare (`workers/fondo-site`) proxeado por `deploy/cpanel/api.php`. Ese
+// worker se dio de baja: el ciclo real de los datos ya pasa por el panel, así
+// que la base en la nube no compraba nada que el publicador no dé — y sí
+// costaba una cuenta, una D1 y 240 líneas de PHP en el camino de cada visita.
 //
 // EL BUILD CORRE EN UNA COPIA DEL REPO, A PROPÓSITO
 // `next build` escribe en `.next/`, que es exactamente donde el `next dev` del
@@ -28,8 +31,10 @@
 //   npm run fondo:build              # copia + build + armado
 //   npm run fondo:build -- --rearmar # sólo el armado, reusando el último build
 //
-// SALIDA: dist/fondo/ — index.html, _next/static/*, los assets de public que la
-// página realmente usa, robots.txt, sitemap.xml, 404.html, _headers, _redirects.
+// SALIDA: dist/fondo/ — index.html, cookies/index.html, _next/static/*, los
+// assets de public que las páginas realmente usan, robots.txt, sitemap.xml,
+// 404.html, _headers, _redirects. Las páginas del sitio están listadas en
+// PAGINAS: agregar una es agregar una línea ahí.
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -44,6 +49,29 @@ const COPIA = process.env.FONDO_BUILD_DIR ?? path.join(os.tmpdir(), "bng-fondo-b
 // Ruta FÍSICA de la página dentro de la app. Se sirve en la raíz del dominio del
 // fondo, así que su HTML termina siendo el index.html del deploy.
 const RUTA = "bng-seleccion-global";
+
+/**
+ * Las páginas del sitio, de ruta física de Next a archivo del deploy.
+ *
+ * Fueron una sola hasta el 16-ago-2026, cuando la política de cookies salió de
+ * ser un ancla de la home a ser página propia (el porqué está en la cabecera de
+ * `app/(fondo)/bng-seleccion-global/cookies/page.tsx`). Todo lo que abajo
+ * recorre esta lista —el volcado del HTML, el barrido de assets, el sitemap—
+ * antes hablaba de "el HTML" en singular.
+ *
+ * ⚠️ `cookies.html` y NO `cookies/index.html`, que es lo que uno escribiría
+ * primero. El sitio vivo lo sirve Apache (cPanel), y ahí un pedido de `/cookies`
+ * apuntando a un DIRECTORIO no lo sirve derecho: mod_dir contesta un 301 a
+ * `/cookies/` —con barra— y recién entonces entrega el index. Eso deja al
+ * visitante en una URL que no es la del canonical horneado en el HTML
+ * (`…/cookies`, sin barra), o sea las dos formas circulando por ahí y un salto
+ * de más en cada visita. Como archivo suelto no hay directorio, no hay
+ * DirectorySlash, y la regla de `htaccess()` lo sirve en un solo paso.
+ */
+const PAGINAS: { ruta: string; archivo: string; sitemap: string }[] = [
+  { ruta: RUTA, archivo: "index.html", sitemap: "/" },
+  { ruta: `${RUTA}/cookies`, archivo: "cookies.html", sitemap: "/cookies" },
+];
 
 // ── Env ──────────────────────────────────────────────────────────────────────
 // `next build` levanta `.env.local` solo; este script no. Lo carga con la MISMA
@@ -72,7 +100,7 @@ const { GTM_ID } = await import("../lib/medicion");
 const { FONDO_DOC_TIPOS } = await import("../lib/panelSchemas");
 
 // Este script ES el build del fondo, así que la medición va salvo kill-switch. No
-// se puede leer `MEDICION_ACTIVA` de lib/medicion: ese flag mira FONDO_STANDALONE,
+// se puede leer `MEDICION_ACTIVA` de lib/medicion: ese flag mira NEXT_PUBLIC_FONDO_STANDALONE,
 // que existe en el env del `next build` HIJO (línea del spawn) y no acá. Si esto
 // dijera `false`, el HTML saldría con el contenedor y las cabeceras bloqueándolo.
 const MEDICION = process.env.MEDICION_OFF !== "1";
@@ -119,12 +147,14 @@ function correrBuild() {
   // sitio PÚBLICO. Hoy la página no renderiza ningún dato en el server y por eso
   // el flag no cambia el HTML — pero el día que algo se prerenderice, la máquina
   // que tenga el flag prendido publicaría números inventados, y la que no, no.
-  // La misma razón por la que el worker no lo declara (workers/fondo-site).
   // De paso, iguala el build de acá con el de CI, que nunca va a tener .env.local.
   // La anotación NO sobra: el spread de `process.env` PIERDE su índice de string
   // —TS no lo propaga— y sin ella `env.FONDO_DEMO` no compila. Y esto lo type-chequea
   // el propio `next build`, que barre `scripts/` (el error aparece recién ahí).
-  const env: NodeJS.ProcessEnv = { ...process.env, FONDO_STANDALONE: "1" };
+  // NEXT_PUBLIC_ porque lo lee también el browser: desde la Fase 2, lib/useFondo.ts
+  // elige con este flag entre los archivos estáticos publicados por el panel y las
+  // rutas de Next. Ver el comentario de FONDO_STANDALONE en lib/sitios.ts.
+  const env: NodeJS.ProcessEnv = { ...process.env, NEXT_PUBLIC_FONDO_STANDALONE: "1" };
   if (env.FONDO_DEMO) {
     console.log("  (FONDO_DEMO ignorado — el sitio público nunca se buildea en modo demo)");
     delete env.FONDO_DEMO;
@@ -311,14 +341,20 @@ function robotsTxt(): string {
 }
 
 function sitemapXml(): string {
+  // Una entrada por página del sitio. La home manda —es la que se posiciona— y
+  // la política de cookies va con prioridad baja y frecuencia anual: existe para
+  // que se la pueda citar y encontrar, no para competir por una consulta.
+  const url = (loc: string, changefreq: string, priority: string) =>
+    ["  <url>", `    <loc>${loc}</loc>`, `    <changefreq>${changefreq}</changefreq>`,
+      `    <priority>${priority}</priority>`, "  </url>"];
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    "  <url>",
-    `    <loc>${SITIO_FONDO_URL}/</loc>`,
-    "    <changefreq>weekly</changefreq>",
-    "    <priority>1.0</priority>",
-    "  </url>",
+    ...PAGINAS.flatMap((p) =>
+      p.sitemap === "/"
+        ? url(`${SITIO_FONDO_URL}/`, "weekly", "1.0")
+        : url(`${SITIO_FONDO_URL}${p.sitemap}`, "yearly", "0.2"),
+    ),
     "</urlset>",
     "",
   ].join("\n");
@@ -352,6 +388,9 @@ function redirectsFile(): string {
     "# Generado por scripts/build-fondo.mts — no editar a mano.",
     `${RUTA_FONDO} / 308`,
     `${RUTA_FONDO}/ / 308`,
+    // Y lo mismo para la segunda página: el path físico no puede quedar
+    // publicado en paralelo a la URL buena.
+    `${RUTA_FONDO}/cookies /cookies 308`,
     "",
   ].join("\n");
 }
@@ -522,11 +561,15 @@ function notFoundHtml(): string {
 // ── Armado ───────────────────────────────────────────────────────────────────
 
 function armar() {
-  const html = path.join(COPIA, ".next", "server", "app", `${RUTA}.html`);
-  if (!fs.existsSync(html)) {
+  const fuentes = PAGINAS.map((p) => ({
+    ...p,
+    html: path.join(COPIA, ".next", "server", "app", `${p.ruta}.html`),
+  }));
+  const sinPrerender = fuentes.filter((f) => !fs.existsSync(f.html));
+  if (sinPrerender.length) {
     console.error(
-      `\n✘ No hay HTML prerenderizado en ${html}.\n` +
-        "  La página quedó dinámica: revisá que el build haya corrido con FONDO_STANDALONE=1\n" +
+      `\n✘ No hay HTML prerenderizado en:\n${sinPrerender.map((f) => `   ${f.html}`).join("\n")}\n` +
+        "  Esa página quedó dinámica: revisá que el build haya corrido con NEXT_PUBLIC_FONDO_STANDALONE=1\n" +
         "  y que nada del árbol del fondo llame a headers()/cookies().\n",
     );
     process.exit(1);
@@ -535,11 +578,21 @@ function armar() {
   fs.rmSync(SALIDA, { recursive: true, force: true });
   fs.mkdirSync(SALIDA, { recursive: true });
 
-  const crudo = fs.readFileSync(html, "utf8");
-  const { html: contenido, cambios } = reescribirLinksALaCasa(crudo);
+  // El barrido de assets se acumula entre páginas: comparten casi todo (el CSS,
+  // los chunks del runtime, las fuentes) y copiar dos veces el mismo archivo es
+  // inofensivo, pero el conteo que se le informa al usuario tiene que ser de
+  // archivos únicos y no la suma con repetidos.
+  const assets = new Set<string>();
+  let cambios = 0;
+  for (const f of fuentes) {
+    const reescrito = reescribirLinksALaCasa(fs.readFileSync(f.html, "utf8"));
+    cambios += reescrito.cambios;
+    const destino = path.join(SALIDA, f.archivo);
+    fs.mkdirSync(path.dirname(destino), { recursive: true });
+    fs.writeFileSync(destino, reescrito.html);
+    for (const ref of recolectar(reescrito.html)) assets.add(ref);
+  }
   if (cambios) console.log(`  ${cambios} links al institucional reescritos a las URLs del sitio viejo`);
-  fs.writeFileSync(path.join(SALIDA, "index.html"), contenido);
-  const assets = recolectar(contenido);
 
   // Los manifests del build son chicos y el runtime de Next puede pedirlos sin
   // que aparezcan como path literal en el HTML: van completos.
@@ -559,7 +612,7 @@ function armar() {
   fs.writeFileSync(path.join(SALIDA, "_headers"), headersFile());
   fs.writeFileSync(path.join(SALIDA, "_redirects"), redirectsFile());
 
-  return assets;
+  return [...assets];
 }
 
 /**
@@ -615,6 +668,59 @@ function verificar(): string[] {
  *
  * Por eso se verifica en la fuente Y en la salida.
  */
+/**
+ * Que el bundle del browser pida los datos DONDE ESTÁN.
+ *
+ * Desde la Fase 2 (docs/plan-consolidacion-fondo.md) los datos del fondo son
+ * archivos estáticos publicados por el panel, y quien elige el origen es
+ * `lib/useFondo.ts` mirando `NEXT_PUBLIC_FONDO_STANDALONE`. Si ese flag no llega
+ * al `next build` —o alguien renombra la constante— el bundle sale pidiendo
+ * `/api/fondo`, que en este hosting sólo existe mientras siga en pie el proxy
+ * PHP al worker de Cloudflare.
+ *
+ * Es el modo de falla más silencioso que tiene este build: el sitio ANDA (por el
+ * proxy viejo) hasta el día que se apague el worker, y ahí se queda sin datos
+ * sin que nadie haya tocado nada. Por eso se verifica el bundle SERVIDO y no la
+ * variable de entorno: lo que importa es lo que quedó horneado.
+ */
+function verificarOrigenDatos(): string[] {
+  const problemas: string[] = [];
+  const chunks: string[] = [];
+  const recorrer = (dir: string) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) recorrer(p);
+      else if (path.extname(p) === ".js") chunks.push(fs.readFileSync(p, "utf8"));
+    }
+  };
+  const estaticos = path.join(SALIDA, "_next", "static");
+  if (fs.existsSync(estaticos)) recorrer(estaticos);
+
+  const todo = chunks.join("\n");
+  if (!todo.includes("/datos/fondo.json")) {
+    problemas.push(
+      "el bundle no menciona /datos/fondo.json — el build corrió sin NEXT_PUBLIC_FONDO_STANDALONE=1",
+    );
+  }
+  if (/["'`]\/api\/fondo["'`]/.test(todo)) {
+    problemas.push("el bundle todavía pide /api/fondo — quedó el origen viejo horneado");
+  }
+
+  // La semilla: sin ella, un deploy limpio no tiene nada que servir hasta el
+  // primer Publicar. Se comprueba que exista Y que parsee.
+  const seed = path.join(SALIDA_CPANEL, "_seed", "fondo.json");
+  if (!fs.existsSync(seed)) problemas.push("falta _seed/fondo.json en el deploy de cPanel");
+  else {
+    try {
+      const j = JSON.parse(fs.readFileSync(seed, "utf8"));
+      if (!("status" in j)) problemas.push("_seed/fondo.json no tiene `status`");
+    } catch {
+      problemas.push("_seed/fondo.json no parsea");
+    }
+  }
+  return problemas;
+}
+
 function verificarDocs(): string[] {
   const problemas: string[] = [];
   for (const doc of DOCS_ESTATICOS) {
@@ -647,49 +753,61 @@ function verificarDocs(): string[] {
  */
 function verificarMedicion(): string[] {
   const problemas: string[] = [];
-  const html = fs.readFileSync(path.join(SALIDA, "index.html"), "utf8");
   const csp =
     /Header always set Content-Security-Policy "([^"]*)"/.exec(
       fs.readFileSync(path.join(SALIDA_CPANEL, ".htaccess"), "utf8"),
     )?.[1] ?? "";
-
-  const enHtml = html.includes(GTM_ID);
   const enCsp = csp.includes("https://www.googletagmanager.com");
 
-  if (!MEDICION) {
-    // MEDICION_OFF=1: se espera un deploy limpio de las DOS mitades.
-    if (enHtml) problemas.push(`MEDICION_OFF=1 pero el HTML igual trae ${GTM_ID}`);
-    if (enCsp) problemas.push("MEDICION_OFF=1 pero la CSP igual habilita googletagmanager.com");
-    return problemas;
-  }
-  if (!enHtml) {
-    problemas.push(
-      `el HTML no trae ${GTM_ID} — el next build corrió sin FONDO_STANDALONE=1, o MEDICION_ACTIVA quedó en false`,
-    );
-  }
-  if (!enCsp) {
+  if (MEDICION && !enCsp) {
     problemas.push("la CSP del .htaccess no habilita googletagmanager.com — GTM cargaría bloqueado");
   }
-  // El `<noscript>` no mide, pero es la mitad del snippet que mandó la agencia:
-  // si falta, el que audite la instalación va a decir que está a medias.
-  if (enHtml && !html.includes(`ns.html?id=${GTM_ID}`)) {
-    problemas.push("falta el <noscript> del snippet de GTM");
+  if (!MEDICION && enCsp) {
+    problemas.push("MEDICION_OFF=1 pero la CSP igual habilita googletagmanager.com");
   }
 
-  // ⚠️ LA INVARIANTE DEL CONSENTIMIENTO. Las señales por defecto valen sólo si
-  // están puestas ANTES de que GTM cargue; si quedan después, los tags que ya
-  // dispararon lo hicieron sin restricción y el banner es decorativo. Es un orden
-  // dentro de un string: no hay tipo, ni test, ni error de compilación que lo
-  // proteja — cualquier refactor de `snippetGTM` lo puede invertir sin ruido. Se
-  // verifica sobre el HTML servido, que es el único lugar donde el orden es real.
-  const iDefault = html.indexOf("'consent','default'");
-  const iGtm = html.indexOf("googletagmanager.com/gtm.js");
-  if (enHtml && iDefault === -1) {
-    problemas.push("no está el consent default de Consent Mode — GTM cargaría sin restricción");
-  } else if (enHtml && iDefault > iGtm) {
-    problemas.push(
-      `el consent default va DESPUÉS del loader de GTM (${iDefault} > ${iGtm}) — los primeros tags dispararían sin consentimiento`,
-    );
+  // ⚠️ SE REVISAN TODAS LAS PÁGINAS, no sólo la home. El contenedor y las señales
+  // por defecto los emite la CÁSCARA (app/(fondo)/layout.tsx), así que valen para
+  // las dos — y una página del sitio que cargue GTM sin el consent default sería
+  // exactamente el agujero que este guarda existe para tapar. Cuesta un readFile
+  // más y cubre la ruta nueva el día que se agregue, sin que nadie se acuerde.
+  for (const { archivo } of PAGINAS) {
+    const html = fs.readFileSync(path.join(SALIDA, archivo), "utf8");
+    const enHtml = html.includes(GTM_ID);
+    const donde = `${archivo}:`;
+
+    if (!MEDICION) {
+      // MEDICION_OFF=1: se espera un deploy limpio de las DOS mitades.
+      if (enHtml) problemas.push(`${donde} MEDICION_OFF=1 pero el HTML igual trae ${GTM_ID}`);
+      continue;
+    }
+    if (!enHtml) {
+      problemas.push(
+        `${donde} el HTML no trae ${GTM_ID} — el next build corrió sin NEXT_PUBLIC_FONDO_STANDALONE=1, o MEDICION_ACTIVA quedó en false`,
+      );
+      continue;
+    }
+    // El `<noscript>` no mide, pero es la mitad del snippet que mandó la agencia:
+    // si falta, el que audite la instalación va a decir que está a medias.
+    if (!html.includes(`ns.html?id=${GTM_ID}`)) {
+      problemas.push(`${donde} falta el <noscript> del snippet de GTM`);
+    }
+
+    // ⚠️ LA INVARIANTE DEL CONSENTIMIENTO. Las señales por defecto valen sólo si
+    // están puestas ANTES de que GTM cargue; si quedan después, los tags que ya
+    // dispararon lo hicieron sin restricción y el banner es decorativo. Es un orden
+    // dentro de un string: no hay tipo, ni test, ni error de compilación que lo
+    // proteja — cualquier refactor de `snippetGTM` lo puede invertir sin ruido. Se
+    // verifica sobre el HTML servido, que es el único lugar donde el orden es real.
+    const iDefault = html.indexOf("'consent','default'");
+    const iGtm = html.indexOf("googletagmanager.com/gtm.js");
+    if (iDefault === -1) {
+      problemas.push(`${donde} no está el consent default de Consent Mode — GTM cargaría sin restricción`);
+    } else if (iDefault > iGtm) {
+      problemas.push(
+        `${donde} el consent default va DESPUÉS del loader de GTM (${iDefault} > ${iGtm}) — los primeros tags dispararían sin consentimiento`,
+      );
+    }
   }
   return problemas;
 }
@@ -715,13 +833,43 @@ function htaccess(): string {
     "<IfModule mod_rewrite.c>",
     "  RewriteEngine On",
     "",
-    "  # Los tres endpoints de datos, al proxy PHP.",
+    "  # ⚠️ DADO DE BAJA: la página ya no pide /api/fondo* (lee /datos/*, abajo).",
+    "  # Esta regla y api.php quedan como VENTANA DE ROLLBACK mientras el hosting",
+    "  # siga sirviendo el build anterior. Se borran junto con el worker y la D1;",
+    "  # la condición exacta está en la cabecera de deploy/cpanel/api.php.",
     "  RewriteRule ^api/fondo(/.*)?$ api.php [L,QSA]",
     "",
-    "  # El path físico de la página colapsa a la raíz: una sola URL por página.",
-    "  # 301 (permanente): es la señal con la que Google consolida las dos URLs en",
-    "  # una. Un temporal le dice lo contrario —que la de origen puede volver a ser",
-    "  # válida— y deja las dos compitiendo en el índice. Ver docs/SEO-fondo.md.",
+    "  # ── Datos publicados por el panel ──────────────────────────────────────",
+    "  # DOS CARPETAS, Y LA RAZÓN ES QUE UN DEPLOY NO PUEDE PISAR LO PUBLICADO:",
+    "  #   publicado/  lo escribe SÓLO publicar.php. Nunca está en dist/, así que",
+    "  #               una subida del sitio (incluso con --delete) no lo toca.",
+    "  #   _seed/      lo escribe SÓLO el build. Es la línea de base para que un",
+    "  #               deploy limpio tenga algo que servir antes del primer",
+    "  #               Publicar.",
+    "  # La preferencia se resuelve con -f: si el archivo publicado existe, gana;",
+    "  # si no, cae a la semilla. Sin que nadie tenga que acordarse de excluir una",
+    "  # carpeta al subir por FTP, que es el tipo de disciplina que falla una vez",
+    "  # y borra el valor cuota.",
+    "  RewriteCond %{DOCUMENT_ROOT}/publicado/$1 -f",
+    "  RewriteRule ^datos/(fondo\\.json|documentos\\.json)$ /publicado/$1 [L]",
+    "  RewriteRule ^datos/(fondo\\.json|documentos\\.json)$ /_seed/$1 [L]",
+    "",
+    "  # Los PDF publicados por el panel, con el mismo criterio: si el panel subió",
+    "  # uno, gana sobre el que viaja en el deploy (lib/fondoDocsEstaticos.ts).",
+    "  RewriteCond %{DOCUMENT_ROOT}/publicado/docs/$1.pdf -f",
+    "  RewriteRule ^datos/docs/([a-z0-9-]{1,40})\\.pdf$ /publicado/docs/$1.pdf [L]",
+    "",
+    "  # La política de cookies: /cookies se sirve desde cookies.html en UN paso.",
+    "  # El archivo es suelto y no cookies/index.html justamente para poder hacer",
+    "  # esto — con un directorio, mod_dir mete un 301 a /cookies/ (con barra) que",
+    "  # no coincide con el canonical del HTML. Ver el comentario de PAGINAS.",
+    "  RewriteRule ^cookies/?$ cookies.html [L]",
+    "",
+    "  # El path físico de cada página colapsa a su URL pública: una sola URL por",
+    "  # página. 301 (permanente): es la señal con la que Google consolida las dos",
+    "  # URLs en una. Un temporal le dice lo contrario —que la de origen puede volver",
+    "  # a ser válida— y deja las dos compitiendo en el índice. Ver docs/SEO-fondo.md.",
+    "  RewriteRule ^bng-seleccion-global/cookies/?$ /cookies [R=301,L]",
     "  RewriteRule ^bng-seleccion-global/?$ / [R=301,L]",
     "",
     "  # HTTPS y sin www — el canonical horneado en el HTML es el apex.",
@@ -754,7 +902,39 @@ function htaccess(): string {
     "  # lib/fondoDocsEstaticos.ts), así que `immutable` está mal: un Reglamento",
     "  # corregido tiene que poder reemplazar al viejo. 1h de frescura y después",
     "  # revalidación por Last-Modified, que resuelve en un 304 de bytes contados.",
-    '  Header always set Cache-Control "public, max-age=3600, must-revalidate" "expr=%{ENV:FONDO_INMUTABLE} != \'1\' && %{CONTENT_TYPE} =~ m#^(application/pdf|image/|application/json)#"',
+    "",
+    "  # ⚠️ Y los ENDPOINTS DE DATOS quedan afuera de esa regla, aunque contesten",
+    "  # application/json. `Header always set` REEMPLAZA lo que mandó PHP, así que",
+    "  # sin esta exclusión /api/fondo salía con max-age=3600: el navegador se",
+    "  # quedaba una HORA con la respuesta vieja sin volver a preguntar, y el TTL de",
+    "  # 5 minutos que api.php se toma el trabajo de manejar no servía para nada.",
+    "  # Encontrado el 13-ago-2026 corrigiendo unas tenencias: el dato ya estaba",
+    "  # cambiado en D1 y en el worker, y el sitio seguía mostrando el anterior.",
+    "  # Sin la regla vale la de api.php —max-age=0 + s-maxage=300—, que es la",
+    "  # correcta para un dato: el navegador revalida siempre y el borde cachea.",
+    '  SetEnvIf Request_URI "^/api/" FONDO_DATOS=1',
+    '  Header always set Cache-Control "public, max-age=3600, must-revalidate" "expr=%{ENV:FONDO_INMUTABLE} != \'1\' && %{ENV:FONDO_DATOS} != \'1\' && %{CONTENT_TYPE} =~ m#^(application/pdf|image/|application/json)#"',
+    "",
+    "  # El JSON publicado por el panel revalida SIEMPRE (max-age=0). Es la misma",
+    "  # conclusión que ya está escrita en lib/fondoApi.ts: con max-age el navegador",
+    "  # sirve su copia y el dato recién publicado no aparece al recargar —",
+    "  # indistinguible de un bug, y acá peor, porque quien recarga es justamente",
+    "  # el que acaba de apretar Publicar. No cuesta: sin cambios es un 304.",
+    "  # (Los PDF de /datos/docs/ se quedan con la regla de 1h de arriba: son",
+    "  # megabytes y no cambian casi nunca.)",
+    "  #",
+    "  # ⚠️ VA POR <FilesMatch> Y NO POR SetEnvIf Request_URI, Y NO ES ESTILO:",
+    "  # medido con Apache 2.4.66 el 2026-08-17. Estas URLs llegan por un rewrite",
+    "  # interno (/datos/… → /publicado/… o /_seed/…), y para cuando corren los",
+    "  # SetEnvIf el Request_URI YA ES el reescrito: una condición sobre ^/datos/",
+    "  # no matchea nunca y el archivo salía con max-age=3600. <FilesMatch> mira el",
+    "  # nombre del archivo SERVIDO, que es el mismo por los dos caminos.",
+    "</IfModule>",
+    "",
+    "<IfModule mod_headers.c>",
+    '  <FilesMatch "^(fondo|documentos)\\.json$">',
+    '    Header always set Cache-Control "public, max-age=0, must-revalidate"',
+    "  </FilesMatch>",
     "</IfModule>",
     "",
     "  # Techo de ancho de banda POR CONEXIÓN sobre los PDF (mod_ratelimit, KiB/s).",
@@ -841,12 +1021,27 @@ function htaccess(): string {
  * una lista vieja creyendo que se actualizó.
  */
 function apiPhp(): string {
-  const fuente = path.join(REPO, "deploy", "cpanel", "api.php");
+  return phpConTipos("api.php");
+}
+
+/**
+ * El receptor de publicaciones. Misma reescritura de la lista blanca que
+ * `api.php`, y por una razón todavía más directa: acá la lista es lo que decide
+ * el NOMBRE DEL ARCHIVO que se escribe en disco. Un tipo que esté en el enum
+ * pero no en el PHP se rechazaría al publicar; uno que esté de más sería una
+ * ruta escribible que el panel no conoce.
+ */
+function publicarPhp(): string {
+  return phpConTipos("publicar.php");
+}
+
+function phpConTipos(archivo: string): string {
+  const fuente = path.join(REPO, "deploy", "cpanel", archivo);
   const php = fs.readFileSync(fuente, "utf8");
   const marcador = /^const TIPOS_DOC = .*; \/\/ __TIPOS_DOC__$/m;
   if (!marcador.test(php)) {
     console.error(
-      "\n✘ deploy/cpanel/api.php perdió la línea marcada con `// __TIPOS_DOC__`.\n" +
+      `\n✘ deploy/cpanel/${archivo} perdió la línea marcada con \`// __TIPOS_DOC__\`.\n` +
       "  Es la lista blanca de tipos de documento y la reescribe este script desde\n" +
       "  FONDO_DOC_TIPOS. Sin el marcador quedaría la lista del archivo, que puede\n" +
       "  estar vieja. Restaurá la línea con su comentario final.\n",
@@ -855,6 +1050,34 @@ function apiPhp(): string {
   }
   const lista = FONDO_DOC_TIPOS.map((t) => `'${t}'`).join(", ");
   return php.replace(marcador, `const TIPOS_DOC = [${lista}]; // __TIPOS_DOC__`);
+}
+
+/**
+ * Línea de base de los datos, para que un deploy limpio nunca quede sin nada
+ * que servir. Va en `_seed/` y NO en `publicado/`: el .htaccess prefiere lo
+ * publicado si existe, así que una subida del sitio no puede pisar los datos
+ * que cargó Adrián. Ver el bloque de reglas en htaccess().
+ *
+ * Es deliberadamente el estado de PRE-LANZAMIENTO y no una copia de lo que hoy
+ * sirve el worker: la semilla no tiene que parecerse a la realidad, sólo evitar
+ * que la página se rompa entre que se sube el sitio y se aprieta Publicar por
+ * primera vez. Publicar la pisa en el primer uso.
+ */
+function seedFondoJson(): string {
+  return JSON.stringify({
+    status: "pre-launch",
+    asOf: null,
+    latest: null,
+    returns: [],
+    calendar: [],
+    stats: { vol1y: null, bestMonth: null, worstMonth: null, maxDrawdown: null, positiveMonths: null, annualizedSI: null },
+    series: [],
+    benchmark: [],
+    benchReturns: [],
+    benchCalendar: [],
+    holdings: null,
+    geo: null,
+  });
 }
 
 function armarCpanel(): number {
@@ -868,6 +1091,17 @@ function armarCpanel(): number {
 
   fs.writeFileSync(path.join(SALIDA_CPANEL, ".htaccess"), htaccess());
   fs.writeFileSync(path.join(SALIDA_CPANEL, "api.php"), apiPhp());
+  fs.writeFileSync(path.join(SALIDA_CPANEL, "publicar.php"), publicarPhp());
+
+  // La semilla. `publicado/` NO se crea acá a propósito: si viajara en el
+  // deploy (aunque fuera vacío) una subida con --delete borraría lo que el
+  // panel publicó. Lo crea publicar.php la primera vez.
+  fs.mkdirSync(path.join(SALIDA_CPANEL, "_seed"), { recursive: true });
+  fs.writeFileSync(path.join(SALIDA_CPANEL, "_seed", "fondo.json"), seedFondoJson());
+  fs.writeFileSync(
+    path.join(SALIDA_CPANEL, "_seed", "documentos.json"),
+    JSON.stringify({ documentos: [] }),
+  );
   return pesar(SALIDA_CPANEL).archivos;
 }
 
@@ -901,7 +1135,7 @@ console.log(`· build             : ${COPIA}`);
 if (!rearmar) {
   console.log("\n▸ copiando el repo…");
   prepararCopia();
-  console.log("\n▸ next build (FONDO_STANDALONE=1)…\n");
+  console.log("\n▸ next build (NEXT_PUBLIC_FONDO_STANDALONE=1)…\n");
   correrBuild();
 }
 
@@ -941,6 +1175,15 @@ console.log(`  ${nCpanel} archivos · .htaccess + api.php, listo para subir a pu
 console.log(
   `  documentos en el deploy: ${DOCS_ESTATICOS.map((d) => d.tipo).join(", ") || "ninguno"}`,
 );
+
+// Va DESPUÉS de armarCpanel(): mira el _seed/ que escribe esa función.
+const origenRoto = verificarOrigenDatos();
+if (origenRoto.length) {
+  console.error("\n✘ Origen de los datos mal horneado:");
+  for (const o of origenRoto) console.error(`   ${o}`);
+  console.error("\n  Ver lib/useFondo.ts y docs/plan-consolidacion-fondo.md. NO subir este build.\n");
+  process.exit(1);
+}
 
 // Va DESPUÉS de armarCpanel(): el .htaccess que compara lo escribe esa función.
 const medicionRota = verificarMedicion();

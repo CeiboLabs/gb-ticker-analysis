@@ -35,8 +35,19 @@
 //   npx tsx scripts/fondo-benchmark-proxy.ts --years=3
 //   npx tsx scripts/fondo-benchmark-proxy.ts --out=/tmp/bench.sql
 //
-// Es IDEMPOTENTE (UPSERT por día): volver a correrlo extiende la serie hasta
-// el último cierre sin duplicar nada.
+// ⚠️ NO ES "IDEMPOTENTE", Y ACÁ DECÍA QUE SÍ — ese error costó una serie.
+//
+// La ventana arranca en "hoy − N años", así que cada corrida rebasea la serie a
+// 100 en un día DISTINTO: no extiende la anterior, la reemplaza. Aplicar la
+// salida como puro UPSERT sobre una serie vieja deja las ruedas anteriores al
+// nuevo día base con los niveles de la corrida previa, y eso es un ESCALÓN
+// artificial en el empalme — invisible salvo que se comparen las dos fila por
+// fila, y suficiente para corromper todo rendimiento calculado sobre la serie.
+//
+// Pasó de verdad: la D1 `bng-fondo` quedó así el 5-ago-2026 (6 ruedas huérfanas
+// del 2021-07-28 al 2021-08-04 y un salto de −0,67% el 2021-08-05). Por eso el
+// SQL que se emite ahora empieza con un DELETE. Ver docs/plan-consolidacion-fondo.md
+// § 6ter.
 
 import { writeFileSync } from "node:fs";
 import { yahooFinance } from "@/lib/fetchStockData";
@@ -129,12 +140,24 @@ async function main() {
     `-- ⚠️ Es una APROXIMACIÓN: reemplazar por los niveles reales de los índices`,
     `--    en cuanto el administrador pase el export (source='administrator').`,
     `--`,
-    `-- Aplicar (home server):  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql`,
-    `-- Aplicar (D1):           npx wrangler d1 execute <base> --file=db/seeds/fondo-benchmark.sql`,
+    `-- Aplicar:  sqlite3 data/bengochea.sqlite3 < db/seeds/fondo-benchmark.sql`,
     `--`,
-    `-- Sin BEGIN/COMMIT a propósito: D1 rechaza las transacciones explícitas`,
-    `-- ("use the state.storage.transaction() APIs instead") y acá no hacen falta —`,
-    `-- es UN solo INSERT con upsert, atómico por sí mismo, y re-aplicarlo es seguro.`,
+    `-- ⚠️ EMPIEZA CON UN DELETE, Y NO SOBRA. La ventana arranca en "hoy − N años",`,
+    `--    así que CADA corrida rebasea la serie a 100 en un día distinto. Aplicar`,
+    `--    esto como puro UPSERT sobre una serie vieja deja las ruedas anteriores al`,
+    `--    nuevo día base con los niveles de la corrida ANTERIOR: un ESCALÓN`,
+    `--    artificial en el empalme, invisible salvo que se compare fila por fila.`,
+    `--    Ya pasó — la D1 'bng-fondo' quedó así el 5-ago-2026: 6 ruedas huérfanas`,
+    `--    del 2021-07-28 al 2021-08-04 y un salto de −0,67% el 2021-08-05. Un`,
+    `--    escalón inventado en la serie de un benchmark NOMBRADO corrompe todos`,
+    `--    los rendimientos que se calculen sobre él.`,
+    `--`,
+    `-- Sin BEGIN/COMMIT a propósito: D1 rechazaba las transacciones explícitas`,
+    `-- ("use the state.storage.transaction() APIs instead"). En SQLite el par`,
+    `-- DELETE+INSERT no es atómico sin transacción; si el archivo queda a medias,`,
+    `-- se vuelve a correr esto entero y listo (el DELETE lo deja limpio otra vez).`,
+    ``,
+    `DELETE FROM fund_benchmark WHERE source = 'etf_proxy';`,
     ``,
     `INSERT INTO fund_benchmark (dia, level, source, updated_at) VALUES`,
     filas

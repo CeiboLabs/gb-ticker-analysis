@@ -5,10 +5,10 @@
 // corrección con motivo, snapshot de tenencias y documentos regulatorios.
 
 import { useCallback, useEffect, useState } from "react";
-import { panelFetch, errorMessage, Btn, Card, Input, Label, Notice, Badge, PageHeader, Select } from "@/components/admin/ui";
+import { panelFetch, errorMessage, Btn, Card, Input, Label, Notice, Badge, PageHeader, Select, Stat, StatGrid } from "@/components/admin/ui";
 import { fmtTs } from "@/components/admin/format";
 
-type Tab = "estado" | "cuota" | "backfill" | "corregir" | "tenencias" | "documentos";
+type Tab = "estado" | "cuota" | "backfill" | "corregir" | "tenencias" | "geografia" | "documentos" | "publicar";
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: "estado", label: "Estado" },
@@ -16,19 +16,32 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: "backfill", label: "Backfill" },
   { key: "corregir", label: "Corregir" },
   { key: "tenencias", label: "Tenencias" },
+  // Va pegada a Tenencias porque son los dos bloques de composición de la
+  // página, aunque no sean el mismo tipo de dato: uno es la cartera a una
+  // fecha, el otro el objetivo del mandato (ver TabGeografia).
+  { key: "geografia", label: "Geografía" },
   { key: "documentos", label: "Documentos" },
+  { key: "publicar", label: "Publicar" },
 ];
 
 export default function FondoAdmin() {
   const [tab, setTab] = useState<Tab>("estado");
+
+  // Cualquier pestaña que guarde algo incrementa esto, y el aviso de arriba
+  // revalida. El callback se pasa explícito a cada pestaña que muta en vez de
+  // resolverlo con un canal global: son seis líneas, y a cambio se ve en el
+  // código quién puede dejar cambios sin publicar.
+  const [rev, setRev] = useState(0);
+  const cambio = useCallback(() => setRev((r) => r + 1), []);
 
   return (
     <div>
       <PageHeader
         eyebrow="Panel · Fondo"
         title="Fondo BNG Selección Global"
-        dek="Los datos cargados acá pasan por la misma validación que la ingesta por mail y quedan auditados."
+        dek="Los datos cargados acá pasan por la misma validación que la ingesta por mail y quedan auditados. Guardar no publica: el sitio se actualiza desde la pestaña Publicar."
       />
+      <AvisoPublicacion rev={rev} irAPublicar={() => setTab("publicar")} />
       <nav className="adm-tabs mb-5" role="tablist">
         {TABS.map((t) => (
           <button
@@ -43,12 +56,136 @@ export default function FondoAdmin() {
         ))}
       </nav>
       {tab === "estado" && <TabEstado />}
-      {tab === "cuota" && <TabCuota />}
-      {tab === "backfill" && <TabBackfill />}
-      {tab === "corregir" && <TabCorregir />}
-      {tab === "tenencias" && <TabTenencias />}
-      {tab === "documentos" && <TabDocumentos />}
+      {tab === "cuota" && <TabCuota onCambio={cambio} />}
+      {tab === "backfill" && <TabBackfill onCambio={cambio} />}
+      {tab === "corregir" && <TabCorregir onCambio={cambio} />}
+      {tab === "tenencias" && <TabTenencias onCambio={cambio} />}
+      {tab === "geografia" && <TabGeografia onCambio={cambio} />}
+      {tab === "documentos" && <TabDocumentos onCambio={cambio} />}
+      {tab === "publicar" && <TabPublicar rev={rev} onPublicado={cambio} />}
     </div>
+  );
+}
+
+// ── Aviso de cambios sin publicar ────────────────────────────────────────────
+
+// EL MODO DE FALLA QUE ESTE AVISO EXISTE PARA EVITAR: Adrián guarda, se va, y
+// nadie se entera de que el sitio no se movió. Con el puente viejo (worker + D1
+// leídos en vivo) guardar SÍ publicaba; ahora no, y esa diferencia es
+// invisible salvo que se diga. Por eso el aviso va arriba de las pestañas y no
+// adentro de la de Publicar, que es justo la que no se está mirando.
+
+type EstadoPublicacion = {
+  configurado: boolean;
+  pendiente: boolean;
+  version: number;
+  ultima: { updatedAt: number; updatedBy: string | null } | null;
+};
+
+function usePublicacion(rev: number) {
+  const [estado, setEstado] = useState<EstadoPublicacion | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    queueMicrotask(() => {
+      void (async () => {
+        const r = await panelFetch<EstadoPublicacion>("/api/admin/panel/fondo/publicar");
+        if (vivo && r.status === 200 && r.data) setEstado(r.data as unknown as EstadoPublicacion);
+      })();
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [rev]);
+  return estado;
+}
+
+function AvisoPublicacion({ rev, irAPublicar }: { rev: number; irAPublicar: () => void }) {
+  const estado = usePublicacion(rev);
+  if (!estado?.pendiente) return null;
+  return (
+    <div className="mb-5">
+      <Notice kind="info">
+        Hay cambios guardados que <strong>todavía no están en el sitio</strong>.{" "}
+        <button type="button" onClick={irAPublicar} className="underline underline-offset-2">
+          Ir a Publicar
+        </button>
+      </Notice>
+    </div>
+  );
+}
+
+// ── Publicar ─────────────────────────────────────────────────────────────────
+
+function TabPublicar({ rev, onPublicado }: { rev: number; onPublicado: () => void }) {
+  const estado = usePublicacion(rev);
+  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function publicar() {
+    if (busy) return;
+    setBusy(true);
+    setMsg(null);
+    const r = await panelFetch<{ version: number; pdfs: string[] }>("/api/admin/panel/fondo/publicar", {
+      method: "POST",
+    });
+    setBusy(false);
+    if (r.status === 200 && r.data) {
+      const pdfs = r.data.pdfs ?? [];
+      setMsg({
+        kind: "ok",
+        text: `Publicado en el sitio (versión ${r.data.version})${pdfs.length ? ` · ${pdfs.length} PDF actualizado(s)` : ""}.`,
+      });
+    } else {
+      setMsg({ kind: "error", text: errorMessage(r) });
+    }
+    onPublicado();
+  }
+
+  return (
+    <Card title="Publicar en el sitio">
+      <p className="adm-dek mb-4">
+        Manda al hosting el valor cuota, las tenencias, la exposición geográfica y los documentos tal
+        como están guardados. Los PDF sólo viajan si cambiaron.
+      </p>
+
+      {estado && !estado.configurado && (
+        <Notice kind="error">
+          El publicador no está configurado en este server (faltan <code>FONDO_PUBLISH_URL</code> y{" "}
+          <code>FONDO_PUBLISH_SECRET</code>). Ver docs/RUNBOOK-panel.md.
+        </Notice>
+      )}
+
+      {estado && (
+        <StatGrid>
+          <Stat
+            k="Estado"
+            v={estado.pendiente ? "Cambios sin publicar" : "Al día"}
+            tone={estado.pendiente ? "neg" : "pos"}
+          />
+          <Stat k="Versión publicada" v={estado.version === 0 ? "—" : String(estado.version)} />
+          <Stat
+            k="Última publicación"
+            v={estado.ultima ? fmtTs(estado.ultima.updatedAt) : "Nunca"}
+            s={estado.ultima?.updatedBy ?? undefined}
+          />
+        </StatGrid>
+      )}
+
+      {msg && (
+        <div className="mt-4">
+          <Notice kind={msg.kind}>{msg.text}</Notice>
+        </div>
+      )}
+
+      <div className="mt-4">
+        {/* Se deja apretar aunque no haya cambios: republicar es idempotente y
+            es la única salida cuando el archivo del hosting se perdió o quedó
+            a medias por algo de afuera. */}
+        <Btn onClick={publicar} disabled={busy || estado?.configurado === false}>
+          {busy ? "Publicando…" : estado?.pendiente ? "Publicar cambios" : "Volver a publicar"}
+        </Btn>
+      </div>
+    </Card>
   );
 }
 
@@ -150,7 +287,7 @@ function TabEstado() {
 
 // ── Valor cuota (carga diaria) ───────────────────────────────────────────────
 
-function TabCuota() {
+function TabCuota({ onCambio }: { onCambio: () => void }) {
   const [dia, setDia] = useState("");
   const [nav, setNav] = useState("");
   const [aum, setAum] = useState("");
@@ -175,7 +312,8 @@ function TabCuota() {
     setBusy(false);
     if (r.status === 200) {
       const dup = (r.data as { decision?: string } | null)?.decision === "duplicate";
-      setMsg({ kind: "ok", text: dup ? `El cierre de ${dia} ya estaba publicado con ese valor (sin cambios).` : `Cierre de ${dia} publicado.` });
+      setMsg({ kind: "ok", text: dup ? `El cierre de ${dia} ya estaba publicado con ese valor (sin cambios).` : `Cierre de ${dia} guardado. Falta publicarlo para que se vea en el sitio.` });
+      onCambio();
       setNav(""); setAum(""); setNota("");
     } else {
       setMsg({ kind: "error", text: errorMessage(r) });
@@ -224,7 +362,7 @@ type BackfillResultado = {
   resultados: Array<{ ok: boolean; index: number; dia?: string | null; reason?: string; message?: string }>;
 };
 
-function TabBackfill() {
+function TabBackfill({ onCambio }: { onCambio: () => void }) {
   const [csv, setCsv] = useState("");
   const [sobrescribir, setSobrescribir] = useState(false);
   const [pideConfirmacion, setPideConfirmacion] = useState<string | null>(null);
@@ -247,6 +385,7 @@ function TabBackfill() {
       setResultado(r.data as unknown as BackfillResultado);
       setPideConfirmacion(null);
       setSobrescribir(false);
+      onCambio();
     } else if (r.status === 409 && r.data?.error === "existentes") {
       setPideConfirmacion(typeof r.data.detalle === "string" ? r.data.detalle : "El rango pisa cierres existentes.");
     } else {
@@ -312,7 +451,7 @@ function TabBackfill() {
 
 // ── Corregir (override) ──────────────────────────────────────────────────────
 
-function TabCorregir() {
+function TabCorregir({ onCambio }: { onCambio: () => void }) {
   const [dia, setDia] = useState("");
   const [nav, setNav] = useState("");
   const [aum, setAum] = useState("");
@@ -332,7 +471,8 @@ function TabCorregir() {
     setBusy(false);
     if (r.status === 200) {
       const prev = (r.data as { prevNav?: number | null } | null)?.prevNav;
-      setMsg({ kind: "ok", text: prev != null ? `Corregido: ${dia} pasó de ${prev} al valor nuevo.` : `Valor de ${dia} publicado.` });
+      setMsg({ kind: "ok", text: prev != null ? `Corregido: ${dia} pasó de ${prev} al valor nuevo.` : `Valor de ${dia} guardado. Falta publicarlo para que se vea en el sitio.` });
+      onCambio();
       setNav(""); setAum(""); setMotivo("");
     } else {
       setMsg({ kind: "error", text: errorMessage(r) });
@@ -377,7 +517,7 @@ function TabCorregir() {
 
 type ItemTenencia = { name: string; short: string; assetClass: "RV" | "RF" | "ALT" | "OTROS"; weightBps: string };
 
-function TabTenencias() {
+function TabTenencias({ onCambio }: { onCambio: () => void }) {
   const [asOf, setAsOf] = useState("");
   const [note, setNote] = useState("");
   const [items, setItems] = useState<ItemTenencia[]>([{ name: "", short: "", assetClass: "RV", weightBps: "" }]);
@@ -410,7 +550,8 @@ function TabTenencias() {
     });
     setBusy(false);
     if (r.status === 200) {
-      setMsg({ kind: "ok", text: `Snapshot de ${asOf} guardado (${items.length} líneas). Ya está publicado en el sitio.` });
+      setMsg({ kind: "ok", text: `Snapshot de ${asOf} guardado (${items.length} líneas). Falta publicarlo para que se vea en el sitio.` });
+      onCambio();
     } else {
       setMsg({ kind: "error", text: errorMessage(r) });
     }
@@ -493,6 +634,150 @@ function TabTenencias() {
   );
 }
 
+// ── Geografía ────────────────────────────────────────────────────────────────
+
+// ⚠️ QUÉ ES ESTE NÚMERO, Y POR QUÉ IMPORTA QUE NO SE CONFUNDA
+// Es la asignación OBJETIVO del mandato —lo que la estrategia busca sostener—,
+// NO la exposición efectiva de la cartera a una fecha. Por eso no pide fecha de
+// corte, no envejece y no le aplica el rezago de divulgación de las tenencias.
+//
+// Si alguna vez se cargara acá la exposición MEDIDA, no alcanza con cambiar el
+// dato: hay que reescribir el pie del bloque público —la frase "la vigente te
+// la informa un asesor" deja de ser cierta— y pasarlo por legales, porque esa
+// redacción salió de la revisión del 3-ago-2026. Ver lib/fondoGeo.ts.
+
+type GeoRegionResp = { key: string; label: string; sinMapa?: boolean };
+
+type GeoResp = {
+  guardado: boolean;
+  pesos: Record<string, number>;
+  baseline: Record<string, number>;
+  regiones: GeoRegionResp[];
+  meta: { updatedAt: number; updatedBy: string | null } | null;
+};
+
+const GEO_SUMA = 100;
+
+function TabGeografia({ onCambio }: { onCambio: () => void }) {
+  const [data, setData] = useState<GeoResp | null>(null);
+  const [pesos, setPesos] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const cargar = useCallback(async () => {
+    const r = await panelFetch<GeoResp>("/api/admin/panel/fondo/geo");
+    if (r.status === 200 && r.data) {
+      setData(r.data);
+      setPesos(Object.fromEntries(Object.entries(r.data.pesos).map(([k, v]) => [k, String(v)])));
+    } else {
+      setMsg({ kind: "error", text: errorMessage(r) });
+    }
+  }, []);
+
+  useEffect(() => {
+    // Diferido a microtask por la misma razón que TabDocumentos: el linter de
+    // React exige que ningún setState corra sincrónico dentro del effect.
+    queueMicrotask(() => void cargar());
+  }, [cargar]);
+
+  const regiones = data?.regiones ?? [];
+  const suma = regiones.reduce((a, r) => a + (parseInt(pesos[r.key] ?? "", 10) || 0), 0);
+  const cuadra = suma === GEO_SUMA;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy || !cuadra) return;
+    setBusy(true);
+    setMsg(null);
+    const body = Object.fromEntries(regiones.map((r) => [r.key, parseInt(pesos[r.key] ?? "", 10) || 0]));
+    const r = await panelFetch("/api/admin/panel/fondo/geo", { method: "POST", body: JSON.stringify(body) });
+    setBusy(false);
+    if (r.status === 200) {
+      setMsg({ kind: "ok", text: "Asignación objetivo guardada. Falta publicarla para que se vea en el sitio." });
+      onCambio();
+      void cargar();
+    } else {
+      setMsg({ kind: "error", text: errorMessage(r) });
+    }
+  }
+
+  if (!data) {
+    return (
+      <Card title="Exposición geográfica">
+        {msg ? <Notice kind={msg.kind}>{msg.text}</Notice> : <p className="adm-dek">Cargando…</p>}
+      </Card>
+    );
+  }
+
+  return (
+    <Card title="Exposición geográfica">
+      <p className="adm-dek mb-4">
+        Asignación <strong>objetivo</strong> de la estrategia por región — lo que el mandato busca
+        sostener, no la cartera a una fecha. Tiene que sumar {GEO_SUMA}.
+      </p>
+
+      {/* Distinguir "nunca se cargó" de "se cargó" no es cosmético: sin fila, lo
+          que muestra el sitio son los valores del deploy, y cambiarlos acá es
+          lo que hace que dejen de depender de un rebuild. */}
+      {!data.guardado && (
+        <Notice kind="info">
+          Todavía no se cargó nunca. Los valores de abajo son los que viajan en el código del sitio;
+          al guardar pasan a gobernarse desde acá.
+        </Notice>
+      )}
+
+      <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
+        {/* En el orden canónico de lib/fondoGeo.ts, NO por peso: la leyenda del
+            sitio sí se ordena por peso, pero un formulario que se reordena
+            mientras se tipea es inusable. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {regiones.map((r) => (
+            <div key={r.key}>
+              <Label htmlFor={`geo-${r.key}`}>
+                {r.label}
+                {r.sinMapa ? " (no se pinta en el mapa)" : ""}
+              </Label>
+              <Input
+                id={`geo-${r.key}`}
+                required
+                inputMode="numeric"
+                className="mono"
+                value={pesos[r.key] ?? ""}
+                onChange={(e) =>
+                  setPesos((prev) => ({ ...prev, [r.key]: e.target.value.replace(/\D/g, "").slice(0, 3) }))
+                }
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone={cuadra ? "pos" : "neg"}>
+            Σ {suma} / {GEO_SUMA}
+          </Badge>
+          {data.meta && (
+            <span className="adm-dek">
+              Última edición: {fmtTs(data.meta.updatedAt)}
+              {data.meta.updatedBy ? ` · ${data.meta.updatedBy}` : ""}
+            </span>
+          )}
+        </div>
+
+        {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+
+        <div>
+          {/* Deshabilitado mientras no cierre: el server lo rechaza igual (la
+              suma va clavada en 100), pero enterarse antes de mandar es mejor
+              que un error de vuelta. */}
+          <Btn type="submit" disabled={busy || !cuadra}>
+            {busy ? "Guardando…" : "Guardar asignación"}
+          </Btn>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 // ── Documentos ───────────────────────────────────────────────────────────────
 
 type Doc = {
@@ -513,7 +798,7 @@ const DOC_LABELS: Record<string, string> = {
   "informe-cartera": "Informe de cartera",
 };
 
-function TabDocumentos() {
+function TabDocumentos({ onCambio }: { onCambio: () => void }) {
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [tipos, setTipos] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -542,8 +827,10 @@ function TabDocumentos() {
     const form = new FormData();
     form.append("archivo", file);
     const r = await panelFetch(`/api/admin/panel/fondo/documentos/${tipo}`, { method: "POST", body: form });
-    if (r.status === 200) setMsg({ kind: "ok", text: `${DOC_LABELS[tipo] ?? tipo} subido y publicado.` });
-    else setMsg({ kind: "error", text: errorMessage(r) });
+    if (r.status === 200) {
+      setMsg({ kind: "ok", text: `${DOC_LABELS[tipo] ?? tipo} subido. Falta publicarlo para que se vea en el sitio.` });
+      onCambio();
+    } else setMsg({ kind: "error", text: errorMessage(r) });
     await load();
     setBusyTipo(null);
   }
@@ -556,8 +843,10 @@ function TabDocumentos() {
       method: "PATCH",
       body: JSON.stringify(fields),
     });
-    if (r.status === 200) setMsg({ kind: "ok", text: texto });
-    else setMsg({ kind: "error", text: errorMessage(r) });
+    if (r.status === 200) {
+      setMsg({ kind: "ok", text: texto });
+      onCambio();
+    } else setMsg({ kind: "error", text: errorMessage(r) });
     await load();
     setBusyTipo(null);
   }
@@ -614,7 +903,7 @@ function TabDocumentos() {
                       Ocultar
                     </Btn>
                   ) : (
-                    <Btn disabled={busyTipo === tipo} onClick={() => patchDoc(tipo, { status: "live" }, "Documento publicado.")}>
+                    <Btn disabled={busyTipo === tipo} onClick={() => patchDoc(tipo, { status: "live" }, "Documento marcado visible. Falta publicar.")}>
                       Publicar
                     </Btn>
                   ))}

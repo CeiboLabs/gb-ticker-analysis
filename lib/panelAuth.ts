@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getMetricsDb, eventBaseFromRequest, type D1Database } from "@/lib/metrics";
 import { b64u, sha256Hex, panelConfigured } from "@/lib/panelCrypto";
+import { PANEL_HABILITADO } from "@/lib/sitios";
 import {
   getSessionWithUser,
   insertSession,
@@ -29,6 +30,22 @@ import {
   type PanelUser,
   type SessionScope,
 } from "@/lib/panelStore";
+
+// ── ¿El panel está abierto? ──────────────────────────────────────────────────
+
+/**
+ * Re-export del flag: `lib/sitios.ts` es la fuente única (la comparte con
+ * `next.config.ts`, que no puede importar nada de Next). Acá se expone como
+ * función para poder llamarla desde los handlers sin arrastrar el import de
+ * sitios a cada archivo.
+ *
+ * Las DOS capas del bloqueo leen esta misma constante, así que no pueden
+ * opinar distinto — y si alguna vez difirieran, el desacuerdo falla CERRADO:
+ * cualquiera de las dos que diga «cerrado» devuelve 404.
+ */
+export function panelHabilitado(): boolean {
+  return PANEL_HABILITADO;
+}
 
 // ── Lifetimes (env-tunables con bounds sanos) ────────────────────────────────
 
@@ -156,7 +173,10 @@ export type PanelGate =
   | { ok: true; user: PanelUser; sessionId: number; scope: SessionScope; db: D1Database }
   | { ok: false; res: NextResponse };
 
-function deny(status: 401 | 403 | 503, error: string): { ok: false; res: NextResponse } {
+// 404 entró en la unión el 2026-08-17, con el bloqueo del panel: es el único
+// caso en que la respuesta niega que el recurso exista, en vez de negar el
+// acceso a algo que sí está.
+function deny(status: 401 | 403 | 404 | 503, error: string): { ok: false; res: NextResponse } {
   return {
     ok: false,
     res: NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } }),
@@ -175,6 +195,17 @@ export async function requirePanelSession(
   perm?: PanelPerm | "usuarios",
   opts: { scope?: SessionScope } = {},
 ): Promise<PanelGate> {
+  // ⚠️ PRIMERO DE TODO: si el panel está cerrado, no hay nada que evaluar.
+  // Es la segunda capa del bloqueo — el rewrite de next.config lo hace
+  // invisible, esto lo hace inaccesible aunque alguien llegue por otro camino
+  // (una regla borrada, un deploy sin el rewrite, una ruta futura montada en
+  // otro lado). Va acá y no en cada handler porque acá no se puede olvidar:
+  // toda ruta del panel pasa por esta función, y una que no la llame no
+  // autentica y por lo tanto no existe.
+  //
+  // Devuelve 404 y no 403: un «prohibido» confirma que hay algo detrás.
+  if (!panelHabilitado()) return deny(404, "no_encontrado");
+
   const db = getMetricsDb();
   if (!db || !panelConfigured()) {
     return deny(503, "sin_bindings");
@@ -213,6 +244,7 @@ export async function requirePanelSession(
  * decide el redirect. scope "setup" acepta ambas.
  */
 export async function getPanelUser(scope: SessionScope = "full"): Promise<PanelUser | null> {
+  if (!panelHabilitado()) return null;
   const db = getMetricsDb();
   if (!db || !panelConfigured()) return null;
   const store = await cookies();

@@ -1,5 +1,24 @@
 <?php
-// Endpoints de datos de BNG Selección Global, servidos desde el hosting cPanel.
+// ⚠️ DADO DE BAJA EL 17-ago-2026 — VENTANA DE ROLLBACK, NO CÓDIGO VIVO.
+//
+// Desde la Fase 2 del plan (docs/plan-consolidacion-fondo.md) la página NO pide
+// más `/api/fondo*`: lee `/datos/*.json`, que son archivos estáticos que publica
+// el panel de empleados. Nada del sitio nuevo entra por acá.
+//
+// SIGUE VIAJANDO EN EL DEPLOY A PROPÓSITO, y esto es lo que decide cuándo se
+// borra de verdad: el sitio VIVO todavía sirve el build anterior, que sí pide
+// `/api/fondo*`. Mientras eso siga así, este archivo y su regla del `.htaccess`
+// son la red que sostiene la versión publicada — y también el camino de vuelta
+// si el build nuevo tuviera un problema.
+//
+// BORRAR (junto con la RewriteRule de `htaccess()` en scripts/build-fondo.mts,
+// y este archivo del repo) CUANDO SE CUMPLAN LAS DOS:
+//   1. el build nuevo lleva ~una semana publicado y sano en el hosting;
+//   2. se apagó el worker `bng-fondo-site` y se borró la D1 `bng-fondo`
+//      (respaldo en backups/bng-fondo-d1/, verificado restaurable).
+// Mientras el worker siga arriba, borrar esto no gana nada y pierde el rollback.
+//
+// ── Lo que sigue describe cómo funcionaba, y vale mientras esté en pie ───────
 //
 // POR QUÉ ESTO ES UN PROXY Y NO UNA REIMPLEMENTACIÓN
 // La página es HTML estático, pero el valor cuota, las tenencias y los documentos

@@ -32,6 +32,42 @@ arriba, el alta del panel es:
 (firma los hashes y cifra los seeds). Sólo rotarlo asumiendo re-setup completo
 de credenciales.
 
+## 🔒 El panel está CERRADO (desde 2026-08-17)
+
+Mientras no se termine de pulir, **`/admin` y `/api/admin/panel/*` devuelven 404**
+— páginas y API, incluido el login. No es una pantalla de «prohibido»: es un 404
+del sitio, para no confirmar que ahí hay algo.
+
+**Para abrirlo**: `PANEL_HABILITADO=1` en el env **y reiniciar** el server (o
+rebuildear). Cualquier otro valor, o la variable sin definir, lo deja cerrado.
+
+**Fail-closed a propósito.** El default no es «abierto salvo que lo apaguen»: es
+al revés, así que un deploy nuevo, una máquina sin configurar o un `.env` que no
+viajó dejan el panel cerrado en vez de expuesto. Olvidarse de la variable no
+puede publicar un panel a medio hacer.
+
+Son **dos capas que leen la misma constante** (`PANEL_HABILITADO` en
+`lib/sitios.ts`, el único módulo que alcanzan los dos mundos):
+
+| Capa | Dónde | Qué hace | Cuándo se evalúa |
+|---|---|---|---|
+| Ruteo | `next.config.ts` → `rewrites().beforeFiles` | Reescribe `/admin*` y `/api/admin/panel/*` a una ruta inexistente ⇒ 404 | al arrancar el server |
+| Gate | `lib/panelAuth.ts` → `requirePanelSession` / `getPanelUser` | Corta antes de mirar sesión, DB o permisos | en cada request |
+
+La segunda existe porque la primera es de ruteo: si alguien borra la regla, monta
+una ruta nueva en otro lado o deploya sin el rewrite, el gate sigue cerrado. Y
+como leen la misma constante no pueden opinar distinto — si alguna vez
+difirieran, el desacuerdo falla **cerrado**.
+
+`login` y `setup` son las dos únicas rutas que no pasan por
+`requirePanelSession` (no hay sesión todavía, que es justo la superficie de
+credenciales), así que llevan la guarda escrita a mano.
+
+**Verificado el 2026-08-17** contra un server real, en las dos direcciones:
+cerrado ⇒ 404 en las 7 páginas, las 6 rutas de API y el POST de login, con el
+resto del sitio en 200; con `PANEL_HABILITADO=1` ⇒ `/admin/login` vuelve a 200 y
+`/admin/fondo` al 307 de siempre.
+
 ## Operación
 
 - **Alta de empleado** (`/admin/usuarios`, rol admin): nombre, email, rol
@@ -55,9 +91,41 @@ de credenciales.
   rezago anti front-running (`HOLDINGS_LAG_DAYS`, lib/fondoStore.ts) está en
   **0** mientras el Fondo no opere: el snapshot se publica el mismo día.
   ⚠️ **Volver a 30 cuando el Fondo empiece a operar.**
-- **Documentos del fondo**: subir el PDF por tipo → queda publicado; la
+  - **Geografía**: los cinco pesos de la asignación **objetivo** del mandato
+    (Σ = 100 exacto). ⚠️ Es el objetivo, **no** la exposición efectiva medida:
+    si algún día se carga la efectiva hay que ponerle fecha de corte y
+    reescribir el pie del bloque, que pasó por legales el 3-ago-2026. Sin
+    cargar nada, el sitio usa la línea de base de `lib/fondoGeo.ts`.
+- **Documentos del fondo**: subir el PDF por tipo → queda cargado; la
   sección del sitio los muestra sólo con el flag `fondo_documentos` prendido.
   Sin archivo/flag ⇒ el sitio lista el documento marcado "Próximamente", sin acción.
+
+### ⚠️ Guardar no publica
+
+En el sitio del fondo, **guardar en el panel no cambia el sitio**. Los datos
+viven en la base del panel y viajan al hosting cuando alguien aprieta
+**Publicar** (`/admin/fondo` → pestaña Publicar). Mientras haya cambios sin
+publicar, todas las pestañas del fondo muestran un aviso arriba.
+
+Publicar manda `fondo.json`, `documentos.json` y los PDF **que cambiaron** al
+receptor del hosting, firmado con HMAC. Es idempotente: volver a publicar sin
+cambios es inofensivo y es la salida cuando el archivo del hosting se perdió.
+
+Para que funcione hacen falta **tres cosas de infraestructura**, una vez:
+
+1. En el server del panel (`.env.local` de gestapp):
+   - `FONDO_PUBLISH_URL=https://bengocheainversiones.com/publicar.php`
+   - `FONDO_PUBLISH_SECRET=<32+ chars aleatorios>`
+2. En el hosting, **fuera de `public_html`**: un archivo `.publicar-secret` con
+   ese mismo valor, `chmod 600`. Fuera de `public_html` a propósito — si el
+   hosting alguna vez sirviera `.php` como texto, ahí no hay nada que leer.
+3. Subir `dist/fondo-cpanel/` (trae `publicar.php`, el `.htaccess` nuevo y
+   `_seed/`). **`publicado/` no se sube y no se borra**: lo crea el receptor y
+   es donde viven los datos de Adrián. El `.htaccess` prefiere `publicado/` y
+   cae a `_seed/` sólo si no existe, así que una subida no puede pisar nada.
+
+Sin (1) el panel avisa que el publicador no está configurado; sin (2) el
+hosting responde `503 sin_secreto`. Los dos son fail-closed a propósito.
 - **Secciones** (`/admin/secciones`): toggles de `videos_casa` (módulo de
   YouTube al pie de /informes), `instagram_feed` (novedades en la home — deja
   OFF hasta desplegar el worker de Instagram) y `fondo_documentos`. El cambio

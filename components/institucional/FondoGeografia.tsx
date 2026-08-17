@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GDOTS, GMAP_W, GMAP_H } from "./worldDotsGlobal";
 import { GDOTS_CC } from "./worldDotsCountries";
 import { css } from "@/lib/css";
+import { useFondo } from "@/lib/useFondo";
+import { GEO_BASELINE, GEO_REGIONES, geoOrdenado, type GeoKey, type GeoTarget } from "@/lib/fondoGeo";
 
 // Exposición geográfica del fondo — choropleth sobre el mapa de puntos del
 // sitio: cada punto de tierra se tiñe con intensidad de navy según el peso de
@@ -26,11 +28,22 @@ import { css } from "@/lib/css";
 // en la leyenda <ol> de al lado, que es HTML, y en el aria-label. El mapa
 // ilustra la leyenda, no al revés.
 //
-// Los pesos son la ASIGNACIÓN OBJETIVO de la estrategia (dato del equipo,
-// 3-ago-2026): son los que el mandato busca sostener, no una foto de la cartera
-// a una fecha. Por eso el pie no lleva fecha de corte y el bloque no envejece
-// — pero si el objetivo cambia, se cambia acá. Estuvo fuera de la página entre
-// el 27-jul y el 3-ago-2026, cuando los pesos de acá abajo eran inventados.
+// Los pesos son la ASIGNACIÓN OBJETIVO de la estrategia: son los que el mandato
+// busca sostener, no una foto de la cartera a una fecha. Por eso el pie no lleva
+// fecha de corte y el bloque no envejece. Estuvo fuera de la página entre el
+// 27-jul y el 3-ago-2026, cuando los pesos eran inventados.
+//
+// ── DE DÓNDE SALEN LOS PESOS (cambió el 16-ago-2026) ──────────────────────────
+// Ya no son una constante de este archivo: los carga el panel de empleados
+// (/admin/fondo → Geografía) y viajan en el snapshot de /api/fondo, junto a las
+// tenencias. Lo que SIGUE en código es la taxonomía —qué regiones existen y qué
+// país cae en cuál—, porque agregar una región exige clasificar países y eso no
+// es cargar un número. El reparto exacto está en lib/fondoGeo.ts.
+//
+// Mientras no haya dato cargado (o si la lectura falla) se usa GEO_BASELINE, que
+// es el mismo 46/24/22/5/3 que estaba acá hasta ahora. Y es además el estado
+// INICIAL del render: así el caso normal —nadie cambió nada— pinta idéntico a
+// como pintaba cuando esto era una constante, sin transición ni estado de carga.
 //
 // ⚠️ Las regiones NO son cajas de lat/lon, y por eso cada punto se clasifica por
 // PAÍS (GDOTS_CC) y no por geometría: "Mercados Emergentes" y "Asia Desarrollada"
@@ -38,20 +51,6 @@ import { css } from "@/lib/css";
 // en Norteamérica pero es emergente; Polonia y Grecia están en Europa pero son
 // emergentes; Japón y China comparten continente y están en buckets distintos.
 // Un clasificador por coordenadas pintaría el mapa desmintiendo la tabla.
-
-type Region = { key: string; label: string; peso: number; sinMapa?: boolean };
-
-// Asignación objetivo por región. Suma 100.
-const REGIONES: Region[] = [
-  { key: "NA", label: "Norteamérica",        peso: 46 },
-  { key: "EM", label: "Mercados Emergentes", peso: 24 },
-  { key: "EU", label: "Europa",              peso: 22 },
-  { key: "AD", label: "Asia Desarrollada",   peso: 5 },
-  // El efectivo no tiene geografía: va en la lista para que la suma cierre en
-  // 100, pero no se pinta. Ver `sinMapa` en la leyenda y en el pie.
-  { key: "OT", label: "Otros / Efectivo",    peso: 3, sinMapa: true },
-];
-const MAX_PESO = Math.max(...REGIONES.map((r) => r.peso));
 
 // País → región de inversión. Clasificación estándar de mercados (MSCI):
 // desarrollados vs emergentes, que es la que usa el propio mandato.
@@ -101,17 +100,25 @@ function navyAt(t: number): string {
   const [r, g, b] = NAVY.map((v) => Math.round(v + (255 - v) * (1 - t)));
   return `rgb(${r}, ${g}, ${b})`;
 }
-function regionColor(peso: number): string {
-  return navyAt(0.22 + 0.78 * (peso / MAX_PESO)); // 0.22 (tenue) → 1 (navy pleno)
+// POSICIÓN en la rampa, no el color ya resuelto. Devolver el número es lo que
+// permite INTERPOLAR cuando los pesos cambian: el reveal de una región que pasó
+// de 5% a 20% es un tween sobre este escalar, no un salto entre dos strings rgb.
+function tonoDe(peso: number, maxPeso: number): number {
+  return 0.22 + 0.78 * (peso / Math.max(1, maxPeso)); // 0.22 (tenue) → 1 (navy pleno)
 }
 // La tierra sin exposición sigue siendo navy, apenas insinuada: el mundo se
 // reconoce igual, pero queda por debajo del escalón más bajo de la rampa (Asia
 // Desarrollada, 5% → t≈0,30) sin que se puedan confundir.
-const COLOR_SIN = navyAt(0.1);
+const TONO_SIN = 0.1;
 
-const COLOR_BY_REGION: Record<string, string> = Object.fromEntries(
-  REGIONES.map((r) => [r.key, regionColor(r.peso)]),
-);
+/** Todo lo que se deriva de los pesos, calculado de una sola vez por objetivo. */
+function derivar(target: GeoTarget) {
+  const maxPeso = Math.max(...GEO_REGIONES.map((r) => target[r.key]));
+  const colores = Object.fromEntries(
+    GEO_REGIONES.map((r) => [r.key, navyAt(tonoDe(target[r.key], maxPeso))]),
+  ) as Record<GeoKey, string>;
+  return { maxPeso, colores, orden: geoOrdenado(target) };
+}
 
 // Precómputo: clasifico cada punto por región UNA sola vez y guardo las
 // coordenadas planas (x0,y0,x1,y1,…) por grupo. Float32Array porque es lo que se
@@ -119,11 +126,16 @@ const COLOR_BY_REGION: Record<string, string> = Object.fromEntries(
 //
 // El orden de los grupos ES el orden de dibujado: "sin exposición" primero
 // (queda abajo y sostiene la silueta del mundo), después las regiones.
-type Grupo = { key: string; color: string; pts: Float32Array };
+// El grupo YA NO LLEVA SU COLOR. La geometría (qué puntos son de qué región) es
+// taxonomía y no cambia nunca — se precomputa una vez y se queda; el color sale
+// de los pesos, que ahora son dato y se mueven. Separarlos es lo que permite
+// tener este precómputo caro a nivel de módulo y aun así repintar con pesos
+// nuevos sin rehacerlo.
+type Grupo = { key: string; pts: Float32Array };
 
 const GRUPOS: Grupo[] = (() => {
   const acc: Record<string, number[]> = { [SIN_EXPOSICION]: [] };
-  for (const r of REGIONES) acc[r.key] = [];
+  for (const r of GEO_REGIONES) acc[r.key] = [];
   GDOTS.forEach(([x, y], i) => {
     // Si worldDotsCountries quedara desalineado con GDOTS, el punto cae en "sin
     // exposición" y se ve: degrada a un mapa incompleto, no a una página en
@@ -133,12 +145,21 @@ const GRUPOS: Grupo[] = (() => {
     acc[reg].push(x, y);
   });
   return [
-    { key: SIN_EXPOSICION, color: COLOR_SIN, pts: new Float32Array(acc[SIN_EXPOSICION]) },
-    ...REGIONES.filter((r) => !r.sinMapa).map((r) => ({
-      key: r.key, color: COLOR_BY_REGION[r.key], pts: new Float32Array(acc[r.key]),
+    { key: SIN_EXPOSICION, pts: new Float32Array(acc[SIN_EXPOSICION]) },
+    ...GEO_REGIONES.filter((r) => !r.sinMapa).map((r) => ({
+      key: r.key as string,
+      pts: new Float32Array(acc[r.key]),
     })),
   ];
 })();
+
+/** Posición en la rampa de cada grupo, EN EL ORDEN DE GRUPOS (lo que anima el rAF). */
+function tonosDe(target: GeoTarget): number[] {
+  const maxPeso = Math.max(...GEO_REGIONES.map((r) => target[r.key]));
+  return GRUPOS.map((g) =>
+    g.key === SIN_EXPOSICION ? TONO_SIN : tonoDe(target[g.key as GeoKey], maxPeso),
+  );
+}
 
 const RADIO = 2.6;          // en unidades del mapa (el r de los <circle> de antes)
 const DUR = 240;            // ms — el mismo que tenía la transition del CSS
@@ -154,9 +175,27 @@ function alfaDe(g: Grupo, hover: string | null): number {
 export function FondoGeografia() {
   const [hover, setHover] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Los pesos publicados. Mientras el fetch no resuelva —y si nunca se cargó
+  // nada, o si la lectura falló— vale la línea de base del deploy, que es
+  // exactamente lo que este bloque mostraba cuando los pesos eran una constante.
+  // O sea: sin estado de carga y sin agujero; a lo sumo una transición si el
+  // dato publicado difiere de la base.
+  //
+  // No agrega un pedido de red: useFondo cachea la promesa a nivel de módulo y
+  // la página ya la pide para la ficha, el gráfico y las tenencias.
+  const fondo = useFondo();
+  const target: GeoTarget = fondo.kind === "ready" && fondo.data.geo ? fondo.data.geo : GEO_BASELINE;
+
+  const { colores, orden, maxPeso } = useMemo(() => derivar(target), [target]);
+  const tonoObjetivo = useMemo(() => tonosDe(target), [target]);
+
   // Opacidad VIGENTE de cada grupo. Vive en un ref y no en estado: la anima un
   // rAF a 60 fps y pasarla por React sería un render por frame.
   const alfas = useRef<number[]>(GRUPOS.map((g) => alfaDe(g, null)));
+  // Ídem para la posición en la rampa de color. Arranca en la línea de base por
+  // la misma razón que `target`: que el primer frame sea el de siempre.
+  const tonos = useRef<number[]>(tonosDe(GEO_BASELINE));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -187,7 +226,7 @@ export function FondoGeografia() {
         const a = alfas.current[i];
         if (a <= 0.001) continue;
         ctx.globalAlpha = a;
-        ctx.fillStyle = g.color;
+        ctx.fillStyle = navyAt(tonos.current[i]);
         // UN solo path por grupo y un solo fill: 2.554 arcos en ~1 ms. Dibujar
         // cada punto con su propio beginPath/fill cuesta un orden más.
         ctx.beginPath();
@@ -202,21 +241,37 @@ export function FondoGeografia() {
       ctx.globalAlpha = 1;
     };
 
-    // Transición de opacidad al enfocar una región. Reemplaza a la
-    // `transition: opacity 240ms` que tenían los <g>; con reduce-motion salta
-    // al estado final, igual que hacía el media query.
+    // Dos transiciones sobre el MISMO rAF, porque duran lo mismo y se pintan en
+    // el mismo frame: la opacidad al enfocar una región (reemplaza a la
+    // `transition: opacity 240ms` que tenían los <g>) y el color cuando llegan
+    // pesos distintos a los que se está mostrando.
+    //
+    // La segunda no es un adorno: la línea de base viaja en el deploy y queda
+    // vieja apenas se publica otra asignación, así que hasta el próximo build
+    // ESE cambio ocurre en cada carga de la página. Sin tween sería un salto de
+    // color en un frame, todas las veces.
+    //
+    // Con reduce-motion las dos saltan al estado final, igual que hacía el media
+    // query.
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const desde = alfas.current.slice();
-    const hasta = GRUPOS.map((g) => alfaDe(g, hover));
-    if (reduce || desde.every((v, i) => Math.abs(v - hasta[i]) < 0.001)) {
-      alfas.current = hasta;
+    const desdeA = alfas.current.slice();
+    const desdeT = tonos.current.slice();
+    const hastaA = GRUPOS.map((g) => alfaDe(g, hover));
+    const hastaT = tonoObjetivo;
+    const quieto =
+      desdeA.every((v, i) => Math.abs(v - hastaA[i]) < 0.001) &&
+      desdeT.every((v, i) => Math.abs(v - hastaT[i]) < 0.001);
+    if (reduce || quieto) {
+      alfas.current = hastaA;
+      tonos.current = hastaT;
       pintar();
     } else {
       const t0 = performance.now();
       const paso = (t: number) => {
         const k = Math.min(1, (t - t0) / DUR);
         const e = ease(k);
-        alfas.current = desde.map((v, i) => v + (hasta[i] - v) * e);
+        alfas.current = desdeA.map((v, i) => v + (hastaA[i] - v) * e);
+        tonos.current = desdeT.map((v, i) => v + (hastaT[i] - v) * e);
         pintar();
         raf = k < 1 ? requestAnimationFrame(paso) : 0;
       };
@@ -230,7 +285,7 @@ export function FondoGeografia() {
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [hover]);
+  }, [hover, tonoObjetivo]);
 
   return (
     <div className="geo-wrap">
@@ -252,12 +307,15 @@ export function FondoGeografia() {
             height={GMAP_H}
             className="geo-canvas"
             role="img"
-            aria-label={`Mapa de asignación objetivo por región: ${REGIONES.map((r) => `${r.label} ${r.peso}%`).join(", ")}.`}
+            aria-label={`Mapa de asignación objetivo por región: ${orden.map((r) => `${r.label} ${r.peso}%`).join(", ")}.`}
           />
         </div>
 
+        {/* Ordenada por peso (con Otros / Efectivo siempre al final): el rank
+            01..05 que numera las filas se leería como un error si no siguiera a
+            los números. Lo resuelve geoOrdenado, en lib/fondoGeo.ts. */}
         <ol className="geo-leg">
-          {REGIONES.map((r, i) => (
+          {orden.map((r, i) => (
             <li
               key={r.key}
               data-on={hover === r.key ? "1" : "0"}
@@ -288,10 +346,10 @@ export function FondoGeografia() {
               <span
                 className="geo-leg-dot"
                 data-nomap={r.sinMapa ? "1" : "0"}
-                style={r.sinMapa ? undefined : { background: COLOR_BY_REGION[r.key] }}
+                style={r.sinMapa ? undefined : { background: colores[r.key] }}
               />
               <span className="geo-leg-name">{r.label}</span>
-              <span className="geo-leg-bar"><span style={{ width: `${(r.peso / MAX_PESO) * 100}%`, background: COLOR_BY_REGION[r.key] }} /></span>
+              <span className="geo-leg-bar"><span style={{ width: `${(r.peso / maxPeso) * 100}%`, background: colores[r.key] }} /></span>
               <span className="geo-leg-pct">{r.peso}%</span>
             </li>
           ))}
@@ -365,7 +423,13 @@ export function FondoGeografia() {
         .geo-leg-dot[data-nomap="1"] { background: transparent; box-shadow: inset 0 0 0 1px var(--site-ink-3); }
         .geo-leg-name { grid-area: name; font-size: 14px; color: var(--site-ink); font-weight: 500; }
         .geo-leg-bar { grid-area: bar; align-self: center; height: 6px; border-radius: 999px; background: var(--site-border); overflow: hidden; }
-        .geo-leg-bar span { display: block; height: 100%; border-radius: 999px; }
+        /* Los pesos son dato y pueden cambiar bajo los pies del render (llegan
+           con /api/fondo, despues de la linea de base del deploy). La barra
+           acompana al tween del mapa en vez de saltar; 240ms es el mismo DUR. */
+        .geo-leg-bar span { display: block; height: 100%; border-radius: 999px; transition: width 240ms ease, background-color 240ms ease; }
+        @media (prefers-reduced-motion: reduce) {
+          .geo-leg-bar span { transition: none; }
+        }
         .geo-leg-pct {
           grid-area: pct; justify-self: end; padding-left: 14px;
           font-size: 16px; font-weight: 600; color: var(--site-ink); font-variant-numeric: tabular-nums;

@@ -3,13 +3,27 @@
  * by dragging across the chart — el gesto estándar de las webs financieras
  * (apretar, arrastrar, soltar) que reemplazó al viejo "click para fijar puntos".
  *
- * Tres capas, en dos z-orders para que la línea de precio nunca quede tapada:
+ * Tres capas, en dos z-orders:
  *
- *   1. Banda tenue entre los dos extremos (zOrder "bottom"), debajo de la línea.
- *   2. Hairlines verticales en cada borde del tramo (también abajo).
- *   3. Puntos en la intersección con la serie (zOrder "top"), idénticos al
+ *   1. Banda tenue entre los dos extremos, con los hairlines verticales de cada
+ *      borde (zOrder "normal").
+ *   2. Puntos en la intersección con la serie (zOrder "top"), idénticos al
  *      marcador del crosshair: mismo trazado y mismas opciones de la serie, así
  *      medir un tramo y pasar el cursor por la línea dan el MISMO punto.
+ *
+ * ⚠️ La banda va en "normal" y NO en "bottom", que es donde estuvo hasta el
+ * 16-ago-2026, porque la librería pinta la GRILLA entre medio de los dos:
+ * `sourceBottomPaneViews` → `drawGrid` → `sourcePaneViews`. Con la banda abajo,
+ * las líneas de la grilla no recibían el velo y quedaban en su color de siempre
+ * —medido en el gráfico del fondo: fondo #F4F5FB → #E4E6EE dentro de la banda,
+ * pero la grilla seguía en #E7E8F2—, o sea MÁS CLARAS que la superficie que las
+ * rodeaba: se leían como si flotaran por encima de la selección. En "normal" el
+ * velo cae sobre todo lo que hay debajo, que es lo que hace un velo.
+ *
+ * El precio de subirla es que el velo también toca las curvas. Es el 7% de un
+ * navy: sobre la línea del fondo —que es ese mismo navy— no cambia nada, y sobre
+ * el benchmark coral apenas la oscurece (#D2796D → #C4736B). Los puntos medidos y
+ * las etiquetas siguen arriba de todo, en "top".
  *
  * El cálculo del delta NO vive acá: este primitive sólo dibuja. La lectura
  * numérica la arma el componente, que ordena los extremos cronológicamente.
@@ -198,7 +212,9 @@ class BandPaneView implements IPrimitivePaneView {
   private readonly _renderer = new BandRenderer();
   constructor(private readonly _source: DragRangePrimitive) {}
   zOrder() {
-    return "bottom" as const;
+    // "normal" y no "bottom": la grilla se pinta entre los dos (ver el
+    // comentario del encabezado). Abajo, el velo no la alcanzaba.
+    return "normal" as const;
   }
   update() {
     const paneHeight = this._source.chart?.paneSize?.().height ?? 280;

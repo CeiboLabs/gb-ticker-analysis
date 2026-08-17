@@ -64,10 +64,38 @@ export const SITIO_FONDO_URL = sinBarraFinal(
  * PRERENDERIZABLE — sin HTML prerenderizado no hay archivo que subir y todo el
  * diseño se cae.
  *
- * Deliberadamente NO es `NEXT_PUBLIC_`: no lo necesita ningún componente de
- * cliente, y prefijarlo lo hornearía en los bundles del browser para nada.
+ * ⚠️ ES `NEXT_PUBLIC_` DESDE EL 2026-08-17, y antes decía acá que
+ * deliberadamente no lo era «porque no lo necesita ningún componente de
+ * cliente». Eso dejó de ser cierto: en este deploy los datos ya no salen de
+ * `/api/fondo*` —no hay worker que los sirva— sino de archivos estáticos que
+ * publica el panel, y quien elige entre un origen y otro es `lib/useFondo.ts`,
+ * que corre en el browser. Ver docs/plan-consolidacion-fondo.md.
+ *
+ * Se prefirió mover el flag existente a `NEXT_PUBLIC_` antes que agregar un
+ * segundo flag para el cliente: son la misma pregunta —«¿es el deploy propio
+ * del fondo?»— y dos nombres para una sola cosa se desincronizan. El costo es
+ * una cadena de más en el bundle.
  */
-export const FONDO_STANDALONE = process.env.FONDO_STANDALONE === "1";
+export const FONDO_STANDALONE = process.env.NEXT_PUBLIC_FONDO_STANDALONE === "1";
+
+/**
+ * ¿El panel de empleados está abierto?
+ *
+ * **Cerrado mientras no se termine de pulir** (decisión del 2026-08-17).
+ * `PANEL_HABILITADO=1` lo abre; cualquier otra cosa —incluida la variable sin
+ * definir— lo deja cerrado. FAIL-CLOSED a propósito: el default no es «abierto
+ * salvo que lo apaguen», así que un deploy nuevo o un `.env` que no viajó dejan
+ * el panel cerrado en vez de expuesto.
+ *
+ * Vive acá, y no en lib/panelAuth.ts, porque lo leen DOS mundos: el gate de
+ * cada request (panelAuth, que importa next/server) y `next.config.ts`, que no
+ * puede importar nada de Next. Este módulo es el único que alcanzan los dos.
+ *
+ * ⚠️ NO lleva `NEXT_PUBLIC_`: en los bundles del browser queda en `false`, que
+ * es lo correcto — no hay nada del panel que corra en el cliente sin pasar
+ * antes por el server.
+ */
+export const PANEL_HABILITADO = process.env.PANEL_HABILITADO === "1";
 
 /**
  * Path FÍSICO de la página del fondo dentro de la app. En su propio dominio se
@@ -150,4 +178,25 @@ export function origenCasa(host?: string | null): string {
   // --experimental-https, ver el script `dev` del package.json).
   if (nombre === HOST_FONDO_DEV) return `https://${h.slice("fondos.".length)}`;
   return SITIO_CASA_URL;
+}
+
+/**
+ * Prefijo para linkear ENTRE páginas del sitio del fondo — el espejo hacia
+ * adentro de `origenCasa`.
+ *
+ * El fondo dejó de ser una sola página el 16-ago-2026, cuando la política de
+ * cookies salió a ruta propia (`/cookies`). Y esa URL no es la misma en todos
+ * lados: en el dominio del fondo la página vive en la RAÍZ, así que su política
+ * es `/cookies` a secas; donde los dos sitios comparten hostname —el dev y el
+ * home server— el sitio del fondo cuelga de `RUTA_FONDO`, y ahí la política es
+ * `/bng-seleccion-global/cookies`. Un literal `/cookies` hardcodeado apuntaría,
+ * en el dev y en staging, a una ruta del sitio institucional que no existe.
+ *
+ * Devuelve `""` (links relativos a la raíz) en el dominio del fondo, y
+ * `RUTA_FONDO` en cualquier otro host. Es exactamente la condición inversa a la
+ * de `origenCasa`: cuando aquélla tiene que salir con origen absoluto, ésta ya
+ * está en casa; cuando aquélla puede ser relativa, ésta necesita el prefijo.
+ */
+export function baseFondo(host?: string | null): string {
+  return esHostFondo(host) ? "" : RUTA_FONDO;
 }

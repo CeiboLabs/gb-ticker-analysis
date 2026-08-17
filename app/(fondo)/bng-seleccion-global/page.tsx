@@ -18,7 +18,6 @@ import { FondoCalculadora } from "@/components/institucional/FondoCalculadora";
 import { FondoFAQ } from "@/components/institucional/FondoFAQ";
 import { FondoTenencias } from "@/components/institucional/FondoTenencias";
 import { FondoGeografia } from "@/components/institucional/FondoGeografia";
-import { CambiarConsentimiento } from "@/components/institucional/ConsentimientoFondo";
 import { fondoMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationFondoLd, websiteFondoLd, investmentFundLd } from "@/lib/jsonld";
@@ -405,6 +404,16 @@ export default async function FondoPage() {
            Lleva título y ancla (#legal) por lo mismo: sin encabezado se leía
            como pie de imprenta y no había forma de apuntarle.
 
+           ⚠️ Y ES LO ÚNICO QUE QUEDÓ ACÁ ABAJO. La política de cookies era la
+           sección siguiente hasta el 16-ago-2026, y se mudó a `/cookies` (el
+           porqué largo está en la cabecera de esa página). Las dos juntas
+           cerraban la home con 576 palabras de letra chica —1.531 px en desktop
+           y 2.148 px en un iPhone, medido—, y de las dos sólo ésta TIENE que
+           estar en la página donde están los números que califica. Si alguna vez
+           hay que bajar acá un texto legal nuevo, la pregunta es esa misma:
+           ¿califica algo que esta página muestra? Si no, es una política del
+           sitio y va a su propia URL.
+
            Todo el contenido sale del Reglamento de Gestión aprobado por el BCU y
            de la Resolución RR-SSF-2026-434, los dos publicados en Documentos:
              · párrafo 1 — leyenda de autorización, TEXTUAL del Reglamento;
@@ -429,12 +438,29 @@ export default async function FondoPage() {
            prohíbe el auto-contrato sobre los activos del Fondo—, pero es
            exactamente el tipo de acumulación de roles que un régimen de oferta
            pública espera ver divulgada. Decirlo en dos líneas cuesta menos que
-           que lo descubra un tercero. */}
+           que lo descubra un tercero.
+
+           ── LA FORMA: COLOFÓN, NO SECCIÓN ────────────────────────────────
+           El texto no cambió ni una palabra; cambió cómo está puesto. Eran cuatro
+           párrafos apilados en una cinta de 660 px —la medida de 96ch a 12,5px—
+           dentro de un wrap de 1.152: el 45% del ancho quedaba VACÍO al costado,
+           y el bloque medía 721 px por ANGOSTO, no por largo. Ahora:
+             · en desktop los cuatro van a DOS COLUMNAS y ocupan ese hueco;
+             · abajo de 880px, donde no hay ancho que repartir, se PLIEGA — la
+               leyenda del BCU siempre a la vista y el desarrollo a un toque, que
+               es lo que hacen Schroders y abrdn con su "Important information".
+           El pliegue es un `details` NATIVO: anda sin JavaScript, se llega con el
+           teclado y el lector de pantalla lo anuncia plegado/desplegado. Cómo se
+           lo fuerza abierto en desktop está explicado en el CSS. */}
       <section id="legal" className="band site-section-sm">
         <div className="site-wrap">
           <div className="fondo-legal">
             <div className="eyebrow-sm fondo-legal-title">Información legal</div>
             <div className="fondo-disclaimer">
+              {/* La leyenda de autorización queda AFUERA del pliegue a propósito:
+                  es lo que el Reglamento manda mostrar, y una advertencia que hay
+                  que abrir para leer no es una advertencia mostrada. Lo que se
+                  pliega es el desarrollo. */}
               <p>
                 «Fondo BNG Selección Global, Fondo de Inversión», autorizado por el Banco Central del Uruguay
                 por Resolución de fecha 7 de julio de 2026 (Comunicación N° 2026/139) e inscripto en el Registro
@@ -443,85 +469,54 @@ export default async function FondoPage() {
                 exprese un juicio de valor acerca del futuro desenvolvimiento del Fondo, ni sobre las perspectivas
                 de las inversiones. El Fondo no cuenta con calificación de riesgo.
               </p>
-              <p>
-                Sociedad Administradora: Valores Administradora de Fondos de Inversión y Fideicomisos S.A.
-                Gestor del Fondo: Gastón Bengochea y Compañía Corredor de Bolsa S.A., sociedad de bolsa regulada
-                y supervisada por el Banco Central del Uruguay. Auditor externo: Ernst & Young Uy S.A.S.
-                El Gestor del Fondo interviene además en la distribución de las cuotapartes y percibe por ello
-                parte de la comisión del Fondo, y figura entre las instituciones que el Reglamento de Gestión
-                habilita para la custodia de los Valores del Fondo.
-              </p>
-              <p>
-                El Fondo no está garantizado ni constituye un depósito u otra obligación de la Sociedad
-                Administradora, del Gestor del Fondo ni de sus accionistas, afiliadas o subsidiarias. Las
-                inversiones están sujetas a riesgos —de mercado, de crédito, cambiario, de inflación, de liquidez,
-                país y de inversión indirecta, en tanto el Fondo invierte en otros fondos cuyo desempeño depende
-                de terceros gestores—, incluida la posible pérdida del capital invertido. El Fondo invierte
-                predominantemente en dólares estadounidenses, pudiendo mantener hasta un 30% de su activo en
-                pesos uruguayos o unidades indexadas y hasta un 5% en otras monedas. El Reglamento de Gestión
-                prevé que el rescate de cuotapartes pueda suspenderse por un plazo no mayor a tres meses como
-                medida de defensa del patrimonio común del Fondo. Los rendimientos pasados no garantizan
-                resultados futuros.
-              </p>
-              <p>
-                Esta página tiene fines exclusivamente informativos y no constituye asesoramiento de inversión ni
-                una recomendación personalizada. La suscripción de cuotapartes implica la adhesión al Reglamento
-                de Gestión, cuya lectura previa se recomienda: se descarga en la sección Documentos de esta página
-                y está disponible en el sitio de la Sociedad Administradora.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Cookies ──────────────────────────────────────────────────────────
-          Sección PROPIA y no un párrafo más del bloque legal de arriba: ese
-          bloque es texto aprobado en la revisión legal del 3-ago-2026 y sale
-          entero del Reglamento de Gestión y de la Resolución del BCU. Esto es
-          otra cosa —tratamiento de datos personales, Ley 18.331— y mezclarlas
-          haría ilegible las dos.
-
-          Va como ancla de esta página y no como ruta nueva por lo mismo que el
-          resto: el sitio del fondo es UNA página con anclas, y el deploy estático
-          emite un solo HTML. Una /cookies obligaría a enseñarle otra ruta al
-          build para tres párrafos que acá se leen en su contexto.
-
-          ⚠️ Describe PROPÓSITOS, no nombres de cookies. Los tags concretos los
-          publica la agencia desde el contenedor y pueden cambiar sin que este
-          repo se entere: una lista de nombres nacería desactualizada, y una
-          política que miente sobre lo que hace es peor que una genérica. */}
-      <section id="cookies" className="band-muted site-section-sm">
-        <div className="site-wrap">
-          <div className="fondo-legal">
-            <div className="eyebrow-sm fondo-legal-title">Cookies</div>
-            <div className="fondo-disclaimer">
-              <p>
-                Este sitio utiliza cookies propias y de terceros. Las estrictamente necesarias
-                permiten su funcionamiento y el registro de tus preferencias, por lo que se utilizan
-                siempre. Las demás se activan únicamente con tu consentimiento, que podés modificar en
-                cualquier momento desde esta sección.
-              </p>
-              <p>
-                <strong>Estadísticas.</strong> Permiten analizar el uso del sitio con fines
-                estadísticos y en forma agregada. Son provistas por Google (Google Analytics), que
-                actúa como encargado del tratamiento y puede almacenar la información en servidores
-                ubicados fuera del país.
-              </p>
-              <p>
-                <strong>Marketing.</strong> Se utilizan con fines de marketing y para medir el
-                rendimiento de nuestras campañas. Son provistas por Google y Meta.
-              </p>
-              <p>
-                Podés además bloquear o borrar cookies desde la configuración de tu navegador, con
-                independencia de lo que elijas acá. El tratamiento de datos personales se rige por la
-                Ley N° 18.331 y su reglamentación: podés ejercer tus derechos de acceso, rectificación,
-                actualización, inclusión o supresión escribiendo a{" "}
-                <a href="mailto:info@gbengochea.com.uy" className="site-link">
-                  info@gbengochea.com.uy
-                </a>
-                . El responsable del tratamiento es Gastón Bengochea y Compañía Corredor de Bolsa S.A.
-              </p>
-              <CambiarConsentimiento />
+              <details className="legal-fold">
+                {/* El signo es el "+" que rota a "×" de la FAQ, en escala de letra
+                    chica: el idioma de apertura de esta página ya está elegido y
+                    un chevron nuevo sería una marca más que aprender. */}
+                <summary className="legal-mas">
+                  <span className="legal-mas-signo" aria-hidden="true">
+                    <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <path d="M9 1v16M1 9h16" />
+                    </svg>
+                  </span>
+                  <span className="legal-mas-abrir">Ver la información legal completa</span>
+                  <span className="legal-mas-cerrar">Ver menos</span>
+                </summary>
+                {/* Los dos divs son la técnica de apertura de la FAQ, tal cual:
+                    `.legal-pista` es el track que va de 0fr a 1fr y `.legal-resto`
+                    el hijo que se recorta. El interior NO se puede fusionar con
+                    el track — un ítem de grilla tiene `min-height: auto`, o sea
+                    que su contenido le pone un piso al alto y la fila nunca
+                    llegaría a 0fr. Ver el comentario largo en FondoFAQ.tsx. */}
+                <div className="legal-pista"><div className="legal-resto">
+                <p>
+                  Sociedad Administradora: Valores Administradora de Fondos de Inversión y Fideicomisos S.A.
+                  Gestor del Fondo: Gastón Bengochea y Compañía Corredor de Bolsa S.A., sociedad de bolsa regulada
+                  y supervisada por el Banco Central del Uruguay. Auditor externo: Ernst & Young Uy S.A.S.
+                  El Gestor del Fondo interviene además en la distribución de las cuotapartes y percibe por ello
+                  parte de la comisión del Fondo, y figura entre las instituciones que el Reglamento de Gestión
+                  habilita para la custodia de los Valores del Fondo.
+                </p>
+                <p>
+                  El Fondo no está garantizado ni constituye un depósito u otra obligación de la Sociedad
+                  Administradora, del Gestor del Fondo ni de sus accionistas, afiliadas o subsidiarias. Las
+                  inversiones están sujetas a riesgos —de mercado, de crédito, cambiario, de inflación, de liquidez,
+                  país y de inversión indirecta, en tanto el Fondo invierte en otros fondos cuyo desempeño depende
+                  de terceros gestores—, incluida la posible pérdida del capital invertido. El Fondo invierte
+                  predominantemente en dólares estadounidenses, pudiendo mantener hasta un 30% de su activo en
+                  pesos uruguayos o unidades indexadas y hasta un 5% en otras monedas. El Reglamento de Gestión
+                  prevé que el rescate de cuotapartes pueda suspenderse por un plazo no mayor a tres meses como
+                  medida de defensa del patrimonio común del Fondo. Los rendimientos pasados no garantizan
+                  resultados futuros.
+                </p>
+                <p>
+                  Esta página tiene fines exclusivamente informativos y no constituye asesoramiento de inversión ni
+                  una recomendación personalizada. La suscripción de cuotapartes implica la adhesión al Reglamento
+                  de Gestión, cuya lectura previa se recomienda: se descarga en la sección Documentos de esta página
+                  y está disponible en el sitio de la Sociedad Administradora.
+                </p>
+                </div></div>
+              </details>
             </div>
           </div>
         </div>
@@ -646,10 +641,111 @@ export default async function FondoPage() {
              escapa: el texto deja de coincidir, la hidratación FALLA y toda la
              página se vuelve a renderizar en el cliente. Nombrarla en prosa. */
         .fondo-disclaimer p {
-          margin: 0; max-width: var(--medida-legal);
+          margin: 0 0 14px; max-width: var(--medida-legal);
           font-size: 12.5px; line-height: 1.7; color: var(--site-ink-3);
         }
-        .fondo-disclaimer p + p { margin-top: 14px; }
+        /* El aire entre párrafos va como margen INFERIOR y no como el p + p que
+           había: tres de los cuatro párrafos viven ahora adentro del pliegue, así
+           que el selector de hermanos ya no alcanzaba al primero de ellos — y en
+           multicolumna un margen superior arriba de todo puede quedar contra el
+           borde de la columna. */
+        .fondo-disclaimer p:last-child { margin-bottom: 0; }
+
+        /* ── El pliegue ──
+           Abajo de 880px la sección se lee como en cualquier prospecto: la
+           leyenda de autorización a la vista y el desarrollo a un toque. Arriba
+           de 880px no hay nada que plegar —los cuatro párrafos entran en dos
+           columnas y miden menos que lo que medía uno solo antes—, así que el
+           control desaparece y el detalle se fuerza abierto desde el CSS.
+
+           ⚠️ CÓMO SE FUERZA ABIERTO, que tiene una trampa de época. Los motores
+           NUEVOS meten el contenido del detalle en un pseudo-elemento propio con
+           content-visibility: hidden; los VIEJOS simplemente no dibujaban los
+           hijos. Por eso van las dos reglas: la del pseudo para los de hoy y la
+           de los hijos para los de ayer. Si algún día sobra una, sobra la
+           segunda. Medido en Chrome y en Safari 26 (los dos: dos columnas y
+           control oculto arriba de 880, plegado abajo).
+
+           Y el detalle es display: contents para que sus párrafos caigan en la
+           MISMA multicolumna que el primero — si no, el de la autorización
+           quedaría solo arriba y los otros tres en una grilla aparte debajo. */
+        .legal-fold > .legal-mas {
+          display: inline-flex; align-items: center; gap: 9px;
+          font-size: 12.5px; font-weight: 600; color: var(--navy-500);
+          cursor: pointer; list-style: none;
+        }
+        /* El triángulo de fábrica: en WebKit viejo se apaga con su pseudo propio
+           y en el resto con el list-style de arriba. */
+        .legal-fold > .legal-mas::-webkit-details-marker { display: none; }
+        .legal-mas-signo {
+          display: inline-flex; color: var(--site-ink-3);
+          transition: transform 220ms ease, color 200ms ease;
+        }
+        .legal-fold[open] .legal-mas-signo { transform: rotate(45deg); color: var(--navy-500); }
+        .legal-mas-cerrar { display: none; }
+        .legal-fold[open] .legal-mas-abrir { display: none; }
+        .legal-fold[open] .legal-mas-cerrar { display: inline; }
+        /* ── La apertura, que es la MISMA de la FAQ ──
+           «grid-template-rows: 0fr → 1fr» con el recorte en el track y el
+           overflow también en el hijo. No hay número mágico: el alto lo pone el
+           contenido, que en un bloque legal que crece con cada revisión es la
+           única forma de que no termine recortado (le pasó a la FAQ con un
+           max-height, ver su comentario).
+
+           ⚠️ PRIMERO HAY QUE SACARLE EL TRABAJO AL NAVEGADOR. El contenido de un
+           «details» cerrado lo esconde el UA con «content-visibility: hidden» en
+           su pseudo-elemento, y sobre eso ninguna transición mía tiene nada que
+           hacer: la grilla animaría adentro de una caja que no se dibuja. Con el
+           pseudo en «visible», el alto pasa a gobernarlo la grilla.
+
+           ⚠️ Y POR QUÉ NO SE ANIMA EL PSEUDO DIRECTAMENTE, que sería más corto:
+           pide «block-size: 0 → auto», o sea «interpolate-size: allow-keywords».
+           Medido el 16-ago-2026: Chrome lo soporta y **Safari 26 no** —ni
+           «interpolate-size» ni «calc-size»—, así que ahí el bloque SALTABA de
+           golpe mientras en Chrome se abría suave. La grilla anima en los dos
+           motores con la misma curva. No "simplificar" esto sin volver a medir
+           en WebKit.
+
+           La visibilidad se apaga en el estado cerrado —con «allow-discrete»
+           para que no corte la salida— y no es cosmético: sin eso el texto
+           plegado sigue en el árbol de accesibilidad, o sea que el lector de
+           pantalla anuncia la sección como plegada y aun así lee los tres
+           párrafos. */
+        @media (max-width: 880px) {
+          .legal-fold::details-content { content-visibility: visible; block-size: auto; }
+          .legal-pista {
+            display: grid; grid-template-rows: 0fr; overflow: hidden;
+            opacity: 0; visibility: hidden;
+            transition: grid-template-rows 280ms ease, opacity 200ms ease,
+                        visibility 280ms allow-discrete;
+          }
+          .legal-fold[open] .legal-pista { grid-template-rows: 1fr; opacity: 1; visibility: visible; }
+          /* El recorte del hijo NO se puede subir al track: un ítem de grilla
+             tiene «min-height: auto» y su contenido le pondría un piso al alto,
+             con lo que la fila nunca llegaría a 0fr. */
+          .legal-resto { overflow: hidden; }
+        }
+        /* Sin movimiento: se apaga la transición, NUNCA los estados finales —
+           quitar de acá el bloque de «[open]» dejaría la sección imposible de
+           abrir para quien pidió reducir el movimiento. */
+        @media (prefers-reduced-motion: reduce) {
+          .legal-mas-signo, .legal-pista { transition: none; }
+        }
+
+        @media (min-width: 881px) {
+          .fondo-disclaimer { columns: 2; column-gap: 56px; }
+          /* La medida la pone la columna, no el párrafo. */
+          .fondo-disclaimer p { max-width: none; }
+          /* Los tres contenedores del pliegue se desarman para que los cuatro
+             párrafos caigan en la MISMA multicolumna. Y como acá el pliegue no
+             existe, las reglas de la grilla —incluida «visibility: hidden», que
+             SÍ se hereda a través de una caja que no se genera— viven todas
+             adentro del media query de arriba y nunca llegan hasta acá. */
+          .legal-fold, .legal-pista, .legal-resto { display: contents; }
+          .legal-fold > .legal-mas { display: none; }
+          .legal-fold::details-content { content-visibility: visible; block-size: auto; }
+          .legal-fold:not([open]) > *:not(summary) { display: block; }
+        }
 
         @media (max-width: 880px) {
           .resumen-sec { min-height: 0; }

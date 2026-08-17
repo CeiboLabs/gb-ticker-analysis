@@ -6,6 +6,7 @@ import type { ChartRange, ChartRangePayload } from "@/lib/fetchChartRange";
 import { QuarterBarSeries } from "@/components/QuarterBarSeries";
 import { PinnedMarkersPrimitive } from "@/components/PinnedMarkersPrimitive";
 import { SessionShadingPrimitive, type SessionBounds } from "@/components/SessionShadingPrimitive";
+import { rotulosEjeTiempo } from "@/components/ejeTiempo";
 
 interface PinnedMarker {
   time: string | number;
@@ -351,21 +352,15 @@ export function PriceChart({ ticker, historicalPrices, quarterlyRevenue }: Props
           borderColor: "rgba(255,255,255,0.1)",
           timeVisible: hasIntradayTimes,
           secondsVisible: false,
-          ...(hasIntradayTimes && {
-            tickMarkFormatter: (
-              time: import("lightweight-charts").Time,
-              tickMarkType: number,
-            ) => {
-              if (typeof time === "number") {
-                const d = new Date(time * 1000);
-                // tickMarkType 0=Year, 1=Month, 2=DayOfMonth, 3=Time, 4=TimeWithSeconds.
-                // For day-level ticks (1M view zooms out across multiple days)
-                // show "30 abr"; for hour-level ticks (1D zoomed in) show "14:30".
-                return tickMarkType <= 2 ? uyDayMonth.format(d) : uyHourMinute.format(d);
-              }
-              return typeof time === "string" ? time : String(time);
-            },
-          }),
+          // Rótulos calibrados a la ventana (hora en 1D, día+mes en 1M, mes y
+          // año en 3A). Antes esto corría sólo en intradía y las ventanas
+          // diarias se quedaban con el formateador de la librería, que imprime
+          // números de día sueltos — ver components/ejeTiempo.
+          tickMarkFormatter: rotulosEjeTiempo(prices.map((p) => p.time)),
+          // El encuadre sobrevive a los cambios de ancho: sin esto, cuando el
+          // eje de precio se ensancha al medir sus etiquetas, la ventana ya
+          // encuadrada se corre y quedan puntos afuera por la izquierda.
+          lockVisibleTimeRangeOnResize: true,
         },
         handleScroll: false,
         // Disable every interaction explicitly. Passing `handleScale: false`

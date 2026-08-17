@@ -14,6 +14,7 @@ import {
   type DragRangeSelection,
 } from "@/components/dragRange";
 import { SessionShadingPrimitive, type SessionBounds } from "@/components/SessionShadingPrimitive";
+import { MESES_CORTO, partesDeTiempo, rotulosEjeTiempo } from "@/components/ejeTiempo";
 import { PeriodSlider } from "@/components/institucional/PeriodSlider";
 
 interface Props {
@@ -245,12 +246,13 @@ function fmtTime(time: string | number): string {
     });
     return `${fmt.format(d)} UY`;
   }
-  const d = new Date(time);
-  if (isNaN(d.getTime())) return time;
-  const day = d.getDate();
-  const month = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
-  const year = String(d.getFullYear()).slice(-2);
-  return `${day} ${month} '${year}`;
+  // Cierre diario: 'YYYY-MM-DD' se parte a mano (ver partesDeTiempo). Con
+  // `new Date(cadena)` la fecha se lee como medianoche UTC y `getDate()` la
+  // devuelve al huso del lector: desde Montevideo (−03) eso daba el día
+  // ANTERIOR, así que la lectura de un tramo en 1A/3A venía corrida un día.
+  const p = partesDeTiempo(time);
+  if (!p) return String(time);
+  return `${p.dia} ${MESES_CORTO[p.mes - 1]} '${String(p.anio).slice(-2)}`;
 }
 
 export function PriceChartInstitucional({
@@ -453,12 +455,16 @@ export function PriceChartInstitucional({
           // su fmtRevenue: el eje izquierdo pasaba de "30.0B" a
           // "30.000.000.000" y se comía 126px. Va en la serie de precio (ver
           // `priceFormat` en regularSeries / extendedOpts).
+          // Fecha bajo la mira. En intradía lleva la hora; en las ventanas
+          // diarias iba la cadena CRUDA de la serie —el chip decía
+          // "2026-08-14"—, así que ahora pasa por el mismo formato que la
+          // lectura del tramo ("14 ago '26").
           timeFormatter: (time: import("lightweight-charts").Time) => {
             if (typeof time === "number") {
               const d = new Date(time * 1000);
               return `${uyDayMonth.format(d)} ${uyHourMinute.format(d)}`;
             }
-            return typeof time === "string" ? time : String(time);
+            return typeof time === "string" ? fmtTime(time) : String(time);
           },
         },
         grid: {
@@ -512,18 +518,21 @@ export function PriceChartInstitucional({
           borderColor: PALETTE.rule,
           timeVisible: hasIntradayTimes,
           secondsVisible: false,
-          ...(hasIntradayTimes && {
-            tickMarkFormatter: (
-              time: import("lightweight-charts").Time,
-              tickMarkType: number,
-            ) => {
-              if (typeof time === "number") {
-                const d = new Date(time * 1000);
-                return tickMarkType <= 2 ? uyDayMonth.format(d) : uyHourMinute.format(d);
-              }
-              return typeof time === "string" ? time : String(time);
-            },
-          }),
+          // Rótulos calibrados a la ventana —hora en 1D, día+mes en 1M, mes y
+          // año en 3A—. Antes esto sólo corría en intradía y las ventanas
+          // diarias se quedaban con el formateador de la librería, que imprime
+          // números de día sueltos («Set.  Nov.  2026  Mar.  May.» era lo bueno;
+          // «2024  Abr.  Jul.  Oct.  20», lo que salía). El porqué largo está en
+          // components/ejeTiempo.
+          tickMarkFormatter: rotulosEjeTiempo(prices.map((p) => p.time)),
+          // El encuadre sobrevive a los cambios de ancho —el eje de precio se
+          // ensancha al medir sus etiquetas, y el contenedor cambia al rotar el
+          // teléfono—: por defecto la librería conserva el espaciado por barra y
+          // no el tramo visible, así que la ventana ya encuadrada se corre y
+          // deja puntos afuera por la izquierda (ver el comentario largo en
+          // FondoChart, donde se midió). Acá además protege el encuadre forzado
+          // de 3A, que no es fitContent sino un setVisibleRange de tres años.
+          lockVisibleTimeRangeOnResize: true,
         },
         handleScroll: false,
         handleScale: {

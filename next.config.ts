@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import {
   MATCH_HOST_CASA,
   MATCH_HOST_FONDO,
+  PANEL_HABILITADO,
   RUTA_FONDO,
   SITIO_FONDO_URL,
 } from "./lib/sitios";
@@ -18,6 +19,19 @@ const isDev = process.env.NODE_ENV === "development";
 // La lista vive en lib/headersSeguridad.ts porque el deploy estático del fondo en
 // Cloudflare la necesita también, y ahí no hay server de Next que la agregue.
 const securityHeaders = headersSeguridad({ dev: isDev });
+
+// Destino de las rutas del panel cuando está cerrado. No existe ningún archivo
+// en `app/` que matchee, así que Next resuelve el 404 de la casa — que es
+// exactamente lo que tiene que ver alguien que no debería estar ahí: no un
+// «prohibido» que confirma que hay algo, sino una página que no existe.
+//
+// ⚠️ EL NOMBRE ES OPACO A PROPÓSITO. Next vuelca los destinos de los rewrites en
+// `_next/static/*/_buildManifest.js`, que es un archivo PÚBLICO y viaja hasta en
+// el deploy estático del fondo. Se llamaba `/_panel-cerrado`, o sea que anunciaba
+// en el sitio público que hay un panel y que está cerrado. No es una
+// vulnerabilidad —el path nunca fue la defensa, ver docs/plan-seguridad-panel.md—
+// pero regalar la pista no compra nada.
+const PANEL_CERRADO_A = "/_nx";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.7"],
@@ -37,15 +51,58 @@ const nextConfig: NextConfig = {
   // tiene que ganarle a la ruta de archivo `/` (la home institucional). Es un
   // rewrite INTERNO: la URL que ve el usuario sigue siendo la raíz.
   //
-  // Sólo se reescribe `/` — todo lo demás (`/_next/*`, `/api/*`, los assets)
-  // sigue derecho, que es lo que hace que el mismo build sirva los dos sitios.
+  // Se reescriben las DOS páginas del sitio del fondo y nada más — todo lo demás
+  // (`/_next/*`, `/api/*`, los assets) sigue derecho, que es lo que hace que el
+  // mismo build sirva los dos sitios.
   async rewrites() {
     return {
       beforeFiles: [
+        // ── PANEL CERRADO ────────────────────────────────────────────────────
+        // El panel de empleados no se publica hasta que esté terminado. Mientras
+        // `PANEL_HABILITADO` no valga "1", `/admin/*` y su API se reescriben a
+        // una ruta que no existe y Next contesta el 404 de la casa.
+        //
+        // POR QUÉ ACÁ Y NO EN proxy.ts: el middleware de Next 16 explota detrás
+        // del reverse proxy (llega `X-Forwarded-Proto: https` y el rewrite
+        // termina hablando TLS contra el puerto HTTP del propio Next: 500 EPROTO
+        // en vez de 404). Ya se vivió con las páginas ocultas —está documentado
+        // en lib/paginasOcultas.ts— y los rewrites de este archivo sí andan,
+        // porque se resuelven adentro del router.
+        //
+        // POR QUÉ `beforeFiles`: tiene que ganarle a las rutas de archivo de
+        // `app/admin/**` y `app/api/admin/panel/**`. En `afterFiles` la página
+        // ya habría ganado.
+        //
+        // ⚠️ ES UN FLAG DE BUILD. next.config se evalúa al arrancar el server, no
+        // por request: cambiar la variable exige reiniciar el dev o rebuildear.
+        // Es a propósito — un panel a medio hacer no debería poder abrirse por
+        // tocar un env en caliente.
+        //
+        // ⚠️ Y NO ES LA ÚNICA GUARDA. Esto lo hace invisible; lo que lo hace
+        // inaccesible es el corte en `requirePanelSession` (lib/panelAuth.ts),
+        // que corre en cada route handler del panel. Las dos leen la MISMA
+        // variable, así que no pueden opinar distinto.
+        ...(PANEL_HABILITADO
+          ? []
+          : [
+              { source: "/admin", destination: PANEL_CERRADO_A },
+              { source: "/admin/:path*", destination: PANEL_CERRADO_A },
+              { source: "/api/admin/panel/:path*", destination: PANEL_CERRADO_A },
+            ]),
         {
           source: "/",
           has: [{ type: "host", value: MATCH_HOST_FONDO }],
           destination: RUTA_FONDO,
+        },
+        // La política de cookies, que desde el 16-ago-2026 es página y no ancla
+        // (ver el comentario de cabecera de app/(fondo)/…/cookies/page.tsx). En
+        // el dominio del fondo cuelga de la raíz como cualquier página de ese
+        // sitio; el archivo sigue viviendo bajo RUTA_FONDO por lo mismo que la
+        // home — es lo que la mantiene accesible donde hay un solo hostname.
+        {
+          source: "/cookies",
+          has: [{ type: "host", value: MATCH_HOST_FONDO }],
+          destination: `${RUTA_FONDO}/cookies`,
         },
       ],
       afterFiles: [],
@@ -81,6 +138,24 @@ const nextConfig: NextConfig = {
         source: RUTA_FONDO,
         has: [{ type: "host", value: MATCH_HOST_FONDO }],
         destination: "/",
+        permanent: false,
+      },
+
+      // Lo mismo para la segunda página del sitio del fondo, la política de
+      // cookies: en el dominio de la casa rebota al sitio del fondo, y en el
+      // dominio del fondo colapsa a `/cookies`. Sin esto, la página quedaría
+      // publicada en tres URLs — `/cookies`, el path físico en el dominio del
+      // fondo, y el path físico en el de la casa.
+      {
+        source: `${RUTA_FONDO}/cookies`,
+        has: [{ type: "host", value: MATCH_HOST_CASA }],
+        destination: `${SITIO_FONDO_URL}/cookies`,
+        permanent: false,
+      },
+      {
+        source: `${RUTA_FONDO}/cookies`,
+        has: [{ type: "host", value: MATCH_HOST_FONDO }],
+        destination: "/cookies",
         permanent: false,
       },
 

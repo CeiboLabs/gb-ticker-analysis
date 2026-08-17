@@ -51,22 +51,44 @@ import { css } from "@/lib/css";
  * un dato de contacto de la casa hay que tocar los tres.
  */
 
-const SECCIONES = [
-  { label: "Estrategia", href: "#estrategia" },
-  { label: "Cartera", href: "#cartera" },
-  { label: "Performance", href: "#performance" },
-  { label: "Documentos", href: "#documentos" },
-  { label: "Preguntas frecuentes", href: "#faq" },
-  { label: "Información legal", href: "#legal" },
-  // Retirar el consentimiento tiene que ser tan fácil como darlo, y el pie es
-  // donde la convención dice que se lo busca. El control vive en esa sección.
-  { label: "Cookies", href: "#cookies" },
-];
+/**
+ * Las anclas de la página del fondo, resueltas contra la base del sitio.
+ *
+ * ⚠️ Los hashes van con el path por delante (`/#estrategia`) y no pelados
+ * (`#estrategia`): el pie vive en la CÁSCARA, así que también se dibuja en
+ * `/cookies`, y desde ahí un hash suelto no lleva a ninguna parte — apunta a un
+ * id de la página en la que ya se está. Con el path, el navegador va a la home
+ * del fondo y baja a la sección.
+ *
+ * `base || "/"` y no `${base}/`: donde los dos sitios comparten hostname la base
+ * es `/bng-seleccion-global`, y agregarle la barra dejaría el link apuntando a
+ * `/bng-seleccion-global/`, que Next redirige a la forma sin barra — o sea, una
+ * recarga entera cada vez que se toca un ancla estando en la propia página. Sin
+ * la barra el pathname coincide EXACTO, que es justo lo que Lenis compara para
+ * animar el salto en vez de navegar (`anchors: true`).
+ */
+const secciones = (base: string) => {
+  const home = base || "/";
+  return [
+    { label: "Estrategia", href: `${home}#estrategia` },
+    { label: "Cartera", href: `${home}#cartera` },
+    { label: "Performance", href: `${home}#performance` },
+    { label: "Documentos", href: `${home}#documentos` },
+    { label: "Preguntas frecuentes", href: `${home}#faq` },
+    { label: "Información legal", href: `${home}#legal` },
+    // Retirar el consentimiento tiene que ser tan fácil como darlo, y el pie es
+    // donde la convención dice que se lo busca. Desde el 16-ago-2026 la política
+    // es una PÁGINA y no una sección de la home: el control vive allá.
+    { label: "Cookies", href: `${base}/cookies` },
+  ];
+};
 
 const MAPS_URL =
   "https://www.google.com/maps/place/Gast%C3%B3n+Bengochea+CB/@-34.9043598,-56.1360758,1434m/data=!3m2!1e3!4b1!4m6!3m5!1s0x959f811e524a3fe9:0x397e7b1dcf825247!8m2!3d-34.9043598!4d-56.1360758!16s%2Fg%2F11smqv30hx";
 
-export function FooterFondo() {
+export function FooterFondo({ base }: { base: string }) {
+  const SECCIONES = secciones(base);
+
   return (
     <footer className="site band-navy ffoot mt-auto">
       {/* El horizonte: va a SANGRE, en el borde mismo donde la banda blanca de
@@ -88,7 +110,7 @@ export function FooterFondo() {
               «Fondo BNG Selección Global, Fondo de Inversión» es gestionado por Gastón Bengochea y
               Compañía Corredor de Bolsa S.A., sociedad de bolsa regulada y supervisada por el Banco
               Central del Uruguay. Autorizado por el BCU e inscripto en el Registro del Mercado de
-              Valores — <a href="#legal" className="ffoot-link ffoot-link-u">información legal completa</a>.
+              Valores — <a href={`${base || "/"}#legal`} className="ffoot-link ffoot-link-u">información legal completa</a>.
             </p>
           </div>
 

@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { PANEL_PERMS } from "@/lib/panelStore";
 import { isRealDate } from "@/lib/fondoIngest";
+import { GEO_KEYS, GEO_TOTAL, type GeoKey } from "@/lib/fondoGeo";
 
 // ── Primitivas compartidas ───────────────────────────────────────────────────
 
@@ -255,6 +256,29 @@ export const HoldingsSchema = z
   .refine((v) => new Set(v.items.map((it) => it.name.toLowerCase())).size === v.items.length, {
     message: "Hay nombres de tenencia repetidos",
   });
+
+// ── Exposición geográfica del fondo ──────────────────────────────────────────
+
+// Los cinco pesos de la asignación OBJETIVO del mandato, en porcentaje entero.
+// Las claves salen de lib/fondoGeo.ts (la taxonomía, que vive en código) para
+// que el schema no pueda quedar desincronizado de lo que la página pinta.
+//
+// A diferencia de HoldingsSchema —que tolera ±100 bps para absorber el redondeo
+// de pesos calculados desde importes— acá la suma va CLAVADA en 100: los cinco
+// números los escribe una persona, y "suman 99" es un error de tipeo que
+// conviene devolverle antes de guardarlo, no un redondeo que haya que perdonar.
+const PesoRegionSchema = z
+  .number()
+  .int("Los pesos van en porcentaje entero")
+  .min(0)
+  .max(GEO_TOTAL);
+
+export const GeoTargetSchema = z
+  .object(Object.fromEntries(GEO_KEYS.map((k) => [k, PesoRegionSchema])) as Record<GeoKey, typeof PesoRegionSchema>)
+  .refine(
+    (v) => Object.values(v).reduce((acc: number, n) => acc + (n as number), 0) === GEO_TOTAL,
+    { message: `Los pesos tienen que sumar exactamente ${GEO_TOTAL}%` },
+  );
 
 // ── Documentos del fondo ─────────────────────────────────────────────────────
 

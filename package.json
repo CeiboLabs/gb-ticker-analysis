@@ -12,9 +12,7 @@
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:deploy": "npm run pages:build && npx wrangler pages deploy",
     "pages:preview": "npm run pages:build && npx wrangler pages dev",
-    "fondo:build": "tsx scripts/build-fondo.mts",
-    "fondo:dev": "npm run fondo:build && npx -y wrangler@4.118.0 dev --config workers/fondo-site/wrangler.jsonc",
-    "fondo:deploy": "npm run fondo:build && npx -y wrangler@4.118.0 deploy --config workers/fondo-site/wrangler.jsonc"
+    "fondo:build": "tsx scripts/build-fondo.mts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",

@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMetricsDb, eventBaseFromRequest } from "@/lib/metrics";
 import { checkFailedAuthLimit, trustedClientIp } from "@/lib/rateLimiter";
-import { originOk, createSession } from "@/lib/panelAuth";
+import { originOk, createSession, panelHabilitado } from "@/lib/panelAuth";
 import {
   panelConfigured,
   verifyPassword,
@@ -48,6 +48,12 @@ function unauthorized(): NextResponse {
 }
 
 export async function POST(req: NextRequest) {
+  // Panel cerrado ⇒ acá no se entra. Es una de las DOS rutas del panel que no
+  // pasan por `requirePanelSession` (no hay sesión todavía), o sea justo la
+  // superficie de credenciales. 404 y no 403: no confirmar que existe.
+  if (!panelHabilitado()) {
+    return NextResponse.json({ error: "no_encontrado" }, { status: 404, headers: NO_STORE });
+  }
   if (!originOk(req)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403, headers: NO_STORE });
   }

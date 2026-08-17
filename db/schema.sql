@@ -622,3 +622,25 @@ CREATE TABLE IF NOT EXISTS lead_profile (
   updated_at INTEGER NOT NULL
 ) WITHOUT ROWID;
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 2026-08-16: exposición geográfica del fondo editable desde el panel.
+-- Detalle y método en db/migrations/2026-08-16-fondo-geo.sql.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Ajustes del fondo que son un DOCUMENTO chico y no una serie. Hoy una sola
+-- clave, 'geo_target': los cinco pesos por región de la asignación objetivo del
+-- mandato, como JSON.
+--
+-- Van juntos y no en cinco filas porque son indivisibles (suman 100, la única
+-- mutación válida es reemplazarlos a todos) y porque el conjunto de claves está
+-- CERRADO por código — la base no puede tener una sexta región sin un deploy.
+-- La forma la validan parseGeoTarget (al leer) y GeoTargetSchema (al escribir);
+-- un valor corrupto degrada a la línea de base del deploy, no rompe la página.
+CREATE TABLE IF NOT EXISTS fund_config (
+  key        TEXT    NOT NULL,
+  value      TEXT    NOT NULL,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT,
+  PRIMARY KEY (key)
+) WITHOUT ROWID;
+

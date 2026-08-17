@@ -2,11 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { css } from "@/lib/css";
-import { decidir, leerConsentimiento, senales, CLAVE_CONSENTIMIENTO } from "@/lib/consentimiento";
+import {
+  decidir,
+  hayDecisionVencida,
+  leerConsentimiento,
+  senales,
+  CLAVE_CONSENTIMIENTO,
+  VIGENCIA_CONSENTIMIENTO_MS,
+} from "@/lib/consentimiento";
 
 /**
  * Banner de consentimiento del SITIO DEL FONDO + el control para cambiar la
- * decisión, que vive en la política (#cookies).
+ * decisión, que vive en la política (`/cookies`).
+ *
+ * ⚠️ La URL de la política llega por prop y no se escribe acá: en el dominio del
+ * fondo es `/cookies`, y donde los dos sitios comparten hostname —el dev y el
+ * home server— cuelga de `/bng-seleccion-global`. La resuelve la cáscara con
+ * `baseFondoServer()`. Ver `baseFondo` en lib/sitios.ts.
  *
  * ── LO QUE HACE Y LO QUE NO ───────────────────────────────────────────────
  * NO instala nada ni decide qué mide GTM. Las señales por defecto —denegado,
@@ -27,7 +39,10 @@ import { decidir, leerConsentimiento, senales, CLAVE_CONSENTIMIENTO } from "@/li
  *   · barra compacta abajo, no modal con velo. Schroders, Baillie Gifford y
  *     Robeco tapan el 100% de la pantalla en mobile; Pictet 63%, abrdn 47%,
  *     Marex 37%, MFS 35%. Esta página recibe TRÁFICO PAGO: cada punto de
- *     pantalla tapada es CTA que no se ve. Ésta se come el 22%.
+ *     pantalla tapada es CTA que no se ve. Ésta se come el 25% en un iPhone
+ *     (211px de 844) y el 30% en un teléfono de 360 — sigue siendo la más chica
+ *     de todo el relevamiento, con margen. Era el 22% hasta que se le agregó el
+ *     nombre de la casa el 16-ago-2026; el renglón de más se pagó a sabiendas.
  *   · título + cuerpo a la izquierda, acciones a la derecha (abrdn, MFS);
  *   · la acción de configurar, separada y más callada que las dos decisiones
  *     (Marex, Baillie Gifford, Man Group);
@@ -38,9 +53,9 @@ import { decidir, leerConsentimiento, senales, CLAVE_CONSENTIMIENTO } from "@/li
  * Ninety One no tienen "Rechazar"** —el rechazo vive escondido detrás de "Manage
  * Cookies"—, que es exactamente el patrón que las autoridades vienen sancionando.
  *
- * Lo que NO se copia de nadie es el aspecto: radio y tipografía salen de `.site`
- * y el filete de oro superior es el mismo horizonte que cierra el pie. Un banner
- * que parece parte del sitio, y no un widget alquilado, es toda la diferencia.
+ * Lo que NO se copia de nadie es el aspecto: radio, tipografía y sombra salen de
+ * `.site`. Un banner que parece parte del sitio, y no un widget alquilado, es
+ * toda la diferencia.
  *
  * ── LA REGLA QUE NO SE NEGOCIA ────────────────────────────────────────────
  * Rechazar cuesta lo mismo que aceptar: un clic, el mismo tamaño, el mismo lugar,
@@ -69,7 +84,7 @@ function guardar(analitica: boolean, publicidad: boolean) {
     // corresponde asumir que el consentimiento sigue vigente.
   }
   emitir(analitica, publicidad);
-  // Para que el control de #cookies y el banner no se contradigan si los dos
+  // Para que el control de la política y el banner no se contradigan si los dos
   // están montados: el que no originó el cambio se entera por acá.
   window.dispatchEvent(new CustomEvent("bng:consentimiento"));
 }
@@ -126,7 +141,104 @@ function Interruptor({
   );
 }
 
-export function ConsentimientoFondo() {
+/**
+ * Los estilos de `Interruptor`, en su propia etiqueta y no adentro del bloque de
+ * cada componente, porque LOS DOS lo montan y ninguno de los dos está siempre en
+ * la página: el banner se desmonta apenas hay decisión —que es justo cuando la
+ * política sí está—, y el banner vive en el layout del fondo, así que aparece en
+ * páginas donde la política no existe.
+ *
+ * Va como constante de módulo y no interpolado en el bloque de cada uno para no
+ * perder la memoización de `css` (ver lib/css.ts): con interpolaciones vuelve a
+ * limpiar el texto en cada render. Cuando los dos están montados —sólo mientras
+ * no hay decisión tomada— el navegador recibe estas reglas dos veces; son
+ * idénticas y no hay cascada que resolver.
+ */
+const CSS_INTERRUPTORES = css`
+  .cpref-fila {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--site-border);
+  }
+  .cpref-titulo {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--site-ink);
+  }
+  .cpref-detalle {
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--site-ink-3);
+    max-width: 48ch;
+  }
+  .cpref-sw {
+    flex: none;
+    width: 42px;
+    height: 24px;
+    margin-top: 2px;
+    border-radius: 999px;
+    border: 1px solid var(--site-border-2);
+    background: var(--surface-muted);
+    cursor: pointer;
+    padding: 0;
+    position: relative;
+    transition: background 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .cpref-sw[aria-checked="true"] {
+    background: var(--navy);
+    border-color: var(--navy);
+  }
+  /* El control DIBUJADO mide 42×24 porque a esa escala se lee como un
+     interruptor y no como un botón. El que se toca es este pseudo-elemento
+     invisible: 54×46, por encima del mínimo táctil de 44. Agrandar el dibujo
+     para llegar a 44 habría engordado las tres filas y con ellas todo el panel
+     — que en un teléfono chico ya es lo que más pesa. */
+  .cpref-sw::after {
+    content: "";
+    position: absolute;
+    inset: -11px -6px;
+  }
+  .cpref-sw-thumb {
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    margin-top: -9px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(3, 6, 94, 0.28);
+    transition: transform 0.26s cubic-bezier(0.34, 1.2, 0.4, 1);
+  }
+  .cpref-sw[aria-checked="true"] .cpref-sw-thumb {
+    transform: translateX(18px);
+  }
+  /* "Necesarias" no se puede apagar: se dice con el cursor y la opacidad, no
+     sacando el control —que dejaría la fila sin explicar por qué. */
+  .cpref-sw:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  @media (max-width: 760px) {
+    .cpref-detalle {
+      max-width: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cpref-sw,
+    .cpref-sw-thumb {
+      transition: none;
+    }
+  }
+`;
+
+export function ConsentimientoFondo({ politica }: { politica: string }) {
   // Arranca oculto en el server Y en el primer render del cliente. La decisión
   // vive en localStorage, que no existe al renderizar en el server: leerla
   // durante el render daría dos árboles distintos y rompería la hidratación de la
@@ -153,6 +265,15 @@ export function ConsentimientoFondo() {
 
   if (!visible) return null;
 
+  // ⚠️ SE LEE `location` DESPUÉS DEL RETURN DE ARRIBA, y ahí está todo el truco.
+  // `visible` arranca en false en el server y en el primer render del cliente, o
+  // sea que el único camino que llega hasta acá es un render posterior al efecto
+  // — cliente puro—. Leerlo antes ramificaría el primer render contra el del
+  // server y rompería la hidratación de la página entera; leerlo acá no puede.
+  // Por eso tampoco necesita ser estado.
+  const sinBarra = (p: string) => p.replace(/\/+$/, "");
+  const enLaPolitica = sinBarra(location.pathname) === sinBarra(politica);
+
   return (
     <div className="site cbanner" role="dialog" aria-labelledby="cbanner-t">
       <div className={`cbanner-panel${abierto ? " is-abierto" : ""}`}>
@@ -178,13 +299,63 @@ export function ConsentimientoFondo() {
                 identificadas —y lo están—, no que se narre la implementación.
 
                 Cada línea de más tapa el CTA del hero en mobile, y esta página
-                recibe tráfico pago: el detalle va en la política, no acá. */}
-            Utilizamos cookies propias y de terceros para mejorar la navegación, analizar el uso
-            del sitio y colaborar con nuestras acciones de marketing.{" "}
-            <a href="#cookies" className="cbanner-link">
-              Más información
-            </a>
-            .
+                recibe tráfico pago: el detalle va en la política, no acá.
+
+                ── LO ÚNICO QUE SE LE SUMÓ (16-ago-2026) ──────────────────────
+                El NOMBRE DE LA CASA al frente. Sale de la letra de la Guía de
+                Cookies y Perfiles de la URCDP (dic-2018), que al enumerar lo que
+                hay que informar pide "la utilización de esta tecnología, QUIÉN ES
+                SU RESPONSABLE y para qué se van a utilizar los datos". Las otras
+                dos ya estaban; el responsable no aparecía por ningún lado del
+                banner.
+
+                Va el nombre COMERCIAL —"Bengochea Inversiones", el del wordmark,
+                el del dominio y el que `lib/jsonld.ts` declara como
+                `alternateName` de la organización— y no la razón social entera:
+                "Gastón Bengochea y Compañía Corredor de Bolsa S.A." son ocho
+                palabras que empujan el banner un renglón entero en mobile, y la
+                razón social está en la política, a un toque de acá y en la misma
+                oración. Es la estructura en dos capas de siempre: lo esencial en
+                el aviso, lo completo en el documento.
+
+                Y es el mismo criterio que ya rige en el resto del sitio, no una
+                excepción de este banner: la prosa editorial dice "Bengochea
+                Inversiones" (ver el comentario de La casa en la página del
+                fondo) y el nombre legal queda para donde identifica jurídicamente
+                al gestor — Partes intervinientes y el aviso legal al pie.
+
+                ⚠️ LO QUE SIGUE SIN ESTAR, y es decisión tomada: la guía además
+                pide dejar en claro "que se va a rastrear su actividad en línea".
+                Eso narra el mecanismo, que es justamente lo que el cliente
+                descartó el 13-ago-2026. Vive en la política. No reintroducirlo
+                acá sin pedido expreso. */}
+            {/* ⚠️ SIN PUNTO FINAL EN ESTA ORACIÓN: lo pone el bloque de abajo, en
+                las dos ramas. Con el punto acá y otro después del link, la
+                variante sin link cerraba con dos puntos seguidos. */}
+            En Bengochea Inversiones utilizamos cookies propias y de terceros para mejorar la
+            navegación, analizar el uso del sitio y colaborar con nuestras acciones de marketing
+            {/* El link se cae cuando el visitante YA está en la política: ahí
+                apuntaría a la página que tiene delante, y un link que no lleva a
+                ninguna parte es peor que no tenerlo — sobre todo en el único
+                lugar del sitio donde el lector está prestando atención a esto.
+
+                El banner en cambio SÍ se queda, y eso está medido: de ocho pares
+                con política propia, seis lo muestran encima de ella (Pictet, Man
+                Group, Marex, abrdn, PIMCO, Baillie Gifford) y sólo Schroders y
+                BBVA lo suprimen. Tiene sentido: la política explica, el banner
+                pide la decisión, y son dos cosas distintas aunque estén en la
+                misma pantalla. */}
+            {enLaPolitica ? (
+              "."
+            ) : (
+              <>
+                .{" "}
+                <a href={politica} className="cbanner-link">
+                  Más información
+                </a>
+                .
+              </>
+            )}
           </p>
         </div>
 
@@ -263,10 +434,6 @@ export function ConsentimientoFondo() {
           margin: 0 auto;
           background: var(--surface);
           border-radius: var(--r-card);
-          /* El acento de marca entra como filete y nunca como superficie: es el
-             mismo horizonte de oro que cierra el pie y cruza el wordmark del
-             hero. Es lo único que ningún CMP de estantería puede tener. */
-          border-top: 1.5px solid var(--gold-deep);
           box-shadow: 0 -2px 8px rgba(3, 6, 94, 0.04), 0 18px 44px rgba(3, 6, 94, 0.16);
           padding: 18px 22px;
           display: grid;
@@ -360,7 +527,8 @@ export function ConsentimientoFondo() {
 
         /* ── Preferencias ──
            Filas sobre hairlines, sin cajas ni sombras: es el idioma con el que
-           esta página muestra todo lo demás. */
+           esta página muestra todo lo demás. Las filas en sí las pinta
+           CSS_INTERRUPTORES, que comparte con el control de la política. */
         .cbanner-pref {
           border-top: 1px solid var(--site-border);
           margin-top: 4px;
@@ -371,76 +539,6 @@ export function ConsentimientoFondo() {
           from {
             opacity: 0;
           }
-        }
-        .cpref-fila {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 22px;
-          padding: 12px 0;
-          border-bottom: 1px solid var(--site-border);
-        }
-        .cpref-titulo {
-          display: block;
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--site-ink);
-        }
-        .cpref-detalle {
-          margin: 2px 0 0;
-          font-size: 13px;
-          line-height: 1.5;
-          color: var(--site-ink-3);
-          max-width: 48ch;
-        }
-        .cpref-sw {
-          flex: none;
-          width: 42px;
-          height: 24px;
-          margin-top: 2px;
-          border-radius: 999px;
-          border: 1px solid var(--site-border-2);
-          background: var(--surface-muted);
-          cursor: pointer;
-          padding: 0;
-          position: relative;
-          transition: background 0.26s cubic-bezier(0.16, 1, 0.3, 1),
-            border-color 0.26s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .cpref-sw[aria-checked="true"] {
-          background: var(--navy);
-          border-color: var(--navy);
-        }
-        /* El control DIBUJADO mide 42×24 porque a esa escala se lee como un
-           interruptor y no como un botón. El que se toca es este pseudo-elemento
-           invisible: 54×46, por encima del mínimo táctil de 44. Agrandar el
-           dibujo para llegar a 44 habría engordado las tres filas y con ellas
-           todo el panel — que en un teléfono chico ya es lo que más pesa. */
-        .cpref-sw::after {
-          content: "";
-          position: absolute;
-          inset: -11px -6px;
-        }
-        .cpref-sw-thumb {
-          position: absolute;
-          top: 50%;
-          left: 2px;
-          width: 18px;
-          height: 18px;
-          margin-top: -9px;
-          border-radius: 999px;
-          background: #ffffff;
-          box-shadow: 0 1px 3px rgba(3, 6, 94, 0.28);
-          transition: transform 0.26s cubic-bezier(0.34, 1.2, 0.4, 1);
-        }
-        .cpref-sw[aria-checked="true"] .cpref-sw-thumb {
-          transform: translateX(18px);
-        }
-        /* "Necesarias" no se puede apagar: se dice con el cursor y la opacidad,
-           no sacando el control —que dejaría la fila sin explicar por qué. */
-        .cpref-sw:disabled {
-          opacity: 0.45;
-          cursor: default;
         }
 
         @media (max-width: 760px) {
@@ -492,9 +590,6 @@ export function ConsentimientoFondo() {
           .cbanner-panel.is-abierto .cbanner-acciones {
             grid-template-columns: 1fr 1fr;
           }
-          .cpref-detalle {
-            max-width: none;
-          }
           /* ── El caso del teléfono chico ──
              En un iPhone SE (375×667) las tres finalidades desplegadas dejaban el
              panel en 557px: el 83% de la pantalla. Es exactamente el modal que
@@ -518,106 +613,251 @@ export function ConsentimientoFondo() {
           .cbanner-pref {
             animation: none;
           }
-          .cpref-sw,
-          .cpref-sw-thumb {
-            transition: none;
-          }
         }
       `}</style>
+      <style>{CSS_INTERRUPTORES}</style>
     </div>
   );
 }
 
+const FECHA = new Intl.DateTimeFormat("es-UY", { day: "numeric", month: "long", year: "numeric" });
+
 /**
- * Control para revisar y cambiar la decisión, dentro de la política (#cookies).
+ * Control para revisar y cambiar la decisión, dentro de la política (`/cookies`).
  *
  * Existe porque retirar el consentimiento tiene que ser tan fácil como darlo. Sin
  * esto, el visitante que aceptó una vez no tendría camino de vuelta salvo borrar
  * el almacenamiento del navegador a mano, que no es un camino.
+ *
+ * ── POR QUÉ LAS MISMAS TRES FINALIDADES Y NO DOS BOTONES ──────────────────
+ * Hasta el 15-ago-2026 esto eran un "Rechazar" y un "Aceptar", y con eso el
+ * control quedaba MÁS POBRE que el banner: los interruptores por finalidad viven
+ * sólo ahí, y el banner no vuelve nunca —se monta únicamente cuando no hay
+ * decisión guardada—. Quien había elegido una combinación intermedia (analítica
+ * sí, marketing no) no tenía forma de volver a ella: cualquiera de los dos
+ * botones la aplastaba a todo-o-nada. Modificar el consentimiento por finalidad
+ * era, en los hechos, imposible después de la primera visita.
+ *
+ * ── Y POR QUÉ ACÁ NO HAY "GUARDAR" ────────────────────────────────────────
+ * El banner es una decisión que se toma y se cierra, y por eso allá "Guardar"
+ * confirma y lo despide. Esto es un panel de ajustes permanente: cada cambio se
+ * aplica en el acto. Con un "Guardar" de por medio, retirar el consentimiento
+ * pasaría a costar dos clics cuando darlo costó uno —justo la asimetría que se
+ * sanciona—, y quedaría un borrador que se pierde en silencio al navegar.
  */
 export function CambiarConsentimiento() {
-  const [estado, setEstado] = useState<"cargando" | "aceptado" | "parcial" | "rechazado" | "sin-decidir">(
-    "cargando",
-  );
+  const [analitica, setAnalitica] = useState(false);
+  const [publicidad, setPublicidad] = useState(false);
+  const [ts, setTs] = useState(0);
+  // `null` mientras no se leyó el almacenamiento: no se sabe si hay decisión. En
+  // el server y en el primer render del cliente vale eso mismo, que es lo que
+  // mantiene los dos árboles iguales (leer localStorage en el render rompería la
+  // hidratación de la página entera).
+  const [decidido, setDecidido] = useState<boolean | null>(null);
+  // Distingue "nunca eligió" de "eligió y se le venció", que desde que hay
+  // caducidad no son lo mismo para contárselo. Ver `hayDecisionVencida`.
+  const [vencida, setVencida] = useState(false);
+  // Si el almacenamiento está bloqueado —modo privado, cookies de terceros
+  // apagadas—, `guardar` igual emite la decisión pero `leerConsentimiento` sigue
+  // devolviendo null. Sin esta marca, el interruptor que el visitante acaba de
+  // mover se volvería a apagar solo y el control parecería roto.
+  const propio = useRef(false);
 
   useEffect(() => {
     const revisar = () => {
       const c = leerConsentimiento();
-      setEstado(
-        c === null
-          ? "sin-decidir"
-          : c.analitica && c.publicidad
-            ? "aceptado"
-            : c.analitica || c.publicidad
-              ? "parcial"
-              : "rechazado",
-      );
+      if (c) {
+        setAnalitica(c.analitica);
+        setPublicidad(c.publicidad);
+        setTs(c.ts);
+        setDecidido(true);
+        setVencida(false);
+      } else if (!propio.current) {
+        setVencida(hayDecisionVencida());
+        // Sin decisión, los interruptores muestran lo que REALMENTE está pasando:
+        // Consent Mode arrancó todo en denegado, así que van los dos apagados. No
+        // se propone nada preencendido — eso es del banner, donde hay una
+        // pregunta abierta; acá sería afirmar un consentimiento que no se dio.
+        setAnalitica(false);
+        setPublicidad(false);
+        setTs(0);
+        setDecidido(false);
+      }
     };
     revisar();
     window.addEventListener("bng:consentimiento", revisar);
     return () => window.removeEventListener("bng:consentimiento", revisar);
   }, []);
 
-  // Antes de leer localStorage no se sabe el estado. Se reserva el alto con un
-  // texto neutro en vez de no renderizar nada, para que la política no salte.
-  const leyenda = {
-    aceptado: "Aceptaste las cookies de estadísticas y marketing.",
-    parcial: "Aceptaste sólo algunas finalidades.",
-    rechazado: "Rechazaste las cookies de estadísticas y marketing.",
-    "sin-decidir": "Todavía no elegiste.",
-    cargando: " ",
-  }[estado];
+  // El estado local se actualiza acá y no se espera al evento que emite
+  // `guardar`: el interruptor tiene que seguir al dedo. El evento llega igual y
+  // reconcilia contra lo guardado —y de paso mantiene esto al día si quien
+  // decidió fue el banner, que puede estar montado al mismo tiempo.
+  const aplicar = (a: boolean, p: boolean) => {
+    propio.current = true;
+    setAnalitica(a);
+    setPublicidad(p);
+    setTs(Date.now());
+    setDecidido(true);
+    setVencida(false);
+    guardar(a, p);
+  };
+
+  // La leyenda dice lo que los interruptores NO pueden decir: cuándo se decidió,
+  // hasta cuándo vale esa decisión —el consentimiento caduca a los doce meses
+  // desde el 16-ago-2026, ver VIGENCIA_CONSENTIMIENTO_MS— y, si todavía no se
+  // decidió, que mientras tanto no se mide nada.
+  //
+  // La fecha de la decisión es la prueba del consentimiento que hay que poder
+  // mostrar, y el vencimiento se CALCULA acá en vez de guardarse: la fuente de
+  // verdad es ese `ts` más la vigencia, y un segundo campo derivado sólo abre la
+  // puerta a que los dos digan cosas distintas.
+  //
+  // Repetir en palabras el estado de los tres controles que están justo abajo
+  // sería ruido: la leyenda dice lo otro, lo que los interruptores no muestran.
+  const leyenda =
+    decidido === null
+      ? // Antes de leer el almacenamiento no se sabe: se reserva el alto con un
+        // espacio duro en vez de no renderizar nada, para que la política no salte.
+        " "
+      : decidido
+        ? `Tu elección quedó guardada el ${FECHA.format(new Date(ts))} y vale hasta el ${FECHA.format(new Date(ts + VIGENCIA_CONSENTIMIENTO_MS))}.`
+        : vencida
+          ? "Tu elección anterior venció: por ahora sólo se usan las cookies necesarias."
+          : "Todavía no elegiste: por ahora sólo se usan las cookies necesarias.";
 
   return (
     <div className="ccambiar">
-      <p className="t-small ccambiar-estado">{leyenda}</p>
-      <div className="ccambiar-acciones">
-        <button
-          type="button"
-          className="ui-btn ui-btn-secondary"
-          disabled={estado === "cargando"}
-          onClick={() => guardar(false, false)}
-        >
-          Rechazar
-        </button>
-        <button
-          type="button"
-          className="ui-btn ui-btn-primary"
-          disabled={estado === "cargando"}
-          onClick={() => guardar(true, true)}
-        >
-          Aceptar
-        </button>
+      <div className="ccambiar-cab">
+        <p className="ccambiar-titulo">Tus preferencias</p>
+        {/* Los dos atajos, en registro parejo y los dos secundarios. El primario
+            navy de antes se leía como una llamada a la acción pendiente —"te
+            falta aceptar"— cuando en realidad ya estaba aceptado; y empujar
+            hacia una de las dos opciones en el panel donde se ejerce el derecho
+            a retirar el consentimiento es exactamente lo que no corresponde.
+            Cuál está vigente lo dicen los interruptores de abajo, que es donde
+            se puede decir sin ambigüedad —incluida la combinación intermedia,
+            que ningún par de botones puede representar. */}
+        <div className="ccambiar-atajos">
+          <button
+            type="button"
+            className="ui-btn ui-btn-secondary"
+            disabled={decidido === null}
+            onClick={() => aplicar(false, false)}
+          >
+            Rechazar todo
+          </button>
+          <button
+            type="button"
+            className="ui-btn ui-btn-secondary"
+            disabled={decidido === null}
+            onClick={() => aplicar(true, true)}
+          >
+            Aceptar todo
+          </button>
+        </div>
       </div>
+
+      <div className="ccambiar-lista">
+        <Interruptor
+          // Prefijo propio y no el `cpref-` del banner: los dos pueden estar
+          // montados a la vez —mientras no haya decisión— y los ids se
+          // duplicarían, que además de HTML inválido deja los aria-labelledby
+          // apuntando al elemento equivocado.
+          id="cpol-nec"
+          titulo="Necesarias"
+          detalle="Permiten el funcionamiento del sitio y el registro de tus preferencias. No se pueden desactivar."
+          activo
+          fijo
+        />
+        <Interruptor
+          id="cpol-ana"
+          titulo="Estadísticas"
+          detalle="Permiten analizar el uso del sitio con fines estadísticos, en forma agregada."
+          activo={analitica}
+          onCambio={(v) => aplicar(v, publicidad)}
+        />
+        <Interruptor
+          id="cpol-pub"
+          titulo="Marketing"
+          detalle="Se utilizan con fines de marketing y para medir el rendimiento de nuestras campañas."
+          activo={publicidad}
+          onCambio={(v) => aplicar(analitica, v)}
+        />
+      </div>
+
+      <p className="t-small ccambiar-estado">{leyenda}</p>
 
       <style>{css`
         .ccambiar {
           margin-top: 18px;
           padding-top: 18px;
           border-top: 1px solid var(--site-border);
+          /* La misma medida que los párrafos de la política, para que el
+             interruptor caiga cerca de la fila que rotula. Sin esto la lista
+             toma los 1152px del contenedor y el control queda a 650px de su
+             propio texto, que ya no se leen como una sola fila.
+
+             ⚠️ El font-size no es decorativo: --medida-legal está en unidades ch
+             y ésas se resuelven contra el tamaño del ELEMENTO. Los párrafos de
+             al lado miden 12.5px y acá se heredan 17, así que sin fijarlo la
+             misma variable daría 907px en vez de 667 y el bloque no alinearía
+             con ellos. No afecta a nada adentro: todos los hijos traen su propio
+             tamaño. */
+          font-size: 12.5px;
+          max-width: var(--medida-legal);
+        }
+        .ccambiar-cab {
           display: flex;
           flex-wrap: wrap;
           align-items: center;
           justify-content: space-between;
-          gap: 14px;
+          gap: 12px 18px;
+          margin-bottom: 4px;
         }
-        .ccambiar-estado {
+        .ccambiar-titulo {
           margin: 0;
-        }
-        .ccambiar-acciones {
-          display: flex;
-          gap: 10px;
-        }
-        .ccambiar-acciones .ui-btn {
-          min-width: 118px;
-          padding: 11px 18px;
           font-size: 14px;
+          font-weight: 600;
+          color: var(--site-ink);
         }
-        .ccambiar-acciones .ui-btn:disabled {
+        .ccambiar-atajos {
+          display: flex;
+          gap: 8px;
+        }
+        /* Más chicos que los del banner a propósito: allá los dos botones SON la
+           decisión; acá la decisión son los interruptores y esto es un atajo. */
+        .ccambiar-atajos .ui-btn {
+          padding: 9px 15px;
+          font-size: 13px;
+        }
+        .ccambiar-atajos .ui-btn:disabled {
           opacity: 0.45;
           cursor: default;
         }
+        /* 12.5px y no los 14 de .t-small: es una nota al pie de un bloque legal
+           que entero se lee a ese tamaño, y a 14 pesaba más que la política. */
+        .ccambiar-estado {
+          margin: 12px 0 0;
+          font-size: 12.5px;
+        }
+        /* Con el dedo, los atajos vuelven al mínimo táctil y se reparten el
+           ancho: a 13px de texto y 9 de padding quedaban en 31 de alto.
+           15 y no 14: con 14 el botón da 44,0 clavado —13 de texto (la línea es
+           1 en .ui-btn), 28 de relleno y 3 de borde— y cualquier redondeo lo
+           deja abajo del mínimo. Con 15 quedan 46. */
+        @media (pointer: coarse) {
+          .ccambiar-atajos {
+            flex: 1 1 100%;
+          }
+          .ccambiar-atajos .ui-btn {
+            flex: 1;
+            padding: 15px 12px;
+          }
+        }
       `}</style>
+      <style>{CSS_INTERRUPTORES}</style>
     </div>
   );
 }
+

@@ -6,7 +6,7 @@
 // dónde resolverse. Todo lo que dependa del request vive de este lado.
 
 import { headers } from "next/headers";
-import { FONDO_STANDALONE, SITIO_CASA_URL, origenCasa } from "@/lib/sitios";
+import { FONDO_STANDALONE, SITIO_CASA_URL, baseFondo, origenCasa } from "@/lib/sitios";
 
 /**
  * Origen del sitio institucional para los links que SALEN del sitio del fondo.
@@ -25,4 +25,18 @@ import { FONDO_STANDALONE, SITIO_CASA_URL, origenCasa } from "@/lib/sitios";
 export async function origenCasaServer(): Promise<string> {
   if (FONDO_STANDALONE) return SITIO_CASA_URL;
   return origenCasa((await headers()).get("host"));
+}
+
+/**
+ * Prefijo para los links INTERNOS del sitio del fondo (hoy: `/cookies`).
+ *
+ * Misma bifurcación que arriba y por lo mismo: en el build standalone el
+ * dominio es uno solo y la respuesta es constante —lo que mantiene las dos
+ * páginas del fondo PRERENDERIZABLES, que es de lo que depende todo el deploy
+ * estático—, y en el build compartido sale del Host. El porqué largo está en
+ * `baseFondo`, en lib/sitios.ts.
+ */
+export async function baseFondoServer(): Promise<string> {
+  if (FONDO_STANDALONE) return "";
+  return baseFondo((await headers()).get("host"));
 }

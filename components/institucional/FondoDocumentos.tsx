@@ -25,6 +25,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Clock, FileDown } from "@/components/institucional/icons";
 import { DOCS_ESTATICOS_POR_TIPO } from "@/lib/fondoDocsEstaticos";
+import { RUTA_DOCUMENTOS, rutaDocumento } from "@/lib/useFondo";
 import type { FondoDocTipo } from "@/lib/panelSchemas";
 
 // Catálogo canónico: define el orden de la página y el copy de cada documento.
@@ -83,7 +84,7 @@ export function FondoDocumentos() {
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/fondo/documentos")
+    fetch(RUTA_DOCUMENTOS)
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { documentos?: DocPublico[] } | null) => {
         if (!alive) return;
@@ -109,7 +110,7 @@ export function FondoDocumentos() {
         const est = DOCS_ESTATICOS_POR_TIPO[doc.tipo];
         // El API tiene precedencia: donde el panel gobierna, gobierna. La lista
         // estática entra sólo si el API no trajo este tipo.
-        const descarga = pub ? `/api/fondo/documentos/${doc.tipo}` : est?.archivo;
+        const descarga = pub ? rutaDocumento(doc.tipo) : est?.archivo;
         const meta = pub ?? est;
         const cuerpo = (
           <>

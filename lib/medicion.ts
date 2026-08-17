@@ -16,7 +16,11 @@
 // del fondo, informado por mail el 2026-08-13. Es un contenedor NUEVO — no el
 // GTM-54XCKR2R que corre en el sitio institucional viejo (gbengochea.com.uy).
 
-import { CLAVE_CONSENTIMIENTO, VERSION_CONSENTIMIENTO } from "./consentimiento";
+import {
+  CLAVE_CONSENTIMIENTO,
+  VERSION_CONSENTIMIENTO,
+  VIGENCIA_CONSENTIMIENTO_MS,
+} from "./consentimiento";
 import { FONDO_STANDALONE } from "./sitios";
 
 /**
@@ -174,7 +178,12 @@ export function snippetGTM(id: string): string {
     // Google lee). Es el error clásico al "modernizar" este snippet.
     `var a='denied',b='denied';` +
     `try{var c=JSON.parse(localStorage.getItem(${JSON.stringify(CLAVE_CONSENTIMIENTO)}));` +
-    `if(c&&c.v===${VERSION_CONSENTIMIENTO}){if(c.analitica)a='granted';if(c.publicidad)b='granted'}}catch(e){}` +
+    // La MISMA condición que `leerConsentimiento` (lib/consentimiento.ts): versión
+    // del contrato y vigencia. Los dos lados tienen que decidir igual — si acá
+    // concediera una decisión que allá ya venció, el banner volvería a preguntar
+    // mientras GTM ya está midiendo con el consentimiento viejo.
+    `if(c&&c.v===${VERSION_CONSENTIMIENTO}&&Date.now()-(c.ts||0)<=${VIGENCIA_CONSENTIMIENTO_MS})` +
+    `{if(c.analitica)a='granted';if(c.publicidad)b='granted'}}catch(e){}` +
     `gtag('consent','default',{ad_storage:b,ad_user_data:b,ad_personalization:b,` +
     `analytics_storage:a,functionality_storage:'granted',security_storage:'granted'});` +
     `gtag('set','ads_data_redaction',b!=='granted');` +

@@ -25,6 +25,7 @@ export {
   FACHADA_HORIZONTE,
   FACHADA_HORIZONTE_LEN,
   fachadaMascara,
+  MASCARA_PARTES,
 } from "@/lib/fachada";
 
 /**

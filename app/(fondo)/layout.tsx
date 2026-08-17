@@ -3,7 +3,7 @@ import { NavbarFondo } from "@/components/institucional/NavbarFondo";
 import { FooterFondo } from "@/components/institucional/FooterFondo";
 import { MedicionFondo } from "@/components/institucional/MedicionFondo";
 import { ConsentimientoFondo } from "@/components/institucional/ConsentimientoFondo";
-import { origenCasaServer } from "@/lib/sitiosServer";
+import { baseFondoServer, origenCasaServer } from "@/lib/sitiosServer";
 
 /**
  * Cáscara del SITIO DEL FONDO — el otro sitio de la casa (ver `lib/sitios.ts`).
@@ -37,6 +37,10 @@ import { origenCasaServer } from "@/lib/sitiosServer";
  */
 export default async function FondoLayout({ children }: { children: React.ReactNode }) {
   const casa = await origenCasaServer();
+  // Prefijo de los links INTERNOS del sitio del fondo. Vacío en su propio
+  // dominio —donde el sitio cuelga de la raíz— y `/bng-seleccion-global` donde
+  // los dos sitios comparten hostname. Ver `baseFondo` en lib/sitios.ts.
+  const base = await baseFondoServer();
 
   return (
     <LenisProvider>
@@ -46,10 +50,10 @@ export default async function FondoLayout({ children }: { children: React.ReactN
       <MedicionFondo />
       {/* Arriba en el DOM aunque flote abajo en pantalla: es un diálogo que pide
           una decisión, y con el teclado tiene que llegarse antes que al sitio. */}
-      <ConsentimientoFondo />
+      <ConsentimientoFondo politica={`${base}/cookies`} />
       <NavbarFondo casa={casa} />
       {children}
-      <FooterFondo />
+      <FooterFondo base={base} />
     </LenisProvider>
   );
 }

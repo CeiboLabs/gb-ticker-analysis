@@ -1,17 +1,23 @@
 // Los tres endpoints PÚBLICOS del fondo, como respuestas HTTP estándar.
 //
-// Están acá y no en las route handlers porque los sirven DOS runtimes distintos:
+// Están acá y no en las route handlers porque el mismo cuerpo lo produce MÁS DE
+// UN CAMINO:
 //
 //   · las rutas de Next (`app/api/fondo/…`), que es lo que corre en el dev y en
-//     el home server, donde los dos sitios comparten un deploy;
-//   · el worker del sitio del fondo en Cloudflare (`workers/fondo-site`), donde
-//     la página es HTML estático servido por el borde y lo único que ejecuta
-//     código son justamente estos tres endpoints.
+//     la app Node completa, donde los dos sitios comparten un deploy;
+//   · el PUBLICADOR del panel (`/api/admin/panel/fondo/publicar`), que llama a
+//     estas mismas funciones y sube el resultado como archivos estáticos al
+//     hosting del fondo. Ahí no hay servidor de aplicación: lo que el visitante
+//     baja de `/datos/fondo.json` son exactamente estos bytes.
 //
-// Duplicarlos habría significado mantener dos veces las reglas que importan —
-// qué se cachea y por cuánto, y sobre todo el fail-closed de los documentos— con
-// la garantía de que un día divergen. Devuelven `Response` del estándar web, que
-// las route handlers de Next aceptan tal cual.
+// Hasta el 17-ago-2026 el segundo consumidor era un worker de Cloudflare
+// (`workers/fondo-site`), dado de baja en la Fase 3 del plan. El motivo de que
+// esta capa exista no cambió: duplicar las reglas que importan —qué se cachea y
+// por cuánto, y sobre todo el fail-closed de los documentos— garantiza que un
+// día divergen. Y es lo que hace que publicar no necesite un serializador
+// propio: es la misma función con otra base abajo.
+//
+// Devuelven `Response` del estándar web, que las route handlers aceptan tal cual.
 //
 // La I/O entra por parámetro (`db`, `bucket`): cada runtime resuelve sus
 // bindings a su manera —`getMetricsDb()` en Next, el `env` del worker en

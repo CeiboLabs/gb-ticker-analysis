@@ -7,6 +7,7 @@ import { DragRangePrimitive } from "@/components/DragRangePrimitive";
 import { LineShadowPrimitive } from "@/components/LineShadowPrimitive";
 import { CrosshairSeriesLabelsPrimitive } from "@/components/CrosshairSeriesLabelsPrimitive";
 import { DragRangeCard, DragRangeHint } from "@/components/DragRangeCard";
+import { rotulosEjeTiempo } from "@/components/ejeTiempo";
 import { css } from "@/lib/css";
 import {
   attachDragRange,
@@ -241,6 +242,10 @@ export function FondoChart({
           borderColor: PALETTE.rule,
           timeVisible: false,
           secondsVisible: false,
+          // Rótulos calibrados a la ventana: sin esto el eje imprime números de
+          // día sueltos —«3  2023  3  2025  Feb.» en «Máx» a 360px— y meses sin
+          // año en ventanas de años. El porqué largo está en components/ejeTiempo.
+          tickMarkFormatter: rotulosEjeTiempo(series.map((p) => p.dia)),
           // SIN esto, en el teléfono la ventana «Máx» del backtest se ve
           // RECORTADA por delante. La librería tiene un ancho mínimo por punto
           // (minBarSpacing, 0.5px por defecto) y fitContent no lo puede pisar:
@@ -252,6 +257,23 @@ export function FondoChart({
           // ventanas cortas: ahí el espaciado que calcula fitContent es mucho
           // mayor que este piso.
           minBarSpacing: 0.02,
+          // El encuadre TIENE que sobrevivir a los cambios de ancho: por defecto
+          // la librería conserva el ESPACIADO POR BARRA y no el tramo visible,
+          // así que al angostarse el gráfico la serie no se comprime — se sale
+          // por la izquierda, sin ninguna señal de que falta. Medido, con dos
+          // disparadores distintos:
+          //
+          //   · el eje de precio se ensancha cuando mide sus etiquetas (de «110»
+          //     a «107,50» hay 12px): en YTD a 390px eso se comía las primeras 4
+          //     sesiones y con ellas la marca de «2026» —lo único que decía el
+          //     año en todo el eje—;
+          //   · llevar la ventana de 1440 a 900px (o rotar el teléfono) dejaba
+          //     «Máx» arrancando el 17-abr-2023 en vez del 5-ene-2022: un año y
+          //     medio de serie afuera de pantalla.
+          //
+          // Con esto el invariante pasa a ser el tramo visible y el espaciado se
+          // reescala solo. Protege también al fitContent de más abajo.
+          lockVisibleTimeRangeOnResize: true,
         },
         handleScroll: false,
         handleScale: {

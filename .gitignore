@@ -54,3 +54,6 @@ next-env.d.ts
 /.cache
 
 certificates
+# Dumps de bases para respaldo operativo (ver docs/plan-consolidacion-fondo.md).
+# No van al repo: son datos, no código, y pueden crecer.
+backups/

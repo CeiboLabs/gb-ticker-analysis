@@ -2,11 +2,11 @@
 
 import {
   Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
-  useSyncExternalStore,
 } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   Fachada, fachadaMascara, FACHADA_HORIZONTE, FACHADA_HORIZONTE_LEN, FACHADA_VIEWBOX,
+  MASCARA_PARTES,
 } from "@/components/institucional/Fachada";
 import { scrollWindow } from "@/components/scroll";
 import { css } from "@/lib/css";
@@ -38,9 +38,12 @@ import { css } from "@/lib/css";
 // Un solo sol gobierna las tres: el horizonte va dentro de la misma máscara, no
 // tiene destello propio. Nada parpadea por su cuenta.
 //
-// Las dos capas de luz son CLIENT-ONLY (montan con `luzLista`): su máscara
-// depende del `pan` del encuadre, que en el server todavía es neutro. Antes de
-// hidratar el header se ve exactamente como antes, y la luz sube con un fade.
+// Las tres llegan CON EL PRIMER PINTADO, sin esperar la hidratación. Lo único
+// que ataba la luz al cliente era su máscara —se recorta contra los paneles, así
+// que lleva el mismo `pan` que el mosaico, y en el server el pan es neutro—,
+// pero de eso ya se ocupa el script inline que encuadra (ver `scriptEncuadre`):
+// arma la máscara con el pan recién medido y prende la luz. Antes montaban a la
+// hidratación, que en un teléfono lento con 4G eran 3,7 s de fachada apagada.
 //
 // El claim son DOS niveles, no tres: titular + ledger de hechos (convención de
 // key-facts strip de las casas de fondos). El párrafo lead intermedio
@@ -61,8 +64,16 @@ import { css } from "@/lib/css";
 // hueco; el wordmark no se mueve nunca. El desplazamiento va con un scale que
 // tapa exactamente lo que el corrimiento destaparía.
 
-type Encuadre = { pan: { x: number; y: number }; dy: number; k: number };
-const SIN_ENCUADRE: Encuadre = { pan: { x: 0, y: 0 }, dy: 0, k: 1 };
+type Encuadre = {
+  pan: { x: number; y: number }; dy: number; k: number;
+  /** Los dos extremos del trazado que SE VE, como stroke-dashoffset: cuánto
+   *  falta por dibujar cuando la punta entra por el borde izquierdo y cuánto
+   *  cuando sale por el derecho. Ver el bloque 5 de `calcularEncuadre`. */
+  traza: [number, number];
+};
+const SIN_ENCUADRE: Encuadre = {
+  pan: { x: 0, y: 0 }, dy: 0, k: 1, traza: [FACHADA_HORIZONTE_LEN, 0],
+};
 
 declare global {
   interface Window {
@@ -82,7 +93,7 @@ declare global {
  * ni constantes— y evita spread/destructuring/for-of, que al transpilar se
  * apoyan en helpers externos que ahí no existirían.
  */
-function calcularEncuadre(HORIZ: number[][], VW: number, VH: number): Encuadre | null {
+function calcularEncuadre(HORIZ: number[][], VW: number, VH: number, LEN: number): Encuadre | null {
   const hero = document.querySelector(".ffac-hero") as HTMLElement | null;
   const stage = document.querySelector(".ffac-stage") as HTMLElement | null;
   const sign = document.querySelector(".ffac-sign") as HTMLElement | null;
@@ -177,8 +188,37 @@ function calcularEncuadre(HORIZ: number[][], VW: number, VH: number): Encuadre |
     k = Math.abs(dy) < 0.05 ? 1 : 1 + (2 * Math.abs(dy) + 1) / h;
   }
 
+  // 5) Los dos extremos del trazado que SE VE. El `slice` deja fuera de cuadro
+  //    la mayor parte del horizonte —en un teléfono se ve menos del 30% de la
+  //    polilínea—, y una animación que reparte su tiempo sobre la línea ENTERA
+  //    gasta casi todo dibujando lo que nadie mira: la punta cruza la pantalla
+  //    de un fogonazo. Medido con la animación pausada y la punta proyectada con
+  //    getScreenCTM: 94 ms en un iPhone 14 contra 748 en 1440. Devolvemos hasta
+  //    dónde está dibujada la línea cuando la punta entra por el borde izquierdo
+  //    y cuando sale por el derecho, para que el @keyframes le dé a ESE tramo la
+  //    curva entera y un tiempo fijo (ver ffac-traza en los estilos).
+  //    La ventana es simétrica respecto del centro del lienzo corrido por el
+  //    pan, y el scale del punto 4 la angosta otro tanto.
+  const medio = VW / 2 + panX, mitad = w / (2 * s * k);
+  const largoHasta = function (x: number) {
+    let acc = 0;
+    for (let i = 1; i < HORIZ.length; i++) {
+      const ax = HORIZ[i - 1][0], ay = HORIZ[i - 1][1], bx = HORIZ[i][0], by = HORIZ[i][1];
+      if (x <= ax) break;
+      const seg = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+      acc += x >= bx ? seg : seg * (x - ax) / (bx - ax);
+    }
+    return acc;
+  };
+
   const r1 = function (v: number) { return Math.round(v * 10) / 10; };
-  return { pan: { x: r1(panX), y: r1(panY) }, dy: r1(dy), k: Math.round(k * 1e4) / 1e4 };
+  return {
+    pan: { x: r1(panX), y: r1(panY) }, dy: r1(dy), k: Math.round(k * 1e4) / 1e4,
+    traza: [
+      Math.round(LEN - largoHasta(medio - mitad)),
+      Math.round(Math.max(0, LEN - largoHasta(medio + mitad))),
+    ],
+  };
 }
 
 /**
@@ -211,14 +251,33 @@ function calcularEncuadre(HORIZ: number[][], VW: number, VH: number): Encuadre |
  * El HTML que devuelve es 100% estático —números del propio módulo y el código
  * de `calcularEncuadre`—: no entra nada de afuera, no hay superficie de XSS.
  */
-function scriptEncuadre(horizonte: number[][], vw: number, vh: number) {
+function scriptEncuadre(horizonte: number[][], vw: number, vh: number, len: number) {
   return `(function(){try{`
     + `var f=${calcularEncuadre.toString()};`
+    // Las dos mitades de la máscara de la luz, para pegarle el pan medido. Son
+    // 5,4 kB de polígonos ya URL-encodeados: no traen "<" ni "</", así que no
+    // hay con qué cerrar el <script> que las lleva.
+    + `var MA=${JSON.stringify(MASCARA_PARTES[0])},MB=${JSON.stringify(MASCARA_PARTES[1])};`
     + `var raf=0;`
     + `var aplicar=function(){raf=0;if(!vivo)return;`
-    + `var r=f(${JSON.stringify(horizonte)},${vw},${vh});if(!r)return;window.__ffacEncuadre=r;`
+    + `var r=f(${JSON.stringify(horizonte)},${vw},${vh},${len});if(!r)return;window.__ffacEncuadre=r;`
     + `var s=document.querySelector(".ffac-stage svg");if(s)s.setAttribute("viewBox",r.pan.x+" "+r.pan.y+" "+${vw}+" "+${vh});`
-    + `var d=document.querySelector(".ffac-stage-fit");if(d)d.style.transform="translateY("+r.dy+"px) scale("+r.k+")";};`
+    + `var d=document.querySelector(".ffac-stage-fit");if(d)d.style.transform="translateY("+r.dy+"px) scale("+r.k+")";`
+    // Y las tres cosas que cuelgan del encuadre y viven como custom properties
+    // del hero:
+    //  · el tramo visible del trazado — si esperara a la hidratación, la línea
+    //    ya habría pasado. Cambiar la variable de un @keyframes recalcula la
+    //    animación en curso sin reiniciarla, así que un reencuadre a mitad del
+    //    trazado la corrige en vez de cortarla;
+    //  · la máscara de la luz, armada acá con el pan recién medido (ver
+    //    MASCARA_PARTES). Es lo que permite que las capas de luz vengan del
+    //    server: sin el pan quedarían corridas respecto de los paneles que
+    //    dicen recortar;
+    //  · el interruptor de la luz, que se prende SÓLO si la máscara quedó
+    //    puesta. Sin JS no hay luz —como antes—, en vez de un brillo plano sin
+    //    recortar.
+    + `var e=document.querySelector(".ffac-hero");if(e){e.style.setProperty("--ffac-traza-a",r.traza[0]+"");e.style.setProperty("--ffac-traza-b",r.traza[1]+"");`
+    + `e.style.setProperty("--ffac-mascara",MA+r.pan.x+"%20"+r.pan.y+MB);e.style.setProperty("--ffac-luz-on","1");}};`
     // Un solo recálculo por frame: al retraerse la barra del navegador el
     // resize llega en ráfaga.
     + `var vivo=1;`
@@ -250,6 +309,14 @@ function scriptEncuadre(horizonte: number[][], vw: number, vh: number) {
 // useLayoutEffect avisa en SSR; en el server no hay nada que medir.
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
+// Tiempos del trazado del horizonte. TRAZA_VISIBLE es lo que tarda la punta en
+// cruzar LA PANTALLA —no la polilínea—; TRAZA_COLA, lo que se toma después para
+// terminar de dibujar lo que quedó fuera de cuadro. El corte entre los dos
+// tramos va en % porque los offsets de un @keyframes no aceptan var(). Ver el
+// bloque de .ffac-horizonte en los estilos.
+const TRAZA_VISIBLE = 800, TRAZA_COLA = 400;
+const TRAZA_CORTE = (100 * TRAZA_VISIBLE / (TRAZA_VISIBLE + TRAZA_COLA)).toFixed(2);
+
 // El titular entra palabra por palabra (patrón `wordFadeInUp` de Baillie
 // Gifford). Se parte acá, en el módulo, y no midiendo líneas en el cliente: el
 // índice de cada palabra es el mismo en server y en browser, así que la
@@ -273,14 +340,6 @@ const TITULAR: { palabra: string; i: number }[][] = (() => {
   let i = 0;
   return GRUPOS.map((grupo) => grupo.map((palabra) => ({ palabra, i: i++ })));
 })();
-
-// "¿Ya estoy en el cliente?" vía useSyncExternalStore: devuelve false en el
-// server y true en el browser, sin el setState-dentro-de-effect que dispara un
-// render en cascada. Las tres funciones viven en el módulo para que sean
-// estables entre renders y no re-suscriban.
-const NO_SUSCRIBE = () => () => {};
-const HAY_CLIENTE = () => true;
-const NO_HAY_CLIENTE = () => false;
 
 /** `casa` = origen del sitio institucional para los links que salen de este
  *  sitio; vacío cuando los dos comparten hostname. Ver lib/sitios.ts. */
@@ -311,11 +370,14 @@ export function FondoHero({ casa }: { casa: string }) {
 
   /** Corre el mosaico hasta que el horizonte entre por el medio del wordmark. */
   const encuadrar = useCallback(() => {
-    const next = calcularEncuadre(FACHADA_HORIZONTE, FACHADA_VIEWBOX.w, FACHADA_VIEWBOX.h);
+    const next = calcularEncuadre(
+      FACHADA_HORIZONTE, FACHADA_VIEWBOX.w, FACHADA_VIEWBOX.h, FACHADA_HORIZONTE_LEN);
     if (!next) return;
     setEncuadre((prev) =>
       Math.abs(prev.pan.x - next.pan.x) < 0.2 && Math.abs(prev.pan.y - next.pan.y) < 0.2
-        && Math.abs(prev.dy - next.dy) < 0.2 && Math.abs(prev.k - next.k) < 0.002 ? prev : next);
+        && Math.abs(prev.dy - next.dy) < 0.2 && Math.abs(prev.k - next.k) < 0.002
+        && Math.abs(prev.traza[0] - next.traza[0]) < 1
+        && Math.abs(prev.traza[1] - next.traza[1]) < 1 ? prev : next);
   }, []);
 
   // Re-encuadra ante cualquier cambio de tamaño del hero (viewport, rotación,
@@ -361,12 +423,27 @@ export function FondoHero({ casa }: { casa: string }) {
   }, [encuadrar]);
 
   // ── Luz ──────────────────────────────────────────────────────────────────
-  // Las capas de luz montan recién en el cliente: su máscara se recorta contra
-  // los paneles y tiene que llevar el MISMO pan que el mosaico, que en el
-  // server todavía es neutro. Montarlas después evita que la luz aparezca
-  // corrida medio edificio durante el primer pintado.
-  const luzLista = useSyncExternalStore(NO_SUSCRIBE, HAY_CLIENTE, NO_HAY_CLIENTE);
+  // Las capas vienen del SERVER y se encienden con el primer pintado. Lo que las
+  // ataba al cliente era la máscara —se recorta contra los paneles, así que
+  // lleva el MISMO pan que el mosaico, y en el server el pan todavía es neutro—,
+  // pero eso ya no obliga a esperar la hidratación: el script inline la arma con
+  // el pan que acaba de medir, igual que hace con el viewBox y con el trazado.
+  // Medido antes de moverlas: la luz entraba a los 388 ms acá, a los 920 con la
+  // CPU a 4x y a los 3,7 s en un teléfono lento con 4G — y de golpe, porque una
+  // capa que nace con su clase puesta no transiciona nada.
+  //
+  // La máscara va por custom property y NO por prop de estilo: son 5,4 kB de
+  // polígonos que el server tendría que serializar en el atributo `style` de dos
+  // divs, cuando el único que la necesita antes de hidratar es el script, que ya
+  // la lleva. React la mantiene de acá en adelante —reencuadres, y la navegación
+  // interna, donde el script inline nace inerte y esto es lo único que la pone.
   const mascara = useMemo(() => fachadaMascara(encuadre.pan), [encuadre.pan]);
+  useIsoLayoutEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    hero.style.setProperty("--ffac-mascara", mascara);
+    hero.style.setProperty("--ffac-luz-on", "1");
+  }, [mascara]);
 
   // La luz sólo existe mientras el hero esté a la vista. Sin esto la banda
   // rasante sigue animando toda la página —que mide unos 13.500 px contra los
@@ -386,13 +463,11 @@ export function FondoHero({ casa }: { casa: string }) {
   // cursor con inercia, así el relieve se siente material y no pegado al mouse.
   // Sólo con puntero fino: en touch no hay hover que seguir y sería una capa
   // más para componer a cambio de nada.
-  // ⚠️ `luzLista` VA EN LAS DEPS. La bola se monta recién cuando esa bandera se
-  // prende, o sea un render DESPUÉS del de hidratación: si el efecto sólo
-  // dependiera de `reduce`, correría con bolaRef.current en null, saldría por la
-  // guarda y no volvería a intentarlo nunca. Enganchaba sólo de casualidad —
-  // cuando useReducedMotion pasaba de null a false después de montarse la capa y
-  // lo hacía correr de nuevo—, y de ahí que el foco anduviera a veces sí y a
-  // veces no.
+  // (La bola ya viene del server, así que en el primer efecto el ref existe. Con
+  // el montaje diferido de antes no: el efecto corría con bolaRef.current en
+  // null, salía por la guarda y no volvía a intentarlo nunca — enganchaba sólo
+  // de casualidad, cuando useReducedMotion pasaba de null a false y lo hacía
+  // correr de nuevo, y de ahí que el foco anduviera a veces sí y a veces no.)
   const bolaRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const hero = heroRef.current, bola = bolaRef.current;
@@ -426,10 +501,20 @@ export function FondoHero({ casa }: { casa: string }) {
       window.removeEventListener("pointermove", mover);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [reduce, luzLista]);
+  }, [reduce]);
 
   return (
-    <header className="ffac-hero" ref={heroRef}>
+    // Las dos variables del trazado salen del encuadre y las escribe primero el
+    // script inline; de acá en adelante manda React (mismo reparto que el
+    // transform del stage-fit, y mismo suppressHydrationWarning por lo mismo:
+    // el server manda el valor neutro y el script ya lo ajustó antes de pintar).
+    <header
+      className="ffac-hero" ref={heroRef} suppressHydrationWarning
+      style={{
+        "--ffac-traza-a": encuadre.traza[0],
+        "--ffac-traza-b": encuadre.traza[1],
+      } as React.CSSProperties}
+    >
       {/* ── Fachada (mosaico + horizonte) ── */}
       <motion.div className="ffac-stage" style={reduce ? undefined : { scale: stageScale }}>
         {/* suppressHydrationWarning: el server manda el encuadre neutro y el
@@ -445,29 +530,19 @@ export function FondoHero({ casa }: { casa: string }) {
           <div className="ffac-lienzo">
             <Fachada pan={encuadre.pan} />
 
-            {luzLista && (
-              <>
-                {/* Luz rasante: la banda es lo único que se mueve (transform,
-                    compositada); la máscara de facetas es estática y se
-                    rasteriza una sola vez. */}
-                <div
-                  className="ffac-luz on"
-                  style={{ WebkitMaskImage: mascara, maskImage: mascara }}
-                  aria-hidden
-                >
-                  <div className="ffac-luz-banda" />
-                </div>
+            {/* Luz rasante: la banda es lo único que se mueve (transform,
+                compositada); la máscara de facetas es estática y se rasteriza
+                una sola vez. La máscara y el interruptor los heredan del hero
+                (--ffac-mascara / --ffac-luz-on): los pone el script inline antes
+                del primer pintado y los mantiene React. */}
+            <div className="ffac-luz" aria-hidden>
+              <div className="ffac-luz-banda" />
+            </div>
 
-                {/* Foco al puntero — misma máscara, mismo material. */}
-                <div
-                  className="ffac-foco on"
-                  style={{ WebkitMaskImage: mascara, maskImage: mascara }}
-                  aria-hidden
-                >
-                  <div className="ffac-foco-bola" ref={bolaRef} />
-                </div>
-              </>
-            )}
+            {/* Foco al puntero — misma máscara, mismo material. */}
+            <div className="ffac-foco" aria-hidden>
+              <div className="ffac-foco-bola" ref={bolaRef} />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -546,14 +621,23 @@ export function FondoHero({ casa }: { casa: string }) {
            apaga, que es donde tiene que mandar el claim. */
         .ffac-luz, .ffac-foco {
           position: absolute; inset: 0; pointer-events: none; overflow: hidden;
-          opacity: 0; transition: opacity 900ms var(--ffac-ease);
+          /* Las dos variables las hereda del hero: la máscara con el pan del
+             encuadre y el interruptor. Las escribe el script inline antes del
+             primer pintado —así la luz entra CON el mosaico, en la misma
+             llegada de .ffac-lienzo, en vez de aparecer a la hidratación— y de
+             ahí en más las mantiene React.
+             Sin ninguna de las dos (sin JS) la luz no se enciende: un brillo sin
+             recortar no es la fachada iluminada, es un velo. La transición sólo
+             corre si llegan tarde —puestas antes de pintar no hay nada que
+             transicionar—, y está para que ese caso degradado no sea un golpe. */
+          opacity: var(--ffac-luz-on, 0); transition: opacity 900ms var(--ffac-ease);
+          -webkit-mask-image: var(--ffac-mascara, none); mask-image: var(--ffac-mascara, none);
           -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
           -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
           /* Capa propia: la máscara se rasteriza una vez y el hijo que se mueve
              no obliga a repintar el SVG de 24 polígonos que hay debajo. */
           transform: translateZ(0);
         }
-        .ffac-luz.on, .ffac-foco.on { opacity: 1; }
 
         /* Fuera de pantalla no hay luz que valga: las capas dejan de pintarse y
            la banda —lo único que cuesta por frame— se pausa.
@@ -635,14 +719,29 @@ export function FondoHero({ casa }: { casa: string }) {
         }
 
         /* El horizonte se traza. Scopeado al hero: la misma polilínea la usa la
-           miniatura del navbar, que tiene que seguir apareciendo dibujada. */
+           miniatura del navbar, que tiene que seguir apareciendo dibujada.
+
+           EL TRAZADO SE MIDE EN PANTALLA, NO EN POLILÍNEA. Repartido sobre la
+           línea entera, el tiempo se le iba casi todo a lo que el recorte deja
+           fuera de cuadro y el cruce de la pantalla quedaba en un fogonazo
+           —medido: 94 ms en un iPhone 14 contra 748 en 1440—. Así que la
+           animación va en DOS TRAMOS: el primero es el que se ve, de un borde
+           al otro de la ventana del recorte, y se lleva la curva entera y los
+           ${TRAZA_VISIBLE} ms en cualquier viewport; el segundo termina de
+           dibujar el resto fuera de cuadro (no lo ve nadie, pero tiene que
+           quedar dibujado por si el viewport cambia después — la barra del
+           navegador en iOS).
+           Los extremos los mide el encuadre y llegan en --ffac-traza-a/-b; con
+           los defaults —si el script inline falló— se dibuja la polilínea
+           entera, que es como se trazaba antes. */
         .ffac-hero .ffac-horizonte {
           stroke-dasharray: ${FACHADA_HORIZONTE_LEN};
-          animation: ffac-traza 1500ms var(--ffac-ease) 250ms both;
+          animation: ffac-traza ${TRAZA_VISIBLE + TRAZA_COLA}ms var(--ffac-ease) 250ms both;
         }
         @keyframes ffac-traza {
-          from { stroke-dashoffset: ${FACHADA_HORIZONTE_LEN}; }
-          to   { stroke-dashoffset: 0; }
+          0% { stroke-dashoffset: var(--ffac-traza-a, ${FACHADA_HORIZONTE_LEN}); }
+          ${TRAZA_CORTE}% { stroke-dashoffset: var(--ffac-traza-b, 0); }
+          100% { stroke-dashoffset: 0; }
         }
 
         /* La firma materializa cuando la línea ya le llegó: ese encuentro ES el
@@ -836,7 +935,7 @@ export function FondoHero({ casa }: { casa: string }) {
         hidden
         dangerouslySetInnerHTML={{
           __html: `<script>${
-            scriptEncuadre(FACHADA_HORIZONTE, FACHADA_VIEWBOX.w, FACHADA_VIEWBOX.h)
+            scriptEncuadre(FACHADA_HORIZONTE, FACHADA_VIEWBOX.w, FACHADA_VIEWBOX.h, FACHADA_HORIZONTE_LEN)
           }</script>`,
         }}
       />

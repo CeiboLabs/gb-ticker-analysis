@@ -22,6 +22,28 @@ export const CLAVE_CONSENTIMIENTO = "bng_consent";
  */
 export const VERSION_CONSENTIMIENTO = 1;
 
+/**
+ * Cuánto vale una decisión antes de volver a preguntar: DOCE MESES.
+ *
+ * Hasta el 16-ago-2026 no caducaba nunca — `leerConsentimiento` validaba la
+ * versión del contrato y no miraba el `ts` que guarda al lado—, así que quien
+ * aceptó una vez quedaba aceptando para siempre. Es la única cosa de la política
+ * de cookies que afirmaba algo que no era cierto.
+ *
+ * El plazo sale del relevamiento del sector (16-ago-2026): Lombard Odier dice
+ * doce meses y Pictet trece, y son las dos únicas casas del set que se toman el
+ * trabajo de ponerle plazo. Se toma el más corto de los dos. No hay número
+ * uruguayo que respetar —la Guía de Cookies y Perfiles de la URCDP no fija
+ * vigencia—, así que la referencia es la convención.
+ *
+ * ⚠️ ESTE VALOR LO LEEN DOS LADOS Y TIENEN QUE COINCIDIR. Acá lo usa
+ * `leerConsentimiento`; en `lib/medicion.ts` viaja interpolado como texto dentro
+ * del script inline que corre antes que GTM. Si se desincronizan, el modo de
+ * falla es silencioso y de los peores: el script inline concede porque para él
+ * la decisión sigue viva, y el banner vuelve a preguntar porque para él caducó.
+ */
+export const VIGENCIA_CONSENTIMIENTO_MS = 365 * 24 * 60 * 60 * 1000;
+
 export type Consentimiento = {
   v: typeof VERSION_CONSENTIMIENTO;
   /** GA4 y cualquier medición de uso del sitio. */
@@ -56,18 +78,59 @@ export function decidir(analitica: boolean, publicidad: boolean): Consentimiento
   return { v: VERSION_CONSENTIMIENTO, analitica, publicidad, ts: Date.now() };
 }
 
-/** Lee la decisión guardada, o `null` si no hay una válida para esta versión. */
+/**
+ * Lee la decisión guardada, o `null` si no hay una válida: sin decisión, con un
+ * contrato viejo, o vencida.
+ *
+ * Las tres devuelven `null` y no un error porque para el llamador son lo mismo —
+ * no hay consentimiento vigente, hay que preguntar—. La vencida NO se borra: el
+ * `setItem` de la próxima decisión la pisa igual, y borrarla acá dejaría a
+ * `guardar()` sin nada que pisar si el visitante cierra sin contestar.
+ */
 export function leerConsentimiento(): Consentimiento | null {
   try {
     const crudo = localStorage.getItem(CLAVE_CONSENTIMIENTO);
     if (!crudo) return null;
     const c = JSON.parse(crudo);
     if (!c || c.v !== VERSION_CONSENTIMIENTO) return null;
-    return { v: c.v, analitica: !!c.analitica, publicidad: !!c.publicidad, ts: c.ts ?? 0 };
+    const ts = typeof c.ts === "number" ? c.ts : 0;
+    // Un registro sin `ts` legible cae acá y se trata como vencido, que es la
+    // respuesta conservadora: sin la fecha no hay prueba de cuándo se consintió,
+    // y sin prueba el consentimiento no se puede sostener.
+    if (Date.now() - ts > VIGENCIA_CONSENTIMIENTO_MS) return null;
+    return { v: c.v, analitica: !!c.analitica, publicidad: !!c.publicidad, ts };
   } catch {
     // localStorage puede tirar por modo privado o por almacenamiento bloqueado.
     // Sin decisión legible, la respuesta correcta es la conservadora: no hay
     // consentimiento, se vuelve a preguntar.
     return null;
+  }
+}
+
+/**
+ * ¿Hubo una decisión y se venció? Sólo para lo que se le MUESTRA al visitante.
+ *
+ * `leerConsentimiento` devuelve `null` tanto para "nunca eligió" como para
+ * "eligió y caducó", y para decidir qué se mide está bien que sean lo mismo —
+ * en los dos casos no hay consentimiento vigente—. Pero no son lo mismo para
+ * CONTARLO: desde que existe la caducidad (16-ago-2026), el panel le decía
+ * "todavía no elegiste" a alguien que sí había elegido, hace trece meses. Es la
+ * misma clase de afirmación falsa que la caducidad vino a arreglar.
+ *
+ * ⚠️ NO usar esto para conceder nada. Una decisión vencida no es consentimiento.
+ */
+export function hayDecisionVencida(): boolean {
+  try {
+    const crudo = localStorage.getItem(CLAVE_CONSENTIMIENTO);
+    if (!crudo) return false;
+    const c = JSON.parse(crudo);
+    // Un contrato de otra versión no cuenta como decisión vencida sino como
+    // decisión inexistente: se tomó sobre otra pregunta.
+    if (!c || c.v !== VERSION_CONSENTIMIENTO || typeof c.ts !== "number") return false;
+    return Date.now() - c.ts > VIGENCIA_CONSENTIMIENTO_MS;
+  } catch {
+    // Sin poder leer, no se puede afirmar que hubo una decisión: la leyenda cae
+    // al caso general ("todavía no elegiste"), que es el que no miente.
+    return false;
   }
 }

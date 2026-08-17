@@ -165,32 +165,67 @@ class EtiquetasRenderer implements IPrimitivePaneRenderer {
  * (PriceAxisWidget._fixLabelOverlap) pero corre sobre SUS etiquetas, no sobre lo
  * que dibuja un primitive.
  *
+ * La pila resultante queda CENTRADA sobre los valores, no colgando del de más
+ * arriba: el desplazamiento se reparte entre los chips que se pisan.
+ *
  * Muta `ubicados` y lo deja ordenado de arriba hacia abajo.
  */
 function separar(ubicados: ChipUbicado[], altoLienzo: number): void {
-  ubicados.sort((a, b) => a.geo.yMid - b.geo.yMid);
+  // Ordena por la y EXACTA del valor —`chip.y`, en px de medios— y NO por
+  // `geo.yMid`, que ya viene cuajada a píxeles de dispositivo. En el cruce las
+  // dos curvas quedan a una fracción de píxel: el 25-feb-2026 del backtest las
+  // separan 0,02 de índice, que a esa escala son 0,7 px de dispositivo, y las
+  // dos y redondean al MISMO entero. Con ese empate `sort` —estable— caía en el
+  // orden de entrada, que es el de las series, y el chip de la estrategia
+  // (103,61) salía ARRIBA del benchmark (103,63): el número más chico dibujado
+  // más alto, justo lo que este pase existe para evitar. Y no era un empate
+  // invisible, porque la guía punteada redondea en px de MEDIOS: llegaba en el
+  // orden bueno y dejaba a cada chip apareado con la curva del OTRO.
+  //
+  // Con la y sin redondear el empate queda sólo cuando los dos valores son
+  // iguales de verdad —el primer punto de una ventana en base 100, donde las
+  // dos series valen 100,00— y ahí da lo mismo cuál va arriba.
+  ubicados.sort((a, b) => a.chip.y - b.chip.y);
 
   const mover = (u: ChipUbicado, dy: number) => {
     u.geo = { yMid: u.geo.yMid + dy, yTop: u.geo.yTop + dy, yBottom: u.geo.yBottom + dy };
   };
 
   // 1. El que pisa al de arriba baja lo justo para apoyarse en él.
+  const original = ubicados.map((u) => u.geo.yMid);
   for (let i = 1; i < ubicados.length; i++) {
     const solape = ubicados[i - 1].geo.yBottom - ubicados[i].geo.yTop;
     if (solape > 0) mover(ubicados[i], solape);
   }
-  // 2. Si la pila se pasó del piso, sube entera: se conserva el orden y las
+  // 2. Y la pila entera vuelve a centrarse sobre los valores, subiendo lo que
+  //    bajó en promedio. Sin esto, apilar hacia abajo deja al primero clavado en
+  //    su y exacta y al segundo un chip entero más abajo, así que en un cruce
+  //    —donde las dos curvas están a un pelo— el de arriba se queda con el lugar
+  //    de los dos y el de abajo aterriza sobre la guía punteada del OTRO, que es
+  //    justo el apareo que este pase tiene que dejar claro. Repartido, cada uno
+  //    se corre medio chip y las dos guías quedan entre medio, que es la verdad:
+  //    los valores están ahí, juntos, y los chips se abrieron para poder leerse.
+  //
+  //    En píxeles ENTEROS de dispositivo y aplicado a todos por igual: mover la
+  //    caja media unidad la dibuja entre dos píxeles y el chip pierde el filo
+  //    (por lo mismo que `acotar` corre la caja ya redondeada y no el centro).
+  const corrida = Math.round(
+    ubicados.reduce((suma, u, i) => suma + (u.geo.yMid - original[i]), 0) / ubicados.length,
+  );
+  if (corrida !== 0) for (const u of ubicados) mover(u, -corrida);
+
+  // 3. Si la pila se pasó del piso, sube entera: se conserva el orden y las
   //    distancias, que es lo que mantiene a cada chip cerca de su curva.
   const exceso = ubicados[ubicados.length - 1].geo.yBottom - altoLienzo;
   if (exceso > 0) for (const u of ubicados) mover(u, -exceso);
-  // 3. Y si con eso el primero se salió por arriba, baja entera. En este orden:
+  // 4. Y si con eso el primero se salió por arriba, baja entera. En este orden:
   //    contra un lienzo más corto que la pila gana el techo, que es donde el
   //    recorte se nota menos.
   const falta = -ubicados[0].geo.yTop;
   if (falta > 0) for (const u of ubicados) mover(u, falta);
 
-  // 4. Y por si acaso, cada uno acotado al lienzo (con una sola serie no pasa
-  //    por los pasos 2 y 3 con nada que corregir, y este es el mismo arreglo que
+  // 5. Y por si acaso, cada uno acotado al lienzo (con una sola serie no pasa
+  //    por los pasos 2 a 4 con nada que corregir, y este es el mismo arreglo que
   //    hacía falta para el chip nativo contra los bordes).
   for (const u of ubicados) u.geo = acotar(u.geo, altoLienzo);
 }

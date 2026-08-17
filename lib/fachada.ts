@@ -131,16 +131,39 @@ export const FACHADA_HORIZONTE_LEN = Math.ceil(
  * corrida respecto de los paneles que dice recortar.
  */
 export function fachadaMascara(pan?: { x: number; y: number }): string {
+  return mascaraConOrigen(`${pan?.x ?? 0} ${pan?.y ?? 0}`);
+}
+
+function mascaraConOrigen(origen: string): string {
   const paneles = PIECES.map((p) => {
     const alfa = (0.55 + 0.45 * rand(p.ci, p.cj, 7)) * (1 - 0.42 * (p.cj / (NY - 1)));
     return `<polygon points='${p.pts}' fill='#fff' fill-opacity='${alfa.toFixed(3)}'/>`;
   }).join("");
   const linea = `<polyline points='${horizonPts}' fill='none' stroke='#fff' stroke-width='3'`
     + ` stroke-linejoin='round' stroke-linecap='round'/>`;
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${pan?.x ?? 0} ${pan?.y ?? 0} ${VW} ${VH}'`
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${origen} ${VW} ${VH}'`
     + ` preserveAspectRatio='xMidYMid slice'>${paneles}${linea}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
+
+/**
+ * La misma máscara PARTIDA EN DOS por el origen del viewBox, para armarla con un
+ * pan cualquiera pegando `[0] + x + "%20" + y + [1]`.
+ *
+ * Existe para el script inline del hero, que tiene que dejar la luz puesta —y
+ * bien encuadrada— ANTES del primer pintado: la luz vive dentro del recorte del
+ * mosaico, así que sin el pan medido queda corrida respecto de los paneles que
+ * dice recortar. Partirla evita que ese script cargue por segunda vez los 24
+ * polígonos (5,4 kB) sólo para cambiar dos números, y evita reencodear en el
+ * cliente. El separador es el `%20` de `encodeURIComponent(" ")`.
+ */
+export const MASCARA_PARTES: [string, string] = (() => {
+  // Un centinela que encodeURIComponent deja intacto (los `_` son "unreserved").
+  const MARCA = "__PAN__";
+  const s = mascaraConOrigen(MARCA);
+  const i = s.indexOf(MARCA);
+  return [s.slice(0, i), s.slice(i + MARCA.length)];
+})();
 
 /**
  * La fachada como SVG COMPLETO y autosuficiente, con sus dimensiones en px.

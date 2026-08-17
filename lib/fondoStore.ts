@@ -17,6 +17,7 @@ import type { FundNavPoint, HoldingItem, HoldingsSnapshot } from "@/lib/fondo";
 // Import relativo (no alias @/) a propósito: este módulo lo bundlea también el
 // Email Worker (workers/nav-ingest) con esbuild, que no resuelve el path alias.
 import { todayUY, type NormalizedNav } from "./fondoIngest";
+import { parseGeoTarget, type GeoTarget } from "./fondoGeo";
 
 // Rezago de divulgación de tenencias (anti front-running). El sitio sólo expone
 // el snapshot más reciente con as_of <= hoy - este rezago.
@@ -88,6 +89,89 @@ export async function readLatestHoldings(
   }));
   if (items.length === 0) return null;
   return { asOf: snap.as_of, items };
+}
+
+// ── fund_config: documentos chicos del fondo (ajustes y estado) ──────────────
+
+/** Valor crudo de una clave de configuración. null si no hay fila. */
+export async function readConfig(db: D1Database, key: string): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT value FROM fund_config WHERE key = ?")
+    .bind(key)
+    .first<{ value: string }>();
+  return row ? row.value : null;
+}
+
+/** Metadatos de la última escritura de una clave. */
+export async function readConfigMeta(
+  db: D1Database,
+  key: string,
+): Promise<{ updatedAt: number; updatedBy: string | null } | null> {
+  const row = await db
+    .prepare("SELECT updated_at, updated_by FROM fund_config WHERE key = ?")
+    .bind(key)
+    .first<{ updated_at: number; updated_by: string | null }>();
+  return row ? { updatedAt: Number(row.updated_at), updatedBy: row.updated_by } : null;
+}
+
+/**
+ * UPSERT de una clave. Es `*Stmt` y no un ejecutor porque la mayoría de los
+ * usos van adentro de un `db.batch` junto a su auditoría: el dato y su rastro
+ * entran o no entran juntos.
+ */
+export function upsertConfigStmt(
+  db: D1Database,
+  key: string,
+  value: string,
+  by: string,
+  nowMs: number = Date.now(),
+): D1PreparedStatement {
+  return db
+    .prepare(
+      "INSERT INTO fund_config (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) " +
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by",
+    )
+    .bind(key, value, nowMs, by);
+}
+
+// ── Exposición geográfica (asignación objetivo) ──────────────────────────────
+
+const GEO_KEY = "geo_target";
+
+/**
+ * Los cinco pesos por región que carga el panel. null si no hay fila todavía, o
+ * si lo guardado no valida — en los dos casos la página cae a `GEO_BASELINE`,
+ * la línea de base que viaja en el deploy.
+ *
+ * Que un valor corrupto degrade en vez de tirar es deliberado: esto lo lee el
+ * snapshot público, y un JSON roto en una tabla de configuración no tiene por
+ * qué dejar sin página al fondo.
+ */
+export async function readGeoTarget(db: D1Database): Promise<GeoTarget | null> {
+  const raw = await readConfig(db, GEO_KEY);
+  return raw === null ? null : parseGeoTarget(raw);
+}
+
+/**
+ * Guarda los cinco pesos. Como es un documento indivisible, es un UPSERT de una
+ * fila y no un delete+insert: no hay estado intermedio posible ni necesidad de
+ * transacción propia (igual va en el batch de la ruta, junto a la auditoría).
+ *
+ * El JSON se serializa desde el objeto YA VALIDADO por GeoTargetSchema, así que
+ * lo que entra a la base no puede tener claves de más.
+ */
+export function upsertGeoTargetStmt(
+  db: D1Database,
+  target: GeoTarget,
+  by: string,
+  nowMs: number = Date.now(),
+): D1PreparedStatement {
+  return upsertConfigStmt(db, GEO_KEY, JSON.stringify(target), by, nowMs);
+}
+
+/** Metadatos de la última edición, para mostrar "actualizado por X" en el panel. */
+export async function readGeoMeta(db: D1Database) {
+  return readConfigMeta(db, GEO_KEY);
 }
 
 // ── Lecturas puntuales (contexto de validación) ──────────────────────────────

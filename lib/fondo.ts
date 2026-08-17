@@ -14,7 +14,8 @@
 // gráfico, tabla de rendimientos— se puebla a partir de la serie.
 
 import type { D1Database } from "@/lib/metrics";
-import { readNavSeries, readBenchmarkSeries, readLatestHoldings } from "@/lib/fondoStore";
+import { readNavSeries, readBenchmarkSeries, readLatestHoldings, readGeoTarget } from "@/lib/fondoStore";
+import type { GeoTarget } from "@/lib/fondoGeo";
 
 // ── Hechos del producto (verificables) ─────────────────────────────────────
 
@@ -288,6 +289,13 @@ export type FundSnapshot = {
   // Snapshot de tenencias vigente y divulgable (con rezago). null en
   // pre-lanzamiento o si no hay snapshot lo bastante viejo para divulgar.
   holdings: HoldingsSnapshot | null;
+  // Asignación OBJETIVO por región (los cinco pesos que carga el panel). null
+  // mientras no haya fila en fund_config, y entonces la página usa la línea de
+  // base del deploy (GEO_BASELINE) — nunca queda un agujero.
+  //
+  // No cuelga de la serie ni del rezago de tenencias: es un objetivo del
+  // mandato, no una posición, así que se publica igual en pre-lanzamiento.
+  geo: GeoTarget | null;
 };
 
 const EMPTY_RETURNS: PeriodReturn[] = [
@@ -319,6 +327,7 @@ const EMPTY_SNAPSHOT: FundSnapshot = {
   benchReturns: [],
   benchCalendar: [],
   holdings: null,
+  geo: null,
 };
 
 function isoMinusMonths(dia: string, months: number): string {
@@ -466,6 +475,9 @@ export function snapshotFromSeries(
     benchReturns: bench.length > 1 ? computeReturns(bench) : [],
     benchCalendar: bench.length > 1 ? computeCalendar(bench) : [],
     holdings,
+    // La geografía no se calcula desde la serie: la pega getFundSnapshot al
+    // final, que es quien la lee. Acá va en null para que el tipo cierre.
+    geo: null,
   };
 }
 
@@ -605,14 +617,27 @@ export async function getFundSnapshot(db: D1Database | null): Promise<FundSnapsh
   };
   if (!db) return fallback();
   try {
-    // Las tres lecturas van en paralelo y cada una degrada sola: sin serie →
+    // Las cuatro lecturas van en paralelo y cada una degrada sola: sin serie →
     // pre-lanzamiento, sin benchmark → gráfico de una línea, sin snapshot
-    // divulgable → sin bloque de tenencias.
-    const [series, benchmark, holdings] = await Promise.all([
+    // divulgable → sin bloque de tenencias, sin objetivo geográfico → la línea
+    // de base del deploy.
+    //
+    // ⚠️ El `.catch` de la geografía NO es defensivo por gusto: es la única de
+    // las cuatro que consulta una tabla agregada después (fund_config, migración
+    // 2026-08-16). Sin él, una base a la que todavía no le aplicaron la
+    // migración tira "no such table" y se lleva puesto el snapshot ENTERO —
+    // la página perdería también las tenencias y el valor cuota por un dato
+    // decorativo. Que el bloque de geografía caiga a GEO_BASELINE es
+    // exactamente lo que corresponde ahí.
+    const [series, benchmark, holdings, geo] = await Promise.all([
       readNavSeries(db),
       readBenchmarkSeries(db),
       readLatestHoldings(db),
+      readGeoTarget(db).catch(() => null),
     ]);
+    // La geografía no depende de la serie ni del rezago: se pega igual en
+    // cualquiera de las ramas de abajo.
+    const conGeo = (s: FundSnapshot): FundSnapshot => (geo ? { ...s, geo } : s);
     // Sin serie del fondo pero CON benchmark cargado: pre-lanzamiento con la
     // línea de la referencia. Tiene precedencia sobre el placeholder de dev —si
     // hay datos reales en la base, se muestran los datos reales.
@@ -624,13 +649,13 @@ export async function getFundSnapshot(db: D1Database | null): Promise<FundSnapsh
       if (benchmark.length > 1) {
         if (DEMO) {
           console.warn("[fondo] FONDO_DEMO=1 — valor cuota SIMULADO. No exponer esta instancia.");
-          return snapshotFromSeries(demoNavFromBenchmark(benchmark), benchmark, holdings);
+          return conGeo(snapshotFromSeries(demoNavFromBenchmark(benchmark), benchmark, holdings));
         }
-        return preLaunchWithBenchmark(benchmark, holdings);
+        return conGeo(preLaunchWithBenchmark(benchmark, holdings));
       }
-      return fallback(holdings);
+      return conGeo(fallback(holdings));
     }
-    return snapshotFromSeries(series, benchmark, holdings);
+    return conGeo(snapshotFromSeries(series, benchmark, holdings));
   } catch (err) {
     // En prod, un error de D1 NO inventa datos: pre-lanzamiento honesto (el
     // cache de 5 min de /api/fondo amortigua los blips transitorios).
