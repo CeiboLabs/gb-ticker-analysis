@@ -50,6 +50,18 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
     ];
   },
+  // El analizador se mudó a analisis.gestapp.uy: este deploy de Cloudflare Pages
+  // queda sólo como redirección. Corre antes que las páginas y las /api, así que
+  // el código de abajo ya no se alcanza. Temporal (307) para poder deshacerlo.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        destination: "https://analisis.gestapp.uy/:path*",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
